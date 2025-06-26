@@ -985,7 +985,7 @@ namespace LethalBots.AI.AIStates
                     // NEEDTOVALIDATE: Is this too high or too low?
                     if ((spikeRoofTrap.spikeTrapAudio.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                     {
-                        TerminalAccessibleObject accessibleObject = spikeRoofTrap.gameObject.GetComponentInChildren<TerminalAccessibleObject>();
+                        TerminalAccessibleObject accessibleObject = spikeRoofTrap.gameObject.GetComponentInChildren<TerminalAccessibleObject>() ?? spikeRoofTrap.gameObject.GetComponentInParent<TerminalAccessibleObject>();
                         if (accessibleObject != null && !(bool)inCooldown.GetValue(accessibleObject))
                         {
                             objectsToUse.Add(accessibleObject);
