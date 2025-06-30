@@ -140,8 +140,8 @@ namespace LethalBots.Patches.MapHazardsPatches
         /// Patch for making an explosion check for bots, calls for an explosion by landmine or lightning.
         /// </summary>
         /// <remarks>
-        /// Strange behaviour where an entity is detect multiple times by <c>Physics.OverlapSphere</c>,<br/>
-        /// so we need to check an entity only one time by using a list.
+        /// All of the player's body parts can be hit by <c>Physics.OverlapSphere</c>,<br/>
+        /// so we need to check a hit collider's parent to make sure we only hit a bot once.
         /// </remarks>
         /// <param name="explosionPosition"></param>
         /// <param name="killRange"></param>
