@@ -1982,6 +1982,7 @@ namespace LethalBots.AI
         /// Is the current client running the code is the owner of the <c>LethalBotAI</c> ?
         /// </summary>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsClientOwnerOfLethalBot()
         {
             return this.OwnerClientId == GameNetworkManager.Instance.localPlayerController.actualClientId;

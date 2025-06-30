@@ -157,7 +157,7 @@ namespace LethalBots.Patches.MapHazardsPatches
                                            bool goThroughCar)
         {
             Collider[] array = Physics.OverlapSphere(explosionPosition, damageRange, 8, QueryTriggerInteraction.Collide);
-            PlayerControllerB lethalBotController;
+            PlayerControllerB? lethalBotController;
             LethalBotAI? lethalBotAI;
             List<ulong> lethalBotsAlreadyExploded = new List<ulong>();
             for (int i = 0; i < array.Length; i++)

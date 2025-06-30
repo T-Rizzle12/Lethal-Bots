@@ -342,7 +342,7 @@ namespace LethalBots.AI
                     Npc.thisPlayerModelArms.enabled = false;
                     Npc.thisPlayerModel.shadowCastingMode = ShadowCastingMode.On;
                     Npc.mapRadarDirectionIndicator.enabled = false;
-                    Npc.thisController.enabled = true; // NEEDTOVALIDATE: What happens if this is true for players that are not the local player?
+                    Npc.thisController.enabled = true;
                     Npc.activeAudioReverbFilter = Npc.activeAudioListener.GetComponent<AudioReverbFilter>();
                     Npc.activeAudioReverbFilter.enabled = true;
                     // BUGBUG: This code creates issues where the audio follows the bot rather than the local player's camera.
@@ -364,7 +364,7 @@ namespace LethalBots.AI
                     Npc.thisPlayerModelArms.enabled = false;
                     Npc.mapRadarDirectionIndicator.enabled = false;
                     UpdateRuntimeAnimatorController(isOwner);
-                    Npc.thisController.enabled = false; // NEEDTOVALIDATE: What happens if this is true for players that are not the local player?
+                    Npc.thisController.enabled = false;
                     if (Npc.gameObject.GetComponent<Rigidbody>())
                     {
                         Npc.gameObject.GetComponent<Rigidbody>().interpolation = RigidbodyInterpolation.None;
@@ -632,6 +632,9 @@ namespace LethalBots.AI
                 Npc.thisController.center = Vector3.Lerp(Npc.thisController.center, new Vector3(Npc.thisController.center.x, 1.28f, Npc.thisController.center.z), 8f * Time.deltaTime);
                 Npc.thisController.height = Mathf.Lerp(Npc.thisController.height, 2.5f, 8f * Time.deltaTime);
             }
+            // We update the radius of the controller to match the bot's radius
+            // NEEDTOVALIDATE: Should I also update the height of the controller?
+            // I run into the potential issue of where the bot is too tall and fails to path through some areas!
             LethalBotAIController.agent.radius = Npc.thisController.radius;
         }
 
@@ -939,7 +942,7 @@ namespace LethalBots.AI
         {
             Vector3 direction = Npc.thisPlayerBody.up;
             Vector3 origin = Npc.gameplayCamera.transform.position + Npc.thisPlayerBody.up * 0.07f;
-            if ((Npc.externalForces + Npc.externalForceAutoFade).magnitude > 8f)
+            if ((Npc.externalForces + Npc.externalForceAutoFade).sqrMagnitude > 8f * 8f)
             {
                 Npc.CancelSpecialTriggerAnimations();
             }
@@ -1229,12 +1232,14 @@ namespace LethalBots.AI
                 && ((instanceGNM.localPlayerController == this.Npc
                 && (!Npc.isPlayerDead || instanceSOR.overrideSpectateCamera)) || (instanceGNM.localPlayerController.spectatedPlayerScript == this.Npc && !instanceSOR.overrideSpectateCamera)))
             {
-                Npc.activeAudioReverbFilter.dryLevel = Mathf.Lerp(Npc.activeAudioReverbFilter.dryLevel, Npc.reverbPreset.dryLevel, 15f * Time.deltaTime);
-                Npc.activeAudioReverbFilter.roomLF = Mathf.Lerp(Npc.activeAudioReverbFilter.roomLF, Npc.reverbPreset.lowFreq, 15f * Time.deltaTime);
-                Npc.activeAudioReverbFilter.roomLF = Mathf.Lerp(Npc.activeAudioReverbFilter.roomHF, Npc.reverbPreset.highFreq, 15f * Time.deltaTime);
-                Npc.activeAudioReverbFilter.decayTime = Mathf.Lerp(Npc.activeAudioReverbFilter.decayTime, Npc.reverbPreset.decayTime, 15f * Time.deltaTime);
-                Npc.activeAudioReverbFilter.room = Mathf.Lerp(Npc.activeAudioReverbFilter.room, Npc.reverbPreset.room, 15f * Time.deltaTime);
-                SoundManager.Instance.SetEchoFilter(Npc.reverbPreset.hasEcho);
+                AudioReverbFilter audioReverbFilter = Npc.activeAudioReverbFilter;
+                ReverbPreset reverbPreset = Npc.reverbPreset;
+                audioReverbFilter.dryLevel = Mathf.Lerp(audioReverbFilter.dryLevel, reverbPreset.dryLevel, 15f * Time.deltaTime);
+                audioReverbFilter.roomLF = Mathf.Lerp(audioReverbFilter.roomLF, reverbPreset.lowFreq, 15f * Time.deltaTime);
+                audioReverbFilter.roomLF = Mathf.Lerp(audioReverbFilter.roomHF, reverbPreset.highFreq, 15f * Time.deltaTime);
+                audioReverbFilter.decayTime = Mathf.Lerp(audioReverbFilter.decayTime, reverbPreset.decayTime, 15f * Time.deltaTime);
+                audioReverbFilter.room = Mathf.Lerp(audioReverbFilter.room, reverbPreset.room, 15f * Time.deltaTime);
+                SoundManager.Instance.SetEchoFilter(reverbPreset.hasEcho);
             }
         }
         /// <summary>
