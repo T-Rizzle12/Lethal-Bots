@@ -955,6 +955,7 @@ namespace LethalBots.Managers
             // Send player count update
             if (IsServer || IsHost)
             {
+                // Make sure we sync the bot's level
                 HUDManager.Instance.SyncPlayerLevelServerRpc((int)lethalBotController.playerClientId, lethalBotAI.LethalBotIdentity.Level, true);
                 if (isSpawningBots.Value)
                 {
@@ -1055,6 +1056,7 @@ namespace LethalBots.Managers
                 if ((lethalBotAI.NpcController.Npc.transform.position - playerWhoSentMessage.transform.position).sqrMagnitude <= 25f * 25f || flag)
                 {
                     Plugin.LogDebug($"Bot {lethalBotAI.NpcController.Npc.playerUsername} heard message {message} from {playerWhoSentMessage.playerUsername}!");
+                    Plugin.LogDebug($"Bot { (flag ? "does" : "doesn't") } have a walkie-talkie!");
                     lethalBotAI.State.OnPlayerChatMessageRecevied(message, playerWhoSentMessage);
                 }
             }
@@ -1068,6 +1070,7 @@ namespace LethalBots.Managers
         /// <returns>
         /// true: if we can spawn at the company, false: if we can not
         /// </returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool CanBotsSpawnAtCompanyBuilding()
         {
             if (Plugin.IsModNavmeshInCompanyLoaded)
@@ -1083,6 +1086,7 @@ namespace LethalBots.Managers
         /// <returns>
         /// true: if we are at the company, false: if we are not
         /// </returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool AreWeAtTheCompanyBuilding()
         {
             if (StartOfRound.Instance.currentLevel.levelID == Const.COMPANY_BUILDING_MOON_ID)
@@ -1197,7 +1201,6 @@ namespace LethalBots.Managers
         /// </remarks>
         /// <param name="instanceSOR"></param>
         /// <param name="stats"></param>
-        /// <param name="scrapCollected"></param>
         /// <param name="localPlayerWasMostProfitable"></param>
         public void UpdateLethalBotsXP(StartOfRound instanceSOR, EndOfGameStats stats, bool localPlayerWasMostProfitable = false)
         {
@@ -1214,7 +1217,7 @@ namespace LethalBots.Managers
                     PlayerStats player = stats.allPlayerStats[i];
                     if (mostProfitablePlayerIndex == -1 || player.profitable > mostScrapCollected)
                     {
-                        mostProfitablePlayerIndex = 1;
+                        mostProfitablePlayerIndex = i;
                         mostScrapCollected = player.profitable;
                     }
                 }
@@ -1245,7 +1248,8 @@ namespace LethalBots.Managers
                 int currentLevel = 0;
                 for (int i = 0; i < instanceHUD.playerLevels.Length; i++)
                 {
-                    if (targetXPLevel >= instanceHUD.playerLevels[i].XPMin && targetXPLevel < instanceHUD.playerLevels[i].XPMax)
+                    PlayerLevel playerLevel = instanceHUD.playerLevels[i];
+                    if (targetXPLevel >= playerLevel.XPMin && targetXPLevel < playerLevel.XPMax)
                     {
                         currentLevel = i;
                         break;
