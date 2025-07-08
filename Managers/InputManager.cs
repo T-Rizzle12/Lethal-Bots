@@ -206,7 +206,7 @@ namespace LethalBots.Managers
                 {
                     if (lethalBot.IsInSpecialAnimation())
                     {
-                        HUDManager.Instance.DisplayTip("Bot is busy!", "If the bot is on the terminal, you can type 'hop off the terminal' to get them to hop of for a few seconds.");
+                        HUDManager.Instance.DisplayTip("Bot is busy!", "If the bot is on the terminal, you can type 'hop off the terminal' to get them to hop off for a few seconds.");
                         return;
                     }
 
