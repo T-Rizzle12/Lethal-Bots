@@ -62,8 +62,8 @@ If you want to make your own file, name it 'ConfigIdentitiesUser.json' and the d
 To link the voice folder to the bot, simply change the "VoiceFolder" property in the identity you want.
 
 ## Fully voiced bots
-T-Rizzle: I may change the voice lines in the future, but since the original mod was under an MIT license, I will keep the original voice lines for now.
-A big thanks to **Mathew Kelly** and his incredible voice acting, there's more than 700 (!!) voice lines for those little guys.</br>
+T-Rizzle: I may change the voice lines along with using TTS in the future, but since the original mod was under an MIT license, I will keep the original voice lines for now.
+</br>A big thanks to **Mathew Kelly** and his incredible voice acting, there's more than 700 (!!) voice lines for those little guys.</br>
 Chilling with you, following, founding loot, panicking, you name it, there's a voice line for every state of mind !</br>
 You may know him as **Dragon-V0942** from [FurAffinity](https://www.furaffinity.net/user/dragon-v0942), and you can find some of his voice acting works on youtube [(Voice acting example)](https://www.youtube.com/watch?v=5LGVz-ONeKE).
 </br>
@@ -86,7 +86,7 @@ Also, the bot only checks for the keywords anywhere in the message, for example,
 </br>**request monitoring** - The bot who is currently on the terminal will monitor you rather than cycling through the players.
 </br>**request teleport** - The bot who is currently on the terminal will teleport you back to the ship.
 </br>**clear monitoring** - The bot who is currently on the terminal will stop monitoring you and return to the default behavior of cycling through players.
-Please note that you must be in chat range for the bot to hear you. If you are too far away, the bot will not respond to your command.
+</br>Please note that you must be in chat range for the bot to hear you. If you are too far away, the bot will not respond to your command.
 If both you and the bot have a walkie-talkie, you can use the command in the chat and the bot will respond to it.
 
 ## How the bots work
@@ -101,9 +101,10 @@ The bots take one of the player objects in the game and I attach an EnemyAI to i
 2. The ship becomes compromised, aka an enemy is on the ship
 
 NOTE: All players, "humans and bots," must be on the ship before the bot will vote!
+
 </br>SearchingForPlayer
-</br>If the bot loses the human player they were following or are trapped inside the facility,
-</br>they will call out for help and look for human players.
+</br>If the bot loses the human player they were following,
+</br>they will wander around looking for a human player before searching for scrap on their own.
 
 </br>GetCloseToPlayer
 </br>The bot moves closer to the player they are following, they check horizantal and vertical distances when checking if they are close enough.
@@ -114,7 +115,7 @@ NOTE: All players, "humans and bots," must be on the ship before the bot will vo
 
 </br>ChillWithPlayer
 </br>The bot is waiting nearby the player they are following. They will mimic emotes the player is using.
-</br>If they have any loot in their inventory and they are on the ship, they will drop them off!
+</br>If they have any loot in their inventory and they are on the ship, they will drop it off!
 
 </br>FetchingObject
 </br>The bot is moving to pickup an object. If they are holding a two handed item, they will set it down to pick up the object.
@@ -131,7 +132,7 @@ NOTE: All players, "humans and bots," must be on the ship before the bot will vo
 </br>The bot will leave the facility and return to the ship.
 
 </br>ChillAtShip
-</br>The bot is at the ship and will empty their inventory. They will perform a random default emote.
+</br>The bot is at the ship and will empty their inventory. They will perform a random emote.
 </br>If there is no nearby human player and it's not late out, the bot will go back into the facility and look for more loot after a bit!
 </br>The bot will start the ship if all human players are dead, all players are on the ship, and one of the following conditions are true:
 1. It's late out
@@ -169,9 +170,9 @@ NOTE: All players, "humans and bots," must be on the ship before the bot will vo
 1. Zed Dogs
 </br>Please note that this does affect any item that inherits from the following classes!
 1. Gift Boxes
-2. Shotguns (Including Modded)
-3. Knives (Including Modded)
-4. Shovels (Including Modded)
+2. Shotguns
+3. Knives
+4. Shovels
 
 </br>SellScrap
 </br>The bot goes over to the company desk to sell, ringing the bell and waiting if the desk is out of space.
@@ -189,8 +190,8 @@ NOTE: All players, "humans and bots," must be on the ship before the bot will vo
 3. Thumpers
 4. Hoarding Bugs
 </br>Here are the enemies the bot will fight if they have a shotgun
-1. Nutcracker
-2. Bracken
+1. Nutcrackers
+2. Brackens
 3. Bunker Spiders
 4. Baboon Hawks (Only when in close proximity)
 
@@ -207,6 +208,7 @@ This mod is very alpha and I still need some polishing.
 <br/>I'm just happy to share this project with you, in hope that you find it fun and enjoyable.
 T-Rizzle: I have made multiple changes to this from the original addon, unlike Lethal Interns these bots are to be more player like.
 - Although they will never be the same a players, they are great for small groups or playing with weak or no internet.
+- Or you could go crazy and use MoreCompany and run around with an army of them
 
 ## Credits
 - [**Szumi57**](https://github.com/Szumi57) - Original idea and coding of the original mod, Lethal Intership.
@@ -217,7 +219,7 @@ T-Rizzle: I have made multiple changes to this from the original addon, unlike L
 - More Orders, currently you can tell them to loot and follow you.
 - I hope to make them able to do more on the ship terminal in the future.
 
-## Bug to fix
+## Bugs to fix
 - Sand spider web trap not working for bots. Could potentially use a transpiler?
 - Snare Fleas ignore bots that walk under them. The cause is that they only check for the Local Client walks under them, a transpiler can fix this!
 - Nutcracker ignoring bots. The cause of this is known, but I still don't now how to fix it yet!
