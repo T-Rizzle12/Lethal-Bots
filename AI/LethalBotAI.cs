@@ -1457,6 +1457,8 @@ namespace LethalBots.AI
             float predictedDrownTimer = NpcController.DrowningTimer; // Travel based on how much air we have left. This makes us wait outside of water before we head back in to it!
             float moveSpeed = NpcController.Npc.movementSpeed > 0f ? NpcController.Npc.movementSpeed : 4.5f;
             moveSpeed /= NpcController.Npc.carryWeight;
+            // FIXME: Rethink this, each water body has its own speed multiplier, so we should not use the NpcController's hindered multiplier here!
+            //moveSpeed /= 2f * NpcController.Npc.hinderedMultiplier; // We need to account for the hindered multiplier, since moving in water is slower!
             for (int j = 1; j < ourPath.corners.Length; j++)
             {
                 // Check if we were canceled before running danger checks!
@@ -1677,6 +1679,7 @@ namespace LethalBots.AI
                 if (collider == null)
                     continue;
 
+                float modifiedMoveSpeed = moveSpeed / (2f * (1f * quicksand.movementHinderance));
                 Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(from, to, collider.bounds.center), RoundManager.Instance.navHit, 2.7f, agent.areaMask);
                 if (!quicksand.isWater)
                 {
@@ -1719,7 +1722,7 @@ namespace LethalBots.AI
                     {
                         // Test the amount of time we would spend underwater to get here
                         Plugin.LogDebug("Simulated head intersects water!");
-                        float travelTime = tempDistance / moveSpeed;
+                        float travelTime = tempDistance / modifiedMoveSpeed;
 
                         float downingDelta = travelTime / 10f; // Match game logic
                         predictedDrownTimer -= downingDelta;
