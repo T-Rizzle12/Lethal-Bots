@@ -4673,6 +4673,10 @@ namespace LethalBots.AI
         /// <summary>
         /// Teleport the lethalBot.
         /// </summary>
+        /// <remarks>
+        /// TODO: Bots should really use the entrance teleport code when using the entrance 
+        /// rather than this hack!
+        /// </remarks>
         /// <param name="pos">Position destination</param>
         /// <param name="setOutside">Is the teleport destination outside of the facility</param>
         /// <param name="targetEntrance">Is the lethalBot actually using entrance to teleport ?</param>
@@ -4724,6 +4728,7 @@ namespace LethalBots.AI
                 Transform thisPlayerBody = lethalBotController.thisPlayerBody;
                 thisPlayerBody.eulerAngles = new Vector3(thisPlayerBody.eulerAngles.x, targetEntrance.exitPoint.eulerAngles.y, thisPlayerBody.eulerAngles.z);
                 TimeSinceTeleporting = Time.timeSinceLevelLoad;
+                targetEntrance.timeAtLastUse = Time.realtimeSinceStartup;
                 //EntranceTeleport entranceTeleport = RoundManager.FindMainEntranceScript(setOutside.Value);
                 AudioReverbPresets audioReverbPresets = Object.FindObjectOfType<AudioReverbPresets>();
                 //audioReverbPresets.audioPresets[targetEntrance.audioReverbPreset].ChangeAudioReverbForPlayer(NpcController.Npc);
