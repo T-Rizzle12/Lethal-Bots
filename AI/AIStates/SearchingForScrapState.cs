@@ -302,7 +302,7 @@ namespace LethalBots.AI.AIStates
                     && entrance.FindExitPoint())
                 {
                     // Check if we can create a path there first!
-                    Vector3 exitPosition = RoundManager.Instance.GetNavMeshPosition(entrance.exitPoint.position, RoundManager.Instance.navHit, 2.7f);
+                    Vector3 exitPosition = RoundManager.Instance.GetNavMeshPosition(entrance.entrancePoint.position, RoundManager.Instance.navHit, 2.7f);
                     if (!IsValidPathToEntrance(startPosition, exitPosition, areaMask, ref path, entrance))
                     {
                         return false;
