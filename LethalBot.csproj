@@ -65,30 +65,20 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Assets\Audio\Voices\DefaultVoices.zip" />
-    <None Remove="Assets\Images\buy4.png" />
-    <None Remove="Assets\Images\buy_mathew.png" />
     <None Remove="Assets\Images\folder_configs.png" />
     <None Remove="Assets\Images\folder_config_user.png" />
-    <None Remove="Assets\Images\info_page.png" />
-    <None Remove="Assets\Images\interns_example.png" />
+    <None Remove="Assets\Images\bots_example.png" />
     <None Remove="Assets\Images\bot_suits.gif" />
     <None Remove="Assets\Images\Lethal-internship-logo.png" />
-    <None Remove="Assets\Images\menu.png" />
-    <None Remove="Assets\Images\status_page.png" />
     <None Remove="Configs\ConfigIdentities.json" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Assets\Audio\Voices\DefaultVoices.zip" />
-    <EmbeddedResource Include="Assets\Images\buy4.png" />
-    <EmbeddedResource Include="Assets\Images\buy_mathew.png" />
     <EmbeddedResource Include="Assets\Images\folder_configs.png" />
     <EmbeddedResource Include="Assets\Images\folder_config_user.png" />
-    <EmbeddedResource Include="Assets\Images\info_page.png" />
-    <EmbeddedResource Include="Assets\Images\interns_example.png" />
+    <EmbeddedResource Include="Assets\Images\bots_example.png" />
     <EmbeddedResource Include="Assets\Images\bot_suits.gif" />
     <EmbeddedResource Include="Assets\Images\Lethal-internship-logo.png" />
-    <EmbeddedResource Include="Assets\Images\menu.png" />
-    <EmbeddedResource Include="Assets\Images\status_page.png" />
     <EmbeddedResource Include="Configs\ConfigIdentities.json" />
   </ItemGroup>
 

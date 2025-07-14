@@ -13,7 +13,7 @@ Note from HR :
 <br/>
 <br/>Great assets to the company_
 
-</br>![interns_example](https://github.com/Szumi57/LethalInternship/blob/master/Assets/Images/interns_example.png?raw=true)</br>
+</br>![bots_example](https://github.com/T-Rizzle12/Lethal-Bots/blob/master/Assets/Images/bots_example.png?raw=true)</br>
 
 ## Bots and how they spawn
 
@@ -52,13 +52,13 @@ While they are spawned, while looking at them: </br>
 - All input are configurable.</br>
 
 ## Configuration files
-Lots of configs are available for you, so go check them !</br>
+Lots of settings for the bot's AI can be configured, so go check them !</br>
 Mod is compatible with InputUtils so you can change your inputs !</br>
 There's also a config file for the identities of the bots (a name, preferred suit, a voice)</br>
-![folder_config](https://github.com/Szumi57/LethalInternship/blob/master/Assets/Images/folder_configs.png?raw=true)</br>
+![folder_config](https://github.com/T-Rizzle12/Lethal-Bots/blob/master/Assets/Images/folder_configs.png?raw=true)</br>
 Identities can be found in a new config file at Your_profile_folder\BepInEx\config\LethalInternship\ConfigIdentitiesDefault.json</br>
 If you want to make your own file, name it 'ConfigIdentitiesUser.json' and the default one will be ignored. Details can be found in the default json.</br>
-![folder_config](https://github.com/Szumi57/LethalInternship/blob/master/Assets/Images/folder_config_user.png?raw=true)</br>
+![folder_config](https://github.com/T-Rizzle12/Lethal-Bots/blob/master/Assets/Images/folder_config_user.png?raw=true)</br>
 To link the voice folder to the bot, simply change the "VoiceFolder" property in the identity you want.
 
 ## Fully voiced bots
@@ -74,7 +74,7 @@ Some AI voices should be added next update (0.20.0)
 This mod is compatible with ModelReplacementAPI and all of its users (tooManySuits, MoreSuits, ThiccCompany, etc...).
 It is also compatible with the emotes mod, emote in front of bot and they will copy your dance moves !
 
-</br>![Lethal-internship-logo](https://github.com/T-Rizzle12/Lethal-Bots/blob/master/Assets/Images/bot_suits.gif?raw=true)</br>
+</br>![Lethal-Bots-Suits](https://github.com/T-Rizzle12/Lethal-Bots/blob/master/Assets/Images/bot_suits.gif?raw=true)</br>
 
 ## Chat commands!
 The bots have a few chat commands that you can use to tell them to do certain things.
@@ -89,10 +89,14 @@ Also, the bot only checks for the keywords anywhere in the message, for example,
 </br>Please note that you must be in chat range for the bot to hear you. If you are too far away, the bot will not respond to your command.
 If both you and the bot have a walkie-talkie, you can use the command in the chat and the bot will respond to it.
 
+Note: The bot will also respond to commands on the signal translator, but there is a seperate list of commands for that.
+</br>**return** - The bot will return to the ship immediately.
+</br>**jester** - The bot will check to see if there is an active jester, if there is, they will try to escape the facility immediately.
+
 ## How the bots work
 The bots take one of the player objects in the game and I attach an EnemyAI to it for the pathfinding code.
 </br>As a result, the game considers the bots as a human player for most intents and purposes, although there are some hacks added since the game runs most of its player logic on the client/local player only.
-</br>The bot uses states to run its AI with certain conditions that deterime when the bot changes its states.
+</br>The bot uses states to run its AI with certain conditions that determine when the bot changes its states.
 
 </br>BrainDead:
 </br>The Brain Dead state is when the bot dies in some way shape or form. In this state the bot can vote to make the ship leave early.
@@ -212,7 +216,7 @@ T-Rizzle: I have made multiple changes to this from the original addon, unlike L
 
 ## Credits
 - [**Szumi57**](https://github.com/Szumi57) - Original idea and coding of the original mod, Lethal Intership.
-- **T-Rizzle** - Major code refactor, bug fixes, and new features.
+- [**T-Rizzle**](https://github.com/T-Rizzle12) - Major code refactor, bug fixes, and new features.
 - **Mathew Kelly** - Voice acting for the bots, over 700 voice lines!
 
 ## Things to add
