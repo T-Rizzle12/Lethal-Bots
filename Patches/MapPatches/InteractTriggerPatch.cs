@@ -529,6 +529,7 @@ namespace LethalBots.Patches.MapPatches
                 {
                     lethalBotAI = tempLethalBotAI;
                     player = tempPlayer;
+                    playerTransform = tempPlayer.transform;
                     break;
                 }
             }
