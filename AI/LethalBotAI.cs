@@ -7391,7 +7391,7 @@ namespace LethalBots.AI
         {
             Plugin.LogDebug($"Bot {NpcController.Npc.playerUsername} has successfuly pulled the ship lever to end the round!");
 
-            StartOfRound playersManager = StartOfRound.Instance;
+            StartOfRound playersManager = startMatchLever.playersManager;
             if (playersManager.shipHasLanded && !playersManager.shipIsLeaving && !playersManager.shipLeftAutomatically)
             {
                 // As much as I would love to do this, most of the class is set to internal making this impossible!
