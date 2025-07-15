@@ -1,14 +1,15 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using GameNetcodeStuff;
+﻿using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalLib.Modules;
 using Steamworks;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using static UnityEngine.GraphicsBuffer;
@@ -436,7 +437,7 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // Someone requested we watch them, don't do the normal loop!
-                if (monitoredPlayer != null)
+                if (IsValidRadarTarget(monitoredPlayer))
                 {
                     if (targetedPlayer != monitoredPlayer)
                     {
@@ -719,7 +720,7 @@ namespace LethalBots.AI.AIStates
         /// <param name="player"></param>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsValidRadarTarget(PlayerControllerB? player)
+        private static bool IsValidRadarTarget([NotNullWhen(true)] PlayerControllerB? player)
         {
             return player != null && (player.isPlayerControlled || player.isPlayerDead);
         }
