@@ -856,6 +856,7 @@ namespace LethalBots.AI.AIStates
             if (deadBodyInfo != null
                 && !deadBodyInfo.isInShip
                 && !deadBodyInfo.grabBodyObject.isHeld
+                && !StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position)
                 && !ai.CheckProximityForEyelessDogs())
             {
                 return true;
