@@ -398,7 +398,7 @@ namespace LethalBots.Patches.MapPatches
             playerController.gameplayCamera.transform.localEulerAngles = Vector3.zero;
             playerController.UpdateSpecialAnimationValue(specialAnimation: false, 0);
             playerController.inSpecialInteractAnimation = false;
-            lockedPlayerField.SetValue(ladder, null);
+            ___lockedPlayer = null!;
             ladder.currentCooldownValue = ladder.cooldownTime;
             if (ladder.hidePlayerItem && playerController.currentlyHeldObjectServer != null)
             {
