@@ -1614,17 +1614,29 @@ namespace LethalBots.AI
 
                 // Do the actual check!
                 Vector3 enemyPos = enemy.transform.position;
-                if ((travelMidPoint - enemyPos).sqrMagnitude > dangerRange * dangerRange)
+                Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(from, to, enemyPos));
+                if ((closestPoint - enemyPos).sqrMagnitude > dangerRange * dangerRange)
                 {
                     Plugin.LogDebug($"{enemy.enemyType.enemyName}: Skipped (outside danger range)");
                     continue;
                 }
 
+                // Check the closest point
                 Vector3 viewPos = useEyePosition && enemy.eye != null ? enemy.eye.position : enemyPos;
-                if (!Physics.Linecast(travelMidPoint + Vector3.up * headOffset, viewPos + Vector3.up * 0.3f,
+                viewPos += Vector3.up * 0.3f;
+                if (!Physics.Linecast(closestPoint + Vector3.up * headOffset, viewPos,
                     StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                 {
-                    Plugin.LogDebug($"{enemy.enemyType.enemyName}: Segment is exposed from midpoint to view position!");
+                    Plugin.LogDebug($"{enemy.enemyType.enemyName}: Segment is exposed from closest {closestPoint} to view position!");
+                    return true;
+                }
+
+                // We check the midpoint as well since this path may be out in the open,
+                // and the midpoint may just be out of range!
+                if (!Physics.Linecast(travelMidPoint + Vector3.up * headOffset, viewPos,
+                    StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
+                {
+                    Plugin.LogDebug($"{enemy.enemyType.enemyName}: Segment is exposed from midpoint {travelMidPoint} to view position!");
                     return true;
                 }
             }
