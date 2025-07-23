@@ -1567,7 +1567,7 @@ namespace LethalBots.AI
 
             // This CANNOT be a foreach loop since we are running over time!
             RoundManager instanceRM = RoundManager.Instance;
-            Vector3 travelMidPoint = RoundManager.Instance.GetNavMeshPosition(Vector3.Lerp(from, to, 0.5f)); // Make sure this is on the NavMesh!
+            Vector3 travelMidPoint = instanceRM.GetNavMeshPosition(Vector3.Lerp(from, to, 0.5f), instanceRM.navHit, 2.7f); // Make sure this is on the NavMesh!
             bool ourWeOutside = isOutside;
             string skipText = ourWeOutside ? "not outside" : "not inside";
             for (int i = 0; i < instanceRM.SpawnedEnemies.Count; i++)
@@ -1614,7 +1614,7 @@ namespace LethalBots.AI
 
                 // Do the actual check!
                 Vector3 enemyPos = enemy.transform.position;
-                Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(from, to, enemyPos));
+                Vector3 closestPoint = instanceRM.GetNavMeshPosition(GetClosestPointOnLineSegment(from, to, enemyPos), instanceRM.navHit, 2.7f);
                 if ((closestPoint - enemyPos).sqrMagnitude > dangerRange * dangerRange)
                 {
                     Plugin.LogDebug($"{enemy.enemyType.enemyName}: Skipped (outside danger range)");
@@ -1774,8 +1774,8 @@ namespace LethalBots.AI
                 return vLineA; // or b, they are the same
             }
             
-            Vector3 vDir = GetClosestPointOnLineSegmentT(vLineA, vLineB, point, out float t);
-            return vLineA + vDir * t;
+            float t = GetClosestPointOnLineSegmentT(vLineA, vLineB, point);
+            return Vector3.Lerp(vLineA, vLineB, t);
         }
 
         /// <summary>
@@ -1785,22 +1785,17 @@ namespace LethalBots.AI
         /// <param name="vLineA">The start point of the line segment.</param>
         /// <param name="vLineB">The end point of the line segment.</param>
         /// <param name="point">The point to find the closest position to.</param>
-        /// <param name="t">
-        /// Output scalar in the range [0, 1] indicating the relative position of the closest point 
-        /// along the line segment (0 = at <paramref name="vLineA"/>, 1 = at <paramref name="vLineB"/>).
-        /// </param>
-        /// <returns>The direction vector from <paramref name="vLineA"/> to <paramref name="vLineB"/>.</returns>
-        private static Vector3 GetClosestPointOnLineSegmentT(Vector3 vLineA, Vector3 vLineB, Vector3 point, out float t)
+        /// <returns>Output scalar in the range [0, 1] indicating the relative position of the closest point 
+        /// along the line segment (0 = at <paramref name="vLineA"/>, 1 = at <paramref name="vLineB"/>).</returns>
+        private static float GetClosestPointOnLineSegmentT(Vector3 vLineA, Vector3 vLineB, Vector3 point)
         {
             Vector3 vDir = vLineB - vLineA;
             float div = Vector3.Dot(vDir, vDir);
             if (div < 0.00001f)
             {
-                t = 0f;
-                return vDir; // they are the same
+                return 0f; // they are the same
             }
-            t = Mathf.Clamp01(Vector3.Dot(point - vLineA, vDir) / div); // Old Code: (Vector3.Dot(vDir, point) - Vector3.Dot(vDir, vLineA))
-            return vDir;
+            return Mathf.Clamp01(Vector3.Dot(point - vLineA, vDir) / div); // Old Code: (Vector3.Dot(vDir, point) - Vector3.Dot(vDir, vLineA));
         }
 
         /// <summary>
@@ -1861,7 +1856,9 @@ namespace LethalBots.AI
             {
                 bool flag = false;
                 float headOffset = NpcController.Npc.gameplayCamera.transform.position.y - NpcController.Npc.transform.position.y;
+                RoundManager instanceRM = RoundManager.Instance;
                 Vector3 enemyPos = checkLOSToTarget != null ? (useEnemyEyePos && checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : checkLOSToTarget.transform.position) : Vector3.zero;
+                enemyPos += Vector3.up * 0.3f;
                 for (int j = 1; j < path1.corners.Length; j++)
                 {
                     // We cache the corners we are using for quicker lookups
@@ -1901,13 +1898,28 @@ namespace LethalBots.AI
                         continue;
                     }
 
+                    // Test the path's visibility to the target!
                     flag = false;
-                    if (checkLOSToTarget != null && !Physics.Linecast(Vector3.Lerp(previousNode, currentNode, 0.5f) + Vector3.up * headOffset, enemyPos + Vector3.up * 0.3f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
+                    if (checkLOSToTarget != null)
                     {
-                        return true;
+                        // First, start with the closest point on the path
+                        Vector3 closestPoint = instanceRM.GetNavMeshPosition(GetClosestPointOnLineSegment(previousNode, currentNode, enemyPos), instanceRM.navHit, 2.7f);
+                        if (!Physics.Linecast(closestPoint + Vector3.up * headOffset, enemyPos,
+                            StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
+                        {
+                            return true;
+                        }
+
+                        // Second, check the middle part of the path
+                        Vector3 travelMidPoint = instanceRM.GetNavMeshPosition(Vector3.Lerp(previousNode, currentNode, 0.5f), instanceRM.navHit, 2.7f); // Make sure this is on the NavMesh!
+                        if (!Physics.Linecast(travelMidPoint + Vector3.up * headOffset, enemyPos,
+                            StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
+                        {
+                            return true;
+                        }
                     }
 
-                    if (avoidLineOfSight && Physics.Linecast(previousNode, currentNode, 262144))
+                    /*if (avoidLineOfSight && Physics.Linecast(previousNode, currentNode, 262144))
                     {
                         if (DebugEnemy)
                         {
@@ -1915,7 +1927,7 @@ namespace LethalBots.AI
                         }
 
                         return true;
-                    }
+                    }*/
                 }
             }
 
