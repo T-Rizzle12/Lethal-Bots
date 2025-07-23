@@ -7099,17 +7099,26 @@ namespace LethalBots.AI
             if (spawnBody)
             {
                 NpcController.Npc.SpawnDeadBody((int)NpcController.Npc.playerClientId, bodyVelocity, (int)causeOfDeath, NpcController.Npc, deathAnimation, null, positionOffset);
-                ResizeRagdoll(NpcController.Npc.deadBody.transform);
-                // Replace body position or else disappear with shotgun or knife (don't know why)
-                NpcController.Npc.deadBody.transform.position = NpcController.Npc.transform.position + Vector3.up + positionOffset;
-                // Need to be set to true (don't know why) (so many mysteries unsolved tonight)
-                NpcController.Npc.deadBody.canBeGrabbedBackByPlayers = true;
-                this.LethalBotIdentity.DeadBody = NpcController.Npc.deadBody;
-                // Lets make sure the bots don't attempt to grab dead bodies as soon as a player is killed!
-                GrabbableObject? deadBody = NpcController.Npc.deadBody?.grabBodyObject;
-                if (deadBody != null)
+                
+                // Sigh, if the death animation is set to 9 the body has a chance to be null!
+                if (NpcController.Npc.deadBody != null)
                 {
-                    DictJustDroppedItems[deadBody] = Time.realtimeSinceStartup;
+                    ResizeRagdoll(NpcController.Npc.deadBody.transform);
+                    // Replace body position or else disappear with shotgun or knife (don't know why)
+                    NpcController.Npc.deadBody.transform.position = NpcController.Npc.transform.position + Vector3.up + positionOffset;
+                    // Need to be set to true (don't know why) (so many mysteries unsolved tonight)
+                    NpcController.Npc.deadBody.canBeGrabbedBackByPlayers = true;
+                    this.LethalBotIdentity.DeadBody = NpcController.Npc.deadBody;
+                    // Lets make sure the bots don't attempt to grab dead bodies as soon as a player is killed!
+                    GrabbableObject? deadBody = NpcController.Npc.deadBody?.grabBodyObject;
+                    if (deadBody != null)
+                    {
+                        DictJustDroppedItems[deadBody] = Time.realtimeSinceStartup;
+                    }
+                }
+                else
+                {
+                    Plugin.LogWarning($"Bot {NpcController.Npc.playerUsername} dead body was not spawned. This is probably a bug with another mod or the base game itself!");
                 }
             }
             NpcController.Npc.physicsParent = null;

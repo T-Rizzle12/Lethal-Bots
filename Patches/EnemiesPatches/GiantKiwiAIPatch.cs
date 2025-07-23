@@ -72,16 +72,19 @@ namespace LethalBots.Patches.EnemiesPatches
             if (___attacking && !__instance.isEnemyDead)
             {
                 GiantKiwiPlayerMonitor giantKiwiPlayerMonitor = GetOrCreateMonitor(__instance);
-                foreach (var lethalBotAIs in giantKiwiPlayerMonitor.lethalBotAIs)
+
+                // Make a copy of the keys to safely iterate
+                List<LethalBotAI> keys = new List<LethalBotAI>(giantKiwiPlayerMonitor.lethalBotAIs.Keys);
+                foreach (var lethalBotAI in keys)
                 {
-                    if (lethalBotAIs.Key != null && giantKiwiPlayerMonitor.ShouldApplyDamageTo(lethalBotAIs.Key))
+                    if (lethalBotAI != null && giantKiwiPlayerMonitor.ShouldApplyDamageTo(lethalBotAI))
                     {
-                        PlayerControllerB lethalBotController = lethalBotAIs.Key.NpcController.Npc;
+                        PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
                         _ = lethalBotController.transform.position;
                         Vector3 vector = lethalBotController.transform.position + Vector3.up * 3f - __instance.transform.position;
                         lethalBotController.externalForceAutoFade += vector * __instance.hitVelocityForce;
                         lethalBotController.DamagePlayer(10, hasDamageSFX: true, callRPC: true, CauseOfDeath.Stabbing, 9, fallDamage: false, vector * __instance.hitVelocityForce * 0.4f);
-                        giantKiwiPlayerMonitor.UpdateTimeSinceHittingBot(lethalBotAIs.Key);
+                        giantKiwiPlayerMonitor.UpdateTimeSinceHittingBot(lethalBotAI);
                     }
                 }
             }
