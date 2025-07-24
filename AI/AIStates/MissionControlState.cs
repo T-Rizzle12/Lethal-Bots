@@ -73,7 +73,7 @@ namespace LethalBots.AI.AIStates
             {
                 if (_shipHorn == null)
                 {
-                    _shipHorn = UnityEngine.Object.FindAnyObjectByType<ShipAlarmCord>();
+                    _shipHorn = UnityEngine.Object.FindObjectOfType<ShipAlarmCord>();
                 }
                 return _shipHorn;
             }
