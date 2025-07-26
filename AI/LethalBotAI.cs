@@ -4208,7 +4208,7 @@ namespace LethalBots.AI
 
                 if (lethalBotController.isInElevator
                     && !wasInHangarShipRoom
-                    && instanceSOR.shipInnerRoomBounds.bounds.Contains(lethalBotController.transform.position))
+                    && instanceSOR.shipStrictInnerRoomBounds.bounds.Contains(lethalBotController.transform.position))//&& instanceSOR.shipInnerRoomBounds.bounds.Contains(lethalBotController.transform.position)
                 {
                     lethalBotController.isInHangarShipRoom = true;
                     this.isInsidePlayerShip = true;
@@ -7263,13 +7263,14 @@ namespace LethalBots.AI
             yield return new WaitForEndOfFrame();
             yield return null;
 
-            // Refresh billboard position
-            StartCoroutine(Wait2EndOfFrameToRefreshBillBoard());
-
             if (!IsOwner)
             {
                 // Wait for spawn player animation
                 yield return new WaitForSeconds(3f);
+
+                // Refresh billboard position
+                StartCoroutine(Wait2EndOfFrameToRefreshBillBoard());
+
                 NpcController.Npc.inSpecialInteractAnimation = false;
                 spawnAnimationCoroutine = null;
                 yield break;
@@ -7281,6 +7282,9 @@ namespace LethalBots.AI
             NpcController.Npc.playerBodyAnimator.SetTrigger("SpawnPlayer");
 
             yield return new WaitForSeconds(3f);
+
+            // Refresh billboard position
+            StartCoroutine(Wait2EndOfFrameToRefreshBillBoard());
 
             NpcController.Npc.inSpecialInteractAnimation = false;
             UpdateLethalBotSpecialAnimationValue(specialAnimation: false, timed: 0f, climbingLadder: false);

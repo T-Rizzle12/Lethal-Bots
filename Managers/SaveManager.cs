@@ -49,8 +49,9 @@ namespace LethalBots.Managers
             if (!base.NetworkManager.IsServer)
             {
                 if (Instance != null && Instance != this)
-                { 
-                    Destroy(Instance.gameObject); 
+                {
+                    // Destory Local manager
+                    Destroy(Instance.gameObject);
                 }
                 Instance = this;
             }

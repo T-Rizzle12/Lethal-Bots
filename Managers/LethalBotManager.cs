@@ -249,6 +249,7 @@ namespace LethalBots.Managers
             {
                 if (Instance != null && Instance != this)
                 {
+                    // Destory Local manager
                     Destroy(Instance.gameObject);
                 }
                 Instance = this;

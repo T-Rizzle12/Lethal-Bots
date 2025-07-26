@@ -111,7 +111,7 @@ namespace LethalBots
             ModAssets = AssetBundle.LoadFromFile(Path.Combine(DirectoryName, bundleName));
             if (ModAssets == null)
             {
-                Logger.LogError($"Unknown to load custom assets.");
+                Logger.LogFatal($"Unknown to load custom assets.");
                 return;
             }
 
@@ -129,7 +129,7 @@ namespace LethalBots
             }
             if (LethalBotNPCPrefab == null)
             {
-                Logger.LogError($"LethalBotNPC prefab failed to load.");
+                Logger.LogFatal($"LethalBotNPC prefab failed to load.");
                 return;
             }
             foreach (var transform in LethalBotNPCPrefab.enemyPrefab.GetComponentsInChildren<Transform>()
