@@ -739,7 +739,7 @@ namespace LethalBots.Patches.NpcPatches
         [HarmonyPrefix]
         static bool PlayFootstepServer_PreFix(PlayerControllerB __instance)
         {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI((int)__instance.playerClientId);
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
             if (lethalBotAI != null)
             {
                 lethalBotAI.NpcController.PlayFootstep(isServer: true);
@@ -753,7 +753,7 @@ namespace LethalBots.Patches.NpcPatches
         [HarmonyPrefix]
         static bool PlayFootstepLocal_PreFix(PlayerControllerB __instance)
         {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI((int)__instance.playerClientId);
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
             if (lethalBotAI != null)
             {
                 lethalBotAI.NpcController.PlayFootstep(isServer: false);
