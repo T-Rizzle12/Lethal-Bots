@@ -5,6 +5,7 @@ using LethalBots.Managers;
 using ModelReplacement;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace LethalBots.Patches.ModPatches.ModelRplcmntAPI
@@ -12,29 +13,29 @@ namespace LethalBots.Patches.ModPatches.ModelRplcmntAPI
     [HarmonyPatch(typeof(BodyReplacementBase))]
     public class BodyReplacementBasePatch
     {
-        public static List<BodyReplacementBase> ListBodyReplacementOnDeadBodies = new List<BodyReplacementBase>();
 
         [HarmonyPatch("LateUpdate")]
         [HarmonyPrefix]
         static bool LateUpdate_Prefix(BodyReplacementBase __instance, ref GameObject ___replacementDeadBody)
         {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI((int)__instance.controller.playerClientId);
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance.controller);
             if (lethalBotAI == null)
             {
                 return true;
             }
 
+            Component instanceComponent = (Component)__instance; // Dodge the BodyReplacementBase compiler link with ListBodyReplacementOnDeadBodies
             if (__instance.controller.deadBody != null
-                && !ListBodyReplacementOnDeadBodies.Contains(__instance))
+                && !LethalBotManager.Instance.ListBodyReplacementOnDeadBodies.Any(x => x.BodyReplacementBase == instanceComponent))
             {
-                ListBodyReplacementOnDeadBodies.Add(__instance);
+                LethalBotManager.Instance.ListBodyReplacementOnDeadBodies.Add(new BodyReplacementAdapter(instanceComponent));
                 __instance.viewState.ReportBodyReplacementRemoval();
                 __instance.cosmeticAvatar = __instance.ragdollAvatar;
                 CreateAndParentRagdoll_ReversePatch(__instance, __instance.controller.deadBody);
                 lethalBotAI.LethalBotIdentity.BodyReplacementBase = __instance;
             }
 
-            if (ListBodyReplacementOnDeadBodies.Contains(__instance))
+            if (LethalBotManager.Instance.ListBodyReplacementOnDeadBodies.Any(x => x.BodyReplacementBase == instanceComponent))
             {
                 //Plugin.LogDebug($"{internAI.NpcController.Npc.playerUsername} {__instance.GetInstanceID()} only ragdoll update, {__instance.controller.deadBody}");
                 __instance.ragdollAvatar.Update();

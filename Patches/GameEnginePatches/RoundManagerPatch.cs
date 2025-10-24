@@ -66,9 +66,17 @@ namespace LethalBots.Patches.GameEnginePatches
         [HarmonyPostfix]
         static void FinishGeneratingNewLevelClientRpc_PostFix()
         {
+            Plugin.LogDebug(
+                $"[SpawnLethalBotsAtShip] Manager Instance: {LethalBotManager.Instance}, " +
+                $"IsSpawned: {LethalBotManager.Instance?.IsSpawned}, " +
+                $"NetworkObject: {LethalBotManager.Instance?.NetworkObject}, " +
+                $"NetObjID: {LethalBotManager.Instance?.NetworkObject?.NetworkObjectId}, " +
+                $"IsServer: {LethalBotManager.Instance?.IsServer}, " +
+                $"IsHost: {LethalBotManager.Instance?.IsHost}");
+
             // FIXME: I need to find out why this is called twice for the host!
             //Plugin.LogInfo("FinishGeneratingNewLevelClientRpc called!");
-            LethalBotManager.Instance.SpawnLethalBotsAtShip();
+            LethalBotManager.Instance?.SpawnLethalBotsAtShip();
         }
     }
 }

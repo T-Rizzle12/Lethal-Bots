@@ -8,6 +8,7 @@ using LethalBots.Enums;
 using LethalBots.NetworkSerializers;
 using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
+using LethalBots.Patches.ModPatches.ModelRplcmntAPI;
 using LethalBots.Patches.NpcPatches;
 using Steamworks.ServerList;
 using System;
@@ -164,6 +165,7 @@ namespace LethalBots.Managers
             }
         }
         public VehicleController? VehicleController;
+        public List<IBodyReplacementBase> ListBodyReplacementOnDeadBodies { private set; get; } = new List<IBodyReplacementBase>();
 
         public Dictionary<EnemyAI, INoiseListener> DictEnemyAINoiseListeners = new Dictionary<EnemyAI, INoiseListener>();
 

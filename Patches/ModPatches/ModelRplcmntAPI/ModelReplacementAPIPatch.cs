@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using Object = UnityEngine.Object;
 
 namespace LethalBots.Patches.ModPatches.ModelRplcmntAPI
 {
@@ -33,36 +34,38 @@ namespace LethalBots.Patches.ModPatches.ModelRplcmntAPI
 
             string suitNameToReplace = string.Empty;
             bool shouldAddNewBodyReplacement = true;
-            BodyReplacementBase[] bodiesReplacementBase = lethalBotAI.ListModelReplacement.Select(x => (BodyReplacementBase)x).ToArray();
+            IBodyReplacementBase[] bodiesReplacementBase = lethalBotAI.ListModelReplacement.ToArray();
             //Plugin.LogDebug($"{player.playerUsername} SetPlayerModelReplacement bodiesReplacementBase.Length {bodiesReplacementBase.Length}");
-            foreach (BodyReplacementBase bodyReplacementBase in bodiesReplacementBase)
+            foreach (IBodyReplacementBase bodyReplacementBase in bodiesReplacementBase)
             {
-                if (BodyReplacementBasePatch.ListBodyReplacementOnDeadBodies.Contains(bodyReplacementBase))
+                if (LethalBotManager.Instance.ListBodyReplacementOnDeadBodies.Contains(bodyReplacementBase))
                 {
                     continue;
                 }
 
-                if (bodyReplacementBase.GetType() == type
-                    && bodyReplacementBase.suitName == unlockableName)
+                if (bodyReplacementBase.TypeReplacement == type
+                    && bodyReplacementBase.SuitName == unlockableName)
                 {
                     shouldAddNewBodyReplacement = false;
                 }
                 else
                 {
                     Plugin.LogInfo($"Patch LethalBot, bot {player.playerUsername}, Model Replacement change detected {bodyReplacementBase.GetType()} => {type}, changing model.");
-                    suitNameToReplace = bodyReplacementBase.suitName;
+                    suitNameToReplace = bodyReplacementBase.SuitName;
                     lethalBotAI.ListModelReplacement.Remove(bodyReplacementBase);
                     bodyReplacementBase.IsActive = false;
-                    UnityEngine.Object.Destroy(bodyReplacementBase);
+                    UnityEngine.Object.Destroy((Object)bodyReplacementBase.BodyReplacementBase);
                     shouldAddNewBodyReplacement = true;
                 }
             }
 
-            if (shouldAddNewBodyReplacement && !lethalBotAI.NpcController.Npc.isPlayerDead)
+            if (shouldAddNewBodyReplacement && 
+                !lethalBotAI.NpcController.Npc.isPlayerDead && 
+                lethalBotAI.NpcController.Npc.isPlayerControlled)
             {
                 Plugin.LogInfo($"Patch LethalBot, bot {player.playerUsername}, Suit Change detected {suitNameToReplace} => {currentSuitID} {unlockableName}, Replacing {type}.");
-                BodyReplacementBase bodyReplacementBaseToAdd = (BodyReplacementBase)player.gameObject.AddComponent(type);
-                bodyReplacementBaseToAdd.suitName = unlockableName;
+                BodyReplacementAdapter bodyReplacementBaseToAdd = new BodyReplacementAdapter(player.gameObject.AddComponent(type));
+                bodyReplacementBaseToAdd.SuitName = unlockableName;
                 lethalBotAI.ListModelReplacement.Add(bodyReplacementBaseToAdd);
             }
 
@@ -103,24 +106,24 @@ namespace LethalBots.Patches.ModPatches.ModelRplcmntAPI
         [HarmonyPrefix]
         static bool RemovePlayerModelReplacement_Prefix(PlayerControllerB player)
         {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI((int)player.playerClientId);
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(player);
             if (lethalBotAI == null)
             {
                 return true;
             }
 
-            BodyReplacementBase[] bodiesReplacementBase = lethalBotAI.ListModelReplacement.Select(x => (BodyReplacementBase)x).ToArray();
+            IBodyReplacementBase[] bodiesReplacementBase = lethalBotAI.ListModelReplacement.ToArray();
             //Plugin.LogDebug($"RemovePlayerModelReplacement bodiesReplacementBase.Length {bodiesReplacementBase.Length}");
-            foreach (BodyReplacementBase bodyReplacementBase in bodiesReplacementBase)
+            foreach (IBodyReplacementBase bodyReplacementBase in bodiesReplacementBase)
             {
-                if (BodyReplacementBasePatch.ListBodyReplacementOnDeadBodies.Contains(bodyReplacementBase))
+                if (LethalBotManager.Instance.ListBodyReplacementOnDeadBodies.Contains(bodyReplacementBase))
                 {
                     continue;
                 }
 
                 lethalBotAI.ListModelReplacement.Remove(bodyReplacementBase);
                 bodyReplacementBase.IsActive = false;
-                UnityEngine.Object.Destroy(bodyReplacementBase);
+                UnityEngine.Object.Destroy((Object)bodyReplacementBase.BodyReplacementBase);
             }
 
             return false;

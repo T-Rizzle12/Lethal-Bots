@@ -10,6 +10,7 @@ using LethalBots.Managers;
 using LethalBots.NetworkSerializers;
 using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Patches.MapPatches;
+using LethalBots.Patches.ModPatches.ModelRplcmntAPI;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
 using LethalInternship.AI;
@@ -121,7 +122,7 @@ namespace LethalBots.AI
         public int MaxHealth = 100;
         public float TimeSinceTeleporting = 0f;
 
-        public List<Component> ListModelReplacement = null!;
+        public List<IBodyReplacementBase> ListModelReplacement = null!;
 
         public TimedTouchingGroundCheck IsTouchingGroundTimedCheck = null!;
         public TimedAngleFOVWithLocalPlayerCheck AngleFOVWithLocalPlayerTimedCheck = null!;

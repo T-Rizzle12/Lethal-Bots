@@ -89,9 +89,9 @@
     <PackageReference Include="Evaisa.LethalLib" Version="1.1.1" />
     <PackageReference Include="Lost.Compat.NullabilityAttributes" Version="0.0.4" PrivateAssets="all" />
     <PackageReference Include="Mono.pdb2mdb" Version="0.1.0.20130128" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Rune580.Mods.LethalCompany.InputUtils" Version="0.7.10" />
-    <PackageReference Include="UnityEngine.Modules" Version="6000.1.12" IncludeAssets="compile" />
+    <PackageReference Include="UnityEngine.Modules" Version="6000.2.9" IncludeAssets="compile" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
@@ -202,7 +202,8 @@
     <Exec Command="netcode-patch -nv 1.5.2 &quot;$(TargetPath)&quot; @(ReferencePathWithRefAssemblies->'&quot;%(Identity)&quot;', ' ')" />
   </Target>-->
   <Target Name="NetcodePatch" AfterTargets="PostBuildEvent">
-	<Exec Command="dotnet netcode-patch &quot;$(TargetPath)&quot; @(ReferencePathWithRefAssemblies->'&quot;%(Identity)&quot;', ' ')" />
+	<Exec Command="dotnet tool restore" />
+	<Exec Command="dotnet netcode-patch -uv 2022.3.62 -nv 1.12.0 -tv 1.0.0 &quot;$(TargetPath)&quot; @(ReferencePathWithRefAssemblies->'&quot;%(Identity)&quot;', ' ')" />
   </Target>
 
   <!-- Build our Thunderstore package when making a release build. This does not publish our package. -->
