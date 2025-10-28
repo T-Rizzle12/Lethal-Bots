@@ -28,22 +28,7 @@ namespace LethalBots.AI.AIStates
             {
                 if (_lastEnemy != currentEnemy)
                 {
-                    if (currentEnemy != null)
-                    {
-                        Plugin.LogDebug($"Attempt 1 to get the enemy collider!");
-                        _enemyCollision = currentEnemy.gameObject.GetComponent<Collider>();
-                        Plugin.LogDebug($"{(_enemyCollision != null ? "Found" : "Not Found")}");
-                        if (_enemyCollision == null)
-                        {
-                            Plugin.LogDebug($"Attempt 2 to get the enemy collider!");
-                            _enemyCollision = currentEnemy.GetComponentInChildren<Collider>();
-                            Plugin.LogDebug($"{(_enemyCollision != null ? "Found" : "Not Found")}");
-                        }
-                    }
-                    else
-                    {
-                        _enemyCollision = null; // Clear cache if no current enemy
-                    }
+                    _enemyCollision = FindEnemyCollider(currentEnemy);
                     _lastEnemy = currentEnemy;
                     Plugin.LogDebug($"Enemy: {currentEnemy} Enemy Collider: {_enemyCollision}");
                 }
@@ -124,9 +109,11 @@ namespace LethalBots.AI.AIStates
             for (int i = 0; i < npcController.Npc.ItemSlots.Length; i++)
             {
                 GrabbableObject? weapon = npcController.Npc.ItemSlots[i];
-                if (ai.IsItemWeapon(weapon))
+                if (LethalBotAI.IsItemWeapon(weapon))
                 {
                     // Don't pick an empty weapon!
+                    // FIXME: We should use a helper function and some enum variables rather
+                    // than this hacky mess!
                     if (!ai.HasAmmoForWeapon(weapon))
                     {
                         continue;
@@ -134,7 +121,7 @@ namespace LethalBots.AI.AIStates
                     weaponSlot = i;
                     if (this.currentEnemy is CentipedeAI)
                     {
-                        if (!ai.IsItemRangedWeapon(weapon))
+                        if (!LethalBotAI.IsItemRangedWeapon(weapon))
                         {
                             break; // We want to use a melee weapon on the snare flea!
                         }
@@ -144,7 +131,7 @@ namespace LethalBots.AI.AIStates
                             continue;
                         }
                     }
-                    else if (ai.IsItemRangedWeapon(weapon))
+                    else if (LethalBotAI.IsItemRangedWeapon(weapon))
                     {
                         break;
                     }
@@ -284,7 +271,7 @@ namespace LethalBots.AI.AIStates
             {
                 return 2f; // Assume its the shovel!
             }
-            if (ai.IsItemRangedWeapon(weapon))
+            if (LethalBotAI.IsItemRangedWeapon(weapon))
             {
                 return 5f;
             }
@@ -318,6 +305,59 @@ namespace LethalBots.AI.AIStates
                 }
             }
             base.ChangeBackToPreviousState();
+        }
+
+        /// <summary>
+        /// Helper function to find the collider of an enemy!
+        /// </summary>
+        /// <param name="currentEnemy">the enemy to find the collider for</param>
+        /// <returns>the found collider or null</returns>
+        private static Collider? FindEnemyCollider(EnemyAI? currentEnemy)
+        {
+            Collider? result = null;
+            if (currentEnemy != null)
+            {
+                Collider[] colliders;
+                Plugin.LogDebug($"Attempt 1 to get the enemy collider!");
+                colliders = currentEnemy.gameObject.GetComponents<Collider>();
+                foreach (Collider collider in colliders)
+                {
+                    // Scan nodes are not the enemy's collider!
+                    ScanNodeProperties? component = result?.transform.gameObject.GetComponent<ScanNodeProperties>();
+                    if (collider != null && component == null)
+                    {
+                        result = collider;
+                        break; // For now stop at the first valid instance!
+                    }
+                }
+
+                Plugin.LogDebug($"{(result != null ? "Found" : "Not Found")}");
+
+                if (result == null)
+                {
+                    Plugin.LogDebug($"Attempt 2 to get the enemy collider!");
+                    colliders = currentEnemy.gameObject.GetComponentsInChildren<Collider>();
+                    foreach (Collider childCollider in colliders)
+                    {
+                        // Scan nodes are not the enemy's collider!
+                        ScanNodeProperties? component = result?.transform.gameObject.GetComponent<ScanNodeProperties>();
+                        if (childCollider != null && component == null)
+                        {
+                            result = childCollider;
+                            break; // For now stop at the first valid instance!
+                        }
+                    }
+
+                    Plugin.LogDebug($"{(result != null ? "Found" : "Not Found")}");
+
+                }
+
+                return result;
+            }
+            else
+            {
+               return null; // Clear cache if no current enemy
+            }
         }
 
         private IEnumerator weaponAttackCoroutine()
@@ -472,13 +512,13 @@ namespace LethalBots.AI.AIStates
         {
             // Assume use cooldown!
             // NEEDTOVALIDATE: Should I just set it to the use cooldown instead?
-            if (!ai.IsItemWeapon(weapon))
+            if (!LethalBotAI.IsItemWeapon(weapon))
             {
                 return (weapon != null && weapon.useCooldown > 0f) ? weapon.useCooldown : 0.0f;
             }
 
             // Let us shoot a bit faster
-            if (ai.IsItemRangedWeapon(weapon))
+            if (LethalBotAI.IsItemRangedWeapon(weapon))
             {
                 return 0.1f;
             }

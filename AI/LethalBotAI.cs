@@ -845,7 +845,7 @@ namespace LethalBots.AI
 
         public bool IsFollowingTargetPlayer()
         {
-            switch(State.GetAIState())
+            switch (State.GetAIState())
             {
                 case EnumAIStates.GetCloseToPlayer:
                 case EnumAIStates.ChillWithPlayer:
@@ -3449,7 +3449,7 @@ namespace LethalBots.AI
         /// I will note that it only works on items derived off of the ShotgunItem class!
         /// </remarks>
         /// <returns>I mean come on</returns>
-        public bool IsItemRangedWeapon([NotNullWhen(true)] GrabbableObject? weapon)
+        public static bool IsItemRangedWeapon([NotNullWhen(true)] GrabbableObject? weapon)
         {
             if (!IsItemWeapon(weapon))
             {
@@ -3462,7 +3462,7 @@ namespace LethalBots.AI
         /// Is the given item a weapon ?
         /// </summary>
         /// <returns>I mean come on</returns>
-        public bool IsItemWeapon([NotNullWhen(true)] GrabbableObject? weapon)
+        public static bool IsItemWeapon([NotNullWhen(true)] GrabbableObject? weapon)
         {
             if (weapon == null)
             {

@@ -8,6 +8,8 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using UnityEngine;
+using UnityEngine.InputForUI;
+using UnityEngine.UIElements.UIR;
 
 namespace LethalBots.Patches.EnemiesPatches
 {
@@ -18,6 +20,76 @@ namespace LethalBots.Patches.EnemiesPatches
     public class RadMechAIPatch
     {
         static MethodInfo IsLocalPlayerOrLethalBotCloseToPosMethod = SymbolExtensions.GetMethodInfo(() => RadMechAIPatch.IsLocalPlayerOrLethalBotCloseToPos(new Vector3(), new Vector3()));
+
+        [HarmonyPatch("Stomp")]
+        [HarmonyPostfix]
+        private static void Stomp_Postfix(RadMechAI __instance, Transform stompTransform, ParticleSystem particle, ParticleSystem particle2, float radius)
+        {
+            LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
+            foreach(LethalBotAI lethalBotAI in lethalBotAIs)
+            {
+                PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
+                if (lethalBotController != null)
+                {
+                    float num = Vector3.Distance(lethalBotController.transform.position, stompTransform.position);
+                    Vector3 vector = Vector3.Normalize(lethalBotController.gameplayCamera.transform.position - stompTransform.position) * 15f / Vector3.Distance(lethalBotController.gameplayCamera.transform.position, stompTransform.position);
+                    if (num < radius)
+                    {
+                        if ((double)num < (double)radius * 0.175)
+                        {
+                            lethalBotController.DamagePlayer(70, hasDamageSFX: true, callRPC: true, CauseOfDeath.Crushing, 0, fallDamage: false, Vector3.down * 40f);
+                        }
+                        else if (num < radius * 0.5f)
+                        {
+                            lethalBotController.DamagePlayer(30, hasDamageSFX: true, callRPC: true, CauseOfDeath.Crushing, 0, fallDamage: false, Vector3.down * 40f);
+                        }
+
+                        lethalBotController.externalForceAutoFade += vector;
+                    }
+                }
+            }
+        }
+
+        // Grandpa? Why is this a prefix and not a postfix?
+        // Well you see Timmy, the orignal function only works for the local player and since the bots are not the local player
+        // we have to recreate them here. This is because the original function also changes some variables that we need to check before they are changed!
+        [HarmonyPatch("DoFootstepCycle")]
+        [HarmonyPrefix]
+        private static void DoFootstepCycle_Prefix(RadMechAI __instance, bool __runOriginal, ref bool ___disableWalking, ref float ___beginChargingTimer, ref bool ___startedChargeEffect)
+        {
+            if (!__instance.IsServer || !__runOriginal)
+            {
+                return;
+            }
+
+            if (__instance.chargingForward && !___disableWalking && !__instance.aimingGun)
+            {
+                if (___beginChargingTimer < 0.4f)
+                {
+                    return;
+                }
+
+                if (___startedChargeEffect)
+                {
+                    return;
+                }
+
+                LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
+                foreach (LethalBotAI lethalBotAI in lethalBotAIs)
+                {
+                    PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
+                    if (lethalBotController != null)
+                    {
+                        float num = Vector3.Distance(__instance.transform.position - __instance.transform.forward * 5f, lethalBotController.transform.position);
+                        if (num < 12f)
+                        {
+                            Landmine.SpawnExplosion(__instance.transform.position + Vector3.up * 0.2f, spawnExplosionEffect: false, 2f, 5f, 30, 45f);
+                            break; // Only do this once!
+                        }
+                    }
+                }
+            }
+        }
 
         [HarmonyPatch("SetExplosion")]
         [HarmonyTranspiler]
