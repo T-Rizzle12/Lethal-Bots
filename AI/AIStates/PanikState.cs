@@ -409,8 +409,8 @@ namespace LethalBots.AI.AIStates
                         lastDeclaredJesterTimer = Time.timeSinceLevelLoad;
                         HUDManagerPatch.AddPlayerChatMessageServerRpc_ReversePatch(HUDManager.Instance, "JESTER!!! RUN!!!", (int)npcController.Npc.playerClientId);
                     }
-                    return;
                 }
+                return;
             }
             base.OnPlayerChatMessageReceived(message, playerWhoSentMessage);
         }

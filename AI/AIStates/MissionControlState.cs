@@ -1159,7 +1159,6 @@ namespace LethalBots.AI.AIStates
         // Allow players to request specific monitoring from the bot
         public override void OnPlayerChatMessageReceived(string message, PlayerControllerB playerWhoSentMessage)
         {
-            // For now use two hardcoded messages, we will add more later!
             if (playerWhoSentMessage != null)
             {
                 if (message.Contains("start the ship"))

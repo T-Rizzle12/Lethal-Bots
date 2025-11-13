@@ -1276,6 +1276,8 @@ namespace LethalBots.Managers
 
         #endregion
 
+        #region Signal and Chat Message Handling
+
         /// <summary>
         /// Tells all of the bots a message from the signal translator arrived!
         /// </summary>
@@ -1330,7 +1332,7 @@ namespace LethalBots.Managers
                 }
 
                 bool flag = lethalBotAI.NpcController.Npc.holdingWalkieTalkie && playerWhoSentMessage.holdingWalkieTalkie;
-                if ((lethalBotAI.NpcController.Npc.transform.position - playerWhoSentMessage.transform.position).sqrMagnitude <= 25f * 25f || flag)
+                if ((lethalBotAI.NpcController.Npc.transform.position - playerWhoSentMessage.transform.position).sqrMagnitude <= Const.MAX_CHAT_RANGE * Const.MAX_CHAT_RANGE || flag)
                 {
                     Plugin.LogDebug($"Bot {lethalBotAI.NpcController.Npc.playerUsername} heard message {message} from {playerWhoSentMessage.playerUsername}!");
                     Plugin.LogDebug($"Bot { (flag ? "does" : "doesn't") } have a walkie-talkie!");
@@ -1338,6 +1340,8 @@ namespace LethalBots.Managers
                 }
             }
         }
+
+        #endregion
 
         #region Company Building Helpers
 

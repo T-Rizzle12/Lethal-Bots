@@ -1,5 +1,6 @@
 ﻿using GameNetcodeStuff;
 using LethalBots.AI.AIStates;
+using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Patches.EnemiesPatches;
@@ -266,6 +267,48 @@ namespace LethalBots.AI
                     return;
                 }
                 ai.State = new PanikState(this, enemyAI);
+            }
+            // One of us was asked to be the mission controller!
+            // NOTE: playerWhoSentMessage should never be null here, but other modders could call this function directly with a null value!
+            // FIXME: This is REALLY bad with many bots since they all call this function. We need a better way to do this!
+            else if (playerWhoSentMessage != null && message.Contains("man the ship"))
+            {
+                // FIXME: There has to be a better way to do this!
+                // Get the a trace of where the player who sent the message is looking at!
+                // FIXMEUPDATE: Ok, using RaycastNonAlloc should help a bit with performance here, but its still not great!
+                RaycastHit[] raycastHits = new RaycastHit[3];
+                Ray interactRay = new Ray(playerWhoSentMessage.gameplayCamera.transform.position, playerWhoSentMessage.gameplayCamera.transform.forward);
+                int raycastResults = Physics.RaycastNonAlloc(interactRay, raycastHits, Const.MAX_CHAT_RANGE, Const.PLAYER_MASK);
+                for (int i = 0; i < raycastResults; i++)
+                {
+                    // Check if we hit a player!
+                    RaycastHit hit = raycastHits[i];
+                    if (hit.collider == null 
+                        || hit.collider.tag != "Player")
+                    {
+                        continue;
+                    }
+
+                    // Make sure its an actual player and not an object with the player tag!
+                    PlayerControllerB player = hit.collider.gameObject.GetComponent<PlayerControllerB>();
+                    if (player == null)
+                    {
+                        continue;
+                    }
+
+                    // Okay, we found a player, is it a bot and are they following us?
+                    LethalBotAI? lethalBot = LethalBotManager.Instance.GetLethalBotAIIfLocalIsOwner(player);
+                    if (lethalBot == null
+                        || lethalBot.IsSpawningAnimationRunning())
+                    {
+                        continue;
+                    }
+
+                    // Yay, we found a vaild bot, make it the mission controller!
+                    LethalBotManager.Instance.MissionControlPlayer = player;
+                    ai.State = new MissionControlState(this); // Its fine to set the state here directly, if we are not on the ship, the state will handle moving to the ship!
+                    return;
+                }
             }
         }
 
