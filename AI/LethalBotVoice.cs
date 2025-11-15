@@ -249,15 +249,14 @@ namespace LethalBots.AI
                 dictAvailableAudioClipPathsByState.Add(enumVoicesState, LoadAudioClipPathsByState(enumVoicesState).ToList());
             }
 
-            if (DidParametersChanged(parameters))
-            {
-                // Reset pool of audio path
-                availableAudioClipPaths[enumVoicesState].Clear();
-            }
-
             if (!availableAudioClipPaths.ContainsKey(enumVoicesState))
             {
                 availableAudioClipPaths.Add(enumVoicesState, FilterAudioClipPaths(dictAvailableAudioClipPathsByState[enumVoicesState], parameters).ToList());
+            }
+            else if (DidParametersChanged(parameters))
+            {
+                // Reset pool of audio path
+                availableAudioClipPaths[enumVoicesState].Clear();
             }
 
             if (availableAudioClipPaths[enumVoicesState].Count == 0)
