@@ -1614,7 +1614,18 @@ namespace LethalBots.AI
             }
 
             // Text billboard
-            Npc.usernameBillboardText.text = LethalBotAIController.GetSizedBillboardStateIndicator();
+            // Only show the bot state indicator when debug logging is enabled,
+            // since they are only useful for debugging purposes.
+            if (Plugin.Config.EnableDebugLog.Value)
+            { 
+                Npc.usernameBillboardText.text = LethalBotAIController.GetSizedBillboardStateIndicator(); 
+            }
+            else
+            {
+                Npc.usernameBillboardText.text = string.Empty;
+            }
+
+
             if (timerShowName >= 0f)
             {
                 timerShowName -= Time.deltaTime;
