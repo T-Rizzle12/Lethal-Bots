@@ -637,6 +637,7 @@ namespace LethalBots.AI
             // NEEDTOVALIDATE: Should I also update the height of the controller?
             // I run into the potential issue of where the bot is too tall and fails to path through some areas!
             LethalBotAIController.agent.radius = Npc.thisController.radius;
+            //LethalBotAIController.agent.height = 1.5f; // For now set the crouched height! // Not used for now!
         }
 
         /// <summary>
