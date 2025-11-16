@@ -15,7 +15,7 @@ namespace LethalBots.Constants
 
         public static readonly int DEFAULT_MAX_BOTS_AVAILABLE = 16;
         public static readonly int MIN_BOTS_AVAILABLE = 0;
-        public static readonly int MAX_BOTS_AVAILABLE = 32; // For now limit this!
+        public static readonly int MAX_BOTS_AVAILABLE = 50; // Current max limit for More Company!
 
         public static readonly string DEFAULT_BOT_NAME = "Bot #{0}";
         //  "Amy Stake",

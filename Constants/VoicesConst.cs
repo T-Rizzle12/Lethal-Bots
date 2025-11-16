@@ -4,7 +4,6 @@ namespace LethalBots.Constants
 {
     public class VoicesConst
     {
-        public const float DEFAULT_VOLUME = 1f;
         public static EnumTalkativeness DEFAULT_CONFIG_ENUM_TALKATIVENESS = EnumTalkativeness.Normal;
 
         public const float DISTANCE_HEAR_OTHER_BOTS = 10f;

@@ -211,7 +211,7 @@ namespace LethalBots.AI
             }
             CurrentAudioSource.pitch = desiredPitch;*/
             CurrentAudioSource.clip = audioClip;
-            AudioManager.Instance.FadeInAudio(CurrentAudioSource, VoicesConst.FADE_IN_TIME, this.Volume * Plugin.Config.GetVolumeMultiplierLethalBots());
+            AudioManager.Instance.FadeInAudio(CurrentAudioSource, VoicesConst.FADE_IN_TIME, this.Volume);
 
             SetCooldownAudio(audioClip.length + GetRandomCooldown());
         }

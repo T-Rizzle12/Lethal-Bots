@@ -48,7 +48,6 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> TeleportedBotDropItems;
 
         // Voices
-        public ConfigEntry<string> VolumeMultiplierBots;
         public ConfigEntry<int> Talkativeness;
         public ConfigEntry<bool> AllowSwearing;
 
@@ -149,11 +148,6 @@ namespace LethalBots.Configs
                                                             "Should the bot drop their items when inverse teleporting?");
 
             // Voices
-            VolumeMultiplierBots = cfg.Bind(ConfigConst.ConfigSectionVoices,
-                                     "Volume multiplier (Client only)",
-                                     defaultValue: VoicesConst.DEFAULT_VOLUME.ToString(),
-                                     "Volume multiplier of voices of bots");
-
             Talkativeness = cfg.Bind(ConfigConst.ConfigSectionVoices,
                                      "Talkativeness (Client only)",
                                      defaultValue: (int)VoicesConst.DEFAULT_CONFIG_ENUM_TALKATIVENESS,
@@ -189,20 +183,6 @@ namespace LethalBots.Configs
                 return;
             }
             Plugin.Logger.LogDebug(debugLog);
-        }
-
-        [Obsolete("This is handled by the Quick Menu in-game now.")]
-        public float GetVolumeMultiplierLethalBots()
-        {
-            // https://stackoverflow.com/questions/29452263/make-tryparse-compatible-with-comma-or-dot-decimal-separator
-            NumberFormatInfo nfi = new NumberFormatInfo();
-            nfi.NumberDecimalSeparator = ",";
-
-            if (float.TryParse(VolumeMultiplierBots.Value, NumberStyles.Any, nfi, out float volume))
-            {
-                return Mathf.Clamp(volume, 0f, 1f);
-            }
-            return VoicesConst.DEFAULT_VOLUME;
         }
 
         private void ClearUnusedEntries(ConfigFile cfg)
