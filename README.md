@@ -1,17 +1,15 @@
 # Lethal-Bots
 An edit of the mod Lethal Interns with the intent of making the Interns more like players with the benefits and downsides that come with it
 
-Note from HR :
-<br/>_As you may or may not know, our great company suffers from this staggering employee shortage, unfufilled quotas are rising, and turnover rate is at an alltime maximum. 
-<br/>But our dearest executives have found a solution to get the company back on track : 
-<br/>
-<br/>Bots! ..... I mean, high quality players!
-<br/>
-<br/>Willing to work, free and plentiful, these workers will support you and make your work faster and more efficient.
-<br/>Don't worry, they're not intended to replace you.
-<br/>So don't hesitate to work together with them and become 
-<br/>
-<br/>Great assets to the company_
+## Preramble:<br/>
+
+Playing solo in Lethal Company is hard, as the game is inherently designed around a team of 4 players.<br/><br/>
+Now, there are certain mechanics that automatically adjust for single player, but you still run into multiple disadvantages.<br/><br/>
+Loosing all your scrap if you die, enemies like the butler and coil head really screwing you over, turrets, landimes, big doors, and many other issues that are a lot easier to deal with multiple players.<br/><br/>
+After I discovered the mod Lethal Interns, it inspired me in a way. I realized I could use my previous modding experience with player bots and use it to finally create player-like bots for Lethal Company.<br/><br/>
+And that is how this mod came to be, and you would not believe how long it took me to get here. There are many older verison of this mod, lost to time.<br/><br/>
+In the end, while they may never be as smart as a real player, its still better than playing alone. <br/><br/>
+Oh, and before I forget, this mod is 100% MULTIPLAYER friendly, so feel free to add them to assist your Duo or Trio.<br/><br/>
 
 </br>![bots_example](https://github.com/T-Rizzle12/Lethal-Bots/blob/master/Assets/Images/bots_example.png?raw=true)</br>
 
@@ -211,9 +209,11 @@ NOTE: All players, "humans and bots," must be on the ship before the bot will vo
 ## On a more serious note
 This mod is very alpha and I still need some polishing.
 <br/>I'm just happy to share this project with you, in hope that you find it fun and enjoyable.
-T-Rizzle: I have made multiple changes to this from the original addon, unlike Lethal Interns these bots are to be more player like.
+<br/>T-Rizzle: I have made multiple changes to this from the original addon. While Lethal Interns intend to have the, well you know, interns assist the player, I found it not to my liking, but I saw the potential it had in general.<br/> 
+These bots are to be more player like and this includes advantages such as counting as real players and the downsides like limited stamina.
 - Although they will never be the same a players, they are great for small groups or playing with weak or no internet.
-- Or you could go crazy and use MoreCompany and run around with an army of them
+- Or you could go crazy and use MoreCompany and run around with an army of them.
+- I recommend about 23 to 31 of them. After that it really starts to get laggy and there is only so much I can do to optimize them.
 
 ## Credits
 - [**Szumi57**](https://github.com/Szumi57) - Original idea and coding of the original mod, Lethal Intership.
@@ -221,13 +221,13 @@ T-Rizzle: I have made multiple changes to this from the original addon, unlike L
 - **Mathew Kelly** - Voice acting for the bots, over 700 voice lines!
 
 ## Things to add
-- More Orders, currently you can tell them to loot and follow you.
-- I hope to make them able to do more on the ship terminal in the future.
-- Add some kind of voice recognition software, so bots could respond to simple voice commands.
-- As stated earlier, add TTS to bots so they can be better at relaying information to players.
+- More Orders, currently you can tell them to loot and follow you. There are a decent amount of chat commands at least?
+- I hope to make them able to do more on the ship terminal in the future. Like purchasing items and who knows what else!
+- Add some kind of voice recognition software, so bots could respond to simple voice commands. (DEVNOTE: Looks like there are some librarys on thunderstore that could help me with this endeavor!)
+- As stated earlier, add TTS to bots so they can be better at relaying information to players. (DEVNOTE: TTS would be perfect for helping the bots declare enemies on the terminal!)
 
 ## Bugs to fix
-- The game will lag during the inital landing sequence after the bots spawn. I have no idea what causes this, but it fixes itself after the ship lands. This only seems to happen with about 8 or more bots. If you play with the default lobby size of 4 players, you won't see this issue.
+- The game will lag during the inital landing sequence after the bots spawn. I have no idea what causes this, but it fixes itself after the ship lands. This only seems to happen with about 8 or more bots. If you play with the default lobby size of 4 players, you won't see this issue. (DEVUPATE: Found out it might have something to do with collsion, have a few ideas on how to aleviate it!)
 - Sand spider web trap not working for bots. Transpiler or Postfix should work, just need to find out what would be the best option.
 - Snare Fleas ignore bots that walk under them. The cause is that they only check for the Local Client walks under them, a transpiler or postfix can fix this!
 - Nutcracker ignoring bots. The cause of this is known, but I still don't know a good way to fix it yet!
