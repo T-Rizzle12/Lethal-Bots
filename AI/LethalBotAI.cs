@@ -4635,13 +4635,13 @@ namespace LethalBots.AI
         /// <param name="pos">Position destination</param>
         /// <param name="setOutside">Is the teleport destination outside of the facility</param>
         /// <param name="targetEntrance">Is the lethalBot actually using entrance to teleport ?</param>
-        public void SyncTeleportLethalBot(Vector3 pos, bool? setOutside = null, EntranceTeleport? targetEntrance = null, bool allowInteractTrigger = false, bool skipNavMeshCheck = false)
+        public void SyncTeleportLethalBot(Vector3 pos, bool? setOutside = null, EntranceTeleport? targetEntrance = null, bool withRotation = false, float rot = 0f, bool allowInteractTrigger = false, bool skipNavMeshCheck = false)
         {
             if (!IsOwner)
             {
                 return;
             }
-            TeleportLethalBot(pos, setOutside, targetEntrance, allowInteractTrigger, skipNavMeshCheck);
+            TeleportLethalBot(pos, setOutside, targetEntrance, withRotation, rot, allowInteractTrigger, skipNavMeshCheck);
             if (targetEntrance != null)
             {
                 if (targetEntrance.NetworkObject == null || !targetEntrance.NetworkObject.IsSpawned)
@@ -4651,6 +4651,8 @@ namespace LethalBots.AI
                     {
                         Pos = pos,
                         SetOutside = setOutside,
+                        WithRotation = withRotation,
+                        Rot = rot,
                         AllowInteractTrigger = allowInteractTrigger,
                         SkipNavMeshCheck = skipNavMeshCheck
                     });
@@ -4661,6 +4663,8 @@ namespace LethalBots.AI
                 {
                     Pos = pos,
                     SetOutside = setOutside,
+                    WithRotation = withRotation,
+                    Rot = rot,
                     TargetEntrance = targetEntrance.NetworkObject,
                     AllowInteractTrigger = allowInteractTrigger,
                     SkipNavMeshCheck = skipNavMeshCheck
@@ -4672,6 +4676,8 @@ namespace LethalBots.AI
                 {
                     Pos = pos,
                     SetOutside = setOutside,
+                    WithRotation = withRotation,
+                    Rot = rot,
                     AllowInteractTrigger = allowInteractTrigger,
                     SkipNavMeshCheck = skipNavMeshCheck
                 });
@@ -4721,7 +4727,13 @@ namespace LethalBots.AI
                 }
             }
 
-            TeleportLethalBot(teleportLethalBotNetworkSerializable.Pos, teleportLethalBotNetworkSerializable.SetOutside, targetEntrance, teleportLethalBotNetworkSerializable.AllowInteractTrigger, teleportLethalBotNetworkSerializable.SkipNavMeshCheck);
+            TeleportLethalBot(teleportLethalBotNetworkSerializable.Pos, 
+                teleportLethalBotNetworkSerializable.SetOutside, 
+                targetEntrance, 
+                teleportLethalBotNetworkSerializable.WithRotation, 
+                teleportLethalBotNetworkSerializable.Rot, 
+                teleportLethalBotNetworkSerializable.AllowInteractTrigger, 
+                teleportLethalBotNetworkSerializable.SkipNavMeshCheck);
         }
 
         /// <summary>
@@ -4734,7 +4746,7 @@ namespace LethalBots.AI
         /// <param name="pos">Position destination</param>
         /// <param name="setOutside">Is the teleport destination outside of the facility</param>
         /// <param name="targetEntrance">Is the lethalBot actually using entrance to teleport ?</param>
-        public void TeleportLethalBot(Vector3 pos, bool? setOutside = null, EntranceTeleport? targetEntrance = null, bool allowInteractTrigger = false, bool skipNavMeshCheck = false)
+        public void TeleportLethalBot(Vector3 pos, bool? setOutside = null, EntranceTeleport? targetEntrance = null, bool withRotation = false, float rot = 0f, bool allowInteractTrigger = false, bool skipNavMeshCheck = false)
         {
             // teleport body
             TeleportAgentAIAndBody(pos, skipNavMeshCheck);
@@ -4755,6 +4767,11 @@ namespace LethalBots.AI
             if ((bool)lethalBotController.inAnimationWithEnemy)
             {
                 lethalBotController.inAnimationWithEnemy.CancelSpecialAnimationWithPlayer();
+            }
+
+            if (withRotation)
+            {
+                lethalBotController.transform.localEulerAngles = new Vector3(0f, rot, 0f);
             }
 
             // Set AI outside or inside dungeon
@@ -4804,7 +4821,7 @@ namespace LethalBots.AI
         /// <param name="pos"></param>
         private void TeleportAgentAIAndBody(Vector3 pos, bool skipNavMeshCheck = false)
         {
-            Vector3 navMeshPosition = skipNavMeshCheck ? pos : RoundManager.Instance.GetNavMeshPosition(pos, default, 5f); // Was 2.7f, but created issues sometimes with the adamance fire exit!
+            Vector3 navMeshPosition = skipNavMeshCheck ? pos : RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f);
             serverPosition = navMeshPosition;
             NpcController.Npc.transform.position = navMeshPosition;
 

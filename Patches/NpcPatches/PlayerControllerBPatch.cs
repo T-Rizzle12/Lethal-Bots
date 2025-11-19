@@ -722,13 +722,15 @@ namespace LethalBots.Patches.NpcPatches
         [HarmonyPrefix]
         static bool TeleportPlayer_PreFix(PlayerControllerB __instance,
                                           Vector3 pos,
+                                          bool withRotation = false,
+                                          float rot = 0f,
                                           bool allowInteractTrigger = false)
         {
             LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
             if (lethalBotAI != null)
             {
                 StartOfRound.Instance.playerTeleportedEvent.Invoke(__instance);
-                lethalBotAI.TeleportLethalBot(pos, allowInteractTrigger: allowInteractTrigger);
+                lethalBotAI.TeleportLethalBot(pos, withRotation: withRotation, rot: rot, allowInteractTrigger: allowInteractTrigger);
                 return false;
             }
 
