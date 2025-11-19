@@ -9,7 +9,7 @@ Loosing all your scrap if you die, enemies like the butler and coil head really 
 After I discovered the mod Lethal Interns, it inspired me in a way. I realized I could use my previous modding experience with player bots and use it to finally create player-like bots for Lethal Company.<br/><br/>
 And that is how this mod came to be, and you would not believe how long it took me to get here. There are many older verison of this mod, lost to time.<br/><br/>
 In the end, while they may never be as smart as a real player, its still better than playing alone. <br/><br/>
-Oh, and before I forget, this mod is 100% MULTIPLAYER friendly, so feel free to add them to assist your Duo or Trio.<br/><br/>
+Oh, and before I forget, this mod is 100% MULTIPLAYER friendly, so feel free to add them to assist your Duo or Trio.
 
 </br>![bots_example](https://github.com/T-Rizzle12/Lethal-Bots/blob/master/Assets/Images/bots_example.png?raw=true)</br>
 
