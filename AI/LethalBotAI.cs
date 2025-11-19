@@ -4035,9 +4035,9 @@ namespace LethalBots.AI
             RagdollGrabbableObject? ragdollGrabbableObject = grabbableObject as RagdollGrabbableObject;
             if (ragdollGrabbableObject != null)
             {
-                if (ragdollGrabbableObject.ragdoll.attachedTo != null)
+                if (ragdollGrabbableObject?.ragdoll?.attachedTo != null)
                 {
-                    SpikeRoofTrap? attachedToTrap = ragdollGrabbableObject.ragdoll.attachedTo.gameObject.GetComponent<SpikeRoofTrap>();
+                    SpikeRoofTrap? attachedToTrap = ragdollGrabbableObject.ragdoll.attachedTo?.parent?.gameObject?.GetComponent<SpikeRoofTrap>();
                     if (attachedToTrap != null)
                     {
                         // Don't try to grab bodies stuck in traps
