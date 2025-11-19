@@ -165,6 +165,21 @@ namespace LethalBots.Managers
                 return _companyDesk;
             }
         }
+        private static HangarShipDoor? _shipDoor;
+        /// <summary>
+        /// Returns the <see cref="HangarShipDoor"/> instance in the scene, if it exists.<br/>
+        /// </summary>
+        private static HangarShipDoor? ShipDoor
+        {
+            get
+            {
+                if (_shipDoor == null)
+                {
+                    _shipDoor = UnityEngine.Object.FindObjectOfType<HangarShipDoor>();
+                }
+                return _shipDoor;
+            }
+        }
         public VehicleController? VehicleController;
         public List<IBodyReplacementBase> ListBodyReplacementOnDeadBodies { private set; get; } = new List<IBodyReplacementBase>();
 
@@ -1931,6 +1946,43 @@ namespace LethalBots.Managers
 
         #endregion
 
+        #region Hangar Ship Door
+
+        /// <summary>
+        /// A function to set the hangar ship door state from the server!
+        /// </summary>
+        /// <remarks>
+        /// This is a hacky way to sync the door state since I don't know how to get the interact triggers used by the main game.
+        /// This is similar to how the <see cref="GiantKiwiAI.BreakIntoShip"/> code does it.
+        /// </remarks>
+        /// <param name="isClosed"></param>
+        [ServerRpc(RequireOwnership = false)]
+        public void SetHangarShipDoorStateServerRpc(bool isClosed)
+        {
+            SetHangarShipDoorStateClientRpc(isClosed);
+        }
+
+        /// <summary>
+        /// The client rpc that actually sets the door state!
+        /// </summary>
+        /// <remarks>
+        /// <inheritdoc cref="SetHangarShipDoorStateServerRpc(bool)"/>
+        /// </remarks>
+        /// <param name="isClosed"></param>
+        [ClientRpc]
+        public void SetHangarShipDoorStateClientRpc(bool isClosed)
+        {
+            HangarShipDoor? hangarShipDoor = ShipDoor;
+            if (hangarShipDoor != null && hangarShipDoor.buttonsEnabled)
+            {
+                hangarShipDoor.shipDoorsAnimator.SetBool("Closed", value: isClosed);
+                StartOfRound.Instance.SetShipDoorsClosed(closed: isClosed);
+                hangarShipDoor.PlayDoorAnimation(closed: isClosed);
+            }
+        }
+
+        #endregion
+
         #region Trapped Players Checks
 
         private IEnumerator trappedPlayerCheck()
@@ -1984,7 +2036,7 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
-        /// A function that checks if the player can path to the exit!
+        /// A function that checks if the player can path to any of the exits!
         /// </summary>
         /// <remarks>
         /// This is basically and advanced call to <see cref="NavMesh.CalculatePath(Vector3, Vector3, int, NavMeshPath)"/> with mutliple checks

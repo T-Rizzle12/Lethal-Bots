@@ -78,18 +78,6 @@ namespace LethalBots.AI.AIStates
                 return _shipHorn;
             }
         }
-        private static HangarShipDoor? _shipDoor;
-        private static HangarShipDoor? ShipDoor
-        {
-            get
-            {
-                if (_shipDoor == null)
-                {
-                    _shipDoor = UnityEngine.Object.FindObjectOfType<HangarShipDoor>();
-                }
-                return _shipDoor;
-            }
-        }
 
         public MissionControlState(AIState oldState) : base(oldState)
         {
