@@ -926,7 +926,7 @@ namespace LethalBots.Managers
             lethalBotController.isPlayerDead = false;
             lethalBotController.isPlayerControlled = true;
             lethalBotController.transform.localScale = Vector3.one;
-            lethalBotController.playerSteamId = 0; // Set SteamId to 0 since the game code considers that invalid
+            lethalBotController.playerSteamId = 0ul; // Set SteamId to 0 since the game code considers that invalid
             lethalBotController.playerClientId = (ulong)spawnParamsNetworkSerializable.IndexNextPlayerObject;
             lethalBotController.actualClientId = lethalBotController.playerClientId + Const.LETHAL_BOT_ACTUAL_ID_OFFSET;
             lethalBotController.playerActions = new PlayerActions();
