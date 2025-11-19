@@ -531,6 +531,12 @@ namespace LethalBots.AI.AIStates
         {
             if (ShipTeleporter != null && (!isDeadBody || ShipTeleporter.buttonTrigger.interactable))
             {
+                // Make sure we lift the glass first
+                if (ShipTeleporter.buttonAnimator.GetBool("GlassOpen") == false)
+                {
+                    ShipTeleporter.buttonAnimator.SetBool("GlassOpen", value: true);
+                    yield return new WaitForSeconds(0.5f); // Wait for the glass to open
+                }
                 // HACKHACK: Fake pressing the button!
                 yield return new WaitUntil(() => ShipTeleporter.buttonTrigger.interactable);
                 ShipTeleporter.PressTeleportButtonOnLocalClient();
