@@ -39,7 +39,7 @@ namespace LethalBots.AI.AIStates
         private static Landmine[] landmines = null!;
         private static SpikeRoofTrap[] spikeRoofTraps = null!;
         private Dictionary<string, float> calledOutEnemies = new Dictionary<string, float>(); // Should this be an enemy name rather than the AI itself?
-        private Queue<string> messageQueue = new Queue<string>();
+        private Queue<string> messageQueue = new Queue<string>(); // TODO: Change this to a priority queue later down the line. Sadly C# doesn't have one built-in :( I will have to implement one later!
         private static readonly FieldInfo isDoorOpen = AccessTools.Field(typeof(TerminalAccessibleObject), "isDoorOpen");
         private static readonly FieldInfo inCooldown = AccessTools.Field(typeof(TerminalAccessibleObject), "inCooldown");
         private static ShipTeleporter? _shipTeleporter;
@@ -428,22 +428,27 @@ namespace LethalBots.AI.AIStates
 
                 // Update out "vision" to the targeted player on the monitor
                 targetedPlayer = StartOfRound.Instance.mapScreen.targetedPlayer;
-                if (playersRequstedTeleport.TryPeek(out PlayerControllerB playerControllerB))
+                if (playersRequstedTeleport.TryDequeue(out PlayerControllerB playerControllerB))
                 {
                     // If someone requested we teleport them we need to do it first!
                     if (playerControllerB == null)
                     {
-                        playersRequstedTeleport.Dequeue();
+                        continue;
                     }
-                    else if (playerControllerB != targetedPlayer)
+
+                    // Check if we need to switch targets!
+                    if (playerControllerB != targetedPlayer)
                     {
+                        // Switch to the requested player first
                         yield return SwitchRadarTargetToPlayer(playerControllerB);
+
+                        // Wait until the teleport target is updated
+                        startTime = Time.timeSinceLevelLoad; // Reuse start time variable, just in case we fail to update the target somehow.
+                        yield return new WaitUntil(() => StartOfRound.Instance.mapScreen.targetedPlayer == playerControllerB || (Time.timeSinceLevelLoad - startTime) > 3f);
                     }
-                    else
-                    {
-                        yield return TryTeleportPlayer();
-                        playersRequstedTeleport.Dequeue();
-                    }
+
+                    // Beam them up Scotty!
+                    yield return TryTeleportPlayer();
                     continue;
                 }
 
@@ -1011,6 +1016,8 @@ namespace LethalBots.AI.AIStates
             }
 
             // Spike Roof Traps
+            // FIXME: This is COMPLETELY BROKEN, for some reason, the TERMINAL ACCESSIBLE OBJECT is not a component of the SpikeRoofTrap???
+            // I have no idea how to fix this, as even the parent and children don't have it!
             foreach (var spikeRoofTrap in spikeRoofTraps)
             {
                 if (spikeRoofTrap != null)
@@ -1019,7 +1026,7 @@ namespace LethalBots.AI.AIStates
                     // NEEDTOVALIDATE: Is this too high or too low?
                     if ((spikeRoofTrap.spikeTrapAudio.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                     {
-                        TerminalAccessibleObject accessibleObject = spikeRoofTrap.gameObject.GetComponentInChildren<TerminalAccessibleObject>() ?? spikeRoofTrap.gameObject.GetComponentInParent<TerminalAccessibleObject>();
+                        TerminalAccessibleObject accessibleObject = spikeRoofTrap.GetComponentInChildren<TerminalAccessibleObject>() ?? spikeRoofTrap.GetComponentInParent<TerminalAccessibleObject>();
                         if (accessibleObject != null && !(bool)inCooldown.GetValue(accessibleObject))
                         {
                             objectsToUse.Add(accessibleObject);
@@ -1174,29 +1181,45 @@ namespace LethalBots.AI.AIStates
                     // Now we need to do some safety checks first. Only the host can tell the bot to pull the lever.
                     // Unless they are dead!
                     PlayerControllerB? hostPlayer = LethalBotManager.HostPlayerScript;
-                    if (hostPlayer == null 
-                        || hostPlayer == playerWhoSentMessage 
+                    if (hostPlayer == null
+                        || hostPlayer == playerWhoSentMessage
                         || hostPlayer.isPlayerDead)
-                    { 
-                        playerRequestLeave = true; 
+                    {
+                        playerRequestLeave = true;
                     }
                 }
+                // A player is requesting we monitor them
                 else if (message.Contains("request monitoring"))
                 {
                     monitoredPlayer = playerWhoSentMessage;
                 }
+                // The player wants to stop being monitored
                 else if (monitoredPlayer == playerWhoSentMessage && message.Contains("clear monitoring"))
                 {
                     monitoredPlayer = null;
                 }
+                // This player wants to be teleported back to the ship
                 else if (message.Contains("request teleport"))
                 {
                     playersRequstedTeleport.Enqueue(playerWhoSentMessage);
                 }
+                // A player is asking us to get off the terminal,
+                // probably so they can use it.
                 else if (message.Contains("hop off the terminal"))
                 {
                     playerRequestedTerminal = true;
                     waitForTerminalTime = 0f;
+                }
+                // A player is asking us to transmit a message
+                else if (message.Contains(Const.TRANSMIT_KEYWORD))
+                {
+                    // First we need to extract the message!
+                    // FIXME: There has to be a better way to do this!
+                    int transmitIndex = message.IndexOf(Const.TRANSMIT_KEYWORD) + Const.TRANSMIT_KEYWORD_LENGTH;
+                    string messageToTransmit = message.Substring(transmitIndex).Trim();
+
+                    // Queue the message to be sent!
+                    SendMessageUsingSignalTranslator(messageToTransmit);
                 }
             }
         }

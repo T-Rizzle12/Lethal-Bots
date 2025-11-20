@@ -283,9 +283,9 @@ namespace LethalBots.AI.AIStates
             float sqrDistToLockPickerPostion2 = (this.targetDoor.lockPickerPosition2.position - npcController.Npc.transform.position).sqrMagnitude;
             if (sqrDistToLockPickerPostion1 < sqrDistToLockPickerPostion2)
             {
-                return this.targetDoor.lockPickerPosition.localPosition;
+                return this.targetDoor.lockPickerPosition.position; // Was local position, but was causing issues.
             }
-            return this.targetDoor.lockPickerPosition2.localPosition;
+            return this.targetDoor.lockPickerPosition2.position; // Was local position, but was causing issues.
         }
 
         public override void StopAllCoroutines()

@@ -207,6 +207,8 @@ namespace LethalBots.Constants
         // Mission Control State
         public const float TIMER_NEXT_ENEMY_CALL = 60f;
         public const float LETHAL_BOT_TIMER_WAIT_FOR_TERMINAL = 5f;
+        public const string TRANSMIT_KEYWORD = "transmit";
+        public const int TRANSMIT_KEYWORD_LENGTH = 8; // Length of the word "transmit"
 
         public const float DISTANCE_NPCBODY_FROM_LADDER = 2;
         public const float DISTANCE_NPCBODY_FROM_DOOR = 2.5f;
