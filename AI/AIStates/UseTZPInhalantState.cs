@@ -66,24 +66,12 @@ namespace LethalBots.AI.AIStates
             int tzpSlot = tzpItem != null && !tzpItem.itemUsedUp ? npcController.Npc.currentItemSlot : -1;
             if (tzpSlot == -1)
             {
-                for (int i = 0; i < npcController.Npc.ItemSlots.Length; i++)
+                // We don't have any TZP in our inventory!
+                if (!ai.HasGrabbableObjectInInventory(IsUsableTZPItem, out tzpSlot))
                 {
-                    var item = npcController.Npc.ItemSlots[i];
-                    if (item != null 
-                        && item is TetraChemicalItem tempTZP 
-                        && !tempTZP.itemUsedUp)
-                    {
-                        tzpSlot = i;
-                        break;
-                    }
+                    ChangeBackToPreviousState();
+                    return;
                 }
-            }
-
-            // We don't have any TZP in our inventory!
-            if (tzpSlot == -1)
-            {
-                ChangeBackToPreviousState();
-                return;
             }
 
             // We have no need to move
@@ -147,6 +135,25 @@ namespace LethalBots.AI.AIStates
         public override void TryPlayCurrentStateVoiceAudio()
         {
             return;
+        }
+
+        /// <summary>
+        /// Helper function to check if the given <paramref name="item"/> is a usable <see cref="TetraChemicalItem"/>!
+        /// </summary>
+        /// <remarks>
+        /// This was designed for use in <see cref="LethalBotAI.HasGrabbableObjectInInventory(Func{GrabbableObject?, bool}, out int)"/> calls.
+        /// </remarks>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        private bool IsUsableTZPItem(GrabbableObject? item)
+        {
+            if (item != null
+                && item is TetraChemicalItem tempTZP
+                && !tempTZP.itemUsedUp)
+            {
+                return true;
+            }
+            return false;
         }
 
         /// <summary>

@@ -3605,6 +3605,39 @@ namespace LethalBots.AI
         }
 
         /// <summary>
+        /// Check if the lethalBot has an object that fulfills the given function in its inventory.
+        /// </summary>
+        /// <remarks>
+        /// NOTE: If you are comparing object references, you are better off using <see cref="HasGrabbableObjectInInventory(GrabbableObject?, out int)"/>
+        /// </remarks>
+        /// <param name="objectPredicate">The function to inspect the object in the inventory!</param>
+        /// <param name="objectSlot">The slot of where the object was found at! Is set to -1 if item was not found!</param>
+        /// <returns>true: the bot has the object in its inventory, false: the bot doesn't have the given object in its inventory</returns>
+        public bool HasGrabbableObjectInInventory(Func<GrabbableObject?, bool> objectPredicate, out int objectSlot)
+        {
+            // Check if the lethalBot is holding the object
+            objectSlot = -1;
+            if (objectPredicate(HeldItem))
+            {
+                objectSlot = NpcController.Npc.currentItemSlot;
+                return true;
+            }
+
+            // Check if the lethalBot has the object in its inventory
+            int index = 0;
+            foreach (var item in NpcController.Npc.ItemSlots)
+            {
+                if (objectPredicate(item))
+                {
+                    objectSlot = index;
+                    return true;
+                }
+                index++;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Does the lethalBot have room for another item?
         /// </summary>
         /// <returns>I mean come on</returns>
