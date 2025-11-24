@@ -769,7 +769,7 @@ namespace LethalBots.AI
             {
                 RaycastHit groundRaycastHit = IsTouchingGroundTimedCheck.GetGroundHit(NpcController.Npc.thisPlayerBody.position);
                 Collider? collider = groundRaycastHit.collider;
-                if (collider != null && dictComponentByCollider.TryGetValue(collider, out BridgeTrigger bridgeTrigger))
+                if (collider != null && dictComponentByCollider.TryGetValue(collider.transform, out BridgeTrigger bridgeTrigger))
                 {
                     if (bridgeTrigger != null
                         && bridgeTrigger.fallenBridgeColliders.Length > 0
@@ -4511,11 +4511,12 @@ namespace LethalBots.AI
                 }
             }
 
-            //foreach (var a in dictComponentByCollider)
-            //{
-            //    Plugin.LogDebug($"dictComponentByCollider {a.Key} {a.Value}");
-            //    ComponentUtil.ListAllComponents(((BridgeTrigger)a.Value).bridgePhysicsPartsContainer.gameObject);
-            //}
+            foreach (var a in dictComponentByCollider)
+            {
+                Plugin.LogDebug($"dictComponentByCollider {a.Key} {a.Value}");
+                ComponentUtil.ListAllComponents(((BridgeTrigger)a.Value).bridgePhysicsPartsContainer.gameObject);
+                ComponentUtil.ListAllColliders(((BridgeTrigger)a.Value).bridgePhysicsPartsContainer.gameObject);
+            }
         }
 
         public void HideShowModelReplacement(bool show)

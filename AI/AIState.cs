@@ -486,8 +486,15 @@ namespace LethalBots.AI
                             // We might be able to walk through the water, lets check the closest node to the entrance
                             // FIXME: This isn't the best way to do this, but it works for now
                             // We should probably get the closest node that is not in the water and check that instead
+                            float moveSpeed = npcController.Npc.movementSpeed > 0f ? npcController.Npc.movementSpeed : 4.5f;
+                            moveSpeed /= npcController.Npc.carryWeight;
+                            float modifiedMoveSpeed = moveSpeed / (2f * (1f * quicksand.movementHinderance));
+                            float travelTime = Vector3.Distance(closestNodePos, entrancePos) / modifiedMoveSpeed;
+                            float downingDelta = travelTime / 10f; // Match game logic
+                            float predictedDrownTimer = 1f - downingDelta;
+
                             simulatedHead = closestNodePos + Vector3.up * headOffset;
-                            if (collider.bounds.Contains(simulatedHead))
+                            if (predictedDrownTimer <= 0f || collider.bounds.Contains(simulatedHead))
                             {
                                 Plugin.LogDebug("Simulated head intersects water!");
                                 return true;

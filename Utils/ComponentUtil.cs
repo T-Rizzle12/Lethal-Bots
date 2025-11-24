@@ -26,6 +26,23 @@ namespace LethalBots.Utils
             }
         }
 
+        public static void ListAllColliders(GameObject gameObject)
+        {
+            if (gameObject == null)
+            {
+                return;
+            }
+
+            Plugin.LogDebug(" ");
+            Plugin.LogDebug(" List of Colliders :");
+            Component[] components = gameObject.GetComponentsInChildren(typeof(Collider));
+            foreach (Component component in components)
+            {
+                if (component == null) continue;
+                Plugin.LogDebug(component.ToString());
+            }
+        }
+
         public static void SetFieldValue(object obj, string fieldName, object value)
         {
             Type type = obj.GetType();
