@@ -322,7 +322,7 @@ namespace LethalBots.AI.AIStates
                 foreach (Collider collider in colliders)
                 {
                     // Scan nodes are not the enemy's collider!
-                    ScanNodeProperties? component = result?.transform.gameObject.GetComponent<ScanNodeProperties>();
+                    ScanNodeProperties? component = collider?.transform.gameObject.GetComponent<ScanNodeProperties>();
                     if (collider != null && component == null)
                     {
                         result = collider;
@@ -339,7 +339,7 @@ namespace LethalBots.AI.AIStates
                     foreach (Collider childCollider in colliders)
                     {
                         // Scan nodes are not the enemy's collider!
-                        ScanNodeProperties? component = result?.transform.gameObject.GetComponent<ScanNodeProperties>();
+                        ScanNodeProperties? component = childCollider?.transform.gameObject.GetComponent<ScanNodeProperties>();
                         if (childCollider != null && component == null)
                         {
                             result = childCollider;
