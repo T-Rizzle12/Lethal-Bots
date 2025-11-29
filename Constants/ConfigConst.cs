@@ -8,10 +8,11 @@ namespace LethalBots.Constants
         // Config
         public const string ConfigSectionMain = "1. General Settings";
         public const string ConfigSectionIdentities = "2. Bot identities";
-        public const string ConfigSectionBehaviour = "3. Behaviour";
+        public const string ConfigSectionBehavior = "3. Behavior";
         public const string ConfigSectionTeleporters = "4. Teleporters";
         public const string ConfigSectionVoices = "5. Voices";
-        public const string ConfigSectionDebug = "6. Debug";
+        public const string ConfigSectionVoiceRecognition = "6. Voice Recognition";
+        public const string ConfigSectionDebug = "7. Debug";
 
         public const int DEFAULT_MAX_BOTS_AVAILABLE = 16;
         public const int MIN_BOTS_AVAILABLE = 0;

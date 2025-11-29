@@ -47,6 +47,10 @@ namespace LethalBots.Configs
         // Teleporters
         [SyncedEntryField] public SyncedEntry<bool> TeleportedBotDropItems;
 
+        // Voice Recognition
+        public ConfigEntry<bool> AllowVoiceRecognition;
+        public ConfigEntry<float> VoiceRecognitionSimilarityThreshold;
+
         // Voices
         public ConfigEntry<int> Talkativeness;
         public ConfigEntry<bool> AllowSwearing;
@@ -81,62 +85,62 @@ namespace LethalBots.Configs
                                               "Spawn the bot with random identities from the file rather than in order?");
 
             // Behaviour
-            FollowCrouchWithPlayer = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehaviour,
+            FollowCrouchWithPlayer = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Crouch with player",
                                                defaultVal: true,
                                                "Should the bot crouch like the player is crouching? (NOTE: This will not affect the dynamic crouching AI!)");
 
-            ChangeSuitAutoBehaviour = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehaviour,
+            ChangeSuitAutoBehaviour = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Options for automaticaly switch suit",
                                                defaultVal: false,
                                                "Should the bot automatically switch to the same suit as the player who they are assigned to?");
 
-            TeleportWhenUsingLadders = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehaviour,
+            TeleportWhenUsingLadders = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Teleport when using ladders",
                                                defaultVal: false,
                                                "Should the bot just teleport and bypass any animations when using ladders? (Useful if you think the bot tends to get stuck on them!)");
 
-            SellAllScrapOnShip = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehaviour,
+            SellAllScrapOnShip = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Sell all scrap on ship",
                                                defaultVal: false,
                                                "Should the bot sell all scrap on the ship? If false, bots will use advanced AI to only sell to quota! (NOTE: This is useful if you have a mod such as quota rollover and the like!)");
 
-            DropHeldEquipmentAtShip = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehaviour,
+            DropHeldEquipmentAtShip = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Drop held equipment at ship",
                                                defaultVal: false,
                                                "Should the bot drop all equipment its holding when at the ship? If false, bots will hold onto equipment, such as shovels! (NOTE: This doesn't affect bot if it returns to the ship on its own!)");
 
-            GrabItemsNearEntrances = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehaviour,
+            GrabItemsNearEntrances = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Grab items near entrances",
                                                defaultVal: true,
                                                "Should the bot grab the items near main entrance and fire exits?");
 
-            GrabBeesNest = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehaviour,
+            GrabBeesNest = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                     "Grab bees nests",
                                     defaultVal: false,
                                     "Should the bot try to grab bees nests? (NOTE: Bots will sell them regardless if this is true or false!)");
 
-            GrabDeadBodies = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehaviour,
+            GrabDeadBodies = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                       "Grab dead bodies",
                                       defaultVal: true,
                                       "Should the bot try to grab dead bodies? (NOTE: The bot at the terminal will still teleport them back to the ship!))");
 
-            GrabManeaterBaby = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehaviour,
+            GrabManeaterBaby = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                       "Grab the baby maneater",
                                       defaultVal: true,
                                       "Is the bot allowed to grab the baby maneater? (NOTE: The bots do have AI for taking care of the baby maneater, but it's very basic!)");
 
-            AdvancedManeaterBabyAI = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehaviour,
+            AdvancedManeaterBabyAI = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                       "Advanced baby maneater AI",
                                       defaultVal: false,
                                       "Should the bot use advanced AI for taking care of the baby maneater? (WARNING: This is experimental and may cause issues!)");
 
-            GrabWheelbarrow = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehaviour,
+            GrabWheelbarrow = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                       "Grab the wheelbarrow",
                                       defaultVal: false,
                                       "Should the bot try to grab the wheelbarrow (mod)?");
 
-            GrabShoppingCart = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehaviour,
+            GrabShoppingCart = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                       "Grab the shopping cart",
                                       defaultVal: false,
                                       "Should the bot try to grab the shopping cart (mod)?");
@@ -146,6 +150,18 @@ namespace LethalBots.Configs
                                                             "Inverse Teleported bots drop items when teleporting",
                                                             defaultVal: true,
                                                             "Should the bot drop their items when inverse teleporting?");
+
+            // Voice Recognition
+            AllowVoiceRecognition = cfg.Bind(ConfigConst.ConfigSectionVoiceRecognition,
+                                            "Enable bot Voice Recognition",
+                                            defaultValue: true,
+                                            "Should the bots be able to hear what you say in voice chat. (It would only be used for the voice commands!)");
+
+            VoiceRecognitionSimilarityThreshold = cfg.Bind(ConfigConst.ConfigSectionVoiceRecognition,
+                                                           "The level of accuracy used when assessing what is said in the voice chat.",
+                                                           defaultValue: 0.8f,
+                                                           new ConfigDescription("This is the level of accuracy that would be used by PySpeech when the bot attempts to determine if the given message was a valid chat command. (Higher numbers means a higher level of accuracy is needed!)", 
+                                                                            new AcceptableValueRange<float>(0.0f, 1.0f)));
 
             // Voices
             Talkativeness = cfg.Bind(ConfigConst.ConfigSectionVoices,

@@ -406,10 +406,16 @@ namespace LethalBots
             FieldInfo bestMatchField = AccessTools.Field(typeof(Speech), "bestMatch");
             void handler(object speechInstance, SpeechEventArgs text)
             {
+                // Don't do this if the local client has disabled voice recognition
+                if (!Config.AllowVoiceRecognition.Value)
+                {
+                    return;
+                }
+
                 // The local player gets to determine which model to use for their voice recognition.
                 // Our job is to broadcast that to all other players so their bots can respond accordingly.
                 PlayerControllerB? playerControllerB = GameNetworkManager.Instance?.localPlayerController;
-                if (playerControllerB != null && Speech.IsAboveThreshold(ValidCommands, 0.8f)) // TODO: Make threshold configurable?
+                if (playerControllerB != null && Speech.IsAboveThreshold(ValidCommands, Config.VoiceRecognitionSimilarityThreshold.Value))
                 {
                     LethalBotManager.Instance?.TransmitVoiceChatAndSync((string)bestMatchField.GetValue(null), (int)playerControllerB.playerClientId);
                 }
