@@ -37,7 +37,8 @@ using System.Text;
 using Unity.Netcode;
 using UnityEngine;
 using Object = UnityEngine.Object;
-using VoiceCommandsAPI.API;
+using GameNetcodeStuff;
+using PySpeech;
 
 namespace LethalBots
 {
@@ -49,7 +50,7 @@ namespace LethalBots
     [BepInDependency(LethalLib.Plugin.ModGUID, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency(Const.CSYNC_GUID, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency(LethalCompanyInputUtils.PluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.HardDependency)]
-    [BepInDependency(VoiceCommandsAPI.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(Const.PYSPEECH_GUID, BepInDependency.DependencyFlags.HardDependency)]
     // SoftDependencies
     [BepInDependency(Const.REVIVECOMPANY_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(Const.BUNKBEDREVIVE_GUID, BepInDependency.DependencyFlags.SoftDependency)]
@@ -165,6 +166,8 @@ namespace LethalBots
             PatchBaseGame();
 
             PatchOtherMods();
+
+            RegisterVoiceCommands();
 
             Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
         }
@@ -377,6 +380,45 @@ namespace LethalBots
                 _harmony.PatchAll(typeof(PeeperAttachHitboxPatch));
             }
         }
+
+        #region Voice Commands
+
+        private void RegisterVoiceCommands()
+        {
+            // TODO: Revamp the chat command system to be more modular and easier to add new commands
+            // Until then, we have to register all of the commands here manually
+            string[] ValidCommands = new string[]
+            {
+                "jester",
+                "start the ship",
+                "hop off the terminal",
+                "request monitoring",
+                "request teleport",
+                "clear monitoring",
+                "man the ship",
+                "transmit"
+            };
+
+            // Register valid phrases for speech recognition
+            Speech.RegisterPhrases(ValidCommands);
+
+            // Create a handler for recognized speech events
+            FieldInfo bestMatchField = AccessTools.Field(typeof(Speech), "bestMatch");
+            void handler(object speechInstance, SpeechEventArgs text)
+            {
+                // The local player gets to determine which model to use for their voice recognition.
+                // Our job is to broadcast that to all other players so their bots can respond accordingly.
+                PlayerControllerB? playerControllerB = GameNetworkManager.Instance?.localPlayerController;
+                if (playerControllerB != null && Speech.IsAboveThreshold(ValidCommands, 0.8f)) // TODO: Make threshold configurable?
+                {
+                    LethalBotManager.Instance?.TransmitVoiceChatAndSync((string)bestMatchField.GetValue(null), (int)playerControllerB.playerClientId);
+                }
+            }
+
+            Speech.RegisterCustomHandler(handler);
+        }
+
+        #endregion
 
         private bool IsModLoaded(string modGUID)
         {

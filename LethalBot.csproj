@@ -160,8 +160,8 @@
 	<Reference Include="LethalInternship">
 	  <HintPath>lib\mods\LethalInternship.dll</HintPath>  
 	</Reference>
-	<Reference Include="DumbassStuff.VoiceCommandsAPI">
-	  <HintPath>lib\mods\DumbassStuff.VoiceCommandsAPI.dll</HintPath>
+	<Reference Include="PySpeech">
+	  <HintPath>lib\mods\PySpeech.dll</HintPath>
 	</Reference>
     <Reference Include="Unity.Animation.Rigging">
       <HintPath>lib\Unity.Animation.Rigging.dll</HintPath>

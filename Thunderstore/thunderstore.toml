@@ -13,7 +13,7 @@ BepInEx-BepInExPack = "5.4.2100"
 Evaisa-LethalLib = "0.16.1"
 Sigurd-CSync = "5.0.1"
 Rune580-LethalCompany_InputUtils = "0.7.4"
-DumbassStuff-VoiceCommandsAPI = "1.0.0"
+JS03-PySpeech = "1.0.1"
 
 [build]
 icon = "./icon.png"

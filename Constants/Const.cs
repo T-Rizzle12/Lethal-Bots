@@ -10,6 +10,7 @@ namespace LethalBots.Constants
     public class Const
     {
         public const string CSYNC_GUID = "com.sigurd.csync";
+        public const string PYSPEECH_GUID = "JS03.PySpeech";
 
         public const string MORECOMPANY_GUID = "me.swipez.melonloader.morecompany";
         public const string BETTER_EXP_GUID = "Swaggies.BetterEXP";

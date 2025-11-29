@@ -23,6 +23,7 @@ using Unity.Properties;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Audio;
+using static UnityEngine.InputSystem.InputRemoting;
 using Object = UnityEngine.Object;
 using Quaternion = UnityEngine.Quaternion;
 using Random = System.Random;
@@ -1290,11 +1291,12 @@ namespace LethalBots.Managers
 
         #endregion
 
-        #region Signal and Chat Message Handling
+        #region Signal Translator, Chat Messages, and Voice Chat Handling
 
         /// <summary>
         /// Tells all of the bots a message from the signal translator arrived!
         /// </summary>
+        /// <param name="message">The message we received</param>
         public void LethalBotsRespondToSignalTranslator(string message)
         {
             // Make the message case insensitive!
@@ -1317,6 +1319,8 @@ namespace LethalBots.Managers
         /// <summary>
         /// Tells all of the bots in range a chat message arrived!
         /// </summary>
+        /// <param name="message">The message we recevied</param>
+        /// <param name="playerId">The player id who sent the message</param>
         public void LethalBotsRespondToChatMessage(string message, int playerId)
         {
             // Make the message case insensitive!
@@ -1346,13 +1350,107 @@ namespace LethalBots.Managers
                 }
 
                 bool flag = lethalBotAI.NpcController.Npc.holdingWalkieTalkie && playerWhoSentMessage.holdingWalkieTalkie;
-                if ((lethalBotAI.NpcController.Npc.transform.position - playerWhoSentMessage.transform.position).sqrMagnitude <= Const.MAX_CHAT_RANGE * Const.MAX_CHAT_RANGE || flag)
+                if (flag || (lethalBotAI.NpcController.Npc.transform.position - playerWhoSentMessage.transform.position).sqrMagnitude <= Const.MAX_CHAT_RANGE * Const.MAX_CHAT_RANGE)
                 {
-                    Plugin.LogDebug($"Bot {lethalBotAI.NpcController.Npc.playerUsername} heard message {message} from {playerWhoSentMessage.playerUsername}!");
+                    Plugin.LogDebug($"Bot {lethalBotAI.NpcController.Npc.playerUsername} saw message {message} from {playerWhoSentMessage.playerUsername}!");
                     Plugin.LogDebug($"Bot { (flag ? "does" : "doesn't") } have a walkie-talkie!");
                     lethalBotAI.State.OnPlayerChatMessageReceived(message, playerWhoSentMessage);
                 }
             }
+        }
+
+        /// <summary>
+        /// Tells all of the bots in range a voice chat message arrived!
+        /// </summary>
+        /// <remarks>
+        /// NOTE: The voice api we use only checks messages on the local client. In order to fix this issue, this function is only called after we send it through an RPC so bots not owned
+        /// on the local client can still hear the message!
+        /// </remarks>
+        /// <param name="message">The message we heard</param>
+        /// <param name="playerWhoSaidMessage">The player who said the message.</param>
+        public void LethalBotsRespondToVoiceChat(string message, PlayerControllerB playerWhoSaidMessage)
+        {
+            // Make the message case insensitive!
+            message = message.Trim().ToLower();
+
+            foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
+            {
+                if (lethalBotAI == null 
+                    || !lethalBotAI.NpcController.Npc.isPlayerControlled
+                    || lethalBotAI.State == null)
+                {
+                    continue;
+                }
+
+                // Don't allow dead players to chat with the living!
+                if (lethalBotAI.NpcController.Npc.isPlayerDead != playerWhoSaidMessage.isPlayerDead)
+                {
+                    continue;
+                }
+
+                // We don't care about our own messages!
+                // Although, I don't think this can ever happen though....
+                if (lethalBotAI.NpcController.Npc == playerWhoSaidMessage)
+                {
+                    continue;
+                }
+
+                // Just like text chat, there is a limited range, although, I need to find the actual voice range.
+                // Until then, its the same as using text chat!
+                bool flag = lethalBotAI.NpcController.Npc.holdingWalkieTalkie && playerWhoSaidMessage.holdingWalkieTalkie;
+                if (flag || (lethalBotAI.NpcController.Npc.transform.position - playerWhoSaidMessage.transform.position).sqrMagnitude <= Const.MAX_CHAT_RANGE * Const.MAX_CHAT_RANGE)
+                {
+                    Plugin.LogDebug($"Bot {lethalBotAI.NpcController.Npc.playerUsername} heard message {message} from {playerWhoSaidMessage.playerUsername}!");
+                    Plugin.LogDebug($"Bot {(flag ? "does" : "doesn't")} have a walkie-talkie!");
+                    lethalBotAI.State.OnPlayerChatMessageReceived(message, playerWhoSaidMessage);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Helpers to transmit voice chat messages and sync them across server and clients!
+        /// </summary>
+        /// <param name="message">The message we heard</param>
+        /// <param name="playerId">The player id who said the message</param>
+        public void TransmitVoiceChatAndSync(string message, int playerId)
+        {
+            if (base.IsServer)
+            {
+                TransmitVoiceChatToAllClientsClientRpc(message, playerId);
+            }
+            else
+            {
+                TransmitVoiceChatToAllClientsServerRpc(message, playerId);
+            }
+        }
+
+        /// <summary>
+        /// Server rpc to transmit voice chat to all clients
+        /// </summary>
+        /// <param name="message">The message we heard</param>
+        /// <param name="playerId">The player id who said the message</param>
+        [ServerRpc(RequireOwnership = false)]
+        private void TransmitVoiceChatToAllClientsServerRpc(string message, int playerId)
+        {
+            TransmitVoiceChatToAllClientsClientRpc(message, playerId);
+        }
+
+        /// <summary>
+        /// Client rpc to transmit voice chat to all clients
+        /// </summary>
+        /// <param name="message">The message we heard</param>
+        /// <param name="playerId">The player id who said the message</param>
+        [ClientRpc]
+        private void TransmitVoiceChatToAllClientsClientRpc(string message, int playerId)
+        {
+            StartOfRound playersManager = StartOfRound.Instance;
+            PlayerControllerB? playerWhoSaidMessage = playersManager.allPlayerScripts[playerId];
+            if (playerWhoSaidMessage == null)
+            {
+                Plugin.LogWarning($"TransmitVoiceChatToAllClientsClientRpc: playerWhoSaidMessage is null for playerId {playerId}!");
+                return;
+            }
+            LethalBotsRespondToVoiceChat(message, playerWhoSaidMessage);
         }
 
         #endregion
