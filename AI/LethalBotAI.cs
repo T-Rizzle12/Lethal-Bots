@@ -500,12 +500,12 @@ namespace LethalBots.AI
                 // Update if we are in the elevator start room or not!
                 if (IsInElevatorStartRoom || isOutside)
                 {
-                    if (isOutside || Vector3.Distance(NpcController.Npc.transform.position, ElevatorScript.elevatorBottomPoint.position) < 10f)
+                    if (isOutside || Vector3.Distance(NpcController.Npc.transform.position, ElevatorScript.elevatorBottomPoint.position) < Const.DISTANCE_TO_ELEVATOR_BOTTOM)
                     {
                         IsInElevatorStartRoom = false;
                     }
                 }
-                else if (Vector3.Distance(NpcController.Npc.transform.position, ElevatorScript.elevatorTopPoint.position) < 20f)
+                else if (Vector3.Distance(NpcController.Npc.transform.position, ElevatorScript.elevatorTopPoint.position) < Const.DISTANCE_TO_ELEVATOR_TOP)
                 {
                     IsInElevatorStartRoom = true;
                 }
@@ -1226,7 +1226,7 @@ namespace LethalBots.AI
                                 Plugin.LogDebug("Simulated head intersects water!");
                                 float travelTime = tempDistance / moveSpeed;
 
-                                float downingDelta = travelTime / 10f; // Match game logic
+                                float downingDelta = travelTime / Const.LETHAL_BOT_DROWN_TIME; // Match game logic
                                 predictedDrownTimer -= downingDelta;
                                 Plugin.LogDebug($"Time left in water: {predictedDrownTimer:F2}");
 
@@ -1372,7 +1372,7 @@ namespace LethalBots.AI
                                 Plugin.LogDebug("Simulated head intersects water!");
                                 float travelTime = tempDistance / moveSpeed;
 
-                                float downingDelta = travelTime / 10f; // Match game logic
+                                float downingDelta = travelTime / Const.LETHAL_BOT_DROWN_TIME; // Match game logic
                                 predictedDrownTimer -= downingDelta;
                                 Plugin.LogDebug($"Time left in water: {predictedDrownTimer:F2}");
 
@@ -1754,7 +1754,7 @@ namespace LethalBots.AI
                         Plugin.LogDebug("Simulated head intersects water!");
                         float travelTime = tempDistance / modifiedMoveSpeed;
 
-                        float downingDelta = travelTime / 10f; // Match game logic
+                        float downingDelta = travelTime / Const.LETHAL_BOT_DROWN_TIME; // Match game logic
                         predictedDrownTimer -= downingDelta;
                         Plugin.LogDebug($"Time left in water: {predictedDrownTimer:F2}");
 
@@ -3248,11 +3248,11 @@ namespace LethalBots.AI
                 return false;
             }
 
-            if (Vector3.Distance(player.transform.position, ElevatorScript.elevatorBottomPoint.position) < 10f)
+            if (Vector3.Distance(player.transform.position, ElevatorScript.elevatorBottomPoint.position) < Const.DISTANCE_TO_ELEVATOR_BOTTOM)
             {
                 return false;
             }
-            else if (Vector3.Distance(player.transform.position, ElevatorScript.elevatorTopPoint.position) < 20f)
+            else if (Vector3.Distance(player.transform.position, ElevatorScript.elevatorTopPoint.position) < Const.DISTANCE_TO_ELEVATOR_TOP)
             {
                 return true;
             }
@@ -3268,11 +3268,11 @@ namespace LethalBots.AI
             // NEEDTOVALIDATE: Does this work as expected?
             if (ElevatorScript != null)
             {
-                if (Vector3.Distance(position, ElevatorScript.elevatorBottomPoint.position) < 10f)
+                if (Vector3.Distance(position, ElevatorScript.elevatorBottomPoint.position) < Const.DISTANCE_TO_ELEVATOR_BOTTOM)
                 {
                     return false;
                 }
-                else if (Vector3.Distance(position, ElevatorScript.elevatorTopPoint.position) < 20f)
+                else if (Vector3.Distance(position, ElevatorScript.elevatorTopPoint.position) < Const.DISTANCE_TO_ELEVATOR_TOP)
                 {
                     return true;
                 }

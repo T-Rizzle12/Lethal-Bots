@@ -2562,7 +2562,7 @@ namespace LethalBots.AI
             {
                 setFaceUnderwater = true;
                 Npc.statusEffectAudio.volume = Mathf.Lerp(Npc.statusEffectAudio.volume, 0f, 4f * Time.deltaTime);
-                this.DrowningTimer -= Time.deltaTime / 10f;
+                this.DrowningTimer -= Time.deltaTime / Const.LETHAL_BOT_DROWN_TIME;
                 if (this.DrowningTimer < 0f)
                 {
                     this.DrowningTimer = 1f;

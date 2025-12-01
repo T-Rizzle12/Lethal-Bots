@@ -212,10 +212,14 @@ namespace LethalBots.Constants
         public const string TRANSMIT_KEYWORD = "transmit";
         public static readonly int TRANSMIT_KEYWORD_LENGTH = TRANSMIT_KEYWORD.Length; // Length of the word "transmit"
 
+        // Misc
         public const float DISTANCE_NPCBODY_FROM_LADDER = 2;
         public const float DISTANCE_NPCBODY_FROM_DOOR = 2.5f;
         public const float TIMER_CHECK_DOOR = 0.9f;
         public const float TIMER_USE_ELEVATOR = 4.0f; // Should this be a config option instead?
+        public const float DISTANCE_TO_ELEVATOR_BOTTOM = 10f;
+        public const float DISTANCE_TO_ELEVATOR_TOP = 20f;
+        public const float LETHAL_BOT_DROWN_TIME = 10f; // Makes it easier to update how long a bot has until it drowns!
 
         // Tips
         public const string TOOLTIP_DROP_ITEM = "Drop your item : [{0}]";

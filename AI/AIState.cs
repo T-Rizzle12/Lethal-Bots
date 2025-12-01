@@ -154,8 +154,10 @@ namespace LethalBots.AI
 
         public abstract void TryPlayCurrentStateVoiceAudio();
 
+        // TODO: Now that we have voice recogntion code, it may be a good idea to update this!!!!!
         public virtual void PlayerHeard(Vector3 noisePosition) { }
 
+        // TODO: Remove this function, I don't think I will ever find a way to get this to work.
         [Obsolete("Broken on purpose! This function is never called and will never be fixed since you can't tell who created a sound!")]
         public virtual void EnemyHeard(Vector3 noisePosition) { }
 
@@ -490,7 +492,7 @@ namespace LethalBots.AI
                             moveSpeed /= npcController.Npc.carryWeight;
                             float modifiedMoveSpeed = moveSpeed / (2f * (1f * quicksand.movementHinderance));
                             float travelTime = Vector3.Distance(closestNodePos, entrancePos) / modifiedMoveSpeed;
-                            float downingDelta = travelTime / 10f; // Match game logic
+                            float downingDelta = travelTime / Const.LETHAL_BOT_DROWN_TIME; // Match game logic
                             float predictedDrownTimer = 1f - downingDelta;
 
                             simulatedHead = closestNodePos + Vector3.up * headOffset;
