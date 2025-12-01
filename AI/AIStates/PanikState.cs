@@ -664,7 +664,11 @@ namespace LethalBots.AI.AIStates
 
                 // We cache the path distance since we are going to use it!
                 // NOTE: We subtract the distance to the enemy since we want to pick a further node from said enemy
-                float pathDistance = ai.pathDistance - Mathf.Sqrt(sqrDistToEnemy);
+                // FIXME: This causes WAY too many problems, I have literally seen bots run IN FRONT of what they were supposed to be fleeing from
+                // because the chosen node, although far away from the enemy, was out of sight, but the path wasn't.
+                // It only really happens when the bot is out in the open though.
+                //float pathDistance = ai.pathDistance - Mathf.Sqrt(sqrDistToEnemy);
+                float pathDistance = ai.pathDistance;
 
                 // Check if the node is a better candidate
                 if (nodeSafety > bestNode || (nodeSafety >= bestNode && pathDistance < bestNodeDistance))

@@ -1463,6 +1463,7 @@ namespace LethalBots.AI
             }
 
             // Cache stuff we use a lot, since this could get very expensive fast!
+            bool isPathDangerous = false; // Grandpa, why does this bool exist? Well you see Timmy, we want to be able to return the full path distance, even if we fail in the end. So, this holds the true final result!
             bool skipLOSCheckThisSegment = false;
             float pathDistance = 0f; // We must cache this and set it when we finish, since we are running asynchronously
             float headOffset = NpcController.Npc.gameplayCamera.transform.position.y - NpcController.Npc.transform.position.y;
@@ -1513,6 +1514,16 @@ namespace LethalBots.AI
                     await Task.Yield();
                 }
 
+                // We already know that the current path is dangerous, no
+                // need to do the checks again!
+                if (isPathDangerous)
+                {
+                    if (calculatePathDistance)
+                        continue; // Keep looping to get the full path distance
+                    else
+                        break; // End it here, no point on continuing! BTY, THIS SHOULD NEVER HAPPEN!!!!!
+                }
+
                 // Check if the path may be exposed to enemies!
                 if (checkForEnemies)
                 {
@@ -1531,7 +1542,10 @@ namespace LethalBots.AI
                     if (!skipLOSCheckThisSegment && await IsEnemyDangerousAtSegment(previousNode, nodePos, headOffset, useEyePosition, token))
                     {
                         Plugin.LogDebug($"Danger detected at segment {j} from {previousNode} to {nodePos}. Path is dangerous!");
-                        return (true, pathDistance);
+                        if (!calculatePathDistance)
+                            return (true, pathDistance);
+                        else
+                            isPathDangerous = true;
                     }
                 }
 
@@ -1543,14 +1557,21 @@ namespace LethalBots.AI
                     if (isDangerous)
                     {
                         Plugin.LogDebug($"Danger detected due to quicksand or water at segment {j}. Path is dangerous!");
-                        return (true, pathDistance);
+                        if (!calculatePathDistance)
+                            return (true, pathDistance);
+                        else
+                            isPathDangerous = true;
                     }
                 }
             }
 
-            this.pathDistance = pathDistance;
-            Plugin.LogDebug("Path is safe. No danger detected.");
-            return (false, pathDistance); // NOTE: Return the path distance here since it may be modifed by other pathfind calls!
+            // Set the path distance on the bot itself!
+            this.pathDistance = pathDistance; // Is there even a point at doing this?
+
+            if (!isPathDangerous)
+                Plugin.LogDebug("Path is safe. No danger detected.");
+
+            return (isPathDangerous, pathDistance); // NOTE: Return the path distance here since it may be modifed by other pathfind calls!
         }
 
         /// <summary>
