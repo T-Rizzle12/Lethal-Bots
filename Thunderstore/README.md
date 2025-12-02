@@ -1,5 +1,5 @@
 # Lethal-Bots
-An edit of the mod Lethal Interns with the intent of making the Interns more like players with the benefits and downsides that come with it
+A Lethal Company Mod that adds bot players to the game. Based off of the code of the mod Lethal Internship.
 
 ## Preramble:<br/>
 
