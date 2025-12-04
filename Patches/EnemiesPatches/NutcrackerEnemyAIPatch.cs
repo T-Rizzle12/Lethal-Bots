@@ -3,6 +3,7 @@ using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Managers;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace LethalBots.Patches.EnemiesPatches
@@ -13,6 +14,23 @@ namespace LethalBots.Patches.EnemiesPatches
     [HarmonyPatch(typeof(NutcrackerEnemyAI))]
     public class NutcrackerEnemyAIPatch
     {
+        // Conditional Weak Table since when the NutcrackerEnemyAI is removed, the table automatically cleans itself!
+        // TODO: I should probably move this along with the UpdateLimiter into its own file, an change the key to EnemyAI, so
+        // I don't have to keep recreating this code.....
+        private static ConditionalWeakTable<NutcrackerEnemyAI, UpdateLimiter> nextUpdateList = new ConditionalWeakTable<NutcrackerEnemyAI, UpdateLimiter>();
+
+        /// <summary>
+        /// Helper function that retrieves the <see cref="UpdateLimiter"/>
+        /// for the given <see cref="NutcrackerEnemyAI"/>
+        /// </summary>
+        /// <param name="ai"></param>
+        /// <returns>The <see cref="UpdateLimiter"/> associated with the given <see cref="NutcrackerEnemyAI"/></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static UpdateLimiter GetOrCreateMonitor(NutcrackerEnemyAI ai)
+        {
+            return nextUpdateList.GetValue(ai, key => new UpdateLimiter(0.5f)); // TODO: Find out how long I should make my patch wait between calls! 
+        }
+
         /// <summary>
         /// Patch for making the nutcrackers see moving bots!
         /// </summary>
@@ -37,6 +55,14 @@ namespace LethalBots.Patches.EnemiesPatches
                 return;
             }
 
+            UpdateLimiter updateLimiter = GetOrCreateMonitor(__instance);
+            if (!updateLimiter.CanUpdate())
+            {
+                updateLimiter.Update(Time.deltaTime);
+                return;
+            }
+
+            updateLimiter.Invalidate();
             switch (__instance.currentBehaviourStateIndex)
             {
                 case 1:
@@ -97,7 +123,10 @@ namespace LethalBots.Patches.EnemiesPatches
                             {
                                 ___timeSinceSeeingTarget = 0f;
                             }
-                            if (Vector3.Distance(__instance.transform.position, StartOfRound.Instance.allPlayerScripts[__instance.lastPlayerSeenMoving].transform.position) - Vector3.Distance(__instance.transform.position, lethalBotController.transform.position) > 3f || (___timeSinceSeeingTarget > 3f && !flag))
+
+                            float sqrDistLast = (__instance.transform.position - StartOfRound.Instance.allPlayerScripts[__instance.lastPlayerSeenMoving].transform.position).sqrMagnitude;
+                            float sqrDistBot = (__instance.transform.position - lethalBotController.transform.position).sqrMagnitude;
+                            if ((sqrDistLast - sqrDistBot) > 3f * 3f || (___timeSinceSeeingTarget > 3f && !flag))
                             {
                                 __instance.lastPlayerSeenMoving = (int)lethalBotController.playerClientId;
                                 __instance.SeeMovingThreatServerRpc((int)lethalBotController.playerClientId);
@@ -154,6 +183,60 @@ namespace LethalBots.Patches.EnemiesPatches
                 return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Patch to clean up <see cref="UpdateLimiter"/>'s that are no longer needed.
+        /// </summary>
+        /// <remarks>
+        /// Although <see cref="ConditionalWeakTable{TKey, TValue}"/> can clean this for us,
+        /// it will only clean the table if nothing refrences the key anymore.
+        /// </remarks>
+        /// <param name="__instance"></param>
+        [HarmonyPatch("OnDestroy")]
+        [HarmonyPostfix]
+        private static void OnDestroy_Postfix(NutcrackerEnemyAI __instance)
+        {
+            if (nextUpdateList.TryGetValue(__instance, out _))
+            {
+                nextUpdateList.Remove(__instance);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Helper class that allows me to limit how often a patch is run!
+    /// </summary>
+    /// <remarks>
+    /// I should probably move this into its own file
+    /// </remarks>
+    internal sealed class UpdateLimiter
+    {
+        private float nextUpdateCheck;
+        private float updateInterval;
+
+        internal UpdateLimiter(float updateInterval = 0.5f)
+        {
+            this.updateInterval = updateInterval;
+            this.Invalidate();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool CanUpdate()
+        {
+            return nextUpdateCheck >= updateInterval;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Invalidate()
+        {
+            nextUpdateCheck = 0f;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Update(float deltaTime)
+        {
+            nextUpdateCheck += deltaTime;
         }
     }
 }

@@ -6,6 +6,7 @@ using LethalBots.Utils;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace LethalBots.Patches.EnemiesPatches
@@ -13,7 +14,22 @@ namespace LethalBots.Patches.EnemiesPatches
     [HarmonyPatch(typeof(FlowermanAI))]
     public class FlowermanAIPatch
     {
-        private static float nextUpdateCheck;
+        // Conditional Weak Table since when the FlowermanAI is removed, the table automatically cleans itself!
+        // TODO: I should probably move this along with the UpdateLimiter into its own file, an change the key to EnemyAI, so
+        // I don't have to keep recreating this code.....
+        private static ConditionalWeakTable<FlowermanAI, UpdateLimiter> nextUpdateList = new ConditionalWeakTable<FlowermanAI, UpdateLimiter>();
+
+        /// <summary>
+        /// Helper function that retrieves the <see cref="UpdateLimiter"/>
+        /// for the given <see cref="FlowermanAI"/>
+        /// </summary>
+        /// <param name="ai"></param>
+        /// <returns>The <see cref="UpdateLimiter"/> associated with the given <see cref="FlowermanAI"/></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static UpdateLimiter GetOrCreateMonitor(FlowermanAI ai)
+        {
+            return nextUpdateList.GetValue(ai, key => new UpdateLimiter(0.5f)); // TODO: Find out how long I should make my patch wait between calls! 
+        }
 
         /// <summary>
         /// Fixes bug where bots are unable to fend off the Braken since the checks are only for the local client!
@@ -28,14 +44,14 @@ namespace LethalBots.Patches.EnemiesPatches
                 return;
             }
 
-            // Optimization, only run this every half a second!
-            nextUpdateCheck += Time.deltaTime;
-            if (nextUpdateCheck < 0.5f)
+            UpdateLimiter updateLimiter = GetOrCreateMonitor(__instance);
+            if (!updateLimiter.CanUpdate())
             {
+                updateLimiter.Update(Time.deltaTime);
                 return;
             }
 
-            nextUpdateCheck = 0f;
+            updateLimiter.Invalidate();
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
             foreach (LethalBotAI lethalBotAI in lethalBotAIs)
             {
@@ -107,6 +123,24 @@ namespace LethalBots.Patches.EnemiesPatches
             }
 
             return codes.AsEnumerable();
+        }
+
+        /// <summary>
+        /// Patch to clean up <see cref="UpdateLimiter"/>'s that are no longer needed.
+        /// </summary>
+        /// <remarks>
+        /// Although <see cref="ConditionalWeakTable{TKey, TValue}"/> can clean this for us,
+        /// it will only clean the table if nothing refrences the key anymore.
+        /// </remarks>
+        /// <param name="__instance"></param>
+        [HarmonyPatch("OnDestroy")]
+        [HarmonyPostfix]
+        private static void OnDestroy_Postfix(FlowermanAI __instance)
+        {
+            if (nextUpdateList.TryGetValue(__instance, out _))
+            {
+                nextUpdateList.Remove(__instance);
+            }
         }
     }
 }
