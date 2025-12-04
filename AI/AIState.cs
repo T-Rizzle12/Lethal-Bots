@@ -55,6 +55,7 @@ namespace LethalBots.AI
             protected set;
             get;
         }
+        protected AIStateInfo previousStateUpdate;
 
         protected Coroutine? panikCoroutine;
         protected Coroutine? safePathCoroutine;
@@ -1084,6 +1085,16 @@ namespace LethalBots.AI
         {
             if (previousAIState != null)
             {
+                // Lets check if we want to change certain information on the previous state
+                if (previousStateUpdate.TargetItem != null)
+                {
+                    previousAIState.TargetItem = previousStateUpdate.TargetItem;
+                }
+                if (previousStateUpdate.TargetLastKnownPosition != null)
+                {
+                    previousAIState.targetLastKnownPosition = previousStateUpdate.TargetLastKnownPosition;
+                }
+
                 ai.State = previousAIState;
             }
             // HOW DID THIS HAPPEN?!!?
@@ -1093,6 +1104,15 @@ namespace LethalBots.AI
                 Plugin.LogWarning($"Bot {npcController.Npc.playerClientId} ({npcController.Npc.playerUsername}) will return to the ship instead!");
                 ai.State = new ReturnToShipState(this);
             }
+        }
+
+        /// <summary>
+        /// A struct with one purpose, to allow me to set variables on previous classes.
+        /// </summary>
+        protected struct AIStateInfo
+        {
+            public Vector3? TargetLastKnownPosition;
+            public GrabbableObject? TargetItem;
         }
 
         /// <summary>

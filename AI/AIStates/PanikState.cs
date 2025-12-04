@@ -270,7 +270,7 @@ namespace LethalBots.AI.AIStates
                             {
                                 // If we use the entrance to go outside, we should set the last known position to the entrance teleport position
                                 // This makes us use the entrance again so we can follow the player back inside
-                                targetLastKnownPosition = entranceTeleportPos.Value;
+                                previousStateUpdate.TargetLastKnownPosition = entranceTeleportPos.Value;
                             }
                         }
                         else

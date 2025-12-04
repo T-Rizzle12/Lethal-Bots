@@ -26,13 +26,18 @@ namespace LethalBots.AI.AIStates
             CurrentState = EnumAIStates.ChillAtShip;
         }
 
+        public override void OnExitState()
+        {
+            base.OnExitState();
+            npcController.StopPreformingEmote();
+        }
+
         public override void DoAI()
         {
             // Check for enemies
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
-                npcController.StopPreformingEmote();
                 ai.State = new PanikState(this, enemyAI);
                 return;
             }
@@ -40,7 +45,6 @@ namespace LethalBots.AI.AIStates
             // We are not at the ship, we should go back to it!
             if (!npcController.Npc.isInElevator && !npcController.Npc.isInHangarShipRoom)
             {
-                npcController.StopPreformingEmote();
                 ai.State = new ReturnToShipState(this);
                 return;
             }
@@ -52,7 +56,6 @@ namespace LethalBots.AI.AIStates
                 && (heldItem.insertedBattery.empty
                     || heldItem.insertedBattery.charge < 0.9f))
             {
-                npcController.StopPreformingEmote();
                 ai.State = new ChargeHeldItemState(this, heldItem, new ReturnToShipState(this));
                 return;
             }
@@ -81,7 +84,6 @@ namespace LethalBots.AI.AIStates
                 }
                 else if (missionController == npcController.Npc)
                 {
-                    npcController.StopPreformingEmote();
                     ai.State = new MissionControlState(this);
                     return;
                 }
@@ -98,7 +100,6 @@ namespace LethalBots.AI.AIStates
             if (LethalBotManager.IsInverseTeleporterActive 
                 && !ai.HasSomethingInInventory())
             {
-                npcController.StopPreformingEmote();
                 ai.State = new UseInverseTeleporterState(this);
                 return;
             }
@@ -110,7 +111,6 @@ namespace LethalBots.AI.AIStates
                 {
                     if(ai.LookingForObjectsToSell(true) != null || LethalBotManager.AreThereItemsOnDesk())
                     {
-                        npcController.StopPreformingEmote();
                         ai.State = new CollectScrapToSellState(this);
                         return;
                     }
@@ -168,7 +168,6 @@ namespace LethalBots.AI.AIStates
                     }
 
                     // Assign to new target
-                    npcController.StopPreformingEmote();
                     ai.SyncAssignTargetAndSetMovingTo(player);
                     if (Plugin.Config.ChangeSuitAutoBehaviour.Value)
                     {
@@ -186,11 +185,10 @@ namespace LethalBots.AI.AIStates
                     {
                         // Last time we were looking for scrap there was a trapped player,
                         // we should grab a key so we can potentially free them!
-                        npcController.StopPreformingEmote();
                         if (LethalBotManager.IsThereATrappedPlayer 
                             && !ai.HasKeyInInventory())
                         {
-                            GrabbableObject? key = FindKey();
+                            GrabbableObject? key = FindKey() ?? FindLockpicker();
                             if (key != null)
                             {
                                 ai.State = new FetchingObjectState(this, key, false, new SearchingForScrapState(this));
@@ -300,12 +298,47 @@ namespace LethalBots.AI.AIStates
                     && keyItem is KeyItem keyItemObj
                     && keyItemObj.isInShipRoom)
                 {
-                    float walkieSqr = (keyItemObj.transform.position - npcController.Npc.transform.position).sqrMagnitude;
-                    if (walkieSqr < closestKeySqr
+                    float keySqr = (keyItemObj.transform.position - npcController.Npc.transform.position).sqrMagnitude;
+                    if (keySqr < closestKeySqr
                         && ai.IsGrabbableObjectGrabbable(keyItemObj)) // NOTE: IsGrabbableObjectGrabbable has a pathfinding check, so we run it last since it can be expensive!
                     {
-                        closestKeySqr = walkieSqr;
+                        closestKeySqr = keySqr;
                         closestKey = keyItemObj;
+                    }
+                }
+            }
+
+            return closestKey;
+        }
+
+        /// <summary>
+        /// Helper function to find a lockpicker on the ship!
+        /// </summary>
+        private GrabbableObject? FindLockpicker()
+        {
+            // So, we don't have a lockpicker in our inventory, lets check the ship!
+            GrabbableObject? closestKey = null;
+            float closestKeySqr = float.MaxValue;
+            for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
+            {
+                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
+                if (gameObject == null)
+                {
+                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
+                    continue;
+                }
+
+                GrabbableObject? lockpickerItem = gameObject.GetComponent<GrabbableObject>();
+                if (lockpickerItem != null
+                    && lockpickerItem is LockPicker lockpickerItemObj
+                    && lockpickerItemObj.isInShipRoom)
+                {
+                    float lockpickerSqr = (lockpickerItemObj.transform.position - npcController.Npc.transform.position).sqrMagnitude;
+                    if (lockpickerSqr < closestKeySqr
+                        && ai.IsGrabbableObjectGrabbable(lockpickerItemObj)) // NOTE: IsGrabbableObjectGrabbable has a pathfinding check, so we run it last since it can be expensive!
+                    {
+                        closestKeySqr = lockpickerSqr;
+                        closestKey = lockpickerItemObj;
                     }
                 }
             }
