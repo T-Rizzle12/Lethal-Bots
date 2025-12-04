@@ -3956,7 +3956,7 @@ namespace LethalBots.AI
                     Plugin.LogDebug($"awareness {grabbableObject.name}");
                 }
                 // Object visible ?
-                else if (!Physics.Linecast(eye.position, grabbableObject.GetItemFloorPosition(default(Vector3)) + Vector3.up * grabbableObject.itemProperties.verticalOffset, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
+                else if (!Physics.Linecast(eye.position, grabbableObject.GetItemFloorPosition(default(Vector3)) + Vector3.up * 0.05f, StartOfRound.Instance.collidersAndRoomMaskAndDefault)) // Was + Vector3.up * grabbableObject.itemProperties.verticalOffset, testing a small value to see if it has any kind of effect!
                 {
                     Vector3 to = gameObjectPosition - eye.position;
                     if (Vector3.Angle(eye.forward, to) < Const.LETHAL_BOT_FOV)

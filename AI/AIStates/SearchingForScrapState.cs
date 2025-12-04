@@ -22,7 +22,8 @@ namespace LethalBots.AI.AIStates
         private Coroutine? searchingWanderCoroutine = null;
         private Coroutine? lookingAroundCoroutine = null;
         private float scrapTimer;
-        private float waitForSafePathTimer;
+        private float waitForSafePathTimer; // This is how long we have been waiting for a safe path to our target entrance.
+        private int entranceAttempts; // This is how many times we spent going into the same entrance!
 
         public SearchingForScrapState(AIState oldState, EntranceTeleport? entranceToAvoid = null) : base(oldState)
         {
@@ -52,6 +53,7 @@ namespace LethalBots.AI.AIStates
             // we should always recheck the nearest entrance
             EntranceTeleport? entranceToAvoid = waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH ? this.targetEntrance : null;
             targetEntrance = FindClosestEntrance(entranceToAvoid: entranceToAvoid);
+            entranceAttempts = 0;
             base.OnEnterState();
         }
 
@@ -117,11 +119,13 @@ namespace LethalBots.AI.AIStates
 
                 // If we don't have an entrace selected we should pick one now!
                 if (targetEntrance == null 
-                    || waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH)
+                    || waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH 
+                    || entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS)
                 {
                     EntranceTeleport? entranceToAvoid = waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH ? this.targetEntrance : null;
                     targetEntrance = FindClosestEntrance(entranceToAvoid: entranceToAvoid);
                     waitForSafePathTimer = 0f;
+                    entranceAttempts = 0;
                     if (targetEntrance == null)
                     {
                         // If we fail to find an entrance we should return to the ship!
@@ -167,6 +171,7 @@ namespace LethalBots.AI.AIStates
                             return; // We should not use the entrance if the entrance is not safe!
                         }
                         ai.SyncTeleportLethalBot(entranceTeleportPos.Value, !this.targetEntrance?.isEntranceToBuilding ?? !ai.isOutside, this.targetEntrance);
+                        entranceAttempts++;
                     }
                     else
                     {

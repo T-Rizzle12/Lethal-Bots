@@ -94,7 +94,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Look at item or not if hidden by stuff
-            if (!Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, this.TargetItem.GetItemFloorPosition(default(Vector3)), out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault) 
+            if (!Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, this.TargetItem.GetItemFloorPosition(default(Vector3)) + Vector3.up * 0.05f, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault) 
                 || hitInfo.transform.GetComponent<GrabbableObject>() == this.TargetItem)
             {
                 npcController.OrderToLookAtPosition(this.TargetItem.transform.position);

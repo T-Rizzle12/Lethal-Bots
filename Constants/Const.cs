@@ -192,6 +192,7 @@ namespace LethalBots.Constants
         public const float MIN_TIME_SEARCH_LOOKING_AROUND = 2f;
         public const float MAX_TIME_SEARCH_LOOKING_AROUND = 10f;
         public const float WAIT_TIME_FOR_SAFE_PATH = 60f;
+        public const int MAX_ENTRANCE_ATTEMPTS = 3;
 
         // Use Inverse Teleporter State
         public const float DISTANCE_FROM_INVERSE_TELEPORTER = 1.5f;
