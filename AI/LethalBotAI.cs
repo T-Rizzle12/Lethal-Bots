@@ -8220,8 +8220,12 @@ namespace LethalBots.AI
             if (invalidateIsTouchingGround)
             {
                 isTouchingGround = false;
+                lastTimeCalculate = DateTime.Now.Ticks; // HACKHACK: Give time for the bridge to fall away before checking again!
             }
-            lastTimeCalculate = 0;
+            else
+            {
+                lastTimeCalculate = 0;
+            }
         }
 
         private bool NeedToRecalculate()
