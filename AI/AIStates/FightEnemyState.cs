@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using GameNetcodeStuff;
+using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using System.Collections;
@@ -257,27 +258,6 @@ namespace LethalBots.AI.AIStates
         }
 
         /// <summary>
-        /// Grabs the desired attack range for the bot!
-        /// </summary>
-        /// <remarks>
-        /// NOTE: This assumes the shotgun and shovel only!
-        /// </remarks>
-        /// <param name="weapon"></param>
-        /// <returns></returns>
-        private float GetAttackRangeForWeapon(GrabbableObject? weapon)
-        {
-            if (weapon == null)
-            {
-                return 2f; // Assume its the shovel!
-            }
-            if (LethalBotAI.IsItemRangedWeapon(weapon))
-            {
-                return 5f;
-            }
-            return 2f;
-        }
-
-        /// <summary>
         /// Changes back to the previous state
         /// </summary>
         protected override void ChangeBackToPreviousState()
@@ -439,50 +419,24 @@ namespace LethalBots.AI.AIStates
             if (this.currentEnemy == null)
                 return false;
 
-            Vector3 toEnemy = targetPos - npcController.Npc.gameplayCamera.transform.position;
-            float angleToEnemy = Vector3.Angle(npcController.Npc.playerEye.forward, toEnemy);
-            float maxFOV = 60f;
-            float radius = 5f;
-            float maxRange = 15f;
-            LayerMask hitMask = StartOfRound.Instance.collidersAndRoomMaskAndDefault;
-
-            // Configure by weapon type
-            if (heldItem is ShotgunItem)
-            {
-                maxFOV = 30f; // Found in source code!
-                radius = 5f;
-                maxRange = 15f;
-                hitMask = 524288; // Found in shotgun source code!
-            }
-            else if (heldItem is KnifeItem knife)
-            {
-                maxFOV = 45f;
-                radius = 0.3f;
-                maxRange = 0.75f;
-                hitMask = (int)knifeMask.GetValue(knife);
-            }
-            else if (heldItem is Shovel shovel)
-            {
-                maxFOV = 75f;
-                radius = 0.8f;
-                maxRange = 1.5f;
-                hitMask = (int)shovelMask.GetValue(shovel);
-            }
+            PlayerControllerB lethalBotController = npcController.Npc;
+            Vector3 toEnemy = targetPos - lethalBotController.gameplayCamera.transform.position;
+            float angleToEnemy = Vector3.Angle(lethalBotController.playerEye.forward, toEnemy);
 
             // Check if we can potentially hit!
+            GetWeaponAttackInfo(heldItem, lethalBotController, out Ray ray, out float maxFOV, out float radius, out float maxRange, out LayerMask hitMask);
             if (angleToEnemy < maxFOV)
             {
                 // Check if we hit the target!
                 enemyColliders ??= new RaycastHit[10];
 
                 // Do an initial linecast!
-                if (Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, targetPos, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
+                if (Physics.Linecast(lethalBotController.gameplayCamera.transform.position, targetPos, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
                 {
                     return false;
                 }
 
                 // Now check if we would actually hit based on the weapon's hitmask!
-                Ray ray = new Ray(npcController.Npc.gameplayCamera.transform.position, npcController.Npc.gameplayCamera.transform.forward);
                 int numHit = Physics.SphereCastNonAlloc(ray, radius, enemyColliders, maxRange, hitMask, QueryTriggerInteraction.Collide);
                 for (int i = 0; i < numHit; i++)
                 {
@@ -501,6 +455,26 @@ namespace LethalBots.AI.AIStates
             return false;
         }
 
+        /// <summary>
+        /// Grabs the desired attack range for the bot!
+        /// </summary>
+        /// <remarks>
+        /// NOTE: This assumes the shotgun and shovel only!
+        /// </remarks>
+        /// <param name="weapon"></param>
+        /// <returns></returns>
+        private float GetAttackRangeForWeapon(GrabbableObject? weapon)
+        {
+            if (weapon == null)
+            {
+                return 2f; // Assume its the shovel!
+            }
+            if (LethalBotAI.IsItemRangedWeapon(weapon))
+            {
+                return 5f;
+            }
+            return 2f;
+        }
 
         /// <summary>
         /// Helper function to return how often we press our primary attack button!
@@ -528,6 +502,60 @@ namespace LethalBots.AI.AIStates
             }
 
             return 0.78f; // Speed for shovels
+        }
+
+        /// <summary>
+        /// Helper function that grabs the information on a weapon
+        /// </summary>
+        /// <param name="weapon"></param>
+        /// <param name="lethalBotController"></param>
+        /// <param name="ray"></param>
+        /// <param name="maxFOV"></param>
+        /// <param name="radius"></param>
+        /// <param name="maxRange"></param>
+        /// <param name="hitMask"></param>
+        private void GetWeaponAttackInfo(GrabbableObject? weapon, PlayerControllerB lethalBotController, out Ray ray, out float maxFOV, out float radius, out float maxRange, out LayerMask hitMask)
+        {
+            // Default values!
+            maxFOV = 60f;
+            radius = 5f;
+            maxRange = 15f;
+            hitMask = StartOfRound.Instance.collidersAndRoomMaskAndDefault;
+            ray = new Ray(lethalBotController.gameplayCamera.transform.position, lethalBotController.gameplayCamera.transform.forward);
+
+            if (weapon == null)
+            {
+                return;
+            }
+
+            // Configure by weapon type
+            if (weapon is ShotgunItem)
+            {
+                // The ray and direction for the shotgun are diffrent!
+                Vector3 shotgunPostion = lethalBotController.gameplayCamera.transform.position - lethalBotController.gameplayCamera.transform.up * 0.45f;
+                Vector3 shotgunForward = lethalBotController.gameplayCamera.transform.forward;
+                ray = new Ray(shotgunPostion - shotgunForward * 10f, shotgunForward);
+                maxFOV = 30f; // Found in source code!
+                radius = 5f;
+                maxRange = 15f;
+                hitMask = 524288; // Found in shotgun source code!
+            }
+            else if (weapon is KnifeItem knife)
+            {
+                ray = new Ray(lethalBotController.gameplayCamera.transform.position + lethalBotController.gameplayCamera.transform.right * 0.1f, lethalBotController.gameplayCamera.transform.forward);
+                maxFOV = 45f;
+                radius = 0.3f;
+                maxRange = 0.75f;
+                hitMask = (int)knifeMask.GetValue(knife);
+            }
+            else if (weapon is Shovel shovel)
+            {
+                ray = new Ray(lethalBotController.gameplayCamera.transform.position + lethalBotController.gameplayCamera.transform.right * -0.35f, lethalBotController.gameplayCamera.transform.forward);
+                maxFOV = 75f;
+                radius = 0.8f;
+                maxRange = 1.5f;
+                hitMask = (int)shovelMask.GetValue(shovel);
+            }
         }
 
         private void StartAttackCoroutine()

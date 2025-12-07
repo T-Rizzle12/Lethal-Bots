@@ -41,15 +41,16 @@ namespace LethalBots.Patches.MapHazardsPatches
             // LIST OF FIELDS TESTED:
             // Instance: FAILED
             // spikeTrapAnimator: FAILED
-            // laserEye: 
+            // laserEye: FAILED
+            // stickingPointsContainer:
             HUDManager.Instance?.DisplayTip("Spike Roof Trap Spawned", "Check the logs!!!!!!");
-            TerminalAccessibleObject terminalAccessibleObject = __instance.laserEye.GetComponent<TerminalAccessibleObject>();
+            TerminalAccessibleObject terminalAccessibleObject = __instance.stickingPointsContainer.GetComponent<TerminalAccessibleObject>();
             if (terminalAccessibleObject == null)
             {
-                terminalAccessibleObject = __instance.laserEye.GetComponentInParent<TerminalAccessibleObject>();
+                terminalAccessibleObject = __instance.stickingPointsContainer.GetComponentInParent<TerminalAccessibleObject>();
                 if (terminalAccessibleObject == null)
                 {
-                    terminalAccessibleObject = __instance.laserEye.GetComponentInChildren<TerminalAccessibleObject>();
+                    terminalAccessibleObject = __instance.stickingPointsContainer.GetComponentInChildren<TerminalAccessibleObject>();
                     if (terminalAccessibleObject == null)
                     {
                         Plugin.LogDebug("Failed to find TerminalAccessibleObject in SpikeRoofTrap! :(");
