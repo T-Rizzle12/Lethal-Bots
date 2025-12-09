@@ -43,6 +43,24 @@ namespace LethalBots.AI.AIStates
             base.OnEnterState();
         }
 
+        public override void OnExitState()
+        {
+            // Make sure we release the held item button when finished!
+            GrabbableObject? heldItem = ai.HeldItem;
+            if (heldItem != null)
+            {
+                // Wait until the cooldown is over!
+                // NOTE: If we fail somehow, the default UseHeldItem will
+                // make us release the use key as well.
+                heldItem.UseItemOnClient(false);
+            }
+            if (droppedHeldItem != null)
+            {
+                LethalBotAI.DictJustDroppedItems.Remove(droppedHeldItem); //HACKHACK: Since DropItem sets the just dropped item timer, we clear it here!
+            }
+            base.OnExitState();
+        }
+
         public override void DoAI()
         {
             // Check for enemies
@@ -67,6 +85,7 @@ namespace LethalBots.AI.AIStates
             if (tzpSlot == -1)
             {
                 // We don't have any TZP in our inventory!
+                tzpItem = null;
                 if (!ai.HasGrabbableObjectInInventory(IsUsableTZPItem, out tzpSlot))
                 {
                     ChangeBackToPreviousState();
@@ -90,36 +109,21 @@ namespace LethalBots.AI.AIStates
                         ai.DropItem();
                         return;
                     }
+                    if (npcController.Npc.activatingItem)
+                    {
+                        heldItem?.UseItemOnClient(false);
+                        return;
+                    }
                     ai.SwitchItemSlotsAndSync(tzpSlot);
                     return;
                 }
 
                 // Use it!
-                if (!npcController.Npc.activatingItem)
+                if (!npcController.Npc.activatingItem && ai.CanUseHeldItem())
                 { 
                     tzpItem.UseItemOnClient(true); 
                 }
             }
-        }
-
-        protected override void ChangeBackToPreviousState()
-        {
-            // Make sure we release the held item button when finished!
-            GrabbableObject? heldItem = ai.HeldItem;
-            if (heldItem != null)
-            {
-                // Wait until the cooldown is over!
-                if (heldItem.RequireCooldown())
-                {
-                    return;
-                }
-                heldItem.UseItemOnClient(false);
-            }
-            if (droppedHeldItem != null)
-            {
-                LethalBotAI.DictJustDroppedItems.Remove(droppedHeldItem); //HACKHACK: Since DropItem sets the just dropped item timer, we clear it here!
-            }
-            base.ChangeBackToPreviousState();
         }
 
         public override void UseHeldItem()

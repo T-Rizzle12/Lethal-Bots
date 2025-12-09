@@ -185,15 +185,9 @@ namespace LethalBots.AI.AIStates
                 else
                 {
                     // Swap to our next item!
-                    for (int i = 0; i < npcController.Npc.ItemSlots.Length; i++)
+                    if (ai.HasGrabbableObjectInInventory(FindNextSellableObject, out int itemSlot))
                     {
-                        var item = npcController.Npc.ItemSlots[i];
-                        if (item != null 
-                            && ai.IsGrabbableObjectSellable(item, true, true))
-                        {
-                            ai.SwitchItemSlotsAndSync(i);
-                            break;
-                        }
+                        ai.SwitchItemSlotsAndSync(itemSlot);
                     }
                 }
             }
@@ -203,6 +197,20 @@ namespace LethalBots.AI.AIStates
         public override void TryPlayCurrentStateVoiceAudio()
         {
             return;
+        }
+
+        /// <summary>
+        /// Helper function to check if the given <paramref name="item"/> is a object we can sell!
+        /// </summary>
+        /// <remarks>
+        /// This was designed for use in <see cref="LethalBotAI.HasGrabbableObjectInInventory(Func{GrabbableObject?, bool}, out int)"/> calls.
+        /// </remarks>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        private bool FindNextSellableObject(GrabbableObject? item)
+        {
+            if (item == null) return false;
+            return ai.IsGrabbableObjectSellable(item, true, true);
         }
 
         /// <summary>

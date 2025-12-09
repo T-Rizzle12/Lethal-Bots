@@ -22,6 +22,7 @@ namespace LethalBots.AI.AIStates
         private DoorLock? targetDoor = null;
         private Vector3? doorPos = null;
         private float attemptToUnlockTimer;
+        private GrabbableObject? droppedHeldItem;
         private bool placedLockpicker = false;
         public UseKeyOnLockedDoorState(AIState oldState, DoorLock? doorLock) : base(oldState)
         {
@@ -79,6 +80,15 @@ namespace LethalBots.AI.AIStates
                 }
             }
             base.OnEnterState();
+        }
+
+        public override void OnExitState()
+        {
+            if (droppedHeldItem != null)
+            {
+                LethalBotAI.DictJustDroppedItems.Remove(droppedHeldItem); //HACKHACK: Since DropItem sets the just dropped item timer, we clear it here!
+            }
+            base.OnExitState();
         }
 
         public override void DoAI()
@@ -151,37 +161,19 @@ namespace LethalBots.AI.AIStates
             int keySlot = ai.IsHoldingKey() ? npcController.Npc.currentItemSlot : -1;
             if (keySlot == -1)
             {
-                for (int i = 0; i < npcController.Npc.ItemSlots.Length; i++)
+                if (!ai.TryFindItemInInventory(IsKeyItem, IsBetterKey, out keySlot))
                 {
-                    GrabbableObject? ourItem = npcController.Npc.ItemSlots[i];
-                    if (ourItem != null)
+                    // We don't have a key, exit early!
+                    // If we were trying to grab a item past a locked door,
+                    // we set it as recently dropped so we don't go after it for a bit.
+                    if (this.TargetItem != null)
                     {
-                        // We prefer the key over the lockpick if possible!
-                        if (ourItem is KeyItem)
-                        {
-                            keySlot = i;
-                            break;
-                        }
-                        else if (ourItem is LockPicker)
-                        {
-                            keySlot = i;
-                        }
+                        LethalBotAI.DictJustDroppedItems[this.TargetItem] = Time.realtimeSinceStartup;
+                        this.TargetItem = null;
                     }
+                    ChangeBackToPreviousState();
+                    return;
                 }
-            }
-
-            // We don't have a key, exit early!
-            if (keySlot == -1)
-            {
-                // If we were trying to grab a item past a locked door,
-                // we set it as recently dropped so we don't go after it for a bit.
-                if (this.TargetItem != null)
-                {
-                    LethalBotAI.DictJustDroppedItems[this.TargetItem] = Time.realtimeSinceStartup;
-                    this.TargetItem = null;
-                }
-                ChangeBackToPreviousState();
-                return;
             }
 
             // Look at door or not if hidden by stuff
@@ -208,10 +200,10 @@ namespace LethalBots.AI.AIStates
                 {
                     ai.StopMoving();
                     GrabbableObject? heldItem = ai.HeldItem;
-                    if (heldItem != null && heldItem is not KeyItem && heldItem is not LockPicker && heldItem.itemProperties.twoHanded)
+                    if (heldItem != null && !IsKeyItem(heldItem) && heldItem.itemProperties.twoHanded)
                     {
+                        droppedHeldItem = heldItem;
                         ai.DropItem();
-                        LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
                         return;
                     }
                     else if (heldItem == null || (heldItem is not KeyItem && heldItem is not LockPicker))
@@ -297,6 +289,43 @@ namespace LethalBots.AI.AIStates
         public override void TryPlayCurrentStateVoiceAudio()
         {
             return;
+        }
+
+        /// <summary>
+        /// Helper function to check if the given <paramref name="item"/> is a key or lockpicker!
+        /// </summary>
+        /// <remarks>
+        /// This was designed for use in <see cref="LethalBotAI.TryFindItemInInventory(System.Func{GrabbableObject?, bool}, System.Func{GrabbableObject, GrabbableObject?, bool}, out int)"/> calls.
+        /// </remarks>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        private static bool IsKeyItem(GrabbableObject? item)
+        {
+            return item is KeyItem || item is LockPicker;
+        }
+
+        /// <summary>
+        /// Helper function to check if the <paramref name="canidate"/> is better than our <paramref name="currentBest"/>!
+        /// </summary>
+        /// <remarks>
+        /// This was designed for use in <see cref="LethalBotAI.TryFindItemInInventory(System.Func{GrabbableObject?, bool}, System.Func{GrabbableObject, GrabbableObject?, bool}, out int)"/> calls.
+        /// </remarks>
+        /// <param name="currentBest">The best grabbable object we have found so far.</param>
+        /// <param name="canidate">The next object that past the filter earlier in the function.</param>
+        /// <returns></returns>
+        private static bool IsBetterKey(GrabbableObject currentBest, GrabbableObject? canidate)
+        {
+            // We prefer the key over the lockpick if possible!
+            if (canidate == null)
+            {
+                return false;
+            }
+            else if (currentBest is not KeyItem && canidate is KeyItem)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

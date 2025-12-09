@@ -3402,15 +3402,16 @@ namespace LethalBots.AI
         /// <summary>
         /// Is the lethalBot holding a key ?
         /// </summary>
+        /// <param name="keyOnly">Should we only consider "actual" keys</param>
         /// <returns>I mean come on</returns>
         [MemberNotNullWhen(true, nameof(HeldItem))]
-        public bool IsHoldingKey()
+        public bool IsHoldingKey(bool keyOnly = false)
         {
             if (AreHandsFree())
             {
                 return false;
             }
-            return HeldItem is KeyItem || HeldItem is LockPicker;
+            return HeldItem is KeyItem || (!keyOnly && HeldItem is LockPicker);
         }
 
         /// <summary>
@@ -3459,16 +3460,17 @@ namespace LethalBots.AI
         /// <summary>
         /// Does the lethalBot have a key ?
         /// </summary>
+        /// <param name="keyOnly">Should we only consider "actual" keys</param>
         /// <returns>I mean come on</returns>
-        public bool HasKeyInInventory()
+        public bool HasKeyInInventory(bool keyOnly = false)
         {
-            if (IsHoldingKey())
+            if (IsHoldingKey(keyOnly))
             {
                 return true;
             }
             foreach (var item in NpcController.Npc.ItemSlots)
             {
-                if (item != null && (item is KeyItem || item is LockPicker))
+                if (item != null && (item is KeyItem || (!keyOnly && item is LockPicker)))
                 {
                     return true;
                 }
@@ -3486,7 +3488,7 @@ namespace LethalBots.AI
         /// <returns>I mean come on</returns>
         public static bool IsItemRangedWeapon([NotNullWhen(true)] GrabbableObject? weapon)
         {
-            if (!IsItemWeapon(weapon))
+            if (weapon == null)
             {
                 return false;
             }
@@ -3506,8 +3508,15 @@ namespace LethalBots.AI
             {
                 return false;
             }
+
+            // Ranged weapons count as weapons!
+            if (IsItemRangedWeapon(weapon))
+            {
+                return true;
+            }
+
             // HACKHACK: weapon.itemProperties.isDefensiveWeapon is set to false on the shovel and shotgun!?
-            return weapon is Shovel || weapon is KnifeItem || weapon is ShotgunItem;
+            return weapon is Shovel || weapon is KnifeItem;
         }
 
         /// <summary>
@@ -3677,7 +3686,7 @@ namespace LethalBots.AI
         /// <param name="isBetter">The function to determine if the found object is better than the current best one! First parameter is the current best item, second parameter is the new candidate item!</param>
         /// <param name="objectSlot">The slot of where the object was found at! Is set to -1 if item was not found!</param>
         /// <returns></returns>
-        public bool TryFindItemInInventory(Func<GrabbableObject?, bool> filter, Func<GrabbableObject?, GrabbableObject?, bool> isBetter, out int objectSlot)
+        public bool TryFindItemInInventory(Func<GrabbableObject?, bool> filter, Func<GrabbableObject, GrabbableObject?, bool> isBetter, out int objectSlot)
         {
             // Unlike HasGrabbableObjectInInventory, we can't early out if the bot's held item matches the filter
             objectSlot = -1;

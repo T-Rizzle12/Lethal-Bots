@@ -365,6 +365,8 @@ namespace LethalBots.AI.AIStates
                     continue;
                 }
 
+                // TODO: move this into a function outside of the corutine, so
+                // modders can add custom support for ranged weapons.....
                 if (heldItem is ShotgunItem shotgun)
                 {
                     // Can't fire, we are reloading!
