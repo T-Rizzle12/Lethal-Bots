@@ -125,7 +125,7 @@ namespace LethalBots.AI.AIStates
                     || waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH 
                     || entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS)
                 {
-                    EntranceTeleport? entranceToAvoid = waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH ? this.targetEntrance : null;
+                    EntranceTeleport? entranceToAvoid = (waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH || entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS) ? this.targetEntrance : null;
                     targetEntrance = FindClosestEntrance(entranceToAvoid: entranceToAvoid);
                     waitForSafePathTimer = 0f;
                     entranceAttempts = 0;
