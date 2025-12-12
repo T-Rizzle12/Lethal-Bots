@@ -33,6 +33,7 @@ namespace LethalBots.Patches.ObjectsPatches
             return !LethalBotManager.Instance.IsAnLethalBotAiOwnerOfObject(__instance);
         }
 
+        // TODO: Change this into a transpiler so we can make it more comptable with other mods!
         [HarmonyPatch("DiscardItemOnClient")]
         [HarmonyPrefix]
         static bool DiscardItemOnClient_PreFix(GrabbableObject __instance)

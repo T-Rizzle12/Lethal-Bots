@@ -677,7 +677,7 @@ namespace LethalBots.Managers
             RegisterThreat(typeof(MouthDogAI),
                 fq => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel >= 9 ? 20f : 5f,
                 fq => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel >= 9 ? 20f : null,
-                fq => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel > 1 ? 30f : 20f // Increase the danger range if they are angry!
+                fq => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel > 0 ? 30f : 20f // Increase the danger range if they are angry!
             );
 
             // Snare Flea
@@ -706,7 +706,7 @@ namespace LethalBots.Managers
             RegisterThreat(typeof(ButlerEnemyAI),
                 fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null,
                 fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null
+                fq => (fq.EnemyAI.currentBehaviourStateIndex == 2 || (fq.Bot is LethalBotAI lethalBotAI && lethalBotAI.NpcController.Npc.isPlayerAlone)) ? 20f : null
             );
 
             // Loot Bugs
@@ -733,7 +733,7 @@ namespace LethalBots.Managers
 
             // Spider!
             RegisterThreat(typeof(SandSpiderAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null, // Sigh, i may or may not of added this after a particular experience where bots got stuck in a loop of running away and coming back despite the spider not actually chasing them!
+                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 5f, // Sigh, i may or may not of added this after a particular experience where bots got stuck in a loop of running away and coming back despite the spider not actually chasing them!
                 fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
                 _ => 20f // Always 20 for pathfinding
             );

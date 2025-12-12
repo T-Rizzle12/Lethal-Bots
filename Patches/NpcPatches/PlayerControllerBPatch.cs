@@ -360,57 +360,6 @@ namespace LethalBots.Patches.NpcPatches
         }
 
         /// <summary>
-        /// Patch to call the right method for destroying an item for the lethalBot
-        /// </summary>
-        /// <returns></returns>
-        [HarmonyPatch("DestroyItemInSlotAndSync")]
-        [HarmonyPrefix]
-        static bool DestroyItemInSlotAndSync_Prefix(PlayerControllerB __instance, int itemSlot)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                lethalBotAI.DestroyItemInSlotAndSync(itemSlot);
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// Patch to call the right method for destroying an item for the lethalBot
-        /// </summary>
-        /// <returns></returns>
-        [HarmonyPatch("DestroyItemInSlotClientRpc")]
-        [HarmonyPrefix]
-        static bool DestroyItemInSlotClientRpc_Prefix(PlayerControllerB __instance, int itemSlot)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                lethalBotAI.DestroyItemInSlotClientRpc(itemSlot);
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// Patch to call the right method for destroying an item for the lethalBot
-        /// </summary>
-        /// <returns></returns>
-        [HarmonyPatch("DestroyItemInSlotServerRpc")]
-        [HarmonyPrefix]
-        static bool DestroyItemInSlotServerRpc_Prefix(PlayerControllerB __instance, int itemSlot)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                lethalBotAI.DestroyItemInSlotServerRpc(itemSlot);
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
         /// Patch to call the right method for dropping all items for the lethalBot
         /// </summary>
         /// <returns></returns>
@@ -422,57 +371,6 @@ namespace LethalBots.Patches.NpcPatches
             if (lethalBotAI != null)
             {
                 lethalBotAI.DropAllHeldItems(itemsFall);
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// Patch to call the right method for dropping all items for the lethalBot
-        /// </summary>
-        /// <returns></returns>
-        [HarmonyPatch("DropAllHeldItemsAndSync")]
-        [HarmonyPrefix]
-        static bool DropAllHeldItemsAndSync_Prefix(PlayerControllerB __instance)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                lethalBotAI.DropAllHeldItemsAndSync();
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// Patch to call the right method for dropping all items for the lethalBot
-        /// </summary>
-        /// <returns></returns>
-        [HarmonyPatch("DropAllHeldItemsServerRpc")]
-        [HarmonyPrefix]
-        static bool DropAllHeldItemsServerRpc_Prefix(PlayerControllerB __instance)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                lethalBotAI.DropAllHeldItemsServerRpc();
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// Patch to call the right method for dropping all items for the lethalBot
-        /// </summary>
-        /// <returns></returns>
-        [HarmonyPatch("DropAllHeldItemsClientRpc")]
-        [HarmonyPrefix]
-        static bool DropAllHeldItemsClientRpc_Prefix(PlayerControllerB __instance)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                lethalBotAI.DropAllHeldItemsClientRpc();
                 return false;
             }
             return true;

@@ -556,7 +556,7 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         /// <param name="isDeadBody"></param>
         /// <returns></returns>
-        private IEnumerator TryTeleportPlayer(bool isDeadBody = false)
+        private IEnumerator TryTeleportPlayer(bool isDeadBody = false, bool skipPostCheck = false)
         {
             if (ShipTeleporter != null && (!isDeadBody || ShipTeleporter.buttonTrigger.interactable))
             {
@@ -568,6 +568,24 @@ namespace LethalBots.AI.AIStates
                 }
                 // HACKHACK: Fake pressing the button!
                 yield return new WaitUntil(() => ShipTeleporter.buttonTrigger.interactable);
+                yield return null; // Just in case the WaitUntil was already true;
+
+                // Make sure that in the period we were waiting to teleport the player or body
+                // that they still need to be teleported!
+                PlayerControllerB playerOnMonitor = StartOfRound.Instance.mapScreen.targetedPlayer;
+                if (playerOnMonitor != null && !skipPostCheck)
+                {
+                    if (isDeadBody)
+                    {
+                        if (!ShouldTeleportDeadBody(playerOnMonitor))
+                            yield break;
+                    }
+                    else if (!IsPlayerInGraveDanger(playerOnMonitor))
+                    {
+                        yield break;
+                    }
+                }
+
                 ShipTeleporter.PressTeleportButtonOnLocalClient();
             }
         }

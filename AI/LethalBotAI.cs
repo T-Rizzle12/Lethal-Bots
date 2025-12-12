@@ -3969,7 +3969,7 @@ namespace LethalBots.AI
                     Plugin.LogDebug($"awareness {grabbableObject.name}");
                 }
                 // Object visible ?
-                else if (!Physics.Linecast(eye.position, grabbableObject.GetItemFloorPosition(default(Vector3)) + Vector3.up * 0.05f, StartOfRound.Instance.collidersAndRoomMaskAndDefault)) // Was + Vector3.up * grabbableObject.itemProperties.verticalOffset, testing a small value to see if it has any kind of effect!
+                else if (!Physics.Linecast(eye.position, grabbableObject.transform.position + Vector3.up * 0.05f, StartOfRound.Instance.collidersAndRoomMaskAndDefault)) // Was + Vector3.up * grabbableObject.itemProperties.verticalOffset, testing a small value to see if it has any kind of effect!
                 {
                     Vector3 to = gameObjectPosition - eye.position;
                     if (Vector3.Angle(eye.forward, to) < Const.LETHAL_BOT_FOV)
@@ -4190,7 +4190,7 @@ namespace LethalBots.AI
             TrimDictJustDroppedItems();
 
             // Is the item reachable with the agent pathfind ? (only owner knows and calculate) real position of ai lethalBot)
-            Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(grabbableObject.GetItemFloorPosition(default(Vector3)), default, NpcController.Npc.grabDistance, NavMesh.AllAreas);
+            Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(grabbableObject.transform.position, default, NpcController.Npc.grabDistance, NavMesh.AllAreas);
             if (IsOwner
                 && !this.IsValidPathToTarget(objectPos, false, maxRangeToEnd: NpcController.Npc.grabDistance))
             {
@@ -4274,7 +4274,7 @@ namespace LethalBots.AI
             TrimDictJustDroppedItems();
 
             // Is the item reachable with the agent pathfind ? (only owner knows and calculate) real position of ai lethalBot)
-            Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(grabbableObject.GetItemFloorPosition(default(Vector3)), default, NpcController.Npc.grabDistance, NavMesh.AllAreas);
+            Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(grabbableObject.transform.position, default, NpcController.Npc.grabDistance, NavMesh.AllAreas);
             if (IsOwner 
                 && !skipPathCheck
                 && !this.IsValidPathToTarget(objectPos, false, maxRangeToEnd: NpcController.Npc.grabDistance))
@@ -5986,7 +5986,7 @@ namespace LethalBots.AI
         }
 
         [ServerRpc(RequireOwnership = false)]
-        public void DiscardItemServerRpc(NetworkObjectReference discardObjectNetwork)
+        internal void DiscardItemServerRpc(NetworkObjectReference discardObjectNetwork)
         {
             if (discardObjectNetwork.TryGet(out NetworkObject networkObject, null))
             {
@@ -5999,7 +5999,7 @@ namespace LethalBots.AI
         }
 
         [ClientRpc]
-        public void DiscardItemClientRpc(NetworkObjectReference discardObjectNetwork)
+        private void DiscardItemClientRpc(NetworkObjectReference discardObjectNetwork)
         {
             if (discardObjectNetwork.TryGet(out NetworkObject networkObject, null))
             {
@@ -6019,49 +6019,6 @@ namespace LethalBots.AI
             else
             {
                 Plugin.LogError($"Lethal Bot {this.NpcController.Npc.playerUsername} on client #{NetworkManager.LocalClientId} discard item : The server did not have a reference to the object");
-            }
-        }
-
-        /// <summary>
-        /// Destorys the grabbable object in the given slot and syncs with other clients!
-        /// </summary>
-        /// <param name="itemSlot"></param>
-        public void DestroyItemInSlotAndSync(int itemSlot)
-        {
-            if (base.IsOwner)
-            {
-                PlayerControllerB lethalBotController = NpcController.Npc;
-                if (itemSlot >= lethalBotController.ItemSlots.Length || lethalBotController.ItemSlots[itemSlot] == null)
-                {
-                    Plugin.LogError($"Destroy item in slot called for a slot (slot {itemSlot}) which is empty or incorrect");
-                }
-
-                NpcController.TimeSinceSwitchingSlots = 0f;
-                DestroyItemInSlot(itemSlot);
-                DestroyItemInSlotServerRpc(itemSlot);
-            }
-        }
-
-        /// <summary>
-        /// Server rpc to destory the grabbable object in the given slot
-        /// </summary>
-        /// <param name="itemSlot"></param>
-        [ServerRpc]
-        public void DestroyItemInSlotServerRpc(int itemSlot)
-        {
-            DestroyItemInSlotClientRpc(itemSlot);
-        }
-
-        /// <summary>
-        /// Client rpc to destory the grabbable object in the given slot
-        /// </summary>
-        /// <param name="itemSlot"></param>
-        [ClientRpc]
-        public void DestroyItemInSlotClientRpc(int itemSlot)
-        {
-            if (!base.IsOwner)
-            {
-                DestroyItemInSlot(itemSlot);
             }
         }
 
@@ -6181,33 +6138,6 @@ namespace LethalBots.AI
             NpcController.Npc.twoHanded = false;
             NpcController.Npc.carryWeight = 1f;
             NpcController.Npc.currentlyHeldObjectServer = null;
-        }
-
-        /// <summary>
-        /// Copied from <c>PlayerControllerB</c>, makes the bot drop everthing held! 
-        /// </summary>
-        public void DropAllHeldItemsAndSync()
-        { 
-            DropAllHeldItems();
-            DropAllHeldItemsServerRpc();
-        }
-
-        /// <summary>
-        /// Copied from <c>PlayerControllerB</c>, makes the bot drop everthing held! 
-        /// </summary>
-        [ServerRpc(RequireOwnership = false)]
-        public void DropAllHeldItemsServerRpc()
-        {
-            DropAllHeldItemsClientRpc();
-        }
-
-        /// <summary>
-        /// Copied from <c>PlayerControllerB</c>, makes the bot drop everthing held! 
-        /// </summary>
-        [ClientRpc]
-        public void DropAllHeldItemsClientRpc()
-        {
-            DropAllHeldItems();
         }
 
         /// <summary>
