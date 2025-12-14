@@ -2709,7 +2709,7 @@ namespace LethalBots.Managers
         public void UpdateOwnershipOfBotInventoryServer(float deltaTime)
         {
             timerUpdateOwnershipOfBotInventory += deltaTime;
-            if (timerUpdateOwnershipOfBotInventory < 0.5)
+            if (timerUpdateOwnershipOfBotInventory < 0.5 || !base.IsServer)
             {
                 return;
             }
