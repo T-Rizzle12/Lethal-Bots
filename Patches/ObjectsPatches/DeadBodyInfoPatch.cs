@@ -2,6 +2,7 @@
 using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Managers;
+using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Utils;
 using System.Collections.Generic;
 using System.Data;
@@ -42,6 +43,13 @@ namespace LethalBots.Patches.ObjectsPatches
         static void DetectIfSeenByLocalPlayer_PostFix(DeadBodyInfo __instance)
         {
             DeadBodyInfoMonitor deadBodyInfoMonitor = GetOrCreateMonitor(__instance);
+            if (!deadBodyInfoMonitor.CanUpdate())
+            {
+                deadBodyInfoMonitor.Update(Time.deltaTime);
+                return;
+            }
+
+            deadBodyInfoMonitor.Invalidate();
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
             foreach (LethalBotAI lethalBotAI in lethalBotAIs)
             {
@@ -143,7 +151,9 @@ namespace LethalBots.Patches.ObjectsPatches
             }
         }
 
-        private class DeadBodyInfoMonitor
+        // Might as well make it inherit the UpdateLimiter class.
+        // Less objects to keep refrence of in memory!
+        private class DeadBodyInfoMonitor : UpdateLimiter
         {
             public Dictionary<LethalBotAI, bool> lethalBotAIs = new Dictionary<LethalBotAI, bool>();
 

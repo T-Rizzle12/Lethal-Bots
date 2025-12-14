@@ -192,7 +192,7 @@ namespace LethalBots.Patches.EnemiesPatches
     /// <remarks>
     /// I should probably move this into its own file
     /// </remarks>
-    internal sealed class UpdateLimiter
+    internal class UpdateLimiter
     {
         private float nextUpdateCheck;
         private float updateInterval;
