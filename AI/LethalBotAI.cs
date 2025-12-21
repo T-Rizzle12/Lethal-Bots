@@ -244,6 +244,38 @@ namespace LethalBots.AI
             //Plugin.LogDebug("LethalBotAI started");
         }
 
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+
+            if (!IsServer && !IsHost)
+            {
+                StartCoroutine(ClientSideInit());
+            }
+        }
+
+        private IEnumerator ClientSideInit()
+        {
+            // Wait for the parent to be synced!
+            while (transform.parent == null)
+            {
+                yield return null;
+            }
+
+            // We are an enemy AI, so we are parented to the player controller's parent object (the body)
+            PlayerControllerB? controller = transform.parent.GetComponent<PlayerControllerB>();
+            if (controller != null)
+            {
+                this.NpcController = new NpcController(controller);
+                InitLethalBotVoiceComponent();
+                Plugin.LogDebug($"Client side initialized voice for Bot {controller.playerUsername}");
+            }
+            else
+            {
+                Plugin.LogError($"Could not find PlayerControllerB in parent for Bot {NetworkObjectId}");
+            }
+        }
+
         /// <summary>
         /// Initialization of the field.
         /// </summary>
