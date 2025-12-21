@@ -26,6 +26,7 @@ namespace LethalBots.Utils
                 return null;
             }
 
+#pragma warning disable CS0162
             for (int i = 0; i < _listLineRenderers.Length; i++)
             {
                 if (_listLineRenderers[i] == null)
@@ -34,6 +35,7 @@ namespace LethalBots.Utils
                     return _listLineRenderers[i];
                 }
             }
+#pragma warning restore CS0162
 
             if (_index >= _listLineRenderers.Length)
             {

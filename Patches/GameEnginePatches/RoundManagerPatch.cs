@@ -19,12 +19,14 @@ namespace LethalBots.Patches.GameEnginePatches
                 return true;
             }
 
+#pragma warning disable CS0162
             StartOfRound.Instance.currentLevel.moldStartPosition = 5;
             __instance.currentLevel.moldSpreadIterations = 5;
             Plugin.LogDebug($"StartOfRound.Instance.currentLevel.moldStartPosition {StartOfRound.Instance.currentLevel.moldStartPosition}");
             Plugin.LogDebug($"__instance.currentLevel.moldSpreadIterations {__instance.currentLevel.moldSpreadIterations}");
 
             return true;
+#pragma warning restore CS0162
         }
 
         [HarmonyPatch("GenerateNewFloor")]
@@ -36,6 +38,7 @@ namespace LethalBots.Patches.GameEnginePatches
                 return;
             }
 
+#pragma warning disable CS0162
             IntWithRarity intWithRarity;
             for (int i = 0; i < __instance.currentLevel.dungeonFlowTypes.Length; i++)
             {
@@ -57,6 +60,7 @@ namespace LethalBots.Patches.GameEnginePatches
                 }
                 Plugin.LogDebug($"dungeonFlowTypes {intWithRarity.id} {intWithRarity.rarity}");
             }
+#pragma warning restore CS0162
         }
 
         /// <summary>

@@ -179,9 +179,11 @@ namespace LethalBots.Patches.NpcPatches
 
             if (DebugConst.NO_DAMAGE)
             {
+#pragma warning disable CS0162
                 // Bootleg invulnerability
                 Plugin.LogDebug($"Bootleg invulnerability (return false)");
                 return false;
+#pragma warning restore CS0162
             }
             return true;
         }
@@ -283,9 +285,11 @@ namespace LethalBots.Patches.NpcPatches
             // A player is killed 
             if (DebugConst.NO_DEATH)
             {
+#pragma warning disable CS0162
                 // Bootleg invincibility
                 Plugin.LogDebug($"Bootleg invincibility");
                 return false;
+#pragma warning restore CS0162
             }
 
             // NOTE: Disabled on purpose since this is now handled by RagdollGrabbablePatch!

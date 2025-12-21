@@ -50,6 +50,7 @@ namespace LethalBots.Patches.GameEnginePatches
                 return true;
             }
 
+#pragma warning disable CS0162
             if (!__instance.AutoObjectParentSync)
             {
                 return true;
@@ -89,6 +90,7 @@ namespace LethalBots.Patches.GameEnginePatches
             }
 
             return true;
+#pragma warning restore CS0162
         }
     }
 }
