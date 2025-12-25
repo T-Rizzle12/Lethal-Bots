@@ -211,7 +211,7 @@ namespace LethalBots.AI
             }
             CurrentAudioSource.pitch = desiredPitch;*/
             CurrentAudioSource.clip = audioClip;
-            AudioManager.Instance.FadeInAudio(CurrentAudioSource, VoicesConst.FADE_IN_TIME, this.Volume);
+            CurrentAudioSource.Play();
 
             SetCooldownAudio(audioClip.length + GetRandomCooldown());
         }
@@ -350,7 +350,7 @@ namespace LethalBots.AI
         {
             if (CurrentAudioSource.isPlaying)
             {
-                AudioManager.Instance.FadeOutAndStopAudio(CurrentAudioSource, VoicesConst.FADE_OUT_TIME);
+                CurrentAudioSource.Stop();
                 LastVoiceState = EnumVoicesState.None;
             }
         }
