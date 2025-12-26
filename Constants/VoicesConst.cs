@@ -7,8 +7,6 @@ namespace LethalBots.Constants
         public const EnumTalkativeness DEFAULT_CONFIG_ENUM_TALKATIVENESS = EnumTalkativeness.Normal;
 
         public const float DISTANCE_HEAR_OTHER_BOTS = 10f;
-        public const float FADE_IN_TIME = 0.1f;
-        public const float FADE_OUT_TIME = 0.2f;
         public const string SWEAR_KEYWORD = "_cuss";
         public const string INSIDE_KEYWORD = "_inside";
         public const string OUTSIDE_KEYWORD = "_outside";
