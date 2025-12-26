@@ -1,0 +1,37 @@
+name: Build Lethal-Bots
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore LethalBot.csproj
+
+      - name: Build Release
+        run: dotnet build LethalBot.csproj --configuration Release --no-restore
+
+      - name: Collect plugin DLL
+        run: |
+          mkdir artifact
+          copy bin\Release\**\LethalBot.dll artifact\
+
+      - name: Upload DLL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lethal-Bots
+          path: artifact/LethalBot.dll

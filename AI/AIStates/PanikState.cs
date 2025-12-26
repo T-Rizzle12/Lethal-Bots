@@ -424,7 +424,8 @@ namespace LethalBots.AI.AIStates
 
         public override void OnPlayerChatMessageReceived(string message, PlayerControllerB playerWhoSentMessage, bool isVoice)
         {
-            if (message.Contains("jester"))
+            BotIntent intent = Plugin.DetectIntent(message);
+            if (intent == BotIntent.Jester)
             {
                 // Jester is a special case, we should not panic if we are already panicking!
                 if (currentEnemy is JesterAI || ai.isOutside)

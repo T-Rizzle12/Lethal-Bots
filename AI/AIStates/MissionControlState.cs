@@ -1401,7 +1401,9 @@ namespace LethalBots.AI.AIStates
         {
             if (playerWhoSentMessage != null)
             {
-                if (message.Contains("start the ship"))
+                BotIntent intent = Plugin.DetectIntent(message);
+
+                if (intent == BotIntent.StartShip)
                 {
                     // Now we need to do some safety checks first. Only the host can tell the bot to pull the lever.
                     // Unless they are dead!
@@ -1414,17 +1416,17 @@ namespace LethalBots.AI.AIStates
                     }
                 }
                 // A player is requesting we monitor them
-                else if (message.Contains("request monitoring"))
+                else if (intent == BotIntent.RequestMonitoring)
                 {
                     monitoredPlayer = playerWhoSentMessage;
                 }
                 // The player wants to stop being monitored
-                else if (monitoredPlayer == playerWhoSentMessage && message.Contains("clear monitoring"))
+                else if (monitoredPlayer == playerWhoSentMessage && intent == BotIntent.ClearMonitoring)
                 {
                     monitoredPlayer = null;
                 }
                 // This player wants to be teleported back to the ship
-                else if (message.Contains("request teleport"))
+                else if (intent == BotIntent.RequestTeleport)
                 {
                     // Only add new requests!
                     if (!playersRequstedTeleport.Contains(playerWhoSentMessage))
@@ -1434,21 +1436,24 @@ namespace LethalBots.AI.AIStates
                 }
                 // A player is asking us to get off the terminal,
                 // probably so they can use it.
-                else if (message.Contains("hop off the terminal"))
+                else if (intent == BotIntent.LeaveTerminal)
                 {
                     playerRequestedTerminal = true;
                     waitForTerminalTime = 0f;
                 }
                 // A player is asking us to transmit a message
-                else if (message.Contains(Const.TRANSMIT_KEYWORD))
+                else if (intent == BotIntent.Transmit)
                 {
                     // First we need to extract the message!
-                    // FIXME: There has to be a better way to do this!
-                    int transmitIndex = message.IndexOf(Const.TRANSMIT_KEYWORD) + Const.TRANSMIT_KEYWORD_LENGTH;
-                    string messageToTransmit = message.Substring(transmitIndex).Trim();
-
-                    // Queue the message to be sent!
-                    SendMessageUsingSignalTranslator(messageToTransmit, MessagePriority.High);
+                    // Both "transmit" and Const.TRANSMIT_KEYWORD are the same word
+                    int transmitIndex = message.IndexOf(Const.TRANSMIT_KEYWORD);
+                    if (transmitIndex != -1)
+                    {
+                        transmitIndex += Const.TRANSMIT_KEYWORD_LENGTH;
+                        string messageToTransmit = message.Substring(transmitIndex).Trim();
+                        // Queue the message to be sent!
+                        SendMessageUsingSignalTranslator(messageToTransmit, MessagePriority.High);
+                    }
                 }
             }
         }
