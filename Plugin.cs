@@ -1,6 +1,7 @@
 ﻿using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
+using LethalBots.Enums;
 using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Inputs;
@@ -43,24 +44,6 @@ using PySpeech;
 
 namespace LethalBots
 {
-    public enum BotIntent
-    {
-        Unknown,
-        StayOnShip,
-        GoToShip,
-        StartShip,
-        RequestMonitoring,
-        RequestTeleport,
-        ClearMonitoring,
-        Transmit,
-        Jester,
-        LeaveTerminal,
-        FollowMe,
-        Explore,
-        DropItem,
-        ChangeSuit
-    }
-
     /// <summary>
     /// Main mod plugin class, start everything
     /// </summary>
@@ -90,6 +73,7 @@ namespace LethalBots
     [BepInDependency(Const.LETHALINTERNS_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
+        // DO NOT use MyPluginInfo.PLUGIN_GUID here! It will use the wrong GUID for the plugin!
         public const string ModGUID = "T-Rizzle." + MyPluginInfo.PLUGIN_NAME;
         public static AssetBundle ModAssets = null!;
         internal static string DirectoryName = null!;
@@ -282,6 +266,9 @@ namespace LethalBots
             InputActionsInstance = new LethalBotsInputs();
 
             InitializeNetworkBehaviours();
+
+            // We need to run some code before we register the network prefab
+            // Other wise it won't work!
 
             ModAssets = AssetBundle.LoadFromFile(Path.Combine(DirectoryName, bundleName));
             if (ModAssets == null)
@@ -517,6 +504,7 @@ namespace LethalBots
         #region Voice Commands - New Fluid Intent-Based System
         private void RegisterVoiceCommands()
         {
+            // Optional hint phrases for PySpeech to improve accuracy (not required for recognition)
             string[] hintPhrases = new[]
             {
                 "jester", "start the ship", "man the ship", "stay on ship", "go to ship",
@@ -532,6 +520,9 @@ namespace LethalBots
                     return;
 
                 string recognizedText = text.Text ?? "";
+                if (!Speech.IsAboveThreshold(hintPhrases, Config.VoiceRecognitionSimilarityThreshold.Value))
+                    return;
+
                 if (string.IsNullOrWhiteSpace(recognizedText))
                     return;
 
@@ -549,6 +540,8 @@ namespace LethalBots
                     Logger.LogDebug($"[Voice] Recognized: \"{recognizedText}\" → Intent: {intent}");
                 }
 
+                // Transmit the raw text (or you could transmit the intent enum if you prefer)
+                // Your LethalBotManager will receive this and can re-run DetectIntent on the server/host
                 LethalBotManager.Instance?.TransmitVoiceChatAndSync(recognizedText, (int)playerControllerB.playerClientId);
             }
 

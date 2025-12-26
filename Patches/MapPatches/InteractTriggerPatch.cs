@@ -337,10 +337,7 @@ namespace LethalBots.Patches.MapPatches
                 lethalBotAI.agent.CompleteOffMeshLink();
                 lethalBotAI.TeleportLethalBot(ladderPosition, lethalBotAI.isOutside, allowInteractTrigger: true);
             }
-            if (lethalBotAI != null)
-            {
-                lethalBotAI.useLadderCoroutine = null;
-            }
+            if (lethalBotAI != null) lethalBotAI.useLadderCoroutine = null;
             ladder.currentCooldownValue = ladder.cooldownTime;
             ladder.onInteract.Invoke(null);
         }

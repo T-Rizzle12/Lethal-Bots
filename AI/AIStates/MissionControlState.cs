@@ -1405,6 +1405,8 @@ namespace LethalBots.AI.AIStates
 
                 if (intent == BotIntent.StartShip)
                 {
+                    // Now we need to do some safety checks first. Only the host can tell the bot to pull the lever.
+                    // Unless they are dead!
                     PlayerControllerB? hostPlayer = LethalBotManager.HostPlayerScript;
                     if (hostPlayer == null
                         || hostPlayer == playerWhoSentMessage
@@ -1443,23 +1445,17 @@ namespace LethalBots.AI.AIStates
                 else if (intent == BotIntent.Transmit)
                 {
                     // First we need to extract the message!
-                    int transmitIndex = message.ToLower().IndexOf("transmit");
+                    // Both "transmit" and Const.TRANSMIT_KEYWORD are the same word
+                    int transmitIndex = message.IndexOf(Const.TRANSMIT_KEYWORD);
                     if (transmitIndex != -1)
                     {
-                        transmitIndex += "transmit".Length;
+                        transmitIndex += Const.TRANSMIT_KEYWORD_LENGTH;
                         string messageToTransmit = message.Substring(transmitIndex).Trim();
                         // Queue the message to be sent!
                         SendMessageUsingSignalTranslator(messageToTransmit, MessagePriority.High);
                     }
-                    else if (message.Contains(Const.TRANSMIT_KEYWORD))
-                    {
-                        transmitIndex = message.IndexOf(Const.TRANSMIT_KEYWORD) + Const.TRANSMIT_KEYWORD_LENGTH;
-                        string messageToTransmit = message.Substring(transmitIndex).Trim();
-                        SendMessageUsingSignalTranslator(messageToTransmit, MessagePriority.High);
-                    }
                 }
             }
-            base.OnPlayerChatMessageReceived(message, playerWhoSentMessage, isVoice);
         }
 
         // We are the ship operator, these messages mean nothing to us!

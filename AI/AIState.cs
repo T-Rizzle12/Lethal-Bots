@@ -257,8 +257,37 @@ namespace LethalBots.AI
         /// <param name="message">The message we received</param>
         /// <param name="playerWhoSentMessage">The player who sent the message!</param>
         /// <param name="isVoice">Was the message spoken or was typed out in the chat?</param>
-        public virtual void OnPlayerChatMessageReceived(string message, PlayerControllerB playerWhoSentMessage, bool isVoice) 
+        protected bool IsBotBeingAddressed(PlayerControllerB player)
         {
+            if (player == null) return false;
+
+            // 1. Is the player looking at me?
+            Ray interactRay = new Ray(player.gameplayCamera.transform.position, player.gameplayCamera.transform.forward);
+            if (Physics.Raycast(interactRay, out RaycastHit hit, Const.MAX_CHAT_RANGE, StartOfRound.Instance.playersMask))
+            {
+                PlayerControllerB hitPlayer = hit.collider.gameObject.GetComponent<PlayerControllerB>();
+                if (hitPlayer != null)
+                {
+                    LethalBotAI? lethalBot = LethalBotManager.Instance.GetLethalBotAI(hitPlayer);
+                    if (lethalBot == ai) return true;
+                }
+            }
+
+            // 2. Am I currently following this player?
+            if (ai.targetPlayer == player) return true;
+
+            return false;
+        }
+
+        public virtual void OnPlayerChatMessageReceived(string message, PlayerControllerB playerWhoSentMessage, bool isVoice)
+        {
+            if (ai.IsInSpecialAnimation())
+            {
+                // Maybe we should send a message back?
+                // ai.SendChatMessage("I'm busy!");
+                return;
+            }
+
             BotIntent intent = Plugin.DetectIntent(message);
 
             if (intent == BotIntent.Jester)
@@ -279,43 +308,14 @@ namespace LethalBots.AI
             // FIXME: This is REALLY bad with many bots since they all call this function. We need a better way to do this!
             else if (playerWhoSentMessage != null && intent == BotIntent.StayOnShip)
             {
-                // FIXME: There has to be a better way to do this!
-                // Get the a trace of where the player who sent the message is looking at!
-                // FIXMEUPDATE: Ok, using RaycastNonAlloc should help a bit with performance here, but its still not great!
-                RaycastHit[] raycastHits = new RaycastHit[3];
-                Ray interactRay = new Ray(playerWhoSentMessage.gameplayCamera.transform.position, playerWhoSentMessage.gameplayCamera.transform.forward);
-                int raycastResults = Physics.RaycastNonAlloc(interactRay, raycastHits, Const.MAX_CHAT_RANGE, StartOfRound.Instance.playersMask);
-                for (int i = 0; i < raycastResults; i++)
+                if (!IsBotBeingAddressed(playerWhoSentMessage))
                 {
-                    // Check if we hit a player!
-                    RaycastHit hit = raycastHits[i];
-                    if (hit.collider == null 
-                        || hit.collider.tag != "Player")
-                    {
-                        continue;
-                    }
-
-                    // Make sure its an actual player and not an object with the player tag!
-                    PlayerControllerB player = hit.collider.gameObject.GetComponent<PlayerControllerB>();
-                    if (player == null)
-                    {
-                        continue;
-                    }
-
-                    // Okay, we found a player, is it a bot and are they following us?
-                    LethalBotAI? lethalBot = LethalBotManager.Instance.GetLethalBotAIIfLocalIsOwner(player);
-                    if (lethalBot == null
-                        || lethalBot != ai // Make sure its us!
-                        || lethalBot.IsSpawningAnimationRunning())
-                    {
-                        continue;
-                    }
-
-                    // Yay, we found a vaild bot, make it the mission controller!
-                    LethalBotManager.Instance.MissionControlPlayer = player;
-                    ai.State = new MissionControlState(this); // Its fine to set the state here directly, if we are not on the ship, the state will handle moving to the ship!
-                    break;
+                    return;
                 }
+
+                // Yay, we found a vaild bot, make it the mission controller!
+                LethalBotManager.Instance.MissionControlPlayer = npcController.Npc;
+                ai.State = new MissionControlState(this); // Its fine to set the state here directly, if we are not on the ship, the state will handle moving to the ship!
                 return;
             }
             else if (intent == BotIntent.GoToShip)
@@ -324,12 +324,7 @@ namespace LethalBots.AI
             }
             else if (intent == BotIntent.FollowMe)
             {
-                if (ai.IsInSpecialAnimation())
-                {
-                    return;
-                }
-
-                if (playerWhoSentMessage != null)
+                if (playerWhoSentMessage != null && IsBotBeingAddressed(playerWhoSentMessage))
                 {
                     ai.SyncAssignTargetAndSetMovingTo(playerWhoSentMessage);
 
@@ -341,7 +336,7 @@ namespace LethalBots.AI
             }
             else if (intent == BotIntent.Explore)
             {
-                if (ai.IsInSpecialAnimation())
+                if (playerWhoSentMessage != null && !IsBotBeingAddressed(playerWhoSentMessage))
                 {
                     return;
                 }
@@ -351,7 +346,7 @@ namespace LethalBots.AI
             }
             else if (intent == BotIntent.DropItem)
             {
-                if (ai.IsInSpecialAnimation())
+                if (playerWhoSentMessage != null && !IsBotBeingAddressed(playerWhoSentMessage))
                 {
                     return;
                 }
@@ -362,17 +357,15 @@ namespace LethalBots.AI
                 }
                 else if (ai.HasSomethingInInventory())
                 {
+                    // Switch to the first item we have and drop it?
+                    // Or just drop all? The 'E' interaction usually switches then drops if pressed again.
+                    // Let's just drop everything if they say "drop item".
                     ai.DropAllHeldItems();
                 }
             }
             else if (intent == BotIntent.ChangeSuit)
             {
-                if (ai.IsInSpecialAnimation())
-                {
-                    return;
-                }
-
-                if (playerWhoSentMessage != null)
+                if (playerWhoSentMessage != null && IsBotBeingAddressed(playerWhoSentMessage))
                 {
                     ai.ChangeSuitLethalBotServerRpc(ai.NpcController.Npc.playerClientId, playerWhoSentMessage.currentSuitID);
                 }

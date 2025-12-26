@@ -294,10 +294,7 @@ namespace LethalBots.AI
             // Body collider
             LethalBotBodyCollider = NpcController.Npc.GetComponentInChildren<Collider>();
             BoxCollider ourCollider = this.GetComponentInChildren<BoxCollider>();
-            if (ourCollider != null)
-            {
-                ourCollider.size = LethalBotBodyCollider.bounds.extents; // Set the bounds of the collider to the body collider bounds
-            }
+            if (ourCollider != null) ourCollider.size = LethalBotBodyCollider.bounds.extents; // Set the bounds of the collider to the body collider bounds
 
             // Bot voice
             InitLethalBotVoiceComponent();
