@@ -7,6 +7,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -18,7 +19,16 @@ namespace LethalBots.Managers
 
         public Dictionary<string, AudioClip?> DictAudioClipsByPath = new Dictionary<string, AudioClip?>();
 
-        private readonly string voicesPath = "Audio\\Voices\\";
+        private const string voicesPath = "Audio\\Voices\\";
+
+        // Supported audio extentions
+        // Only supports what UnityWebRequestMultimedia.GetAudioClip supports
+        private static readonly string[] SupportedExtentions = 
+        { 
+            ".ogg",
+            ".wav",
+            ".mp3"
+        };
 
         private void Awake()
         {
@@ -48,11 +58,7 @@ namespace LethalBots.Managers
             if (Directory.Exists(folderPath))
             {
                 // Load all paths
-                foreach (string filePath in Directory.GetFiles(folderPath, "*.ogg", SearchOption.AllDirectories))
-                {
-                    AddPath("file://" + filePath);
-                }
-
+                LoadAllPaths(folderPath);
                 return;
             }
 
@@ -75,9 +81,22 @@ namespace LethalBots.Managers
             }
 
             // Load all paths
-            foreach (string filePath in Directory.GetFiles(folderPath, "*.ogg", SearchOption.AllDirectories))
+            LoadAllPaths(folderPath);
+        }
+
+        /// <summary>
+        /// Helper function to load all supported audio files from a folder path
+        /// </summary>
+        /// <param name="folderPath"></param>
+        private void LoadAllPaths(string folderPath)
+        {
+            foreach (string fileType in SupportedExtentions)
             {
-                AddPath("file://" + filePath);
+                string[] files = Directory.GetFiles(folderPath, "*" + fileType, SearchOption.AllDirectories);
+                foreach (string file in files)
+                {
+                    AddPath("file://" + file);
+                }
             }
         }
 
@@ -139,7 +158,8 @@ namespace LethalBots.Managers
 
         private IEnumerator LoadAudioAndPlay(string uri, LethalBotVoice lethalBotVoice)
         {
-            using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(uri, AudioType.OGGVORBIS))
+            AudioType audioType = GetAudioType(uri);
+            using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(uri, audioType))
             {
                 yield return www.SendWebRequest();
 
@@ -158,6 +178,33 @@ namespace LethalBots.Managers
             }
         }
 
+        /// <summary>
+        /// Helper function to get AudioType from file extension
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        private AudioType GetAudioType(string path)
+        {
+            AudioType audioType = AudioType.UNKNOWN;
+            string extension = Path.GetExtension(path).ToLower();
+            switch (extension)
+            {
+                case ".ogg":
+                    audioType = AudioType.OGGVORBIS;
+                    break;
+                case ".wav":
+                    audioType = AudioType.WAV;
+                    break;
+                case ".mp3":
+                    audioType = AudioType.MPEG;
+                    break;
+                default:
+                    Plugin.LogWarning($"Unsupported audio extension {extension} for path {path}");
+                    break;
+            }
+            return audioType;
+        }
+
         private void AddAudioClip(string path, AudioClip audioClip)
         {
             if (DictAudioClipsByPath == null)
@@ -173,71 +220,6 @@ namespace LethalBots.Managers
             {
                 DictAudioClipsByPath.Add(path, audioClip);
             }
-        }
-
-        public void FadeInAudio(AudioSource audioSource, float fadeTime, float volumeMax)
-        {
-            if (StartOfRound.Instance.localPlayerController.isPlayerDead)
-            {
-                volumeMax *= 0.8f;
-            }
-
-            StartCoroutine(FadeInAudioCoroutine(audioSource, fadeTime, volumeMax));
-        }
-
-        private IEnumerator FadeInAudioCoroutine(AudioSource audioSource, float fadeTime, float volumeMax)
-        {
-            if (audioSource == null)
-            {
-                yield break;
-            }
-
-            // https://discussions.unity.com/t/fade-out-audio-source/585912/6
-            float startVolume = 0.2f;
-            audioSource.volume = 0;
-            audioSource.Play();
-
-            while (audioSource.volume < volumeMax)
-            {
-                audioSource.volume += startVolume * Time.deltaTime / fadeTime;
-
-                yield return null;
-            }
-
-            audioSource.volume = volumeMax;
-        }
-
-        public void FadeOutAndStopAudio(AudioSource audioSource, float fadeTime)
-        {
-            StartCoroutine(FadeOutAndStopAudioCoroutine(audioSource, fadeTime));
-        }
-
-        private IEnumerator FadeOutAndStopAudioCoroutine(AudioSource audioSource, float fadeTime)
-        {
-            if (audioSource == null
-                || !audioSource.isPlaying)
-            {
-                yield break;
-            }
-
-            // https://discussions.unity.com/t/fade-out-audio-source/585912/6
-            float startVolume = audioSource.volume;
-
-            while (audioSource.volume > 0)
-            {
-                if (audioSource == null
-                    || !audioSource.isPlaying)
-                {
-                    yield break;
-                }
-
-                audioSource.volume -= startVolume * Time.deltaTime / fadeTime;
-
-                yield return null;
-            }
-
-            audioSource.Stop();
-            audioSource.volume = startVolume;
         }
     }
 }

@@ -6,7 +6,7 @@
     <AssemblyName>LethalBots</AssemblyName>
     <Product>LethalBots</Product>
     <!-- Change to whatever version you're currently on. This will be used by tcli when building our Thunderstore package. -->
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
   </PropertyGroup>
 
   <!-- Project Properties -->
