@@ -14,6 +14,7 @@ Evaisa-LethalLib = "0.16.1"
 Sigurd-CSync = "5.0.1"
 Rune580-LethalCompany_InputUtils = "0.7.4"
 JS03-PySpeech = "1.0.1"
+Kittenji-NavMeshInCompany = "1.0.3"
 
 [build]
 icon = "./icon.png"
