@@ -181,6 +181,7 @@ namespace LethalBots
             _harmony.PatchAll(typeof(GameNetworkManagerPatch));
             _harmony.PatchAll(typeof(HUDManagerPatch));
             _harmony.PatchAll(typeof(NetworkSceneManagerPatch));
+            _harmony.PatchAll(typeof(NfgoPlayerPatch));
             _harmony.PatchAll(typeof(NetworkObjectPatch));
             _harmony.PatchAll(typeof(RoundManagerPatch));
             _harmony.PatchAll(typeof(SoundManagerPatch));
