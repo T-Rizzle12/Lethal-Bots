@@ -914,7 +914,16 @@ namespace LethalBots.Managers
             spawnLethalBotsParamsNetworkSerializable.IndexNextPlayerObject = indexNextPlayerObject;
             spawnLethalBotsParamsNetworkSerializable.LethalBotIdentityID = lethalBotAI.LethalBotIdentity.IdIdentity;
             spawnLethalBotsParamsNetworkSerializable.SuitID = suitID;
-            SpawnLethalBotClientRpc(networkObject, spawnLethalBotsParamsNetworkSerializable);
+            //SpawnLethalBotClientRpc(networkObject, spawnLethalBotsParamsNetworkSerializable);
+            StartCoroutine(WaitBeforeSpawnOnClient(networkObject, spawnLethalBotsParamsNetworkSerializable));
+        }
+
+        private IEnumerator WaitBeforeSpawnOnClient(NetworkObject networkObject, SpawnLethalBotParamsNetworkSerializable spawnLethalBotParamsNetworkSerializable)
+        {
+            yield return null;
+            float startTime = Time.realtimeSinceStartup;
+            yield return new WaitUntil(() => (networkObject != null && networkObject.IsSpawned) || (Time.realtimeSinceStartup - startTime) > 5f);
+            SpawnLethalBotClientRpc(networkObject, spawnLethalBotParamsNetworkSerializable);
         }
 
         /// <summary>
