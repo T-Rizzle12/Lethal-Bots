@@ -418,7 +418,7 @@ namespace LethalBots.AI
 			{
 				if (currentSearch.inProgress)
 				{
-					StopSearch(currentSearch);
+					StopSearch(currentSearch, false);
 				}
 
 				SetAgent(enabled: false);
