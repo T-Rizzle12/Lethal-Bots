@@ -29,9 +29,10 @@ namespace LethalBots.Patches.ModPatches.ModelRplcmntAPI
                 && !LethalBotManager.Instance.ListBodyReplacementOnDeadBodies.Any(x => x.BodyReplacementBase == instanceComponent))
             {
                 LethalBotManager.Instance.ListBodyReplacementOnDeadBodies.Add(new BodyReplacementAdapter(instanceComponent));
-                __instance.viewState.ReportBodyReplacementRemoval();
+                //__instance.viewState.ReportBodyReplacementRemoval();
                 __instance.cosmeticAvatar = __instance.ragdollAvatar;
                 CreateAndParentRagdoll_ReversePatch(__instance, __instance.controller.deadBody);
+                OnDeath_ReversePatch(__instance);
                 lethalBotAI.LethalBotIdentity.BodyReplacementBase = __instance;
             }
 
@@ -39,6 +40,7 @@ namespace LethalBots.Patches.ModPatches.ModelRplcmntAPI
             {
                 //Plugin.LogDebug($"{internAI.NpcController.Npc.playerUsername} {__instance.GetInstanceID()} only ragdoll update, {__instance.controller.deadBody}");
                 __instance.ragdollAvatar.Update();
+                __instance.avatar.Update();
                 return false;
             }
 
@@ -51,6 +53,11 @@ namespace LethalBots.Patches.ModPatches.ModelRplcmntAPI
         [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
         [HarmonyPriority(Priority.Last)]
         public static void CreateAndParentRagdoll_ReversePatch(object instance, DeadBodyInfo bodyinfo) => throw new NotImplementedException("Stub LethalBot.Patches.ModPatches.ModelRplcmntAPI.BodyReplacementBasePatch.CreateAndParentRagdoll_ReversePatch");
+
+        [HarmonyPatch("OnDeath")]
+        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
+        [HarmonyPriority(Priority.Last)]
+        public static void OnDeath_ReversePatch(object instance) => throw new NotImplementedException("Stub LethalBot.Patches.ModPatches.ModelRplcmntAPI.BodyReplacementBasePatch.OnDeath_ReversePatch");
 
         [HarmonyPatch("GetBounds")]
         [HarmonyPrefix]

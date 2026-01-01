@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.6 - 2026-1-1
+I don't know when, but apparently a bug got introduced that caused bots to not properly clean up their model replacements when they disconnected from the server. This update fixes that bug. Oh, and added a few other things too:
+
+- Bots will change their suit back to the default suit when they "disconnect." This mimics base game logic and fixes a memory leak with model replacements.
+- Bots will now have a joined ship message the first time they spawn. To mimic how the base game does it.
+- Fixed BodyReplacementBasePatch not calling OnDeath function and not calling the avatar update function on dead bodies
+- Fixed my mod sometimes failing to clean up old dead bodies with model replacements
+- Added a few helper functions with safely removing model replacements
+- Fixed bots not properly cleaning up their model replacements when they left the server. (This bug didn't happen if the host closes the lobby since ModelReplacementAPI will cleanup the models automatically)
+- Fixed a logic error where searchForScrap would wrongfully clear its already searched nodes prematurely
+- Gave bots support for using the Zap Gun
+- Added a new constraint called TIMER_CHILL_AT_SHIP_AT_COMPANY
+
 ## 1.0.5 - 2025-28-12
 Changed EnableDebugLog default to true to help with debugging.
 

@@ -530,12 +530,68 @@ namespace LethalBots.Managers
 
         private void RemovePlayerModelReplacement(PlayerControllerB lethalBotController)
         {
-            RemovePlayerModelReplacement(lethalBotController.GetComponent<ModelReplacement.BodyReplacementBase>());
+            ModelReplacement.BodyReplacementBase? bodyReplacementBase = lethalBotController.GetComponent<ModelReplacement.BodyReplacementBase>();
+            if (bodyReplacementBase == null)
+            {
+                return;
+            }
+            RemovePlayerModelReplacement(bodyReplacementBase);
         }
 
         private void RemovePlayerModelReplacement(object bodyReplacementBase)
         {
             Object.DestroyImmediate((ModelReplacement.BodyReplacementBase)bodyReplacementBase);
+        }
+
+        private void CleanListBodyReplacementOnDeadBodies()
+        {
+            StartOfRound instanceSOR = StartOfRound.Instance;
+            for (int i = 0; i < ListBodyReplacementOnDeadBodies.Count; i++)
+            {
+                IBodyReplacementBase bodyReplacementBase = ListBodyReplacementOnDeadBodies[i];
+                if (bodyReplacementBase == null
+                    || bodyReplacementBase.DeadBody == null)
+                {
+                    continue;
+                }
+
+                if (!instanceSOR.shipBounds.bounds.Contains(bodyReplacementBase.DeadBody.transform.position))
+                {
+                    bodyReplacementBase.IsActive = false;
+                    UnityEngine.Object.Destroy((Object)bodyReplacementBase.BodyReplacementBase);
+                    ListBodyReplacementOnDeadBodies[i] = null!;
+                }
+            }
+            ListBodyReplacementOnDeadBodies = ListBodyReplacementOnDeadBodies.Where(x => x != null 
+                                                                                      && x.DeadBody != null).ToList();
+        }
+
+        public void RemoveLethalBotModelReplacement(PlayerControllerB player, bool forceRemove = false)
+        {
+            LethalBotAI? lethalBotAI = GetLethalBotAI(player);
+            if (lethalBotAI == null)
+            {
+                return;
+            }
+
+            RemoveLethalBotModelReplacement(lethalBotAI, forceRemove);
+        }
+
+        public void RemoveLethalBotModelReplacement(LethalBotAI lethalBotAI, bool forceRemove = false)
+        {
+            IBodyReplacementBase[] bodiesReplacementBase = lethalBotAI.ListModelReplacement.ToArray();
+            Plugin.LogDebug($"RemovePlayerModelReplacement bodiesReplacementBase.Length {bodiesReplacementBase.Length}");
+            foreach (IBodyReplacementBase bodyReplacementBase in bodiesReplacementBase)
+            {
+                if (!forceRemove && ListBodyReplacementOnDeadBodies.Contains(bodyReplacementBase))
+                {
+                    continue;
+                }
+
+                lethalBotAI.ListModelReplacement.Remove(bodyReplacementBase);
+                bodyReplacementBase.IsActive = false;
+                UnityEngine.Object.Destroy((Object)bodyReplacementBase.BodyReplacementBase);
+            }
         }
 
         private void RemoveCosmetics(PlayerControllerB lethalBotController)
@@ -1051,6 +1107,12 @@ namespace LethalBots.Managers
             lethalBotController.usernameBillboardText.enabled = true;
             AccessTools.Field(typeof(PlayerControllerB), "updatePositionForNewlyJoinedClient").SetValue(lethalBotController, true);
 
+            // Mimic base game join message
+            if (lethalBotIdentity.JustJoinedServer)
+            { 
+                HUDManager.Instance.AddTextToChatOnServer(lethalBotController.playerUsername + " joined the ship."); 
+            }
+
             // CleanLegsFromMoreEmotesMod
             CleanLegsFromMoreEmotesMod(lethalBotController);
 
@@ -1063,6 +1125,7 @@ namespace LethalBots.Managers
             lethalBotAI.LethalBotIdentity.Hp = spawnParamsNetworkSerializable.Hp == 0 ? 100 : spawnParamsNetworkSerializable.Hp;
             lethalBotAI.LethalBotIdentity.SuitID = spawnParamsNetworkSerializable.SuitID;
             lethalBotAI.LethalBotIdentity.Status = EnumStatusIdentity.Spawned;
+            lethalBotAI.LethalBotIdentity.JustJoinedServer = false;
             lethalBotAI.SetEnemyOutside(spawnParamsNetworkSerializable.IsOutside);
 
             // Plug ai on bot body
@@ -1206,7 +1269,7 @@ namespace LethalBots.Managers
                 // Mod support!!!!
                 if (Plugin.IsModModelReplacementAPILoaded)
                 {
-                    lethalBotAI.HideShowModelReplacement(show: false);
+                    RemoveLethalBotModelReplacement(lethalBotAI, forceRemove: false); // Should forceRemove be true?
                 }
 
                 // Leave the terminal if we are using one!
@@ -1224,6 +1287,7 @@ namespace LethalBots.Managers
                 // Mark the status as recently used so they are spawned in again!
                 lethalBotAI.LethalBotIdentity.Status = EnumStatusIdentity.ToSpawn;
                 lethalBotAI.LethalBotIdentity.DiedLastRound = true;
+                lethalBotAI.LethalBotIdentity.JustJoinedServer = true; // We were kicked, if we "rejoin" we want the join message!
                 if (lethalBotAI.State != null
                     && lethalBotAI.State.GetAIState() != EnumAIStates.BrainDead)
                 {
@@ -2835,11 +2899,24 @@ namespace LethalBots.Managers
                     continue;
                 }*/
 
+                // Mod support!!!!
+                //if (Plugin.IsModModelReplacementAPILoaded)
+                //{
+                //    //lethalBotController.GetComponent<ModelReplacement.BodyReplacementBase>()?.SetAvatarRenderers(enabled: false);
+                //    RemovePlayerModelReplacement(lethalBotController);
+                //}
+
                 lethalBotController.isPlayerControlled = false;
                 lethalBotController.TeleportPlayer(lethalBotController.playersManager.notSpawnedPosition.position);
                 lethalBotController.localVisor.position = lethalBotController.playersManager.notSpawnedPosition.position;
                 DisableLethalBotControllerModel(lethalBotController.gameObject, lethalBotController, enable: true, disableLocalArms: true);
-                
+
+                // HACKHACK: ModelReplacementAPI recreates the body replacement even on disabled player controllers,
+                // we have to mimic what the base game does and switch back to the default suit here!
+                // NOTE: Normally, I wounldn't do this so the suit equip sounds don't play, but since the ModelReplacementAPI
+                // forces a body replacement recreation, we have to do this to avoid visual bugs and memory leaks!
+                UnlockableSuit.SwitchSuitForPlayer(lethalBotController, 0, false);
+
                 // Reset the animator state
                 Animator lethalBotAnimator = lethalBotController.playerBodyAnimator;
                 if (lethalBotAnimator != null)
@@ -2904,7 +2981,9 @@ namespace LethalBots.Managers
                 // Mod support!!!!
                 if (Plugin.IsModModelReplacementAPILoaded)
                 {
-                    lethalBotAI.HideShowModelReplacement(show: false);
+                    // Clean up the model replacement lists for this bot
+                    // In the second CountAliveAndDisableLethalBots, we will will change the suit back to default
+                    RemoveLethalBotModelReplacement(lethalBotAI, forceRemove: true);
                 }
 
                 PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
@@ -2994,6 +3073,12 @@ namespace LethalBots.Managers
                 // Mark the index as used so the post revive function understands what it needs to deactivate!
                 // This is done on purpose so the bots count for the dead body penalties!
                 AllBotPlayerIndexs.Add((int)lethalBotAI.NpcController.Npc.playerClientId);
+            }
+
+            // Mod support!!!!
+            if (Plugin.IsModModelReplacementAPILoaded)
+            {
+                CleanListBodyReplacementOnDeadBodies();
             }
         }
 

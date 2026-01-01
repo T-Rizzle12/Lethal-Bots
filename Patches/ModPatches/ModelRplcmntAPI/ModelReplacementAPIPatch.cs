@@ -55,7 +55,7 @@ namespace LethalBots.Patches.ModPatches.ModelRplcmntAPI
                     lethalBotAI.ListModelReplacement.Remove(bodyReplacementBase);
                     bodyReplacementBase.IsActive = false;
                     UnityEngine.Object.Destroy((Object)bodyReplacementBase.BodyReplacementBase);
-                    shouldAddNewBodyReplacement = true;
+                    //shouldAddNewBodyReplacement = true;
                 }
             }
 
@@ -112,20 +112,7 @@ namespace LethalBots.Patches.ModPatches.ModelRplcmntAPI
                 return true;
             }
 
-            IBodyReplacementBase[] bodiesReplacementBase = lethalBotAI.ListModelReplacement.ToArray();
-            //Plugin.LogDebug($"RemovePlayerModelReplacement bodiesReplacementBase.Length {bodiesReplacementBase.Length}");
-            foreach (IBodyReplacementBase bodyReplacementBase in bodiesReplacementBase)
-            {
-                if (LethalBotManager.Instance.ListBodyReplacementOnDeadBodies.Contains(bodyReplacementBase))
-                {
-                    continue;
-                }
-
-                lethalBotAI.ListModelReplacement.Remove(bodyReplacementBase);
-                bodyReplacementBase.IsActive = false;
-                UnityEngine.Object.Destroy((Object)bodyReplacementBase.BodyReplacementBase);
-            }
-
+            LethalBotManager.Instance.RemoveLethalBotModelReplacement(lethalBotAI);
             return false;
         }
     }

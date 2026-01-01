@@ -212,7 +212,7 @@ namespace LethalBots.AI.AIStates
                     if (searchForScrap.inProgress)
                     {
                         // Stop the coroutine while we use the elevator
-                        ai.StopSearch(searchForScrap);
+                        ai.StopSearch(searchForScrap, false);
                     }
                     ai.UseElevator(false);
                 }

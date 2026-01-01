@@ -418,7 +418,7 @@ namespace LethalBots.AI
 			{
 				if (currentSearch.inProgress)
 				{
-					StopSearch(currentSearch);
+					StopSearch(currentSearch, false);
 				}
 
 				SetAgent(enabled: false);
@@ -3501,21 +3501,21 @@ namespace LethalBots.AI
 			return false;
 		}
 
-		/// <summary>
-		/// Is the given item a ranged weapon ?
-		/// </summary>
-		/// <remarks>
-		/// I will note that it only works on items derived off of the ShotgunItem class!</br>
-		/// Modders can once again override this as desired!
-		/// </remarks>
-		/// <returns>I mean come on</returns>
-		public static bool IsItemRangedWeapon([NotNullWhen(true)] GrabbableObject? weapon)
+        /// <summary>
+        /// Is the given item a ranged weapon ?
+        /// </summary>
+        /// <remarks>
+        /// I will note that it only works on items derived off of the ShotgunItem or PatcherTool class!</br>
+        /// Modders can once again override this as desired!
+        /// </remarks>
+        /// <returns>I mean come on</returns>
+        public static bool IsItemRangedWeapon([NotNullWhen(true)] GrabbableObject? weapon)
 		{
 			if (weapon == null)
 			{
 				return false;
 			}
-			return weapon is ShotgunItem;
+			return weapon is ShotgunItem || weapon is PatcherTool;
 		}
 
 		/// <summary>

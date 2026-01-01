@@ -185,6 +185,7 @@ namespace LethalBots.Constants
 
         // Chill at ship state
         public const float TIMER_CHILL_AT_SHIP = 20f;
+        public const float TIMER_CHILL_AT_SHIP_AT_COMPANY = 2f;
 
         // Searching for scrap state
         public const float TIMER_SEARCH_FOR_SCRAP = 60f;

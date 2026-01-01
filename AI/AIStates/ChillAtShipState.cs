@@ -102,7 +102,7 @@ namespace LethalBots.AI.AIStates
             }
 
             bool areWeAtTheCompany = LethalBotManager.AreWeAtTheCompanyBuilding();
-            float waitAtShipTime = areWeAtTheCompany ? 2f : Const.TIMER_CHILL_AT_SHIP;
+            float waitAtShipTime = areWeAtTheCompany ? Const.TIMER_CHILL_AT_SHIP_AT_COMPANY : Const.TIMER_CHILL_AT_SHIP;
             if (chillAtShipTimer > waitAtShipTime)
             {
                 // If we are at the company building, we should sell!

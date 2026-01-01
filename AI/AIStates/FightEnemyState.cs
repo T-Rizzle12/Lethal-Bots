@@ -19,6 +19,8 @@ namespace LethalBots.AI.AIStates
     {
         private static readonly FieldInfo knifeMask = AccessTools.Field(typeof(KnifeItem), "knifeMask");
         private static readonly FieldInfo shovelMask = AccessTools.Field(typeof(Shovel), "shovelMask");
+        private static readonly FieldInfo isScanning = AccessTools.Field(typeof(PatcherTool), "isScanning");
+        private static readonly FieldInfo anomalyMask = AccessTools.Field(typeof(PatcherTool), "anomalyMask");
         private RaycastHit[]? enemyColliders;
         private Coroutine? currentAttackRoutine;
         private Collider? _enemyCollision;
@@ -392,12 +394,40 @@ namespace LethalBots.AI.AIStates
                     }
                     else
                     {
-                        heldItem.UseItemOnClient(true); // Should I call ItemActivate instead?
+                        heldItem.UseItemOnClient(true);
+                    }
+                }
+                else if (heldItem is PatcherTool patcherTool)
+                {
+                    Transform shockingTarget = npcController.Npc.shockingTarget;
+                    if (patcherTool.isShocking)
+                    {
+                        // We are already stunning our target, keep at it
+                        IShockableWithGun? shockableWithGun = this.currentEnemy.transform.GetComponentInChildren<IShockableWithGun>();
+                        Plugin.LogDebug($"Shocking Target: {shockingTarget}, Current Enemy Shockable: {shockableWithGun?.GetShockableTransform()}");
+                        if (shockingTarget == shockableWithGun?.GetShockableTransform())
+                        {
+                            // We handle aiming our stun gun elsewhere
+                            yield return null;
+                            continue;
+                        }
+                        // We have the wrong guy, break the beam!
+                        else
+                        {
+                            heldItem.UseItemOnClient(true);
+                            yield return null;
+                            continue;
+                        }
+                    }
+                    // We should already be on target, aim and FIRE
+                    else if (!(bool)isScanning.GetValue(patcherTool))
+                    {
+                        heldItem.UseItemOnClient(true);
                     }
                 }
                 else
                 {
-                    heldItem.UseItemOnClient(true); // Should I call ItemActivate instead?
+                    heldItem.UseItemOnClient(true);
                     yield return null;
                     // holdButtonUse is true for the shovel!
                     // This means we need to release it next frame!
@@ -414,8 +444,8 @@ namespace LethalBots.AI.AIStates
         /// <summary>
         /// Helper function that checks if we are aiming on target!
         /// </summary>
-        /// <param name="heldItem"></param>
-        /// <param name="targetPos"></param>
+        /// <param name="heldItem">The weapon the bot is using.</param>
+        /// <param name="targetPos">The position we want to hit.</param>
         /// <returns></returns>
         private bool CanHitEnemyWithHeldItem(GrabbableObject heldItem, Vector3 targetPos)
         {
@@ -542,6 +572,15 @@ namespace LethalBots.AI.AIStates
                 radius = 5f;
                 maxRange = 15f;
                 hitMask = 524288; // Found in shotgun source code!
+            }
+            else if (weapon is PatcherTool patcherTool)
+            {
+                Vector3 patcherToolForward = lethalBotController.gameplayCamera.transform.forward;
+                ray = new Ray(lethalBotController.gameplayCamera.transform.position - patcherToolForward * 3, patcherToolForward);
+                maxFOV = 60f; // Found in source code!
+                radius = 5f;
+                maxRange = 5f;
+                hitMask = (int)anomalyMask.GetValue(patcherTool);
             }
             else if (weapon is KnifeItem knife)
             {
