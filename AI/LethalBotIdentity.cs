@@ -14,9 +14,6 @@ namespace LethalBots.AI
     /// points, status, and suit. It provides methods to update the bot's identity and retrieve information about its
     /// current state.
     /// </remarks>
-    /// TODO: Add a way for bots to gain experience and level up,
-    /// the code already exists in the game, but only runs for the local player.
-    /// I would also have to update the save system to handle experience and level data for bots.
     public class LethalBotIdentity
     {
         public int IdIdentity { get; }
@@ -29,6 +26,7 @@ namespace LethalBots.AI
         public int HpMax { get; set; }
         public int Hp { get; set; }
         public bool DiedLastRound { get; set; }
+        public bool JustJoinedServer { get; set; }
         public int? XP { get; set; }
         public int Level { get; set; }
         public EnumStatusIdentity Status { get; set; }
@@ -64,6 +62,7 @@ namespace LethalBots.AI
             HpMax = 100;
             Hp = HpMax;
             DiedLastRound = true;
+            JustJoinedServer = true;
             XP = Xp;
             Status = EnumStatusIdentity.Available;
         }

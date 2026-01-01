@@ -55,7 +55,7 @@ namespace LethalBots.Patches.ModPatches.ModelRplcmntAPI
                     lethalBotAI.ListModelReplacement.Remove(bodyReplacementBase);
                     bodyReplacementBase.IsActive = false;
                     UnityEngine.Object.Destroy((Object)bodyReplacementBase.BodyReplacementBase);
-                    shouldAddNewBodyReplacement = true;
+                    //shouldAddNewBodyReplacement = true;
                 }
             }
 

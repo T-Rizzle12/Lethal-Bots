@@ -29,7 +29,7 @@ namespace LethalBots.Patches.ModPatches.ModelRplcmntAPI
                 && !LethalBotManager.Instance.ListBodyReplacementOnDeadBodies.Any(x => x.BodyReplacementBase == instanceComponent))
             {
                 LethalBotManager.Instance.ListBodyReplacementOnDeadBodies.Add(new BodyReplacementAdapter(instanceComponent));
-                __instance.viewState.ReportBodyReplacementRemoval();
+                //__instance.viewState.ReportBodyReplacementRemoval();
                 __instance.cosmeticAvatar = __instance.ragdollAvatar;
                 CreateAndParentRagdoll_ReversePatch(__instance, __instance.controller.deadBody);
                 OnDeath_ReversePatch(__instance);
