@@ -170,7 +170,7 @@ namespace LethalBots.Managers
         /// <summary>
         /// Returns the <see cref="HangarShipDoor"/> instance in the scene, if it exists.<br/>
         /// </summary>
-        private static HangarShipDoor? ShipDoor
+        public static HangarShipDoor? ShipDoor
         {
             get
             {
