@@ -128,6 +128,12 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // We are assigned to man the ship, make sure we are not on the loot transfer list
+            if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
+            {
+                LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(npcController.Npc);
+            }
+
             // Its kinda hard to be the mission controller if we are not on the ship!
             if (!npcController.Npc.isInElevator && !npcController.Npc.isInHangarShipRoom)
             {

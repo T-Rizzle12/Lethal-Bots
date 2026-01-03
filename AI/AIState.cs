@@ -146,7 +146,8 @@ namespace LethalBots.AI
         /// You should use this to save variables, or reset the bot, etc.<br/>
         /// You can use <see cref="hasBeenStarted"/> to check if this state has been started before.<br/>
         /// </remarks>
-        public virtual void OnExitState() { }
+        /// <param name="newState">The new state the bot is entering</param>
+        public virtual void OnExitState(AIState newState) { }
 
         /// <summary>
         /// Apply the behaviour according to the type of state <see cref="Enums.EnumAIStates"><c>Enums.EnumAIStates</c></see>.<br/>

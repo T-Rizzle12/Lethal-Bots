@@ -32,7 +32,17 @@ namespace LethalBots.AI.AIStates
         {
             if (!hasBeenStarted)
             {
-                if (!LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
+                // We are at the company building, change back to previous state
+                if (LethalBotManager.AreWeAtTheCompanyBuilding())
+                {
+                    if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
+                    {
+                        LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(npcController.Npc);
+                    }
+                    ChangeBackToPreviousState();
+                    return;
+                }
+                else if (!LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
                 {
                     LethalBotManager.Instance.AddPlayerToLootTransferListAndSync(npcController.Npc);
                 }
@@ -57,6 +67,17 @@ namespace LethalBots.AI.AIStates
             {
                 LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(npcController.Npc); // Remove from loot transfer list, we are done for the day!
                 ai.State = new ReturnToShipState(this);
+                return;
+            }
+
+            // We are at the company building, change back to previous state
+            if (LethalBotManager.AreWeAtTheCompanyBuilding())
+            {
+                if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
+                {
+                    LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(npcController.Npc);
+                }
+                ChangeBackToPreviousState();
                 return;
             }
 

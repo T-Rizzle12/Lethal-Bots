@@ -50,6 +50,15 @@ namespace LethalBots.AI.AIStates
 
         public override void OnEnterState()
         {
+            if (!hasBeenStarted)
+            {
+                // We are now searching for scrap and are no longer transferring loot!
+                if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
+                {
+                    LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(npcController.Npc);
+                }
+            }
+
             // It doesn't matter if we had started the state before,
             // we should always recheck the nearest entrance
             EntranceTeleport? previousEntrance = this.targetEntrance;

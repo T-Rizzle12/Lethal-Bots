@@ -2816,6 +2816,7 @@ namespace LethalBots.Managers
             if (IsServer || IsHost)
             {
                 MissionControlPlayer = null;
+                LootTransferPlayers.Clear();
             }
             SetLastReportedTimeOfDay(DayMode.Dawn);
 

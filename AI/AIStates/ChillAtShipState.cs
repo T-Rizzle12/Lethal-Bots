@@ -26,9 +26,9 @@ namespace LethalBots.AI.AIStates
             CurrentState = EnumAIStates.ChillAtShip;
         }
 
-        public override void OnExitState()
+        public override void OnExitState(AIState newState)
         {
-            base.OnExitState();
+            base.OnExitState(newState);
             npcController.StopPreformingEmote();
         }
 

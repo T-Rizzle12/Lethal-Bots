@@ -81,13 +81,13 @@ namespace LethalBots.AI.AIStates
             base.OnEnterState();
         }
 
-        public override void OnExitState()
+        public override void OnExitState(AIState newState)
         {
             if (droppedHeldItem != null)
             {
                 LethalBotAI.DictJustDroppedItems.Remove(droppedHeldItem); //HACKHACK: Since DropItem sets the just dropped item timer, we clear it here!
             }
-            base.OnExitState();
+            base.OnExitState(newState);
         }
 
         public override void DoAI()

@@ -32,6 +32,16 @@ namespace LethalBots.AI.AIStates
             ai.targetPlayer = targetPlayer;
         }
 
+        public override void OnEnterState()
+        {
+            // Kinda hard to transfer loot when you're following a player!
+            if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
+            {
+                LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(npcController.Npc);
+            }
+            base.OnEnterState();
+        }
+
         /// <summary>
         /// <inheritdoc cref="AIState.DoAI"/>
         /// </summary>
