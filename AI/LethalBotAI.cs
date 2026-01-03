@@ -6515,7 +6515,7 @@ namespace LethalBots.AI
 		{
             // OK, there is a 50 character limit for chat messages, so we need to split them up!
 			List<string> splitMessages = new List<string>();
-			int charLimit = 50;
+			int charLimit = 49; // 49 since the start index is 0.
 			for (int i = 0; i < message.Length; i += charLimit)
 			{
                 // If we have more characters to go, we need to substring it!
