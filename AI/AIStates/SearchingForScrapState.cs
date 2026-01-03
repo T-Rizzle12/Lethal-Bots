@@ -126,25 +126,36 @@ namespace LethalBots.AI.AIStates
                 {
                     // Now, lets check if someone is assigned to transfer loot
                     bool shouldWalkLootToShip = true;
-                    if (LethalBotManager.Instance.LootTransferPlayers.Count > 0
-                        && targetEntrance != null
-                        && targetEntrance.FindExitPoint()
-                        && (targetEntrance.exitPoint.position - npcController.Npc.transform.position).sqrMagnitude < Const.DISTANCE_ITEMS_TO_ENTRANCE * Const.DISTANCE_ITEMS_TO_ENTRANCE)
+                    if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
                     {
-                        // Stop moving while we drop our items
-                        ai.StopMoving();
-                        npcController.OrderToStopSprint();
-
-                        GrabbableObject? heldItem = ai.HeldItem;
-                        if (heldItem != null && heldItem.itemProperties.isScrap)
+                        bool areWeNearbyEntrance = false;
+                        foreach (EntranceTeleport entrance in LethalBotAI.EntrancesTeleportArray)
                         {
-                            ai.DropItem();
-                            shouldWalkLootToShip = false;
+                            if (entrance.isEntranceToBuilding 
+                                && (entrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE)
+                            {
+                                areWeNearbyEntrance = true;
+                                break;
+                            }
                         }
-                        else if (ai.HasGrabbableObjectInInventory(FindObjectToDrop, out int objectSlot))
+
+                        if (areWeNearbyEntrance)
                         {
-                            ai.SwitchItemSlotsAndSync(objectSlot);
-                            shouldWalkLootToShip = false;
+                            // Stop moving while we drop our items
+                            ai.StopMoving();
+                            npcController.OrderToStopSprint();
+
+                            GrabbableObject? heldItem = ai.HeldItem;
+                            if (heldItem != null && heldItem.itemProperties.isScrap)
+                            {
+                                ai.DropItem();
+                                shouldWalkLootToShip = false;
+                            }
+                            else if (ai.HasGrabbableObjectInInventory(FindObjectToDrop, out int objectSlot))
+                            {
+                                ai.SwitchItemSlotsAndSync(objectSlot);
+                                shouldWalkLootToShip = false;
+                            }
                         }
                     }
 
