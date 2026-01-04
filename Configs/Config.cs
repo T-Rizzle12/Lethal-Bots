@@ -33,6 +33,7 @@ namespace LethalBots.Configs
         // Behaviour       
         [SyncedEntryField] public SyncedEntry<bool> FollowCrouchWithPlayer;
         [SyncedEntryField] public SyncedEntry<bool> ChangeSuitAutoBehaviour;
+        [SyncedEntryField] public SyncedEntry<bool> AllowBotsToChat;
         [SyncedEntryField] public SyncedEntry<bool> TeleportWhenUsingLadders;
         [SyncedEntryField] public SyncedEntry<bool> SellAllScrapOnShip;
         [SyncedEntryField] public SyncedEntry<bool> DropHeldEquipmentAtShip;
@@ -94,6 +95,11 @@ namespace LethalBots.Configs
                                                "Options for automaticaly switch suit",
                                                defaultVal: false,
                                                "Should the bot automatically switch to the same suit as the player who they are assigned to?");
+
+            AllowBotsToChat = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                               "Allow using chat",
+                                               defaultVal: true,
+                                               "Should the bot be allowed to use the chat? (NOTE: This is useful if you don't want bots spamming the chat! Also this doesn't affect bots calling out jesters!)");
 
             TeleportWhenUsingLadders = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Teleport when using ladders",

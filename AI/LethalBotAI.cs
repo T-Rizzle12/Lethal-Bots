@@ -9,10 +9,10 @@ using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.NetworkSerializers;
 using LethalBots.Patches.EnemiesPatches;
+using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.ModelRplcmntAPI;
 using LethalBots.Patches.NpcPatches;
-using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Utils;
 using LethalInternship.AI;
 using LethalLib.Modules;
@@ -26,6 +26,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -6514,38 +6515,89 @@ namespace LethalBots.AI
         /// <remarks>
         /// Currently, bots send messages instantly, we will work on adding a "typing" delay later on.
         /// </remarks>
-        /// <param name="message"></param>
-        public void SendChatMessage(string message)
-		{
+        /// <param name="message">The message the bot wants to send</param>
+		/// <param name="bypassConfig">Should we bypass the config check for allowing bots to chat?</param>
+        public void SendChatMessage(string message, bool bypassConfig = false)
+        {
+            // First, check if bots are allowed to chat!
+            if (!bypassConfig && !Plugin.Config.AllowBotsToChat.Value)
+            {
+                return;
+            }
+
             // OK, there is a 50 character limit for chat messages, so we need to split them up!
-			List<string> splitMessages = new List<string>();
-			int charLimit = 49; // 49 since the start index is 0.
-			for (int i = 0; i < message.Length; i += charLimit)
-			{
-                // If we have more characters to go, we need to substring it!
-                if (i + charLimit < message.Length)
-				{
-					splitMessages.Add(message.Substring(i, charLimit));
-				}
-				else
-				{
-					splitMessages.Add(message.Substring(i));
+            const int charLimit = 49;
+            List<string> splitMessages = new List<string>();
+
+            // Split the message into words
+            string[] words = message.Split(' ');
+            StringBuilder currentLine = new StringBuilder();
+
+            foreach (string word in words)
+            {
+                // If the word itself is longer than the limit, force-split it
+                if (word.Length > charLimit)
+                {
+                    // Flush current line first
+                    if (currentLine.Length > 0)
+                    {
+                        splitMessages.Add(currentLine.ToString());
+                        currentLine.Clear();
+                    }
+
+                    // Split the long word
+                    for (int i = 0; i < word.Length; i += charLimit)
+                    {
+                        splitMessages.Add(
+                            word.Substring(i, Math.Min(charLimit, word.Length - i))
+                        );
+                    }
+
+                    continue;
+                }
+
+                // Check if adding this word would exceed the limit
+                int extraLength = currentLine.Length == 0 ? word.Length : word.Length + 1;
+
+                if (currentLine.Length + extraLength <= charLimit)
+                {
+                    if (currentLine.Length > 0)
+                        currentLine.Append(' ');
+
+                    currentLine.Append(word);
+                }
+                else
+                {
+                    // Commit the current line and start a new one
+                    splitMessages.Add(currentLine.ToString());
+                    currentLine.Clear();
+                    currentLine.Append(word);
                 }
             }
 
-            // Now send each message separately
-            foreach (string msg in splitMessages)
-			{
-                HUDManagerPatch.AddPlayerChatMessageServerRpc_ReversePatch(HUDManager.Instance, msg, (int)NpcController.Npc.playerClientId);
+            // Add the last line if it exists
+            if (currentLine.Length > 0)
+            {
+                splitMessages.Add(currentLine.ToString());
             }
 
+            // Send each message separately
+            foreach (string msg in splitMessages)
+            {
+                HUDManagerPatch.AddPlayerChatMessageServerRpc_ReversePatch(
+                    HUDManager.Instance,
+                    msg,
+                    (int)NpcController.Npc.playerClientId
+                );
+            }
         }
 
-		#endregion
 
-		#region Vote to leave early RPC
+        #endregion
 
-		/*[ServerRpc(RequireOwnership = false)]
+        #region Vote to leave early RPC
+
+        /*[ServerRpc(RequireOwnership = false)]
 		public void LethalBotVoteToLeaveEarlyServerRpc()
 		{
 			// I had to recreate the the functions as its easier than editing the base functions!
@@ -6562,7 +6614,7 @@ namespace LethalBots.AI
 			}
 		}*/
 
-		/*[ClientRpc]
+        /*[ClientRpc]
 		public void AddVoteForShipToLeaveEarlyClientRpc()
 		{
 			// If we are the host or server, we shouldn't increment this as we would be doing it twice!
@@ -6573,7 +6625,7 @@ namespace LethalBots.AI
 			HUDManager.Instance.SetShipLeaveEarlyVotesText(TimeOfDay.Instance.votesForShipToLeaveEarly);
 		}*/
 
-		/*[ClientRpc]
+        /*[ClientRpc]
 		public void SetShipLeaveEarlyClientRpc(float timeToLeaveEarly, int votes)
 		{
 			TimeOfDay instanceTOD = TimeOfDay.Instance;
@@ -6586,25 +6638,25 @@ namespace LethalBots.AI
 			HUDManager.Instance.shipLeavingEarlyIcon.enabled = true;
 		}*/
 
-		#endregion
+        #endregion
 
-		// TODO: This needs A LOT of work, hopefully this will pay off in the long run.
-		// This would require some workarounds to get this to work!
-		// NOTE: We HAVE to fake the use terminal call, it would make some incompatability with some mods,
-		// but they can be fixed with custom patches.
-		#region Bot Terminal
+        // TODO: This needs A LOT of work, hopefully this will pay off in the long run.
+        // This would require some workarounds to get this to work!
+        // NOTE: We HAVE to fake the use terminal call, it would make some incompatability with some mods,
+        // but they can be fixed with custom patches.
+        #region Bot Terminal
 
-		/// <summary>
-		/// Makes the bot enter the terminal, this has proper support for animations!
-		/// </summary>
-		/// <remarks>
-		/// FIXME: At the current moment, this doesn't seem like a "good" way of doing this.
-		/// There is probably a better way of doing this so for now i'm only leaving this here
-		/// so I can use it for reference!
-		/// NOTE: Bots can NOT use the terminal's interact trigger to enter the terminal,
-		/// this is because of how its programmed, there is not much else I can do about it!
-		/// </remarks>
-		public void EnterTerminal()
+        /// <summary>
+        /// Makes the bot enter the terminal, this has proper support for animations!
+        /// </summary>
+        /// <remarks>
+        /// FIXME: At the current moment, this doesn't seem like a "good" way of doing this.
+        /// There is probably a better way of doing this so for now i'm only leaving this here
+        /// so I can use it for reference!
+        /// NOTE: Bots can NOT use the terminal's interact trigger to enter the terminal,
+        /// this is because of how its programmed, there is not much else I can do about it!
+        /// </remarks>
+        public void EnterTerminal()
 		{
 			// Terminal is invalid for some reason, report the error!
 			Terminal ourTerminal = Managers.TerminalManager.Instance.GetTerminal();

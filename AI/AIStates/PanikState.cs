@@ -84,7 +84,7 @@ namespace LethalBots.AI.AIStates
                         if ((Time.timeSinceLevelLoad - lastDeclaredJesterTimer) > 30f)
                         {
                             lastDeclaredJesterTimer = Time.timeSinceLevelLoad;
-                            ai.SendChatMessage("JESTER!!! RUN!!!");
+                            ai.SendChatMessage("JESTER!!! RUN!!!", true);
                         }
                     }
                 }
@@ -145,7 +145,7 @@ namespace LethalBots.AI.AIStates
                         if ((Time.timeSinceLevelLoad - lastDeclaredJesterTimer) > 30f)
                         {
                             lastDeclaredJesterTimer = Time.timeSinceLevelLoad;
-                            ai.SendChatMessage("JESTER!!! RUN!!!");
+                            ai.SendChatMessage("JESTER!!! RUN!!!", true);
                         }
                     }
                 }
@@ -454,7 +454,7 @@ namespace LethalBots.AI.AIStates
                     if ((Time.timeSinceLevelLoad - lastDeclaredJesterTimer) > 30f)
                     {
                         lastDeclaredJesterTimer = Time.timeSinceLevelLoad;
-                        ai.SendChatMessage("JESTER!!! RUN!!!");
+                        ai.SendChatMessage("JESTER!!! RUN!!!", true);
                     }
                 }
                 return;
