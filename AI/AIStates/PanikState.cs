@@ -536,16 +536,23 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // Priority: enemy is further > path out of sight > node out of sight
-                if (isEnemyCloser != other.isEnemyCloser)
-                    return isEnemyCloser ? -1 : 1;
+                //if (isEnemyCloser != other.isEnemyCloser)
+                //    return isEnemyCloser ? -1 : 1;
 
-                if (isPathOutOfSight != other.isPathOutOfSight)
-                    return isPathOutOfSight ? 1 : -1;
+                //if (isPathOutOfSight != other.isPathOutOfSight)
+                //    return isPathOutOfSight ? 1 : -1;
 
-                if (isNodeOutOfSight != other.isNodeOutOfSight)
-                    return isNodeOutOfSight ? 1 : -1;
+                //if (isNodeOutOfSight != other.isNodeOutOfSight)
+                //    return isNodeOutOfSight ? 1 : -1;
 
-                return 0;
+                int ourScore = this.SafetyScore;
+                int otherScore = other.SafetyScore;
+                if (ourScore == otherScore)
+                {
+                    return 0;
+                }
+
+                return ourScore > otherScore ? 1 : -1;
             }
 
             public bool Equals(NodeSafety? other)
