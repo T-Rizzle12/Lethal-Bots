@@ -2,6 +2,7 @@ using DunGen;
 using GameNetcodeStuff;
 using LethalBots.Constants;
 using LethalBots.Enums;
+using LethalBots.Managers;
 using LethalBots.Patches.GameEnginePatches;
 using System;
 using System.Collections;
@@ -156,7 +157,14 @@ namespace LethalBots.AI.AIStates
             {
                 // Check if we should end early!
                 ai.StopMoving();
-                if (ai.HasScrapInInventory())
+
+                // Now, lets check if someone is assigned to transfer loot
+                bool shouldWalkLootToShip = true;
+                if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
+                {
+                    shouldWalkLootToShip = false;
+                }
+                if (shouldWalkLootToShip && ai.HasScrapInInventory())
                 {
                     ai.State = new ReturnToShipState(this);
                 }
@@ -823,7 +831,13 @@ namespace LethalBots.AI.AIStates
                 // just in case.....
                 if (ai.HasScrapInInventory())
                 {
-                    ai.State = new ReturnToShipState(this);
+                    // Now, lets check if someone is assigned to transfer loot
+                    bool shouldWalkLootToShip = true;
+                    if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
+                    {
+                        shouldWalkLootToShip = false;
+                    }
+                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip);
                     return;
                 }
             }

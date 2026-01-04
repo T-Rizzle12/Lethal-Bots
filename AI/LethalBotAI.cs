@@ -4193,10 +4193,12 @@ namespace LethalBots.AI
 			}
 
 			// Is item too close to entrance (with config option enabled)
-			bool botIsTransferringItems = LethalBotManager.Instance.LootTransferPlayers.Contains(NpcController.Npc);
-			if ((!Plugin.Config.GrabItemsNearEntrances.Value || LethalBotManager.Instance.LootTransferPlayers.Count > 0)
-                && !botIsTransferringItems
-                && !LethalBotManager.Instance.AreAllHumanPlayersDead())
+			bool shouldReturnToShip = this.State?.ShouldReturnToShip() ?? false;
+            bool botIsTransferringItems = LethalBotManager.Instance.LootTransferPlayers.Contains(NpcController.Npc);
+			if (((!Plugin.Config.GrabItemsNearEntrances.Value 
+					&& !LethalBotManager.Instance.AreAllHumanPlayersDead())
+                    || (LethalBotManager.Instance.LootTransferPlayers.Count > 0 && !shouldReturnToShip))
+                && !botIsTransferringItems)
 			{
 				foreach (EntranceTeleport entrance in EntrancesTeleportArray)
 				{

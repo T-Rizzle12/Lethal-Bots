@@ -2,6 +2,7 @@
 using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
+using LethalBots.Managers;
 using System.Collections;
 using System.Linq;
 using System.Reflection;
@@ -282,7 +283,13 @@ namespace LethalBots.AI.AIStates
                 // just in case.....
                 if (ai.HasScrapInInventory())
                 {
-                    ai.State = new ReturnToShipState(this);
+                    // Now, lets check if someone is assigned to transfer loot
+                    bool shouldWalkLootToShip = true;
+                    if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
+                    {
+                        shouldWalkLootToShip = false;
+                    }
+                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip);
                     return;
                 }
             }
