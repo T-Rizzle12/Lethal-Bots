@@ -1964,8 +1964,8 @@ namespace LethalBots.Managers
 
             // Only set the starting revives if the mod is loaded!
             if (Plugin.IsModReviveCompanyLoaded)
-            { 
-                SetStartingRevivesReviveCompany();
+            {
+                SetStartingRevivesReviveCompanyServerRpc();
             }
 
             HUDManager.Instance.DisplayTip("Finished Spawning Bots!", string.Format("{0} bots were spawned!", nbSpawnedBots), false, false, "LC_Tip1");
@@ -3425,6 +3425,21 @@ namespace LethalBots.Managers
             if (OPJosMod.ReviveCompany.GlobalVariables.RemainingRevives < 100)
             {
                 HUDManager.Instance.DisplayTip(identityName + " was revived", string.Format("{0} revives remain!", OPJosMod.ReviveCompany.GlobalVariables.RemainingRevives), false, false, "LC_Tip1");
+            }
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void SetStartingRevivesReviveCompanyServerRpc()
+        {
+            SetStartingRevivesReviveCompanyClientRpc();
+        }
+
+        [ClientRpc]
+        private void SetStartingRevivesReviveCompanyClientRpc()
+        {
+            if (Plugin.IsModReviveCompanyLoaded)
+            {
+                SetStartingRevivesReviveCompany();
             }
         }
 

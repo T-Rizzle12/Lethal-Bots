@@ -4227,7 +4227,7 @@ namespace LethalBots.AI
                 }
 
                 // Grabbable object ?
-                if (!IsGrabbableObjectGrabbable(grabbableObject))
+                if (!IsGrabbableObjectGrabbable(grabbableObject, EnumGrabbableObjectCall.Reviving))
                 {
                     continue;
                 }
