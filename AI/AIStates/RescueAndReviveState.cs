@@ -294,43 +294,44 @@ namespace LethalBots.AI.AIStates
             float headOffset = npcController.Npc.gameplayCamera.transform.position.y - npcController.Npc.transform.position.y;
             for (var i = 0; i < nodes.Length; i++)
             {
-                Transform nodeTransform = nodes[i].transform;
-
                 // Give the main thread a chance to do something else
+                var node = nodes[i];
                 if (i % 15 == 0)
                 {
                     yield return null;
                 }
 
                 // Can we path to the node and is it safe?
-                Vector3 nodePos = nodeTransform.position;
-                if (!ai.IsValidPathToTarget(nodePos))
+                Vector3? nodePos = node?.transform.position;
+                if (!nodePos.HasValue || !ai.IsValidPathToTarget(nodePos.Value))
                 {
                     continue;
                 }
 
                 // Check if the node is exposed to enemies
                 bool isNodeSafe = true;
-                Vector3 simulatedHead = nodePos + Vector3.up * headOffset;
+                Vector3 simulatedHead = nodePos.Value + Vector3.up * headOffset;
                 RoundManager instanceRM = RoundManager.Instance;
                 for (int j = 0; j < instanceRM.SpawnedEnemies.Count; j++)
                 {
-                    EnemyAI checkLOSToTarget = instanceRM.SpawnedEnemies[j];
-                    if (checkLOSToTarget.isEnemyDead || ourWeOutside != checkLOSToTarget.isOutside)
-                    {
-                        continue;
-                    }
-
                     // Give the main thread a chance to do something else
+                    EnemyAI checkLOSToTarget = instanceRM.SpawnedEnemies[j];
                     if (j % 10 == 0)
                     {
                         yield return null;
                     }
 
+                    if (checkLOSToTarget == null 
+                        || checkLOSToTarget.isEnemyDead 
+                        || ourWeOutside != checkLOSToTarget.isOutside)
+                    {
+                        continue;
+                    }
+
                     // Check if the target is a threat!
                     float? dangerRange = ai.GetFearRangeForEnemies(checkLOSToTarget, EnumFearQueryType.PathfindingAvoid);
                     Vector3 enemyPos = checkLOSToTarget.transform.position;
-                    if (dangerRange.HasValue && (enemyPos - nodePos).sqrMagnitude <= dangerRange * dangerRange)
+                    if (dangerRange.HasValue && (enemyPos - nodePos.Value).sqrMagnitude <= dangerRange * dangerRange)
                     {
                         // Do the actual traceline check
                         Vector3 viewPos = checkLOSToTarget.eye?.position ?? enemyPos;
@@ -351,16 +352,16 @@ namespace LethalBots.AI.AIStates
                 // Now we need to make sure we are not reviving next to traps.
                 for (int k = 0; k < turrets.Length; k++)
                 {
-                    Turret turret = turrets[k];
-                    if (!turret.isActiveAndEnabled)
-                    {
-                        continue;
-                    }
-
                     // Give the main thread a chance to do something else
+                    Turret turret = turrets[k];
                     if (k % 15 == 0)
                     {
                         yield return null;
+                    }
+
+                    if (turret == null || !turret.isActiveAndEnabled)
+                    {
+                        continue;
                     }
 
                     // Do the actual traceline check
@@ -381,22 +382,22 @@ namespace LethalBots.AI.AIStates
                 // We don't need to consider landmines, but we should consider Spike Roof Traps
                 for (int k = 0; k < spikeRoofTraps.Length; k++)
                 {
-                    SpikeRoofTrap spikeRoofTrap = spikeRoofTraps[k];
-                    if (!spikeRoofTrap.isActiveAndEnabled)
-                    {
-                        continue;
-                    }
-
                     // Give the main thread a chance to do something else
+                    SpikeRoofTrap spikeRoofTrap = spikeRoofTraps[k];
                     if (k % 15 == 0)
                     {
                         yield return null;
                     }
 
+                    if (spikeRoofTrap == null || !spikeRoofTrap.isActiveAndEnabled)
+                    {
+                        continue;
+                    }
+
                     // Just a simple distance check should be enough
                     Vector3 spikeRoofTrapPos = spikeRoofTrap.spikeTrapAudio.transform.position;
                     const float safeDistance = 20f; // Arbitrary safe distance from spike roof traps
-                    if ((spikeRoofTrapPos - nodePos).sqrMagnitude <= safeDistance * safeDistance)
+                    if ((spikeRoofTrapPos - nodePos.Value).sqrMagnitude <= safeDistance * safeDistance)
                     {
                         isNodeSafe = false;
                         break;
@@ -409,8 +410,8 @@ namespace LethalBots.AI.AIStates
                     continue;
                 }
 
-                Plugin.LogDebug($"Bot {npcController.Npc.playerUsername} found fallback spot at {nodeTransform.position}!");
-                fallbackPos = nodeTransform.position;
+                Plugin.LogDebug($"Bot {npcController.Npc.playerUsername} found fallback spot at {nodePos.Value}!");
+                fallbackPos = nodePos.Value;
                 break;
             }
             StopFallbackCoroutine();
