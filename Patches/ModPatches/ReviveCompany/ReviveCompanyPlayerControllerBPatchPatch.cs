@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using LethalBots.Utils;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -114,5 +115,7 @@ namespace LethalBots.Patches.ModPatches.ReviveCompany
 
             return codes.AsEnumerable();
         }
+
+        public static bool CanRevive_ReversePatch(RagdollGrabbableObject revivingBody) => throw new NotImplementedException("Stub LethalBot.Patches.ModPatches.ReviveCompany.ReviveCompanyPlayerControllerBPatchPatch.CanRevive_ReversePatch");
     }
 }

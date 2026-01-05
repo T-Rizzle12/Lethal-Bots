@@ -25,6 +25,7 @@
         ChargeHeldItem,
         UseTZPInhalant,
         LostInFacility,
-        TransferLoot
+        TransferLoot,
+        RescueAndRevive
     }
 }

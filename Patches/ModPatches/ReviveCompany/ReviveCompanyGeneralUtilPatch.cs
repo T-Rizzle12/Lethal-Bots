@@ -21,7 +21,7 @@ namespace LethalBots.Patches.ModPatches.ReviveCompany
             }
 
             // Identity and body are not sync, need to find the identity to revive not the body
-            RagdollGrabbableObject? ragdollGrabbableObjectToRevive = GetRagdollGrabbableObjectLookingAt();
+            RagdollGrabbableObject? ragdollGrabbableObjectToRevive = StartOfRound.Instance.allPlayerScripts[playerId]?.deadBody?.grabBodyObject as RagdollGrabbableObject;
             if (ragdollGrabbableObjectToRevive == null)
             {
                 Plugin.LogError($"Revive company with LethalBot: error when trying to revive bot, could not find body.");
