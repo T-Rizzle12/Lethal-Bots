@@ -109,7 +109,7 @@ namespace LethalBots.AI.AIStates
                         ai.DropItem();
                     }
                     LethalBotAI.DictJustDroppedItems.Remove(playerBody); // HACKHACK: Skip the dropped item cooldown so bot can grab the body immediately
-                    if (ai.IsGrabbableObjectGrabbable(playerBody))
+                    if (ai.IsGrabbableObjectGrabbable(playerBody, EnumGrabbableObjectCall.Reviving))
                     {
                         ai.State = new FetchingObjectState(this, playerBody);
                         return;
@@ -233,7 +233,6 @@ namespace LethalBots.AI.AIStates
                     }
                 }
 
-                Plugin.LogInfo("Revive before checking RagdollGrabbableObject");
                 if (playerToRevive.deadBody.grabBodyObject is RagdollGrabbableObject ragdollGrabbableObject)
                 {
                     // So the base function ignores the local player, so I have to recreate the method in order for this to work....
@@ -596,7 +595,7 @@ namespace LethalBots.AI.AIStates
         private void DoReviveCompanyLogic()
         {
             // Wait for fallback to be caculated
-            if (!fallbackPos.HasValue)
+            if (!fallbackPos.HasValue || !ai.IsValidPathToTarget(fallbackPos.Value))
             {
                 StartFallbackCoroutine(); // Just in case the coroutine failed somehow!
                 return;
@@ -740,7 +739,7 @@ namespace LethalBots.AI.AIStates
         private void DoZaprillatorLogic()
         {
             // Wait for fallback to be caculated
-            if (!fallbackPos.HasValue)
+            if (!fallbackPos.HasValue || !ai.IsValidPathToTarget(fallbackPos.Value))
             {
                 StartFallbackCoroutine(); // Just in case the coroutine failed somehow!
                 return;
