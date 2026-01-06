@@ -1162,6 +1162,12 @@ namespace LethalBots.Managers
             // Exactly how the game does it in PlayerControllerB.SendNewPlayerValuesClientRpc!
             instance.mapScreen.radarTargets[(int)lethalBotController.playerClientId].name = lethalBotController.playerUsername;
 
+            // If the bot was revived, we need to update the spectator boxes to reflect this!
+            if (GameNetworkManager.Instance.localPlayerController.isPlayerDead)
+            {
+                HUDManager.Instance.UpdateBoxesSpectateUI();
+            }
+
             // FIXME: This creates bugs for some reason, the cause is unknown!
             // HACKHACK: We raise the connected players amount and number of living players so enemies consider them!
             // This also makes it so if all human players die, the bots can continue without them!

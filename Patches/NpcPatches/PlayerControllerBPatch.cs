@@ -886,6 +886,11 @@ namespace LethalBots.Patches.NpcPatches
         [HarmonyPriority(Priority.Last)]
         public static void SetPlayerSanityLevel_ReversePatch(object instance) => throw new NotImplementedException("Stub LethalBot.Patches.NpcPatches.SetPlayerSanityLevel_ReversePatch");
 
+        [HarmonyPatch("NearOtherPlayers")]
+        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
+        [HarmonyPriority(Priority.Last)]
+        public static bool NearOtherPlayers_ReversePatch(object instance, PlayerControllerB playerScript, float checkRadius) => throw new NotImplementedException("Stub LethalBot.Patches.NpcPatches.NearOtherPlayers_ReversePatch");
+
         #endregion
 
         #region Transpilers

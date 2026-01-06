@@ -4151,9 +4151,7 @@ namespace LethalBots.AI
         public PlayerControllerB? LookingForPlayerToRevive(bool ignoreLOS = false, bool shipOnly = false)
 		{
 			// If no revive mods are installed, do nothing!
-			if (!Plugin.IsModReviveCompanyLoaded 
-				&& !Plugin.IsModBunkbedReviveLoaded 
-				&& !Plugin.IsModZaprillatorLoaded)
+			if (!RescueAndReviveState.IsAnyReviveModInstalled())
 			{
 				return null;
 			}

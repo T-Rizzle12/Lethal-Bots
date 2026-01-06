@@ -3,6 +3,7 @@ using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.Patches.NpcPatches;
 using LethalLib.Modules;
 using Steamworks;
 using System;
@@ -943,6 +944,8 @@ namespace LethalBots.AI.AIStates
             if (deadBodyInfo != null
                 && !deadBodyInfo.isInShip
                 && !deadBodyInfo.grabBodyObject.isHeld
+                && !RescueAndReviveState.CanRevivePlayer(ai, player, true)
+                && (!RescueAndReviveState.IsAnyReviveModInstalled() || !PlayerControllerBPatch.NearOtherPlayers_ReversePatch(player, player, 17f))
                 && !StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position)
                 && !ai.CheckProximityForEyelessDogs())
             {
@@ -1341,18 +1344,18 @@ namespace LethalBots.AI.AIStates
         /// Helper function that checks if an enemy is invading the ship!
         /// </summary>
         /// <returns></returns>
-        private EnemyAI? CheckForInvadingEnemy()
+        private EnemyAI? CheckForInvadingEnemy(bool onlyKillable = true, bool checkOutsideShip = false)
         {
             RoundManager instanceRM = RoundManager.Instance;
             Transform thisLethalBotCamera = this.npcController.Npc.gameplayCamera.transform;
-            Bounds shipBounds = StartOfRound.Instance.shipInnerRoomBounds.bounds;
+            Bounds shipBounds = checkOutsideShip ? StartOfRound.Instance.shipBounds.bounds : StartOfRound.Instance.shipInnerRoomBounds.bounds;
             EnemyAI? closestEnemy = null;
             float closestEnemyDistSqr = float.MaxValue;
             foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
             {
                 // Only check for alive and invading enemies!
                 if (spawnedEnemy.isEnemyDead 
-                    || !ai.CanEnemyBeKilled(spawnedEnemy))
+                    || (onlyKillable && !ai.CanEnemyBeKilled(spawnedEnemy)))
                 {
                     continue;
                 }

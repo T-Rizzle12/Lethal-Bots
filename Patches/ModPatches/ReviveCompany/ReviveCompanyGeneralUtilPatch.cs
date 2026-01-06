@@ -45,7 +45,7 @@ namespace LethalBots.Patches.ModPatches.ReviveCompany
             // Update remaining revives
             LethalBotManager.Instance.UpdateReviveCompanyRemainingRevivesServerRpc(lethalBotIdentity.Name);
 
-            PlayerControllerB playerReviving = GameNetworkManager.Instance.localPlayerController;
+            PlayerControllerB playerReviving = GeneralUtil.GetClosestAlivePlayer(ragdollGrabbableObjectToRevive.transform.position);
             Vector3 revivePos = ragdollGrabbableObjectToRevive.transform.position;
             float yRot = playerReviving.transform.rotation.eulerAngles.y;
             if (Vector3.Distance(revivePos, playerReviving.transform.position) > 7f)

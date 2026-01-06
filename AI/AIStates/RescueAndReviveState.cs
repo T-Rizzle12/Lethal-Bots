@@ -14,7 +14,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using UnityEngine;
+using UnityEngine.InputSystem.HID;
 
 namespace LethalBots.AI.AIStates
 {
@@ -30,6 +32,7 @@ namespace LethalBots.AI.AIStates
         private Coroutine? reviveCoroutine;
         private Vector3? fallbackPos;
         private bool shouldPickupBody;
+        private bool movedFromFallback;
 
         public RescueAndReviveState(AIState oldState, PlayerControllerB playerToRevive) : base(oldState)
         {
@@ -47,9 +50,7 @@ namespace LethalBots.AI.AIStates
         {
             if (!hasBeenStarted)
             {
-                if (!Plugin.IsModReviveCompanyLoaded
-                    && !Plugin.IsModBunkbedReviveLoaded
-                    && !Plugin.IsModZaprillatorLoaded)
+                if (!IsAnyReviveModInstalled())
                 {
                     Plugin.LogWarning($"[{npcController.Npc.playerUsername}] RescueAndReviveState entered but no revive mods are loaded! Reverting to previous state.");
                     ChangeBackToPreviousState();
@@ -208,10 +209,11 @@ namespace LethalBots.AI.AIStates
         /// If the mod is not loaded or the required method is
         /// unavailable, the method returns false.
         /// </remarks>
-        /// <param name="lethalBotAI">The bot who is checking if the player can be revived.</param>
-        /// <param name="playerToRevive">The player to check for revival eligibility.</param>
+        /// <param name="lethalBotAI">The bot who is thinking about reviving <paramref name="playerToRevive"/></param>
+        /// <param name="playerToRevive">The player <paramref name="lethalBotAI"/> is thinking about reviving</param>
+        /// <param name="isMissionController">Is <paramref name="lethalBotAI"/> who is thinking about teleporting this player's dead body</param>
         /// <returns>true if the player can be revived using the ReviveCompany mod; otherwise, false.</returns>
-        private static bool ReviveCompanyCanRevivePlayer(LethalBotAI lethalBotAI, PlayerControllerB playerToRevive)
+        private static bool ReviveCompanyCanRevivePlayer(LethalBotAI lethalBotAI, PlayerControllerB playerToRevive, bool isMissionController = false)
         {
             if (Plugin.IsModReviveCompanyLoaded)
             {
@@ -233,9 +235,19 @@ namespace LethalBots.AI.AIStates
                     }
                 }
 
-                if (playerToRevive.deadBody.grabBodyObject is RagdollGrabbableObject ragdollGrabbableObject)
+                // If we can revive teleported bodies, why not bring them back!
+                if (isMissionController && ConfigVariables.reviveTeleportedBodies)
+                {
+                    return false;
+                }
+
+                // Sigh, for some reason, bots fail to find the RagdollGrabbableObject for the local player
+                // So, I will do it myself
+                if (playerToRevive?.deadBody?.grabBodyObject is RagdollGrabbableObject 
+                    || playerToRevive == GameNetworkManager.Instance.localPlayerController)
                 {
                     // So the base function ignores the local player, so I have to recreate the method in order for this to work....
+                    RagdollGrabbableObject? ragdollGrabbableObject = playerToRevive?.deadBody?.grabBodyObject as RagdollGrabbableObject;
                     if (playerToRevive == GameNetworkManager.Instance.localPlayerController)
                     {
                         if (GlobalVariables.RemainingRevives <= 0)
@@ -247,13 +259,13 @@ namespace LethalBots.AI.AIStates
                         //{
                         //    return false;
                         //}
-                        int playerClientId = (int)ragdollGrabbableObject.ragdoll.playerScript.playerClientId;
-                        if (GeneralUtil.HasPlayerTeleported(playerClientId) && !ConfigVariables.reviveTeleportedBodies)
+                        ulong playerClientId = ragdollGrabbableObject?.ragdoll?.playerScript.playerClientId ?? playerToRevive.playerClientId;
+                        if (GeneralUtil.HasPlayerTeleported((int)playerClientId) && !ConfigVariables.reviveTeleportedBodies)
                         {
                             return false;
                         }
                         //Plugin.LogDebug(Time.time + " | " + GeneralUtil.GetPlayersDiedAtTime(playerClientId));
-                        if (Time.time - GeneralUtil.GetPlayersDiedAtTime(playerClientId) > (float)ConfigVariables.TimeUnitlCantBeRevived && !ConfigVariables.InfiniteReviveTime)
+                        if (Time.time - GeneralUtil.GetPlayersDiedAtTime((int)playerClientId) > (float)ConfigVariables.TimeUnitlCantBeRevived && !ConfigVariables.InfiniteReviveTime)
                         {
                             return false;
                         }
@@ -261,7 +273,11 @@ namespace LethalBots.AI.AIStates
                         return true;
                     }
 
-                    return ReviveCompanyCanReviveDelegate.Invoke(ragdollGrabbableObject);
+                    // Run the original method!
+                    if (ragdollGrabbableObject != null)
+                    { 
+                        return ReviveCompanyCanReviveDelegate.Invoke(ragdollGrabbableObject); 
+                    }
                 }
             }
 
@@ -271,14 +287,15 @@ namespace LethalBots.AI.AIStates
         /// <summary>
         /// Determines whether the Zaprillator mod can revive the specified player.
         /// </summary>
-        /// <param name="lethalBotAI">The bot who is checking if the player can be revived.</param>
-        /// <param name="playerToRevive">The player to check for revival eligibility by the Zaprillator mod.</param>
+        /// <param name="lethalBotAI">The bot who is thinking about reviving <paramref name="playerToRevive"/></param>
+        /// <param name="playerToRevive">The player <paramref name="lethalBotAI"/> is thinking about reviving</param>
+        /// <param name="isMissionController">Is <paramref name="lethalBotAI"/> who is thinking about teleporting this player's dead body</param>
         /// <returns>Always returns false, indicating that the Zaprillator mod cannot revive the specified player.</returns>
-        private static bool ZaprillatorCanRevivePlayer(LethalBotAI lethalBotAI, PlayerControllerB playerToRevive)
+        private static bool ZaprillatorCanRevivePlayer(LethalBotAI lethalBotAI, PlayerControllerB playerToRevive, bool isMissionController = false)
         {
             // FIXME: This doesn't consider ANY of the config options,
             // this is due to Zaprillator being marked as Internal! 
-            if (Plugin.IsModZaprillatorLoaded)
+            if (Plugin.IsModZaprillatorLoaded && !isMissionController)
             {
                 return lethalBotAI.HasGrabbableObjectInInventory(FindZapGun, out _);
             }
@@ -289,13 +306,14 @@ namespace LethalBots.AI.AIStates
         /// <summary>
         /// Determines whether the specified player can be revived using Bunkbed Revive.
         /// </summary>
-        /// <param name="lethalBotAI">The bot who is checking if the player can be revived.</param>
-        /// <param name="playerToRevive">The player to check for Bunkbed Revive eligibility.</param>
+        /// <param name="lethalBotAI">The bot who is thinking about reviving <paramref name="playerToRevive"/></param>
+        /// <param name="playerToRevive">The player <paramref name="lethalBotAI"/> is thinking about reviving</param>
+        /// <param name="isMissionController">Is <paramref name="lethalBotAI"/> who is thinking about teleporting this player's dead body</param>
         /// <returns>true if the player can be revived using Bunkbed Revive; otherwise, false.</returns>
-        private static bool BunkbedReviveCanRevivePlayer(LethalBotAI lethalBotAI, PlayerControllerB playerToRevive)
+        private static bool BunkbedReviveCanRevivePlayer(LethalBotAI lethalBotAI, PlayerControllerB playerToRevive, bool isMissionController = false)
         {
             // Bunkbed Revive can only be used on the ship!
-            if (!lethalBotAI.NpcController.Npc.isInElevator && !lethalBotAI.NpcController.Npc.isInHangarShipRoom)
+            if (isMissionController || (!lethalBotAI.NpcController.Npc.isInElevator && !lethalBotAI.NpcController.Npc.isInHangarShipRoom))
             {
                 return false;
             }
@@ -353,7 +371,27 @@ namespace LethalBots.AI.AIStates
             }
         }
 
-        public static bool CanRevivePlayer(LethalBotAI lethalBotAI, PlayerControllerB playerController)
+        /// <summary>
+        /// Simple helper function that checks if any of the supported player revive mods
+        /// are active and enabled!
+        /// </summary>
+        /// <returns>true: at least one supported mod is installed and enabled; otherwise false</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsAnyReviveModInstalled()
+        {
+            return Plugin.IsModReviveCompanyLoaded
+                    || Plugin.IsModBunkbedReviveLoaded
+                    || Plugin.IsModZaprillatorLoaded;
+        }
+
+        /// <summary>
+        /// Helper function that tells bots if a player can be revived or not
+        /// </summary>
+        /// <param name="lethalBotAI">The bot who is thinking about reviving <paramref name="playerController"/></param>
+        /// <param name="playerController">The player <paramref name="lethalBotAI"/> is thinking about reviving</param>
+        /// <param name="isMissionController">Is <paramref name="lethalBotAI"/> who is thinking about teleporting this player's dead body</param>
+        /// <returns>true if the player can be revived using any of the supported mods; otherwise, false.</returns>
+        public static bool CanRevivePlayer(LethalBotAI lethalBotAI, PlayerControllerB playerController, bool isMissionController = false)
         {
             // Make sure there is a vaild dead body!
             GrabbableObject? playerBody = playerController.deadBody?.grabBodyObject;
@@ -363,15 +401,15 @@ namespace LethalBots.AI.AIStates
             }
 
             // Alright, we prefer Revive Company, then Zaprillator, then Bunkbed Revive.
-            if (Plugin.IsModReviveCompanyLoaded && ReviveCompanyCanRevivePlayer(lethalBotAI, playerController))
+            if (Plugin.IsModReviveCompanyLoaded && ReviveCompanyCanRevivePlayer(lethalBotAI, playerController, isMissionController))
             {
                 return true;
             }
-            else if (Plugin.IsModZaprillatorLoaded && ZaprillatorCanRevivePlayer(lethalBotAI, playerController))
+            else if (Plugin.IsModZaprillatorLoaded && ZaprillatorCanRevivePlayer(lethalBotAI, playerController, isMissionController))
             {
                 return true;
             }
-            else if (Plugin.IsModBunkbedReviveLoaded && BunkbedReviveCanRevivePlayer(lethalBotAI, playerController))
+            else if (Plugin.IsModBunkbedReviveLoaded && BunkbedReviveCanRevivePlayer(lethalBotAI, playerController, isMissionController))
             {
                 return true;
             }
@@ -685,8 +723,9 @@ namespace LethalBots.AI.AIStates
             }
 
             // Swap to zap gun and give time for the weapon switch to happen!
+            float startTime = Time.timeSinceLevelLoad;
             ai.SwitchItemSlotsAndSync(itemSlot);
-            yield return new WaitForSeconds(1f); // One second to allow RPC to got to server and back to us!
+            yield return new WaitUntil(() => npcController.Npc.currentItemSlot == itemSlot || (Time.timeSinceLevelLoad - startTime) > 1f); // One second to allow RPC to got to server and back to us!
 
             // Alright, are we holding the Zap Gun?
             GrabbableObject? heldItem = ai.HeldItem;
@@ -706,6 +745,25 @@ namespace LethalBots.AI.AIStates
             if (!patcherTool.isShocking)
             {
                 Plugin.LogWarning($"[{npcController.Npc.playerUsername}] Tried to revive player {playerToRevive.playerUsername} using Zaprillator but the Zap Gun failed to find the body!");
+
+                // Alright before we end the coroutine, make the bot step back a bit!
+                if (!movedFromFallback)
+                {
+                    Ray ray = new Ray(npcController.Npc.transform.position, npcController.Npc.transform.position + Vector3.up * 0.2f - playerBody.transform.position + Vector3.up * 0.2f);
+                    ray.direction = new Vector3(ray.direction.x, 0f, ray.direction.z);
+                    Vector3 pos = (!Physics.Raycast(ray, out RaycastHit hit, 4f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)) ? ray.GetPoint(4f) : hit.point;
+                    fallbackPos = RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f);
+                    movedFromFallback = true;
+                }
+                // Moved and we still didn't hit em?
+                // Just pickup and try again!
+                else
+                {
+                    fallbackPos = null;
+                    movedFromFallback = false;
+                    shouldPickupBody = true;
+                }
+
                 StopReviveCoroutine();
                 yield break;
             }

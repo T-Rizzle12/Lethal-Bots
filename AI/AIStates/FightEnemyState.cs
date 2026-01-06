@@ -150,7 +150,11 @@ namespace LethalBots.AI.AIStates
                     // After all, we don't want to be in grabbing range of the enemy!
                     if (sqrMagDistanceEnemy < fallBackDistance * fallBackDistance)
                     {
-                        ai.SetDestinationToPositionLethalBotAI(this.currentEnemy.transform.position - npcController.Npc.transform.position + Vector3.back * maxEnemyDistance);
+                        Ray ray = new Ray(npcController.Npc.transform.position, npcController.Npc.transform.position + Vector3.up * 0.2f - this.currentEnemy.transform.position + Vector3.up * 0.2f);
+                        ray.direction = new Vector3(ray.direction.x, 0f, ray.direction.z);
+                        Vector3 pos = (!Physics.Raycast(ray, out RaycastHit hit, maxEnemyDistance, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)) ? ray.GetPoint(maxEnemyDistance) : hit.point;
+                        Vector3 fallbackPos = RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f);
+                        ai.SetDestinationToPositionLethalBotAI(fallbackPos);
                         npcController.OrderToSprint(); // Sprint, we need to move NOW!
                         ai.OrderMoveToDestination();
                     }
