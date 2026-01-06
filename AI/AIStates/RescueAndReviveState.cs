@@ -643,7 +643,7 @@ namespace LethalBots.AI.AIStates
 
                 // We need to set down the body before reviving
                 shouldPickupBody = false; // Don't try to pick up the body again, we need it on the ground for the revive
-                if (!ai.AreHandsFree())
+                if (!ai.AreHandsFree() && ai.HeldItem is not PatcherTool)
                 {
                     ai.DropItem();
                     return;
