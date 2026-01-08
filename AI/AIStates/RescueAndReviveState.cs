@@ -248,6 +248,7 @@ namespace LethalBots.AI.AIStates
                 {
                     // So the base function ignores the local player, so I have to recreate the method in order for this to work....
                     RagdollGrabbableObject? ragdollGrabbableObject = playerToRevive?.deadBody?.grabBodyObject as RagdollGrabbableObject;
+                    Plugin.LogInfo($"Is playerToRevive local player {playerToRevive == GameNetworkManager.Instance.localPlayerController}");
                     if (playerToRevive == GameNetworkManager.Instance.localPlayerController)
                     {
                         if (GlobalVariables.RemainingRevives <= 0)
@@ -259,17 +260,19 @@ namespace LethalBots.AI.AIStates
                         //{
                         //    return false;
                         //}
-                        ulong playerClientId = ragdollGrabbableObject?.ragdoll?.playerScript.playerClientId ?? playerToRevive.playerClientId;
-                        if (GeneralUtil.HasPlayerTeleported((int)playerClientId) && !ConfigVariables.reviveTeleportedBodies)
+                        int playerClientId = (int)playerToRevive.playerClientId;
+                        if (GeneralUtil.HasPlayerTeleported(playerClientId) && !ConfigVariables.reviveTeleportedBodies)
                         {
+                            Plugin.LogInfo($"Local Player Was Teleported? {GeneralUtil.HasPlayerTeleported(playerClientId)}");
                             return false;
                         }
-                        //Plugin.LogDebug(Time.time + " | " + GeneralUtil.GetPlayersDiedAtTime(playerClientId));
-                        if (Time.time - GeneralUtil.GetPlayersDiedAtTime((int)playerClientId) > (float)ConfigVariables.TimeUnitlCantBeRevived && !ConfigVariables.InfiniteReviveTime)
+                        Plugin.LogInfo(Time.time + " | " + GeneralUtil.GetPlayersDiedAtTime(playerClientId));
+                        if (Time.time - GeneralUtil.GetPlayersDiedAtTime(playerClientId) > (float)ConfigVariables.TimeUnitlCantBeRevived && !ConfigVariables.InfiniteReviveTime)
                         {
+                            Plugin.LogInfo($"Local Player dead for too long!");
                             return false;
                         }
-
+                        Plugin.LogInfo($"Local Player can be revived via Revive Company");
                         return true;
                     }
 

@@ -634,6 +634,7 @@ namespace LethalBots.AI.AIStates
                 {
                     DeadBodyInfo deadBodyInfo = player.deadBody;
                     if (!deadBodyInfo.isInShip
+                        && !deadBodyInfo.grabBodyObject.isInShipRoom
                         && StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position))
                     {
                         npcController.Npc.SetItemInElevator(true, true, deadBodyInfo.grabBodyObject);
@@ -945,7 +946,7 @@ namespace LethalBots.AI.AIStates
                 && !deadBodyInfo.isInShip
                 && !deadBodyInfo.grabBodyObject.isHeld
                 && !RescueAndReviveState.CanRevivePlayer(ai, player, true)
-                && (!RescueAndReviveState.IsAnyReviveModInstalled() || !PlayerControllerBPatch.NearOtherPlayers_ReversePatch(player, player, 17f))
+                && (!RescueAndReviveState.IsAnyReviveModInstalled() || !LethalBotAI.NearOtherPlayers(player, 17f))
                 && !StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position)
                 && !ai.CheckProximityForEyelessDogs())
             {

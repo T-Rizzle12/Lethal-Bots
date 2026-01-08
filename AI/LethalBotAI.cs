@@ -4161,20 +4161,22 @@ namespace LethalBots.AI
             for (int i = 0; i < StartOfRound.Instance.allPlayerScripts.Length; i++)
             {
                 PlayerControllerB playerController = StartOfRound.Instance.allPlayerScripts[i];
+                Plugin.LogInfo($"Is local player {playerController == GameNetworkManager.Instance.localPlayerController}");
                 if (playerController == null || !RescueAndReviveState.CanRevivePlayer(this, playerController))
                 {
                     continue;
                 }
 
-                // Get grabbable object infos
+                // Get game and grabbable object infos
                 GrabbableObject? grabbableObject = playerController.deadBody?.grabBodyObject;
-                if (grabbableObject == null)
+                GameObject? gameObject = grabbableObject?.gameObject;
+                if (gameObject == null || grabbableObject == null)
                 {
                     continue;
                 }
 
                 // Object not outside when ai inside and vice versa
-                Vector3 deadBodyPosition = grabbableObject.transform.position;
+                Vector3 deadBodyPosition = gameObject.transform.position;
                 if (isOutside && deadBodyPosition.y < -100f)
                 {
                     continue;
@@ -4188,7 +4190,7 @@ namespace LethalBots.AI
                 // Check if object is further away from the closest object
                 // FIXME: This should be PATH distance not elucian!
                 float sqrDistanceEyeDeadPlayer = (deadBodyPosition - this.eye.position).sqrMagnitude;
-                if (sqrDistanceEyeDeadPlayer > Const.LETHAL_BOT_OBJECT_RANGE * Const.LETHAL_BOT_OBJECT_RANGE
+                if ((!shipOnly && sqrDistanceEyeDeadPlayer > Const.LETHAL_BOT_RESCUE_RANGE * Const.LETHAL_BOT_RESCUE_RANGE)
                     || sqrDistanceEyeDeadPlayer > closestDeadPlayerDistSqr)
                 {
                     continue;
@@ -4283,9 +4285,11 @@ namespace LethalBots.AI
 			}
 
 			// If its held, check if we are reviving the player or not
+			bool skipPathCheck = false;
 			if (grabbableObject.isHeld)
 			{
 				// Alright, if we are picking up a player to revive them, check if we are already holding their body!
+				skipPathCheck = true;
 				if (enumGrabbable != EnumGrabbableObjectCall.Reviving || !this.HasGrabbableObjectInInventory(grabbableObject, out _))
 				{
 					return false;
@@ -4373,6 +4377,7 @@ namespace LethalBots.AI
 			// Is the item reachable with the agent pathfind ? (only owner knows and calculate) real position of ai lethalBot)
 			Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(grabbableObject.transform.position, default, NpcController.Npc.grabDistance, NavMesh.AllAreas);
 			if (IsOwner
+				&& !skipPathCheck
 				&& !this.IsValidPathToTarget(objectPos, false, maxRangeToEnd: NpcController.Npc.grabDistance))
 			{
 				//Plugin.LogDebug($"object {grabbableObject.name} pathfind is not reachable");
@@ -7689,8 +7694,44 @@ namespace LethalBots.AI
 			return closest;
 		}
 
-		// T-Rizzle: What was the purpose of this function?
-		private Vector3 GetRandomPushForce(Vector3 origin, Vector3 point, float forceMean)
+		/// <summary>
+		/// Recreation of <see cref="PlayerControllerB.NearOtherPlayers"/>, but better!
+		/// </summary>
+		/// <remarks>
+		/// Please not that this is "slightly" diffrent from the origninal, so take that into consideration!
+		/// </remarks>
+		/// <param name="player"></param>
+		/// <param name="checkRadius"></param>
+		/// <returns></returns>
+		internal static bool NearOtherPlayers(PlayerControllerB player, float checkRadius = 10f)
+		{
+			// Must be valid!
+			if (player == null)
+			{
+				return false;
+			}
+			Vector3 playerPosition = player.transform.position;
+            foreach (PlayerControllerB playerController in StartOfRound.Instance.allPlayerScripts)
+			{
+				if (playerController != null 
+					&& player != playerController 
+					&& playerController.isPlayerControlled 
+					&& !playerController.isPlayerDead)
+				{
+					float playerDistSqr = (playerController.transform.position - playerPosition).sqrMagnitude;
+					if (playerDistSqr <= checkRadius)
+					{
+						return true;
+					}
+
+                }
+			}
+
+			return false;
+        }
+
+        // T-Rizzle: What was the purpose of this function?
+        private Vector3 GetRandomPushForce(Vector3 origin, Vector3 point, float forceMean)
 		{
 			point.y += UnityEngine.Random.Range(2f, 4f);
 

@@ -217,6 +217,9 @@ namespace LethalBots.Constants
         public const string TRANSMIT_KEYWORD = "transmit";
         public static readonly int TRANSMIT_KEYWORD_LENGTH = TRANSMIT_KEYWORD.Length; // Length of the word "transmit"
 
+        // Rescue and Revive State
+        public const float LETHAL_BOT_RESCUE_RANGE = 30f;
+
         // Misc
         public const float DISTANCE_NPCBODY_FROM_LADDER = 2;
         public const float DISTANCE_NPCBODY_FROM_DOOR = 2.5f;
