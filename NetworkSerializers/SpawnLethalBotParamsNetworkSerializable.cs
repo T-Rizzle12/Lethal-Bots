@@ -14,7 +14,7 @@ namespace LethalBots.NetworkSerializers
         public int Hp;
         public int SuitID;
         public EnumSpawnAnimation enumSpawnAnimation;
-        public Vector3 SpawnPosition;
+        public Vector3? SpawnPosition;
         public float YRot;
         public bool IsOutside;
         public bool ShouldDestroyDeadBody;
@@ -32,7 +32,7 @@ namespace LethalBots.NetworkSerializers
             serializer.SerializeValue(ref Hp);
             serializer.SerializeValue(ref SuitID);
             serializer.SerializeValue(ref enumSpawnAnimation);
-            serializer.SerializeValue(ref SpawnPosition);
+            LethalBotNetworkSerializer.SerializeNullable(serializer, ref SpawnPosition);
             serializer.SerializeValue(ref YRot);
             serializer.SerializeValue(ref IsOutside);
             serializer.SerializeValue(ref ShouldDestroyDeadBody);

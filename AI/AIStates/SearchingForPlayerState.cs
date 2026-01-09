@@ -58,6 +58,14 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // Check to see if we can revive anyone!
+            PlayerControllerB? playerController = ai.LookingForPlayerToRevive();
+            if (playerController != null)
+            {
+                ai.State = new RescueAndReviveState(this, playerController);
+                return;
+            }
+
             // Check for object to grab
             if (ai.HasSpaceInInventory())
             {

@@ -9,17 +9,17 @@ namespace LethalBots.AI.AIStates
     /// </summary>
     public class FetchingObjectState : AIState
     {
-        private bool isSelling;
+        private EnumGrabbableObjectCall enumGrabbable;
         private int grabAttempts;
 
         /// <summary>
         /// <inheritdoc cref="AIState(AIState)"/>
         /// </summary>
-        public FetchingObjectState(AIState state, GrabbableObject? targetItem, bool isSelling = false, AIState? changeToOnEnd = null) : base(state, changeToOnEnd)
+        public FetchingObjectState(AIState state, GrabbableObject? targetItem, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default, AIState? changeToOnEnd = null) : base(state, changeToOnEnd)
         {
             CurrentState = EnumAIStates.FetchingObject;
             this.TargetItem = targetItem;
-            this.isSelling = isSelling;
+            this.enumGrabbable = enumGrabbable;
         }
 
         /// <summary>
@@ -126,11 +126,11 @@ namespace LethalBots.AI.AIStates
                 return false; 
             }
 
-            if (isSelling)
+            if (enumGrabbable == EnumGrabbableObjectCall.Selling)
             {
                 return ai.IsGrabbableObjectSellable(TargetItem);
             }
-            return ai.IsGrabbableObjectGrabbable(TargetItem);
+            return ai.IsGrabbableObjectGrabbable(TargetItem, enumGrabbable);
         }
 
         public override void OnBotStuck()

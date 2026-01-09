@@ -45,7 +45,7 @@ The number of ~~bots that spawn~~ players that join depend on how many player sl
 - Bots leave after the ship returns to orbit, don't worry they will come back next time you land! </br>
 This is done so other players can join if you have some kind of late join mod! </br>
 - Bots automatically revive after returning to orbit. </br>
-- You can revive bots with other mods like 'Revive company', 'Bunkbed revives' and 'Zaprillator'</br>
+- You can revive bots and bots can revive you with other mods like 'Revive company', 'Bunkbed revives' and 'Zaprillator'</br>
 - Bots can sell scrap at the company. You can configure if they sell everything, or only to quota </br>
 
 While they are spawned, while looking at them: </br>

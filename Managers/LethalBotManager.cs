@@ -1036,7 +1036,7 @@ namespace LethalBots.Managers
             }
 
             GameObject objectParent = instance.allPlayerObjects[spawnParamsNetworkSerializable.IndexNextPlayerObject.Value];
-            objectParent.transform.position = spawnParamsNetworkSerializable.SpawnPosition;
+            objectParent.transform.position = spawnParamsNetworkSerializable.SpawnPosition ?? StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, spawnParamsNetworkSerializable.IndexNextPlayerObject.Value, simpleTeleport: false);
             objectParent.transform.rotation = Quaternion.Euler(new Vector3(0f, spawnParamsNetworkSerializable.YRot, 0f));
 
             PlayerControllerB lethalBotController = instance.allPlayerScripts[spawnParamsNetworkSerializable.IndexNextPlayerObject.Value];
@@ -1161,6 +1161,22 @@ namespace LethalBots.Managers
             // Direct access to avoid looping
             // Exactly how the game does it in PlayerControllerB.SendNewPlayerValuesClientRpc!
             instance.mapScreen.radarTargets[(int)lethalBotController.playerClientId].name = lethalBotController.playerUsername;
+
+            // If the bot was revived, we need to update the spectator boxes to reflect this!
+            if (GameNetworkManager.Instance.localPlayerController.isPlayerDead)
+            {
+                // Ok, the base game only removes spectator boxes if a player disconnects.
+                // So, we are going to fake that!
+                lethalBotController.isPlayerControlled = false;
+                try
+                {
+                    HUDManager.Instance.UpdateBoxesSpectateUI();
+                }
+                finally
+                {
+                    lethalBotController.isPlayerControlled = true;
+                }
+            }
 
             // FIXME: This creates bugs for some reason, the cause is unknown!
             // HACKHACK: We raise the connected players amount and number of living players so enemies consider them!
@@ -1924,7 +1940,7 @@ namespace LethalBots.Managers
                     SpawnLethalBotServerRpc(new SpawnLethalBotParamsNetworkSerializable()
                     {
                         enumSpawnAnimation = EnumSpawnAnimation.OnlyPlayerSpawnAnimationIfDead,
-                        SpawnPosition = StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(instanceSOR, nextPlayerIndex, simpleTeleport: false),
+                        SpawnPosition = null, // Changed to null, since this is called when the ship is landing. We want the most up to date spawn position! StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(instanceSOR, nextPlayerIndex, simpleTeleport: false)
                         YRot = 0,
                         IsOutside = true
                     });
@@ -1964,8 +1980,8 @@ namespace LethalBots.Managers
 
             // Only set the starting revives if the mod is loaded!
             if (Plugin.IsModReviveCompanyLoaded)
-            { 
-                SetStartingRevivesReviveCompany();
+            {
+                SetStartingRevivesReviveCompanyServerRpc();
             }
 
             HUDManager.Instance.DisplayTip("Finished Spawning Bots!", string.Format("{0} bots were spawned!", nbSpawnedBots), false, false, "LC_Tip1");
@@ -2707,6 +2723,13 @@ namespace LethalBots.Managers
             return true;
         }
 
+        /// <summary>
+        /// Retrieves all LethalBotAI instances that are currently owned by the local player.
+        /// </summary>
+        /// <returns>
+        /// An array of LethalBotAI objects owned by the local player. The array is empty if the local player does not
+        /// own any LethalBotAI instances.
+        /// </returns>
         public LethalBotAI[] GetLethalBotsAIOwnedByLocal()
         {
             StartOfRound instanceSOR = StartOfRound.Instance;
@@ -2715,6 +2738,29 @@ namespace LethalBots.Managers
             for (int i = 0; i < instanceSOR.allPlayerScripts.Length; i++)
             {
                 lethalBotAI = GetLethalBotAIIfLocalIsOwner(instanceSOR.allPlayerScripts[i]);
+                if (lethalBotAI != null)
+                {
+                    results.Add(lethalBotAI);
+                }
+            }
+            return results.ToArray();
+        }
+
+        /// <summary>
+        /// Retrieves all active LethalBotAI instances associated with the current game round.
+        /// </summary>
+        /// <returns>
+        /// An array of LethalBotAI objects representing all active bots in the current round. The array is empty if no
+        /// bots are present.
+        /// </returns>
+        public LethalBotAI[] GetLethalBotAIs()
+        {
+            StartOfRound instanceSOR = StartOfRound.Instance;
+            List<LethalBotAI> results = new List<LethalBotAI>();
+            LethalBotAI? lethalBotAI;
+            for (int i = 0; i < instanceSOR.allPlayerScripts.Length; i++)
+            {
+                lethalBotAI = GetLethalBotAI(instanceSOR.allPlayerScripts[i]);
                 if (lethalBotAI != null)
                 {
                     results.Add(lethalBotAI);
@@ -3395,6 +3441,21 @@ namespace LethalBots.Managers
             if (OPJosMod.ReviveCompany.GlobalVariables.RemainingRevives < 100)
             {
                 HUDManager.Instance.DisplayTip(identityName + " was revived", string.Format("{0} revives remain!", OPJosMod.ReviveCompany.GlobalVariables.RemainingRevives), false, false, "LC_Tip1");
+            }
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void SetStartingRevivesReviveCompanyServerRpc()
+        {
+            SetStartingRevivesReviveCompanyClientRpc();
+        }
+
+        [ClientRpc]
+        private void SetStartingRevivesReviveCompanyClientRpc()
+        {
+            if (Plugin.IsModReviveCompanyLoaded)
+            {
+                SetStartingRevivesReviveCompany();
             }
         }
 

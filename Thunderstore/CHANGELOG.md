@@ -1,11 +1,52 @@
 # Changelog
 
-## 1.1.1 - 2026-4-1
+## 1.2.0 - 2026-1-9
+As you may or may not be aware. Bots have support for some revive mods. Before this update, bots could only be revived and could not revive other players, now they can! There are also some other improvemnets such as better fallback choices when paniking.
+
+## Revival and Mod Compatibility
+- Bots, using supported revive mods, can now revive dead players and bots! (Suggestion from GitHub)
+- Improved Bunkbed Revive navigation and RPC calls.
+- Added static CanRevivePlayer function for unified revival checks.
+- Fixed bots revived via Revive Company being fully healed when revived. They will now take ReviveToHeath config into consideration now.
+- Fixed bots not updating the Spectator UI if they were revived
+
+## Panik / Fleeing Improvements
+- Rewrote a good chunk of the Panik system. Bots now assess if the path to the node they are thinking about fleeing to will get too close to the enemy they are fleeing from when picking a safe node to fall back to.
+- Fixed a logic error in PanikState that would cause bots to forget that they were running away from jester if another enemy became a more important threat.
+- Fixed bots using facility entrances to flee from outside enemies. This could cause the bot to enter an infinite loop of fleeing the same two inside and outside enemies!
+- Made bots always test node visibility in PanikState
+- Cleaned up code and removed redundant comments in PanikState
+- Made PathIsIntersectedByLineOfSight more consistent with the checks used in the safe path system
+
+## Mission Control & other AI State Improvements
+- Improved combat fallback movement with navmesh raycasting, improved edge case handling, and fixed the spectating UI not updating when a bot was revived.
+- Removed the hacky method used by Mission Control bots for collecting bodies. They will now actually pickup the body shortly after teleporting them.
+- Added a helper function to MissionControlState, GetOffTerminal, its designed to get the bot to leave the terminal and stop all active coroutines in the state. Helps reduce duplicated code!
+- After spawning bots will now pick their stating AI state based on the current situation. This is good if you have player revive mods since they will return to searching for scrap if another bot revives them.
+- Added some comments to FightEnemyState
+- Gave MissionControlState a new constructor
+
+## Grabbable Object & Enum Changes
+- Added a new enum EnumGrabbableObjectCall which helps IsGrabbableObjectBlackListed determine which items are actually blacklisted.
+- Also changed IsGrabbableObjectGrabbable to accept the new EnumGrabbableObjectCall
+- Made FetchingObjectState accept EnumGrabbableObjectCall instead of a bool for checking if the bot is selling or reviving a player.
+
+## Networking, Spawning, & Sync Fixes
+- LethalBotManager can now return all active bot instances.
+- Readded some of ModelReplacementAPIPatch, its needed to fix my mod's support with late join mods!
+- SpawnLethalBotParamsNetworkSerializable.SpawnPosition can now be null. When spawning bots, if SpawnPosition is null, the ship will be used instead!
+- Fixed bots sometimes spawning outside of the ship on round start. This was caused by my mod now waiting for the bot's network object to be ready, which could cause the ship to move too far from the original spawn position.
+- Fixed SetStartingRevivesReviveCompany only being called on the server causing the number of remaining revives to be desynced
+
+## Misc.
+- Cleaned up obsolete code and updated plugin initialization.
+
+## 1.1.1 - 2026-1-4
 Hotfix for the 1.1.0 update. 
 - Fixed a potential race condition in safe path system.
 - Fixed a logic error where bots checking if an entrance was safe would consider other bots as enemies. (This is since bots are EnemyAI's internally!)
 
-## 1.1.0 - 2026-4-1
+## 1.1.0 - 2026-1-4
 Its time for the first "real" update that isn't just bug fixes. You can now give bots another role! You can now assign, multiple bots to focus on transferring loot between the facility entrances to the ship. Other bots should recognize this and will leave loot they find outside of the building entrances. There are also some bug fixes included as well!
 
 ## New Features & Gameplay Changes
@@ -45,7 +86,7 @@ Changed node consideration code to use the safety score instead of a bunch of if
 - Changed GrabManeaterBaby config name:
 This was done since the name may have been misleading for users. Its new name actually describes what it does! Bots will pickup and calm down the baby Maneater if its crying!
 
-## 1.0.7 - 2026-3-1
+## 1.0.7 - 2026-1-3
 Waiter, Waiter, more bugs fixed please! Back with another bug fix update. Hopefully, this should be the last of them for a while, other than the "Incompatible with Better Emotes" bug, which I'm still working on.
 
 - Bots now cache the transform they chose when returning to the ship. They will now update their target ship postion every few seconds. Fixes #18 on GitHub.
@@ -70,26 +111,26 @@ I don't know when, but apparently a bug got introduced that caused bots to not p
 - Gave bots support for using the Zap Gun
 - Added a new constraint called TIMER_CHILL_AT_SHIP_AT_COMPANY
 
-## 1.0.5 - 2025-28-12
+## 1.0.5 - 2025-12-28
 Changed EnableDebugLog default to true to help with debugging.
 
-## 1.0.4 - 2025-28-12
+## 1.0.4 - 2025-12-28
 Another day, another bug fix! Special thanks to everyone on the mod's discord who helped test this update.
 
 - Added Kittenji-NavMeshInCompany version 1.0.3 to thunderstore.toml since this allows bots to spawn in while at the company to help sell stuff. If NavMeshInCompany is not installed, bots will not spawn at the company building.
 - Updated bot spawn logic to wait for NetworkObject readiness before sending client RPC.
 - Added a Harmony patch to prevent Dissonance voice chat from starting if the player is a bot, which fixes host's voice being heard from bot positions. (Reported on GitHub and Discord)
 
-## 1.0.3 - 2025-25-12
+## 1.0.3 - 2025-12-25
 - Added support for .wav and .mp3 bot voice files by updating file loading logic and determining AudioType by extension.
 - Removed all audio fade-in and fade-out functionality, replacing it with direct Play/Stop calls. They stopped working after I changes bot voice volume to be controlled by the quick menu
 - Cleaned up unused constants and improved path handling for custom voices.
 
-## 1.0.2 - 2025-22-12
+## 1.0.2 - 2025-12-22
 - Fixed an logic error where ListModelReplacement was never initialized. This caused the ModelReplacementApi support to not work! (Reported on GitHub)
 - Update README files to remove any refrences to AI voices as they were copied over from when I forked Lethal Internship and do not reflect my interests for this mod.
 
-## 1.0.1 - 2025-14-12
+## 1.0.1 - 2025-12-14
 - Fixed a logic error in the ChillInShipState which caused the bot to not properly initalize the state while at the Company Building.
 
 ## 1.0.0 - 2025-06-22

@@ -111,6 +111,14 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // Check to see if we can revive anyone!
+            PlayerControllerB? playerController = ai.LookingForPlayerToRevive();
+            if (playerController != null)
+            {
+                ai.State = new RescueAndReviveState(this, playerController);
+                return;
+            }
+
             // Update target last known position
             PlayerControllerB? playerTarget = ai.CheckLOSForTarget(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (playerTarget != null)

@@ -6,7 +6,7 @@
     <AssemblyName>LethalBots</AssemblyName>
     <Product>LethalBots</Product>
     <!-- Change to whatever version you're currently on. This will be used by tcli when building our Thunderstore package. -->
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
   </PropertyGroup>
 
   <!-- Project Properties -->
@@ -163,6 +163,9 @@
 	<Reference Include="PySpeech">
 	  <HintPath>lib\mods\PySpeech.dll</HintPath>
 	</Reference>
+	<Reference Include="Zaprillator">
+	  <HintPath>lib\mods\Zaprillator.dll</HintPath>
+	</Reference>
     <Reference Include="Unity.Animation.Rigging">
       <HintPath>lib\Unity.Animation.Rigging.dll</HintPath>
     </Reference>
@@ -188,7 +191,7 @@
       <HintPath>lib\UnityEngine.UI.dll</HintPath>
     </Reference>
 	<Reference Include="Facepunch.Steamworks.Win64">
-	  <HintPath>lib\Facepunch.Steamworks.Win64</HintPath>  
+	  <HintPath>lib\Facepunch.Steamworks.Win64.dll</HintPath>  
 	</Reference>
   </ItemGroup>
 

@@ -92,6 +92,7 @@ namespace LethalBots
         internal static bool IsModMoreCompanyLoaded = false;
         internal static bool IsModReviveCompanyLoaded = false;
         internal static bool IsModBunkbedReviveLoaded = false;
+        internal static bool IsModZaprillatorLoaded = false;
         internal static bool IsModLethalMinLoaded = false;
         internal static bool IsModLethalInternsLoaded = false;
         internal static bool IsModFacilityMeltdownLoaded = false;
@@ -250,6 +251,7 @@ namespace LethalBots
             IsModMoreCompanyLoaded = IsModLoaded(Const.MORECOMPANY_GUID);
             IsModReviveCompanyLoaded = IsModLoaded(Const.REVIVECOMPANY_GUID);
             IsModBunkbedReviveLoaded = IsModLoaded(Const.BUNKBEDREVIVE_GUID);
+            IsModZaprillatorLoaded = IsModLoaded(Const.ZAPRILLATOR_GUID);
             IsModLethalMinLoaded = IsModLoaded(Const.LETHALMIN_GUID);
             IsModLethalInternsLoaded = IsModLoaded(Const.LETHALINTERNS_GUID);
             IsModFacilityMeltdownLoaded = IsModLoaded(Const.FACILITYMELTDOWN_GUID);
@@ -262,7 +264,6 @@ namespace LethalBots
             bool isModReservedItemSlotCoreLoaded = IsModLoaded(Const.RESERVEDITEMSLOTCORE_GUID);
             bool isModLethalProgressionLoaded = IsModLoaded(Const.LETHALPROGRESSION_GUID);
             bool isModLCAlwaysHearWalkieModLoaded = IsModLoaded(Const.LCALWAYSHEARWALKIEMOD_GUID);
-            bool isModZaprillatorLoaded = IsModLoaded(Const.ZAPRILLATOR_GUID);
             bool isModButteryFixesLoaded = IsModLoaded(Const.BUTTERYFIXES_GUID);
             bool isModPeepersLoaded = IsModLoaded(Const.PEEPERS_GUID);
 
@@ -306,7 +307,7 @@ namespace LethalBots
             {
                 //_harmony.PatchAll(typeof(BodyReplacementBasePatch));
                 _harmony.PatchAll(typeof(ModelReplacementPlayerControllerBPatchPatch));
-                //_harmony.PatchAll(typeof(ModelReplacementAPIPatch));
+                _harmony.PatchAll(typeof(ModelReplacementAPIPatch));
                 //_harmony.PatchAll(typeof(ManagerBasePatch)); // This gives me an error, commenting out for now
             }
             if (isModLethalPhonesLoaded)
@@ -339,7 +340,7 @@ namespace LethalBots
             {
                 _harmony.PatchAll(typeof(BunkbedControllerPatch));
             }
-            if (isModZaprillatorLoaded)
+            if (IsModZaprillatorLoaded)
             {
                 _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("Zaprillator.Behaviors.RevivablePlayer"), "IShockableWithGun.StopShockingWithGun"),
                                new HarmonyMethod(typeof(RevivablePlayerPatch), nameof(RevivablePlayerPatch.StopShockingWithGun_Prefix)));

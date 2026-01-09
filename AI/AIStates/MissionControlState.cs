@@ -3,6 +3,7 @@ using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.Patches.NpcPatches;
 using LethalLib.Modules;
 using Steamworks;
 using System;
@@ -31,6 +32,7 @@ namespace LethalBots.AI.AIStates
         private bool targetPlayerUpdated; // This tells the signal translator coroutine the targeted player has updated!
         private WalkieTalkie? walkieTalkie; // This is the walkie-talkie we want to have in our inventory
         private GrabbableObject? weapon; // This is the weapon we want to have in our inventory
+        private GrabbableObject? bodyToCollect; // This is the dead body the bot wants to pickup so it gets properly registered as on the ship!
         private PlayerControllerB? targetedPlayer; // This is the current player on the monitor based on last vision update
         private PlayerControllerB? monitoredPlayer; // This is the player we want to be monitoring
         private Queue<PlayerControllerB> playersRequstedTeleport = new Queue<PlayerControllerB>();
@@ -82,6 +84,11 @@ namespace LethalBots.AI.AIStates
         }
 
         public MissionControlState(AIState oldState) : base(oldState)
+        {
+            CurrentState = EnumAIStates.MissionControl;
+        }
+
+        public MissionControlState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.MissionControl;
         }
@@ -145,10 +152,8 @@ namespace LethalBots.AI.AIStates
             // we should get off and let them use it!
             if (playerRequestedTerminal)
             {
-                if (npcController.Npc.inTerminalMenu)
+                if (GetOffTerminal())
                 {
-                    StopAllCoroutines();
-                    ai.LeaveTerminal();
                     return;
                 }
                 // We have finished allowing the player to use the terminal,
@@ -168,15 +173,62 @@ namespace LethalBots.AI.AIStates
                 waitForTerminalTime = 0f;
             }
 
+            // Check to see if we can revive anyone!
+            PlayerControllerB? playerController = ai.LookingForPlayerToRevive(true, true);
+            if (playerController != null)
+            {
+                if (GetOffTerminal())
+                {
+                    return;
+                }
+                ai.State = new RescueAndReviveState(this, playerController);
+                return;
+            }
+
+            // Bot drop item
+            if (!ai.AreHandsFree() 
+                && FindObject(ai.HeldItem))
+            {
+                if (GetOffTerminal())
+                {
+                    return;
+                }
+                ai.DropItem();
+                return;
+            }
+            // If we still have stuff in our inventory,
+            // we should swap to it and drop it!
+            else if (ai.HasGrabbableObjectInInventory(FindObject, out int objectSlot))
+            {
+                if (GetOffTerminal())
+                {
+                    return;
+                }
+                ai.SwitchItemSlotsAndSync(objectSlot);
+                return;
+            }
+
+            // Check if we have a dead body to collect
+            GrabbableObject? body = bodyToCollect;
+            if (body != null)
+            {
+                if (GetOffTerminal())
+                {
+                    return;
+                }
+                bodyToCollect = null;
+                LethalBotAI.DictJustDroppedItems.Remove(body); // HACKHACK: Skip the dropped item cooldown so bot can grab the body immediately
+                ai.State = new FetchingObjectState(this, body);
+                return;
+            }
+
             // If we are to return to the ship, we should pull the ship lever if needed!
             if (LethalBotManager.AreWeAtTheCompanyBuilding())
             {
                 if (ai.LookingForObjectsToSell(true) != null || LethalBotManager.AreThereItemsOnDesk())
                 {
-                    if (npcController.Npc.inTerminalMenu)
+                    if (GetOffTerminal())
                     {
-                        StopAllCoroutines();
-                        ai.LeaveTerminal();
                         return;
                     }
                     ai.State = new CollectScrapToSellState(this);
@@ -189,10 +241,8 @@ namespace LethalBots.AI.AIStates
                     // use the ship lever once I fix the interact trigger object code later
                     if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET)
                     {
-                        if (npcController.Npc.inTerminalMenu)
+                        if (GetOffTerminal())
                         {
-                            StopAllCoroutines();
-                            ai.LeaveTerminal();
                             return;
                         }
                         if (npcController.Npc.playersManager.shipHasLanded
@@ -230,10 +280,8 @@ namespace LethalBots.AI.AIStates
                     if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET
                         || isShipCompromised)
                     {
-                        if (npcController.Npc.inTerminalMenu)
+                        if (GetOffTerminal())
                         {
-                            StopAllCoroutines();
-                            ai.LeaveTerminal();
                             return;
                         }
                         if (npcController.Npc.playersManager.shipHasLanded
@@ -619,9 +667,11 @@ namespace LethalBots.AI.AIStates
                 {
                     DeadBodyInfo deadBodyInfo = player.deadBody;
                     if (!deadBodyInfo.isInShip
+                        && !deadBodyInfo.grabBodyObject.isInShipRoom
                         && StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position))
                     {
-                        npcController.Npc.SetItemInElevator(true, true, deadBodyInfo.grabBodyObject);
+                        //npcController.Npc.SetItemInElevator(true, true, deadBodyInfo.grabBodyObject);
+                        bodyToCollect = deadBodyInfo.grabBodyObject;
                     }
                 }
             }
@@ -929,6 +979,8 @@ namespace LethalBots.AI.AIStates
             if (deadBodyInfo != null
                 && !deadBodyInfo.isInShip
                 && !deadBodyInfo.grabBodyObject.isHeld
+                && !RescueAndReviveState.CanRevivePlayer(ai, player, true)
+                && (!RescueAndReviveState.IsAnyReviveModInstalled() || !LethalBotAI.NearOtherPlayers(player, 17f))
                 && !StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position)
                 && !ai.CheckProximityForEyelessDogs())
             {
@@ -1327,18 +1379,18 @@ namespace LethalBots.AI.AIStates
         /// Helper function that checks if an enemy is invading the ship!
         /// </summary>
         /// <returns></returns>
-        private EnemyAI? CheckForInvadingEnemy()
+        private EnemyAI? CheckForInvadingEnemy(bool onlyKillable = true, bool checkOutsideShip = false)
         {
             RoundManager instanceRM = RoundManager.Instance;
             Transform thisLethalBotCamera = this.npcController.Npc.gameplayCamera.transform;
-            Bounds shipBounds = StartOfRound.Instance.shipInnerRoomBounds.bounds;
+            Bounds shipBounds = checkOutsideShip ? StartOfRound.Instance.shipBounds.bounds : StartOfRound.Instance.shipInnerRoomBounds.bounds;
             EnemyAI? closestEnemy = null;
             float closestEnemyDistSqr = float.MaxValue;
             foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
             {
                 // Only check for alive and invading enemies!
                 if (spawnedEnemy.isEnemyDead 
-                    || !ai.CanEnemyBeKilled(spawnedEnemy))
+                    || (onlyKillable && !ai.CanEnemyBeKilled(spawnedEnemy)))
                 {
                     continue;
                 }
@@ -1479,6 +1531,35 @@ namespace LethalBots.AI.AIStates
         public override void OnSignalTranslatorMessageReceived(string message)
         {
             return;
+        }
+
+        /// <summary>
+        /// Helper function that makes the bot get off the terminal!
+        /// </summary>
+        /// <returns>true: the bot got off the terminal; or false: the bot wasn't on the terminal</returns>
+        private bool GetOffTerminal()
+        {
+            if (npcController.Npc.inTerminalMenu)
+            {
+                StopAllCoroutines();
+                ai.LeaveTerminal();
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// This makes the mission controller bot drop all items they don't need!
+        /// </summary>
+        /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
+        protected override bool FindObject(GrabbableObject item)
+        {
+            // Don't drop our walkieTalkie or weapon!
+            if (item == walkieTalkie || item == weapon)
+            {
+                return false;
+            }
+            return true; // Everything else can go!
         }
 
         /// <summary>

@@ -37,7 +37,7 @@ namespace LethalBots.AI.AIStates
             GrabbableObject? grabbableObject = ai.LookingForObjectsToSell();
             if (grabbableObject != null)
             {
-                ai.State = new FetchingObjectState(this, grabbableObject, true);
+                ai.State = new FetchingObjectState(this, grabbableObject, EnumGrabbableObjectCall.Selling);
                 return;
             }
             // Do we have scrap, lets sell it!

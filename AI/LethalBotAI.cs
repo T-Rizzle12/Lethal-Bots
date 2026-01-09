@@ -1913,9 +1913,10 @@ namespace LethalBots.AI
 				bool flag = false;
 				float headOffset = NpcController.Npc.gameplayCamera.transform.position.y - NpcController.Npc.transform.position.y;
 				RoundManager instanceRM = RoundManager.Instance;
-				Vector3 enemyPos = checkLOSToTarget != null ? (useEnemyEyePos && checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : checkLOSToTarget.transform.position) : Vector3.zero;
-				enemyPos += Vector3.up * 0.3f;
-				for (int j = 1; j < path1.corners.Length; j++)
+				Vector3 enemyPos = checkLOSToTarget != null ? checkLOSToTarget.transform.position : Vector3.zero;
+                Vector3 viewPos = useEnemyEyePos && checkLOSToTarget != null && checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : enemyPos;
+                viewPos += Vector3.up * 0.3f;
+                for (int j = 1; j < path1.corners.Length; j++)
 				{
 					// We cache the corners we are using for quicker lookups
 					// also we always use the default distance function as we may be calculating path distance!
@@ -1960,7 +1961,7 @@ namespace LethalBots.AI
 					{
 						// First, start with the closest point on the path
 						Vector3 closestPoint = instanceRM.GetNavMeshPosition(GetClosestPointOnLineSegment(previousNode, currentNode, enemyPos), instanceRM.navHit, 2.7f);
-						if (!Physics.Linecast(closestPoint + Vector3.up * headOffset, enemyPos,
+						if (!Physics.Linecast(closestPoint + Vector3.up * headOffset, viewPos,
 							StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
 						{
 							return true;
@@ -1968,7 +1969,7 @@ namespace LethalBots.AI
 
 						// Second, check the middle part of the path
 						Vector3 travelMidPoint = instanceRM.GetNavMeshPosition(Vector3.Lerp(previousNode, currentNode, 0.5f), instanceRM.navHit, 2.7f); // Make sure this is on the NavMesh!
-						if (!Physics.Linecast(travelMidPoint + Vector3.up * headOffset, enemyPos,
+						if (!Physics.Linecast(travelMidPoint + Vector3.up * headOffset, viewPos,
 							StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
 						{
 							return true;
@@ -4079,7 +4080,7 @@ namespace LethalBots.AI
 				}
 
 				// Black listed ? 
-				if (IsGrabbableObjectBlackListed(grabbableObject, true))
+				if (IsGrabbableObjectBlackListed(grabbableObject, EnumGrabbableObjectCall.Selling))
 				{
 					continue;
 				}
@@ -4141,21 +4142,192 @@ namespace LethalBots.AI
 			return closestObject;
 		}
 
-		/// <summary>
-		/// Check all conditions for deciding if an item is grabbable or not.
+        /// <summary>
+		/// Check all player scripts for a player to revive, 
+		/// if lethalBot is close and can see said dead player.
 		/// </summary>
-		/// <param name="grabbableObject">Item to check</param>
-		/// <returns></returns>
-		public bool IsGrabbableObjectGrabbable(GrabbableObject grabbableObject)
+		/// <param name="ignoreLOS">Should we ignore line of sight when checking for a player to revive?</param>
+		/// <param name="shipOnly">Should we only consider dead players on the ship?</param>
+		/// <returns><c>PlayerControllerB</c> if lethalBot sees an player they can revive, else null.</returns>
+        public PlayerControllerB? LookingForPlayerToRevive(bool ignoreLOS = false, bool shipOnly = false)
 		{
+			// If no revive mods are installed, do nothing!
+			if (!RescueAndReviveState.IsAnyReviveModInstalled())
+			{
+				return null;
+			}
+
+            PlayerControllerB? closestDeadPlayer = null;
+            float closestDeadPlayerDistSqr = float.MaxValue;
+            for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
+            {
+                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
+                if (gameObject == null)
+                {
+                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
+                    continue;
+                }
+
+                // Get grabbable object infos
+                // NOTE: This also functions as a null check!
+                GrabbableObject? grabbableObject = gameObject.GetComponent<GrabbableObject>();
+                if (grabbableObject is not RagdollGrabbableObject deadBody)
+                {
+                    //Plugin.LogInfo("Body is null!");
+                    continue;
+                }
+
+				// Object not outside when ai inside and vice versa
+				bool isHeld = grabbableObject.isHeld;
+                Vector3 deadBodyPosition = gameObject.transform.position;
+				if (!isHeld)
+				{
+					if (isOutside && deadBodyPosition.y < -100f)
+					{
+						//Plugin.LogInfo("Body is not in range");
+						continue;
+					}
+					else if (!isOutside && deadBodyPosition.y > -80f)
+					{
+						//Plugin.LogInfo("Body is not in range");
+						continue;
+					}
+				}
+
+                // Object in range ?
+                // Check if object is further away from the closest object
+                // FIXME: This should be PATH distance not elucian!
+                float sqrDistanceEyeDeadPlayer = (deadBodyPosition - this.eye.position).sqrMagnitude;
+                if ((!isHeld && sqrDistanceEyeDeadPlayer > Const.LETHAL_BOT_RESCUE_RANGE * Const.LETHAL_BOT_RESCUE_RANGE)
+                    || sqrDistanceEyeDeadPlayer > closestDeadPlayerDistSqr)
+                {
+                    continue;
+                }
+
+                PlayerControllerB playerController = StartOfRound.Instance.allPlayerScripts[deadBody.bodyID.Value];
+                if (playerController == null || !RescueAndReviveState.CanRevivePlayer(this, playerController))
+                {
+					//Plugin.LogInfo($"Can Revive Player? {playerController != null && RescueAndReviveState.CanRevivePlayer(this, playerController)}");
+                    continue;
+                }
+
+                // Black listed ? 
+                if (IsGrabbableObjectBlackListed(grabbableObject, EnumGrabbableObjectCall.Reviving))
+                {
+					//Plugin.LogInfo("Body is blacklisted?");
+                    continue;
+                }
+
+                // Object on ship
+                if (shipOnly 
+					&& !isHeld 
+					&& !grabbableObject.isInElevator 
+					&& !grabbableObject.isInShipRoom)
+                {
+					//Plugin.LogInfo("Body is not on the ship");
+                    continue;
+                }
+
+                // Object in a container mod of some sort ?
+                if (Plugin.IsModCustomItemBehaviourLibraryLoaded)
+                {
+                    if (IsGrabbableObjectInContainerMod(grabbableObject))
+                    {
+                        //Plugin.LogInfo("Body is in custom container");
+                        continue;
+                    }
+                }
+
+                // Is a pickmin (LethalMin mod) holding the object ?
+                if (Plugin.IsModLethalMinLoaded)
+                {
+                    if (IsGrabbableObjectHeldByPikminMod(grabbableObject))
+                    {
+                        //Plugin.LogInfo("Body is held by pikmin!");
+                        continue;
+                    }
+                }
+
+                // Grabbable object ?
+                if (!IsGrabbableObjectGrabbable(grabbableObject, EnumGrabbableObjectCall.Reviving))
+                {
+                    //Plugin.LogInfo("Body is not grabbable");
+                    continue;
+                }
+
+				// Check if we should do the Line of Sight checks!
+				if (!ignoreLOS)
+				{
+					// Object close to awareness distance ?
+					if (isHeld || sqrDistanceEyeDeadPlayer < Const.LETHAL_BOT_OBJECT_AWARNESS * Const.LETHAL_BOT_OBJECT_AWARNESS)
+					{
+						Plugin.LogDebug($"awareness {grabbableObject.name}");
+					}
+					// Object visible ?
+					else if (!Physics.Linecast(eye.position, grabbableObject.transform.position + Vector3.up * 0.05f, StartOfRound.Instance.collidersAndRoomMaskAndDefault)) // Was + Vector3.up * grabbableObject.itemProperties.verticalOffset, testing a small value to see if it has any kind of effect!
+					{
+						Vector3 to = deadBodyPosition - eye.position;
+						if (Vector3.Angle(eye.forward, to) < Const.LETHAL_BOT_FOV)
+						{
+							// Object in FOV
+							Plugin.LogDebug($"LOS {grabbableObject.name}");
+						}
+						else
+						{
+							continue;
+						}
+					}
+					else
+					{
+						// Object not in line of sight
+						continue;
+					}
+				}
+				else
+				{
+                    Plugin.LogDebug($"Skipped LOS {grabbableObject.name}");
+                }
+
+                closestDeadPlayer = playerController;
+                closestDeadPlayerDistSqr = sqrDistanceEyeDeadPlayer;
+            }
+
+            return closestDeadPlayer;
+        }
+
+        /// <summary>
+        /// Check all conditions for deciding if an item is grabbable or not.
+        /// </summary>
+        /// <param name="grabbableObject">Item to check</param>
+        /// <param name="enumGrabbable">Type of blacklist checks that should be done or skipped</param>
+        /// <returns></returns>
+        public bool IsGrabbableObjectGrabbable(GrabbableObject grabbableObject, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default)
+		{
+			if (enumGrabbable == EnumGrabbableObjectCall.Selling)
+			{
+				Plugin.LogWarning("IsGrabbableObjectGrabbable was called with enumGrabbable set to Selling. You should use IsGrabbableObjectSellable instead!");
+				return IsGrabbableObjectSellable(grabbableObject);
+			}
+
 			if (grabbableObject == null
 				|| !grabbableObject.gameObject.activeSelf)
 			{
 				return false;
 			}
 
-			if (grabbableObject.isHeld
-				|| !grabbableObject.grabbable
+			// If its held, check if we are reviving the player or not
+			bool skipPathCheck = false;
+			if (grabbableObject.isHeld)
+			{
+				// Alright, if we are picking up a player to revive them, check if we are already holding their body!
+				skipPathCheck = true;
+				if (enumGrabbable != EnumGrabbableObjectCall.Reviving || !this.HasGrabbableObjectInInventory(grabbableObject, out _))
+				{
+					return false;
+				}
+			}
+
+			if (!grabbableObject.grabbable
 				|| grabbableObject.deactivated)
 			{
 				return false;
@@ -4191,7 +4363,7 @@ namespace LethalBots.AI
 			}
 
 			// Item just dropped, should wait a bit before grab it again
-			if (DictJustDroppedItems.TryGetValue(grabbableObject, out float justDroppedItemTime))
+			if (!grabbableObject.isHeld && DictJustDroppedItems.TryGetValue(grabbableObject, out float justDroppedItemTime))
 			{
 				if (Time.realtimeSinceStartup - justDroppedItemTime < Const.WAIT_TIME_FOR_GRAB_DROPPED_OBJECTS)
 				{
@@ -4200,7 +4372,7 @@ namespace LethalBots.AI
 			}
 
 			// Are we holding a two handed item and is the item we are grabbing two handed
-			if (!AreHandsFree() && HeldItem.itemProperties.twoHanded)
+			if (!AreHandsFree() && enumGrabbable != EnumGrabbableObjectCall.Reviving && HeldItem.itemProperties.twoHanded)
 			{
 				// If the item requires one hand then we can set down our large item and pick up the small one!
 				if (grabbableObject.itemProperties.twoHanded 
@@ -4217,7 +4389,8 @@ namespace LethalBots.AI
 			if (((!Plugin.Config.GrabItemsNearEntrances.Value 
 					&& !LethalBotManager.Instance.AreAllHumanPlayersDead())
                     || (LethalBotManager.Instance.LootTransferPlayers.Count > 0 && !shouldReturnToShip))
-                && !botIsTransferringItems)
+                && !botIsTransferringItems 
+				&& enumGrabbable != EnumGrabbableObjectCall.Reviving)
 			{
 				foreach (EntranceTeleport entrance in EntrancesTeleportArray)
 				{
@@ -4235,6 +4408,7 @@ namespace LethalBots.AI
 			// Is the item reachable with the agent pathfind ? (only owner knows and calculate) real position of ai lethalBot)
 			Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(grabbableObject.transform.position, default, NpcController.Npc.grabDistance, NavMesh.AllAreas);
 			if (IsOwner
+				&& !skipPathCheck
 				&& !this.IsValidPathToTarget(objectPos, false, maxRangeToEnd: NpcController.Npc.grabDistance))
 			{
 				//Plugin.LogDebug($"object {grabbableObject.name} pathfind is not reachable");
@@ -4457,15 +4631,15 @@ namespace LethalBots.AI
 		/// Checks if the given object is blacklisted
 		/// </summary>
 		/// <param name="grabbableObjectToEvaluate">The object to check</param>
-		/// <param name="isSelling">Is the bot going to sell this object</param>
+		/// <param name="enumGrabbable">Type of blacklist checks that should be done or skipped</param>
 		/// <returns>true: this object is blacklisted. false: we are allowed to pick up this object</returns>
-		private bool IsGrabbableObjectBlackListed(GrabbableObject grabbableObjectToEvaluate, bool isSelling = false)
+		private bool IsGrabbableObjectBlackListed(GrabbableObject grabbableObjectToEvaluate, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default)
 		{
 			// Bee nest
 			GameObject gameObject = grabbableObjectToEvaluate.gameObject;
 			if (!Plugin.Config.GrabBeesNest.Value 
-				&& !isSelling
-				&& gameObject.name.Contains("RedLocustHive"))
+				&& enumGrabbable != EnumGrabbableObjectCall.Selling
+                && gameObject.name.Contains("RedLocustHive"))
 			{
 				return true;
 			}
@@ -4473,8 +4647,9 @@ namespace LethalBots.AI
 			// Dead bodies
 			// TODO: Probably should add a desperation mechanic where they only sell if we won't make the quota
 			if (!Plugin.Config.GrabDeadBodies.Value
-				&& !isSelling
-				&& gameObject.name.Contains("RagdollGrabbableObject")
+				&& enumGrabbable != EnumGrabbableObjectCall.Selling
+				&& enumGrabbable != EnumGrabbableObjectCall.Reviving
+                && gameObject.name.Contains("RagdollGrabbableObject")
 				&& gameObject.tag == "PhysicsProp"
 				&& gameObject.GetComponentInParent<DeadBodyInfo>() != null)
 			{
@@ -4523,7 +4698,7 @@ namespace LethalBots.AI
 			}
 
 			// Giant Kiwi/Sapsucker eggs
-			if (!isSelling && grabbableObjectToEvaluate is KiwiBabyItem egg)
+			if (enumGrabbable != EnumGrabbableObjectCall.Selling && grabbableObjectToEvaluate is KiwiBabyItem egg)
 			{
 				GiantKiwiAI giantKiwiAI = egg.mamaAI;
 				if (giantKiwiAI == null || giantKiwiAI.isEnemyDead)
@@ -4534,21 +4709,21 @@ namespace LethalBots.AI
 			}
 
 			// Wheelbarrow
-			if ((!Plugin.Config.GrabWheelbarrow.Value || isSelling)
+			if ((!Plugin.Config.GrabWheelbarrow.Value || enumGrabbable == EnumGrabbableObjectCall.Selling)
 				&& gameObject.name.Contains("Wheelbarrow"))
 			{
 				return true;
 			}
 
 			// ShoppingCart
-			if ((!Plugin.Config.GrabShoppingCart.Value || isSelling)
+			if ((!Plugin.Config.GrabShoppingCart.Value || enumGrabbable == EnumGrabbableObjectCall.Selling)
 				&& gameObject.name.Contains("ShoppingCart"))
 			{
 				return true;
 			}
 
 			// ZedDogs!
-			if (isSelling && gameObject.name.Contains("ZeddogPlushie"))
+			if (enumGrabbable == EnumGrabbableObjectCall.Selling && gameObject.name.Contains("ZeddogPlushie"))
 			{
 				return true;
 			}
@@ -7436,7 +7611,8 @@ namespace LethalBots.AI
 			return spawnAnimationCoroutine != null;
 		}
 
-		public bool IsInSpecialAnimation()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsInSpecialAnimation()
 		{
 			return NpcController.Npc.inSpecialInteractAnimation || NpcController.Npc.enteringSpecialAnimation;
 		}
@@ -7476,11 +7652,11 @@ namespace LethalBots.AI
 				yield break;
 			}
 
-			// Change ai state
-			SyncAssignTargetAndSetMovingTo(GetClosestIrlPlayer());
-			//agent.autoTraverseOffMeshLink = false;
+            // Change ai state
+            this.State = GetDesiredAIState();
+            //agent.autoTraverseOffMeshLink = false;
 
-			spawnAnimationCoroutine = null;
+            spawnAnimationCoroutine = null;
 			yield break;
 		}
 
@@ -7518,11 +7694,45 @@ namespace LethalBots.AI
 			UpdateLethalBotSpecialAnimationValue(specialAnimation: false, timed: 0f, climbingLadder: false);
 
 			// Change ai state
-			SyncAssignTargetAndSetMovingTo(GetClosestIrlPlayer());
-			//agent.autoTraverseOffMeshLink = false;
+			this.State = GetDesiredAIState();
+            //agent.autoTraverseOffMeshLink = false;
 
-			spawnAnimationCoroutine = null;
+            spawnAnimationCoroutine = null;
 			yield break;
+		}
+
+		/// <summary>
+		/// Helper function for deterimining which state run upon spawning!
+		/// </summary>
+		/// <returns>The <see cref="AIState"/> to run after spawning!</returns>
+		private AIState GetDesiredAIState()
+		{
+			// If we spawned on the ship as it was landing or taking off, follow closest player!
+			PlayerControllerB closestHumanPlayer = GetClosestIrlPlayer();
+            if ((NpcController.Npc.isInElevator || NpcController.Npc.isInHangarShipRoom) 
+				&& (StartOfRound.Instance.shipIsLeaving
+                    || !StartOfRound.Instance.shipHasLanded))
+			{
+				return new GetCloseToPlayerState(this, closestHumanPlayer);
+			}
+
+			// We are within awareness range, they probably revived us! Better get back to following them now.
+			float sqrHorizontalDistanceWithTarget = Vector3.Scale((closestHumanPlayer.transform.position - NpcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
+            float sqrVerticalDistanceWithTarget = Vector3.Scale((closestHumanPlayer.transform.position - NpcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
+            if (sqrHorizontalDistanceWithTarget < Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR
+                    && sqrVerticalDistanceWithTarget < Const.DISTANCE_AWARENESS_VER * Const.DISTANCE_AWARENESS_VER)
+			{
+				return new GetCloseToPlayerState(this, closestHumanPlayer);
+			}
+
+			// We are the current mission controller, better get back to it!
+			if (LethalBotManager.Instance.MissionControlPlayer == NpcController.Npc)
+			{
+				return new MissionControlState(this);
+			}
+
+			// No human player nearby? Welp, back to the mines....I mean facility.
+			return new SearchingForScrapState(this);
 		}
 
 		internal PlayerControllerB GetClosestIrlPlayer()
@@ -7550,8 +7760,44 @@ namespace LethalBots.AI
 			return closest;
 		}
 
-		// T-Rizzle: What was the purpose of this function?
-		private Vector3 GetRandomPushForce(Vector3 origin, Vector3 point, float forceMean)
+		/// <summary>
+		/// Recreation of <see cref="PlayerControllerB.NearOtherPlayers"/>, but better!
+		/// </summary>
+		/// <remarks>
+		/// Please not that this is "slightly" diffrent from the origninal, so take that into consideration!
+		/// </remarks>
+		/// <param name="player"></param>
+		/// <param name="checkRadius"></param>
+		/// <returns></returns>
+		internal static bool NearOtherPlayers(PlayerControllerB player, float checkRadius = 10f)
+		{
+			// Must be valid!
+			if (player == null)
+			{
+				return false;
+			}
+			Vector3 playerPosition = player.transform.position;
+            foreach (PlayerControllerB playerController in StartOfRound.Instance.allPlayerScripts)
+			{
+				if (playerController != null 
+					&& player != playerController 
+					&& playerController.isPlayerControlled 
+					&& !playerController.isPlayerDead)
+				{
+					float playerDistSqr = (playerController.transform.position - playerPosition).sqrMagnitude;
+					if (playerDistSqr <= checkRadius)
+					{
+						return true;
+					}
+
+                }
+			}
+
+			return false;
+        }
+
+        // T-Rizzle: What was the purpose of this function?
+        private Vector3 GetRandomPushForce(Vector3 origin, Vector3 point, float forceMean)
 		{
 			point.y += UnityEngine.Random.Range(2f, 4f);
 

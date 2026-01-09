@@ -21,7 +21,7 @@ namespace LethalBots.Patches.ModPatches.ReviveCompany
             }
 
             // Identity and body are not sync, need to find the identity to revive not the body
-            RagdollGrabbableObject? ragdollGrabbableObjectToRevive = GetRagdollGrabbableObjectLookingAt();
+            RagdollGrabbableObject? ragdollGrabbableObjectToRevive = StartOfRound.Instance.allPlayerScripts[playerId]?.deadBody?.grabBodyObject as RagdollGrabbableObject;
             if (ragdollGrabbableObjectToRevive == null)
             {
                 Plugin.LogError($"Revive company with LethalBot: error when trying to revive bot, could not find body.");
@@ -45,7 +45,7 @@ namespace LethalBots.Patches.ModPatches.ReviveCompany
             // Update remaining revives
             LethalBotManager.Instance.UpdateReviveCompanyRemainingRevivesServerRpc(lethalBotIdentity.Name);
 
-            PlayerControllerB playerReviving = GameNetworkManager.Instance.localPlayerController;
+            PlayerControllerB playerReviving = GeneralUtil.GetClosestAlivePlayer(ragdollGrabbableObjectToRevive.transform.position);
             Vector3 revivePos = ragdollGrabbableObjectToRevive.transform.position;
             float yRot = playerReviving.transform.rotation.eulerAngles.y;
             if (Vector3.Distance(revivePos, playerReviving.transform.position) > 7f)
@@ -59,6 +59,7 @@ namespace LethalBots.Patches.ModPatches.ReviveCompany
             LethalBotManager.Instance.SpawnThisLethalBotServerRpc(lethalBotIdentity.IdIdentity,
                                                             new NetworkSerializers.SpawnLethalBotParamsNetworkSerializable()
                                                             {
+                                                                Hp = ConfigVariables.ReviveToHealth, // FIXME: Fix this to work with the less health on revive!
                                                                 ShouldDestroyDeadBody = true,
                                                                 enumSpawnAnimation = EnumSpawnAnimation.OnlyPlayerSpawnAnimation,
                                                                 SpawnPosition = revivePos,
@@ -70,43 +71,6 @@ namespace LethalBots.Patches.ModPatches.ReviveCompany
             // The host will update the number of living players when the bot is respawned
             StartOfRound.Instance.livingPlayers++;
             return false;
-        }
-
-        [HarmonyPatch("GetClosestDeadBody")]
-        [HarmonyPostfix]
-        static void GetClosestDeadBody_PostFix(ref RagdollGrabbableObject __result)
-        {
-            __result = GetRagdollGrabbableObjectLookingAt();
-
-            if (__result != null && __result.ragdoll == null)
-            {
-#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
-                __result = null;
-#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
-            }
-        }
-
-        private static RagdollGrabbableObject GetRagdollGrabbableObjectLookingAt()
-        {
-            PlayerControllerB player = GameNetworkManager.Instance.localPlayerController;
-            Ray interactRay = new Ray(player.gameplayCamera.transform.position, player.gameplayCamera.transform.forward);
-            if (Physics.Raycast(interactRay, out RaycastHit hit, player.grabDistance, 1073742656)
-                && hit.collider.gameObject.layer != 8 && hit.collider.gameObject.layer != 30)
-            {
-                // Check if we are pointing to a ragdoll body of intern (not grabbable)
-                if (hit.collider.tag == "PhysicsProp")
-                {
-                    RagdollGrabbableObject? ragdoll = hit.collider.gameObject.GetComponent<RagdollGrabbableObject>();
-                    if (ragdoll == null)
-                    {
-                        return null!;
-                    }
-
-                    return ragdoll;
-                }
-            }
-
-            return null!;
         }
     }
 }
