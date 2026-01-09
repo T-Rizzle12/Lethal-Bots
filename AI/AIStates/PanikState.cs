@@ -690,14 +690,10 @@ namespace LethalBots.AI.AIStates
                     continue;
                 }
 
-                // NEEDTOVALIDATE: Should I use the enemyAI and have it calculate a path to the node?
-                // This would be more accurate since the enemy may not be able to path to the node!
-                // And it would allow us to make much more accurate decisions!
+                // Skip if the node is too close to the enemy
                 NodeSafety nodeSafety = new NodeSafety(node, true, true, false);
                 Vector3 nodePos = nodeSafety.GetNodePosition();
                 float sqrDistToEnemy = (nodePos - enemyPos).sqrMagnitude;
-
-                // Skip if the node is too close to the enemy
                 if (sqrDistToEnemy < fearRange * fearRange)
                 {
                     continue;
@@ -738,11 +734,6 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // We cache the path distance since we are going to use it!
-                // NOTE: We subtract the distance to the enemy since we want to pick a further node from said enemy
-                // FIXME: This causes WAY too many problems, I have literally seen bots run IN FRONT of what they were supposed to be fleeing from
-                // because the chosen node, although far away from the enemy, was out of sight, but the path wasn't.
-                // It only really happens when the bot is out in the open though.
-                //float pathDistance = ai.pathDistance - Mathf.Sqrt(sqrDistToEnemy);
                 float pathDistance = ai.pathDistance;
                 if (nodeDistToEnemy != -1 && pathDistance > nodeDistToEnemy)
                 {
