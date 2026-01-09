@@ -6,6 +6,7 @@ using LethalBots.Managers;
 using LethalBots.Patches.GameEnginePatches;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEngine;
@@ -851,14 +852,6 @@ namespace LethalBots.AI.AIStates
             base.ChangeBackToPreviousState();
         }
 
-        /// <summary>
-        /// Find a an entrance we can path to so we can exit the main building!
-        /// </summary>
-        /// <remarks>
-        /// We check if the bot can path to it since if the bot can't we could go into an infinite loop!
-        /// FIXME: We also have to check if the exit position lets the bot reach the ship. Offence is a good example where the bots can't path down the fire exit!
-        /// </remarks>
-        /// <returns>The closest entrance or else null</returns>
         protected override EntranceTeleport? FindClosestEntrance(EntranceTeleport? entranceToAvoid, Vector3? shipPos = null)
         {
             // Don't do this logic if we are outside!
@@ -867,6 +860,16 @@ namespace LethalBots.AI.AIStates
                 return null;
             }
             return base.FindClosestEntrance(entranceToAvoid, shipPos);
+        }
+
+        protected override EntranceTeleport? FindClosestEntrance(Vector3? shipPos = null, List<EntranceTeleport>? entrancesToAvoid = null)
+        {
+            // Don't do this logic if we are outside!
+            if (ai.isOutside)
+            {
+                return null;
+            }
+            return base.FindClosestEntrance(shipPos, entrancesToAvoid);
         }
 
         private void StartPanikCoroutine(EnemyAI currentEnemy, float fearRange)
