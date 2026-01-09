@@ -1913,9 +1913,10 @@ namespace LethalBots.AI
 				bool flag = false;
 				float headOffset = NpcController.Npc.gameplayCamera.transform.position.y - NpcController.Npc.transform.position.y;
 				RoundManager instanceRM = RoundManager.Instance;
-				Vector3 enemyPos = checkLOSToTarget != null ? (useEnemyEyePos && checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : checkLOSToTarget.transform.position) : Vector3.zero;
-				enemyPos += Vector3.up * 0.3f;
-				for (int j = 1; j < path1.corners.Length; j++)
+				Vector3 enemyPos = checkLOSToTarget != null ? checkLOSToTarget.transform.position : Vector3.zero;
+                Vector3 viewPos = useEnemyEyePos && checkLOSToTarget != null && checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : enemyPos;
+                viewPos += Vector3.up * 0.3f;
+                for (int j = 1; j < path1.corners.Length; j++)
 				{
 					// We cache the corners we are using for quicker lookups
 					// also we always use the default distance function as we may be calculating path distance!
@@ -1960,7 +1961,7 @@ namespace LethalBots.AI
 					{
 						// First, start with the closest point on the path
 						Vector3 closestPoint = instanceRM.GetNavMeshPosition(GetClosestPointOnLineSegment(previousNode, currentNode, enemyPos), instanceRM.navHit, 2.7f);
-						if (!Physics.Linecast(closestPoint + Vector3.up * headOffset, enemyPos,
+						if (!Physics.Linecast(closestPoint + Vector3.up * headOffset, viewPos,
 							StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
 						{
 							return true;
@@ -1968,7 +1969,7 @@ namespace LethalBots.AI
 
 						// Second, check the middle part of the path
 						Vector3 travelMidPoint = instanceRM.GetNavMeshPosition(Vector3.Lerp(previousNode, currentNode, 0.5f), instanceRM.navHit, 2.7f); // Make sure this is on the NavMesh!
-						if (!Physics.Linecast(travelMidPoint + Vector3.up * headOffset, enemyPos,
+						if (!Physics.Linecast(travelMidPoint + Vector3.up * headOffset, viewPos,
 							StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
 						{
 							return true;

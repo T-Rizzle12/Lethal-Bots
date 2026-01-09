@@ -1036,7 +1036,7 @@ namespace LethalBots.Managers
             }
 
             GameObject objectParent = instance.allPlayerObjects[spawnParamsNetworkSerializable.IndexNextPlayerObject.Value];
-            objectParent.transform.position = spawnParamsNetworkSerializable.SpawnPosition;
+            objectParent.transform.position = spawnParamsNetworkSerializable.SpawnPosition ?? StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, spawnParamsNetworkSerializable.IndexNextPlayerObject.Value, simpleTeleport: false);
             objectParent.transform.rotation = Quaternion.Euler(new Vector3(0f, spawnParamsNetworkSerializable.YRot, 0f));
 
             PlayerControllerB lethalBotController = instance.allPlayerScripts[spawnParamsNetworkSerializable.IndexNextPlayerObject.Value];
@@ -1940,7 +1940,7 @@ namespace LethalBots.Managers
                     SpawnLethalBotServerRpc(new SpawnLethalBotParamsNetworkSerializable()
                     {
                         enumSpawnAnimation = EnumSpawnAnimation.OnlyPlayerSpawnAnimationIfDead,
-                        SpawnPosition = StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(instanceSOR, nextPlayerIndex, simpleTeleport: false),
+                        SpawnPosition = null, // Changed to null, since this is called when the ship is landing. We want the most up to date spawn position! StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(instanceSOR, nextPlayerIndex, simpleTeleport: false)
                         YRot = 0,
                         IsOutside = true
                     });
