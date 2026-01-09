@@ -183,6 +183,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Look at target or not if hidden by stuff
+            // FIXME: I NEED to rewrite the aiming code, its REALLY bad. I should implement a priority system instead of the hack of a system I have now!
             if (!Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, targetPos + Vector3.up * 0.2f, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault)
                 || hitInfo.collider.gameObject.GetComponentInParent<EnemyAI>() == this.currentEnemy)
             {

@@ -7611,7 +7611,8 @@ namespace LethalBots.AI
 			return spawnAnimationCoroutine != null;
 		}
 
-		public bool IsInSpecialAnimation()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsInSpecialAnimation()
 		{
 			return NpcController.Npc.inSpecialInteractAnimation || NpcController.Npc.enteringSpecialAnimation;
 		}
@@ -7651,11 +7652,11 @@ namespace LethalBots.AI
 				yield break;
 			}
 
-			// Change ai state
-			SyncAssignTargetAndSetMovingTo(GetClosestIrlPlayer());
-			//agent.autoTraverseOffMeshLink = false;
+            // Change ai state
+            this.State = GetDesiredAIState();
+            //agent.autoTraverseOffMeshLink = false;
 
-			spawnAnimationCoroutine = null;
+            spawnAnimationCoroutine = null;
 			yield break;
 		}
 
@@ -7693,11 +7694,45 @@ namespace LethalBots.AI
 			UpdateLethalBotSpecialAnimationValue(specialAnimation: false, timed: 0f, climbingLadder: false);
 
 			// Change ai state
-			SyncAssignTargetAndSetMovingTo(GetClosestIrlPlayer());
-			//agent.autoTraverseOffMeshLink = false;
+			this.State = GetDesiredAIState();
+            //agent.autoTraverseOffMeshLink = false;
 
-			spawnAnimationCoroutine = null;
+            spawnAnimationCoroutine = null;
 			yield break;
+		}
+
+		/// <summary>
+		/// Helper function for deterimining which state run upon spawning!
+		/// </summary>
+		/// <returns>The <see cref="AIState"/> to run after spawning!</returns>
+		private AIState GetDesiredAIState()
+		{
+			// If we spawned on the ship as it was landing or taking off, follow closest player!
+			PlayerControllerB closestHumanPlayer = GetClosestIrlPlayer();
+            if ((NpcController.Npc.isInElevator || NpcController.Npc.isInHangarShipRoom) 
+				&& (StartOfRound.Instance.shipIsLeaving
+                    || !StartOfRound.Instance.shipHasLanded))
+			{
+				return new GetCloseToPlayerState(this, closestHumanPlayer);
+			}
+
+			// We are within awareness range, they probably revived us! Better get back to following them now.
+			float sqrHorizontalDistanceWithTarget = Vector3.Scale((closestHumanPlayer.transform.position - NpcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
+            float sqrVerticalDistanceWithTarget = Vector3.Scale((closestHumanPlayer.transform.position - NpcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
+            if (sqrHorizontalDistanceWithTarget < Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR
+                    && sqrVerticalDistanceWithTarget < Const.DISTANCE_AWARENESS_VER * Const.DISTANCE_AWARENESS_VER)
+			{
+				return new GetCloseToPlayerState(this, closestHumanPlayer);
+			}
+
+			// We are the current mission controller, better get back to it!
+			if (LethalBotManager.Instance.MissionControlPlayer == NpcController.Npc)
+			{
+				return new MissionControlState(this);
+			}
+
+			// No human player nearby? Welp, back to the mines....I mean facility.
+			return new SearchingForScrapState(this);
 		}
 
 		internal PlayerControllerB GetClosestIrlPlayer()

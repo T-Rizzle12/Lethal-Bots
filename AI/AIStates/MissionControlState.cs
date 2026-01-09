@@ -88,6 +88,11 @@ namespace LethalBots.AI.AIStates
             CurrentState = EnumAIStates.MissionControl;
         }
 
+        public MissionControlState(LethalBotAI ai) : base(ai)
+        {
+            CurrentState = EnumAIStates.MissionControl;
+        }
+
         public override void OnEnterState()
         {
             if (!hasBeenStarted)
