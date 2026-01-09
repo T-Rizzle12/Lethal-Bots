@@ -724,13 +724,13 @@ namespace LethalBots.AI.AIStates
                         // Skip if the node has no path
                         continue;
                     }
+                }
 
-                    // Now we test if the node is visible to an enemy!
-                    Vector3 simulatedHead = nodePos + Vector3.up * headOffset;
-                    if (!Physics.Linecast(viewPos, simulatedHead, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
-                    {
-                        nodeSafety.isNodeOutOfSight = false;
-                    }
+                // Now we test if the node is visible to an enemy!
+                Vector3 simulatedHead = nodePos + Vector3.up * headOffset;
+                if (!Physics.Linecast(viewPos, simulatedHead, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
+                {
+                    nodeSafety.isNodeOutOfSight = false;
                 }
 
                 // We cache the path distance since we are going to use it!
