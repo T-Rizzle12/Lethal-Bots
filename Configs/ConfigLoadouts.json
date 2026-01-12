@@ -2,8 +2,8 @@
   "__commentExample": [
     {
       "__comment_name": "the name of this loadout",
-      "__comment_itemIDs_comment": "The IDs of all of the items in the loadout",
-      "__comment_itemIDs": [
+      "__comment_itemNames_comment": "The names of all of the items in the loadout",
+      "__comment_itemNames": [
         "Shovel",
         "Walkie-talkie"
       ]
@@ -12,10 +12,10 @@
   "configLoadouts": [
     {
       "name": "Test Loadout",
-      "itemIDs": [
+      "itemNames": [
         "Shovel",
         "Walkie-talkie"
-      ] 
+      ]
     }
   ]
 }
