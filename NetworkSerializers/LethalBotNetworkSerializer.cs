@@ -72,5 +72,22 @@ namespace LethalBots.NetworkSerializers
                 value = null;
             }
         }
+
+        public static void SerializeStringArray<TReaderWriter>(BufferSerializer<TReaderWriter> serializer, ref string[] value)
+            where TReaderWriter : IReaderWriter
+        {
+            int count = value.Length;
+            serializer.SerializeValue(ref count);
+
+            if (serializer.IsReader)
+            { 
+                value = new string[count]; 
+            }
+
+            for (int i = 0; i < count; i++)
+            { 
+                serializer.SerializeValue(ref value[i]); 
+            }
+        }
     }
 }

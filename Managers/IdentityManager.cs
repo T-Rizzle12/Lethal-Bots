@@ -113,8 +113,11 @@ namespace LethalBots.Managers
                                                 configIdentity.volume, 
                                                 configIdentity.voicePitch);
 
+            // Loadout
+            LethalBotLoadout loadout = LoadoutManager.Instance.GetLethalBotLoadoutWithName(configIdentity.loadoutName ?? string.Empty);
+
             // LethalBotIdentity
-            return new LethalBotIdentity(idIdentity, name, suitID, voice);
+            return new LethalBotIdentity(idIdentity, name, suitID, voice, loadout);
         }
 
         public string[] GetIdentitiesNamesLowerCaseWithoutSpace()

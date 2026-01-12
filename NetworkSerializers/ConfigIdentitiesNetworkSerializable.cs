@@ -14,6 +14,7 @@ namespace LethalBots.NetworkSerializers
         public string voiceFolder;
         public float volume;
         public float voicePitch;
+        public string loadoutName;
 
         // Constructor with default values
         public ConfigIdentity()
@@ -23,11 +24,12 @@ namespace LethalBots.NetworkSerializers
             suitID = 0;
             voiceFolder = "Mathew_kelly";
             volume = 0.5f;
+            loadoutName = "Empty";
             // voice pitch set after
         }
 
         // Constructor with parameters
-        public ConfigIdentity(string name, int suitID, int suitConfigOption, string voiceFolder, float volume, float voicePitch)
+        public ConfigIdentity(string name, int suitID, int suitConfigOption, string voiceFolder, float volume, float voicePitch, string loadoutName)
         {
             this.name = name;
             this.suitID = suitID;
@@ -35,6 +37,7 @@ namespace LethalBots.NetworkSerializers
             this.voiceFolder = voiceFolder;
             this.volume = volume;
             this.voicePitch = voicePitch;
+            this.loadoutName = loadoutName;
         }
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
@@ -45,11 +48,12 @@ namespace LethalBots.NetworkSerializers
             serializer.SerializeValue(ref voiceFolder);
             serializer.SerializeValue(ref volume);
             serializer.SerializeValue(ref voicePitch);
+            serializer.SerializeValue(ref loadoutName);
         }
 
         public override string ToString()
         {
-            return $"name: {name}, suitID {suitID}, suitConfigOption {suitConfigOption} {(EnumOptionSuitConfig)suitConfigOption}, voiceFolder {voiceFolder}, volume {volume}, voicePitch {voicePitch}";
+            return $"name: {name}, suitID {suitID}, suitConfigOption {suitConfigOption} {(EnumOptionSuitConfig)suitConfigOption}, voiceFolder {voiceFolder}, volume {volume}, voicePitch {voicePitch}, loadoutName {loadoutName}";
         }
     }
 

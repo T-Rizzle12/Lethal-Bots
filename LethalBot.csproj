@@ -71,6 +71,7 @@
     <None Remove="Assets\Images\bot_suits.gif" />
     <None Remove="Assets\Images\Lethal-Bots-temp-logo.png" />
     <None Remove="Configs\ConfigIdentities.json" />
+    <None Remove="Configs\ConfigLoadouts.json" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Assets\Audio\Voices\DefaultVoices.zip" />
@@ -80,6 +81,7 @@
     <EmbeddedResource Include="Assets\Images\bot_suits.gif" />
     <EmbeddedResource Include="Assets\Images\Lethal-Bots-temp-logo.png" />
     <EmbeddedResource Include="Configs\ConfigIdentities.json" />
+	<EmbeddedResource Include="Configs\ConfigLoadouts.json" />
   </ItemGroup>
 
   <ItemGroup>

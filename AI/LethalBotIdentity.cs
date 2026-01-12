@@ -20,6 +20,7 @@ namespace LethalBots.AI
         public string Name { get; set; }
         public int? SuitID { get; set; }
         public LethalBotVoice Voice { get; set; }
+        public LethalBotLoadout Loadout { get; set; }
         public DeadBodyInfo? DeadBody { get; set; }
         public object? BodyReplacementBase { get; set; }
 
@@ -53,12 +54,13 @@ namespace LethalBots.AI
             }
         }
 
-        public LethalBotIdentity(int idIdentity, string name, int? suitID, LethalBotVoice voice, int? Xp = null)
+        public LethalBotIdentity(int idIdentity, string name, int? suitID, LethalBotVoice voice, LethalBotLoadout loadout, int? Xp = null)
         {
             IdIdentity = idIdentity;
             Name = name;
             SuitID = suitID;
             Voice = voice;
+            Loadout = loadout;
             HpMax = 100;
             Hp = HpMax;
             DiedLastRound = true;
@@ -78,7 +80,7 @@ namespace LethalBots.AI
 
         public override string ToString()
         {
-            return $"IdIdentity: {IdIdentity}, name: {Name}, suit {Suit}, Hp {Hp}/{HpMax}, XP {XP}, Level {Level}, Status {(int)Status} '{Status}', Voice : {{{Voice.ToString()}}}";
+            return $"IdIdentity: {IdIdentity}, name: {Name}, suit {Suit}, Hp {Hp}/{HpMax}, XP {XP}, Level {Level}, Status {(int)Status} '{Status}', Voice : {{{Voice.ToString()}}}, Loadout : {{{Loadout.ToString()}}}";
         }
 
         public int GetRandomSuitID()

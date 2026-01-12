@@ -6,7 +6,8 @@
       "__comment_suitConfigOption": "0 Fixed (with the suit id set above), 1 random",
       "__comment_voiceFolder": "the name of the folder in pathToDllOfModInstalled/Audio/Voices",
       "__comment_volume": "volume (decimal like 0.65, 1.4, etc)",
-      "__comment_voicePitch": "the pitch of the voice. Try to stay between 0.8 and 1.2, after that it's too much altered"
+      "__comment_voicePitch": "the pitch of the voice. Try to stay between 0.8 and 1.2, after that it's too much altered",
+      "__comment_loadoutName": "the name of the loadout for the bot to use. Must be a valid loadout from ConfigLoadouts.json, else default of Empty is given" 
     }
   ],
   "configIdentities": [
@@ -16,7 +17,8 @@
       "suitConfigOption": 0,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 1.0
+      "voicePitch": 1.0,
+      "loadoutName": "Empty"
     },
     {
       "name": "Amy Stake",
@@ -24,7 +26,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 1.12
+      "voicePitch": 1.12,
+      "loadoutName": "Empty"
     },
     {
       "name": "Claire Annette",
@@ -32,7 +35,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 1.13
+      "voicePitch": 1.13,
+      "loadoutName": "Empty"
     },
     {
       "name": "Clare Voyant",
@@ -40,7 +44,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 1.14
+      "voicePitch": 1.14,
+      "loadoutName": "Empty"
     },
     {
       "name": "Ella Font",
@@ -48,7 +53,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 1.15
+      "voicePitch": 1.15,
+      "loadoutName": "Empty"
     },
     {
       "name": "Felix Cited",
@@ -56,7 +62,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.92
+      "voicePitch": 0.92,
+      "loadoutName": "Empty"
     },
     {
       "name": "Gerry Atrick",
@@ -64,7 +71,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.91
+      "voicePitch": 0.91,
+      "loadoutName": "Empty"
     },
     {
       "name": "Harry Legg",
@@ -72,7 +80,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.90
+      "voicePitch": 0.90,
+      "loadoutName": "Empty"
     },
     {
       "name": "Justin Case",
@@ -80,7 +89,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.89
+      "voicePitch": 0.89,
+      "loadoutName": "Empty"
     },
     {
       "name": "Lee King",
@@ -88,7 +98,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.88
+      "voicePitch": 0.88,
+      "loadoutName": "Empty"
     },
     {
       "name": "Luke Atmey",
@@ -96,7 +107,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.87
+      "voicePitch": 0.87,
+      "loadoutName": "Empty"
     },
     {
       "name": "Manuel Labour",
@@ -104,7 +116,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.86
+      "voicePitch": 0.86,
+      "loadoutName": "Empty"
     },
     {
       "name": "Mia Moore",
@@ -112,7 +125,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 1.16
+      "voicePitch": 1.16,
+      "loadoutName": "Empty"
     },
     {
       "name": "Ophelia Pane",
@@ -120,7 +134,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 1.17
+      "voicePitch": 1.17,
+      "loadoutName": "Empty"
     },
     {
       "name": "Paige Turner",
@@ -128,7 +143,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 1.18
+      "voicePitch": 1.18,
+      "loadoutName": "Empty"
     },
     {
       "name": "Paul Atishon",
@@ -136,7 +152,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.85
+      "voicePitch": 0.85,
+      "loadoutName": "Empty"
     },
     {
       "name": "Polly Esther",
@@ -144,7 +161,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 1.2
+      "voicePitch": 1.2,
+      "loadoutName": "Empty"
     },
     {
       "name": "Robyn Banks",
@@ -152,7 +170,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 1.19
+      "voicePitch": 1.19,
+      "loadoutName": "Empty"
     },
     {
       "name": "Terry Aki",
@@ -160,7 +179,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.84
+      "voicePitch": 0.84,
+      "loadoutName": "Empty"
     },
     {
       "name": "Tim Burr",
@@ -168,7 +188,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.83
+      "voicePitch": 0.83,
+      "loadoutName": "Empty"
     },
     {
       "name": "Toby Lerone",
@@ -176,7 +197,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.82
+      "voicePitch": 0.82,
+      "loadoutName": "Empty"
     },
     {
       "name": "Uriel Lucky",
@@ -184,7 +206,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.81
+      "voicePitch": 0.81,
+      "loadoutName": "Empty"
     },
     {
       "name": "Zoltan Pepper",
@@ -192,7 +215,8 @@
       "suitConfigOption": 1,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
-      "voicePitch": 0.8
+      "voicePitch": 0.8,
+      "loadoutName": "Empty"
     }
   ]
 }

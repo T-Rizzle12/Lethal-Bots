@@ -404,7 +404,15 @@ namespace LethalBots.Managers
         private void Start()
         {
             // Identities
+            LoadoutManager.Instance.InitLoadouts(Plugin.Config.ConfigLoadouts.configLoadouts);
             IdentityManager.Instance.InitIdentities(Plugin.Config.ConfigIdentities.configIdentities);
+
+            // DEBUG: List all available items and their ids
+            Plugin.LogDebug("Listing all items in the game!");
+            foreach (Item item in StartOfRound.Instance.allItemsList.itemsList)
+            {
+                Plugin.LogDebug($"Name: {item.itemName} with ID: {item.itemId}");
+            }
 
             // Bot objects
             if (Plugin.PluginIrlPlayersCount > 0)
@@ -3187,6 +3195,43 @@ namespace LethalBots.Managers
 
             Plugin.LogDebug($"Recreate identities for {configIdentityNetworkSerializable.ConfigIdentities.Length} bots");
             IdentityManager.Instance.InitIdentities(configIdentityNetworkSerializable.ConfigIdentities);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void SyncLoadedJsonLoadoutsServerRpc(ulong clientId)
+        {
+            Plugin.LogDebug($"Client {clientId} ask server/host {NetworkManager.LocalClientId} to SyncLoadedJsonLoadouts");
+            ClientRpcParams.Send = new ClientRpcSendParams()
+            {
+                TargetClientIds = new ulong[] { clientId }
+            };
+
+            SyncLoadedJsonLoadoutsClientRpc(
+                new ConfigLoadoutsNetworkSerializable()
+                {
+                    ConfigLoadouts = Plugin.Config.ConfigLoadouts.configLoadouts
+                },
+                ClientRpcParams);
+        }
+
+        [ClientRpc]
+        private void SyncLoadedJsonLoadoutsClientRpc(ConfigLoadoutsNetworkSerializable configIdentityNetworkSerializable,
+                                                       ClientRpcParams clientRpcParams = default)
+        {
+            if (IsOwner)
+            {
+                return;
+            }
+
+            Plugin.LogInfo($"Client {NetworkManager.LocalClientId} : sync json bots loadouts");
+            Plugin.LogDebug($"Loaded {configIdentityNetworkSerializable.ConfigLoadouts.Length} loadouts from server");
+            foreach (ConfigLoadout configIdentity in configIdentityNetworkSerializable.ConfigLoadouts)
+            {
+                Plugin.LogDebug($"{configIdentity.ToString()}");
+            }
+
+            Plugin.LogDebug($"Recreate loadouts for {configIdentityNetworkSerializable.ConfigLoadouts.Length} bots");
+            LoadoutManager.Instance.InitLoadouts(configIdentityNetworkSerializable.ConfigLoadouts);
         }
 
         #endregion

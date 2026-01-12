@@ -43,6 +43,9 @@ namespace LethalBots.Patches.GameEnginePatches
             objectManager = new GameObject("IdentityManager");
             objectManager.AddComponent<IdentityManager>();
 
+            objectManager = new GameObject("LoadoutManager");
+            objectManager.AddComponent<LoadoutManager>();
+
             // NetworkBehaviours
             objectManager = Object.Instantiate(PluginManager.Instance.TerminalManagerPrefab);
             if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
@@ -594,6 +597,7 @@ namespace LethalBots.Patches.GameEnginePatches
                 && !__instance.IsHost
                 && __instance.NetworkManager.LocalClientId == clientId)
             {
+                LethalBotManager.Instance.SyncLoadedJsonLoadoutsServerRpc(clientId);
                 LethalBotManager.Instance.SyncLoadedJsonIdentitiesServerRpc(clientId);
                 SaveManager.Instance.SyncCurrentValuesServerRpc(clientId);
             }
