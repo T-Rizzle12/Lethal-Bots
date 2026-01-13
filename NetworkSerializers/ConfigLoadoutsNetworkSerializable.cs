@@ -14,7 +14,7 @@ namespace LethalBots.NetworkSerializers
 
         public ConfigLoadout()
         {
-            name = "Empty: #{0}";
+            name = "Empty";
             itemNames = new string[0];
         }
 

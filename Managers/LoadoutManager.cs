@@ -112,7 +112,7 @@ namespace LethalBots.Managers
             // Create and add the default loadout to the Loadouts list!
             ConfigLoadout configLoadout = ConfigConst.DEFAULT_CONFIG_LOADOUT;
             const int idLoadout = -1;
-            string defaultName = string.Format(configLoadout.name, idLoadout);
+            string defaultName = configLoadout.name;
             Item[] defaultItems = new Item[0];
             LethalBotLoadout defaultLoadout = new LethalBotLoadout(idLoadout, defaultName, defaultItems);
             LethalBotLoadouts[defaultIndex] = defaultLoadout;

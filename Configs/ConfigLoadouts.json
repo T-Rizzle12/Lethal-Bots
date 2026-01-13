@@ -1,8 +1,8 @@
 ﻿{
   "__commentExample": [
     {
-      "__comment_name": "the name of this loadout",
-      "__comment_itemNames_comment": "The names of all of the items in the loadout",
+      "__comment_name": "the name of this loadout (This is what you use for the loadoutName part in the ConfigIdentities.json)",
+      "__comment_itemNames_comment": "The names of all of the items in the loadout (NOTE: Bots will grab items from the top first and the bottom last!)",
       "__comment_itemNames": [
         "Shovel",
         "Walkie-talkie"
