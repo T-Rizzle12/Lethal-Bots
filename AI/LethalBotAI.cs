@@ -7795,6 +7795,14 @@ namespace LethalBots.AI
 						}
 						return new MissionControlState(this);
 					}
+					case EnumDefaultAIState.TransferLoot:
+					{
+						if (!LethalBotManager.Instance.LootTransferPlayers.Contains(NpcController.Npc))
+						{
+							LethalBotManager.Instance.AddPlayerToLootTransferListAndSync(NpcController.Npc);
+						}
+						return new TransferLootState(this);
+					}
 					default:
 					{
 						Plugin.LogWarning($"Bot {NpcController.Npc.playerUsername} has an invaild default AI state. Falling back to dynamic!");

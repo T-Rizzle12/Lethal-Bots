@@ -12,6 +12,7 @@ namespace LethalBots.Enums
         Dynamic,
         FollowPlayer,
         SearchForScrap,
-        ShipDuty
+        ShipDuty,
+        TransferLoot
     }
 }

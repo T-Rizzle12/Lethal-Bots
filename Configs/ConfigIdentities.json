@@ -4,7 +4,7 @@
       "__comment_name": "the name",
       "__comment_suitID": "the id of the suit (if you don't know keep 0), if a mod for a suit is uninstalled, it will be set to 0",
       "__comment_suitConfigOption": "0 Fixed (with the suit id set above), 1 random",
-      "__comment_defaultAIState": "the default state of the given value: 0 Dynamic, 1 FollowPlayer, 2 SearchForScrap, 3 ShipDuty",
+      "__comment_defaultAIState": "the default state of the given value: 0 Dynamic, 1 FollowPlayer, 2 SearchForScrap, 3 ShipDuty, 4 TransferLoot",
       "__comment_voiceFolder": "the name of the folder in pathToDllOfModInstalled/Audio/Voices",
       "__comment_volume": "volume (decimal like 0.65, 1.4, etc)",
       "__comment_voicePitch": "the pitch of the voice. Try to stay between 0.8 and 1.2, after that it's too much altered",
