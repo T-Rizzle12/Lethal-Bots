@@ -182,6 +182,16 @@ namespace LethalBots.AI.AIStates
             return;
         }
 
+        public override void OnPlayerChatMessageReceived(string message, PlayerControllerB playerWhoSentMessage, bool isVoice)
+        {
+            if (message.Contains("gear up"))
+            {
+                ai.State = new GrabLoadoutState(this);
+                return;
+            }
+            base.OnPlayerChatMessageReceived(message, playerWhoSentMessage, isVoice);
+        }
+
         private void SetBotLookAt(Vector3? position = null)
         {
             if (Plugin.InputActionsInstance.MakeBotLookAtPosition.IsPressed())

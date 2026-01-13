@@ -26,6 +26,7 @@
         UseTZPInhalant,
         LostInFacility,
         TransferLoot,
-        RescueAndRevive
+        RescueAndRevive,
+        GrabLoadout
     }
 }

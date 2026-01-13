@@ -20,6 +20,7 @@ namespace LethalBots.AI.AIStates
     public class SearchingForScrapState : AIState
     {
         private Coroutine? searchingWanderCoroutine = null;
+        private bool grabbedLoadout;
         private float scrapTimer;
         private float waitForSafePathTimer; // This is how long we have been waiting for a safe path to our target entrance.
         private int entranceAttempts; // This is how many times we spent going into the same entrance!
@@ -27,6 +28,7 @@ namespace LethalBots.AI.AIStates
         public SearchingForScrapState(AIState oldState, EntranceTeleport? entranceToAvoid = null) : base(oldState)
         {
             CurrentState = EnumAIStates.SearchingForScrap;
+            grabbedLoadout = false;
             entranceAttempts = 0;
             if (entranceToAvoid != null)
             {
@@ -39,6 +41,7 @@ namespace LethalBots.AI.AIStates
         public SearchingForScrapState(LethalBotAI ai, EntranceTeleport? entranceToAvoid = null) : base(ai)
         {
             CurrentState = EnumAIStates.SearchingForScrap;
+            grabbedLoadout = false;
             entranceAttempts = 0;
             if (entranceToAvoid != null)
             {
@@ -82,6 +85,14 @@ namespace LethalBots.AI.AIStates
                 && (StartOfRound.Instance.shipIsLeaving
                     || !StartOfRound.Instance.shipHasLanded))
             {
+                return;
+            }
+
+            // Make sure to grab our loadout before leaving!
+            if (!grabbedLoadout)
+            {
+                grabbedLoadout = true;
+                ai.State = new GrabLoadoutState(this);
                 return;
             }
 
