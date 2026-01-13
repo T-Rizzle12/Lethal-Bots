@@ -50,13 +50,9 @@ namespace LethalBots.AI.AIStates
             }
 
             // If we are holding an item with a battery, we should charge it!
-            GrabbableObject? heldItem = ai.HeldItem;
-            if (heldItem != null
-                && heldItem.itemProperties.requiresBattery
-                && (heldItem.insertedBattery.empty
-                    || heldItem.insertedBattery.charge < 0.9f))
+            if (ChargeHeldItemState.HasItemToCharge(ai, out _))
             {
-                ai.State = new ChargeHeldItemState(this, heldItem, new ReturnToShipState(this));
+                ai.State = new ChargeHeldItemState(this, true, new ReturnToShipState(this));
                 return;
             }
 
@@ -66,7 +62,8 @@ namespace LethalBots.AI.AIStates
             {
                 // Bot drop item
                 PlayerControllerB? missionController = LethalBotManager.Instance.MissionControlPlayer;
-                if (!ai.AreHandsFree())
+                if (!ai.AreHandsFree() 
+                    && FindObject(ai.HeldItem))
                 {
                     ai.DropItem();
                     canInverseTeleport = false;

@@ -31,6 +31,7 @@ namespace LethalBots.AI
         public int? XP { get; set; }
         public int Level { get; set; }
         public EnumStatusIdentity Status { get; set; }
+        public EnumDefaultAIState DefaultAIState { get; set; }
 
         public bool Alive 
         { 
@@ -54,7 +55,7 @@ namespace LethalBots.AI
             }
         }
 
-        public LethalBotIdentity(int idIdentity, string name, int? suitID, LethalBotVoice voice, LethalBotLoadout loadout, int? Xp = null)
+        public LethalBotIdentity(int idIdentity, string name, int? suitID, LethalBotVoice voice, LethalBotLoadout loadout, EnumDefaultAIState defaultAIState = EnumDefaultAIState.FollowPlayer, int? Xp = null)
         {
             IdIdentity = idIdentity;
             Name = name;
@@ -67,6 +68,7 @@ namespace LethalBots.AI
             JustJoinedServer = true;
             XP = Xp;
             Status = EnumStatusIdentity.Available;
+            DefaultAIState = defaultAIState;
         }
 
         public void UpdateIdentity(int Hp, int? suitID, int? Xp, int level, EnumStatusIdentity enumStatusIdentity)

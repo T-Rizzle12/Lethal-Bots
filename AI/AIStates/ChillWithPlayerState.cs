@@ -266,6 +266,10 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         protected override bool FindObject(GrabbableObject item)
         {
+            if (ai.IsGrabbableObjectInLoadout(item) && !ai.HasDuplicateLoadoutItems(item, out _))
+            {
+                return false;
+            }
             return Plugin.Config.DropHeldEquipmentAtShip || LethalBotAI.IsItemScrap(item);
         }
     }

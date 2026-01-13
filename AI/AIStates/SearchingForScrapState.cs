@@ -77,6 +77,14 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // Wait for ship to land before doing anything!
+            if ((npcController.Npc.isInElevator || npcController.Npc.isInHangarShipRoom)
+                && (StartOfRound.Instance.shipIsLeaving
+                    || !StartOfRound.Instance.shipHasLanded))
+            {
+                return;
+            }
+
             // Start coroutine for wandering
             StartSearchingWanderCoroutine();
 
@@ -161,13 +169,13 @@ namespace LethalBots.AI.AIStates
                             npcController.OrderToStopSprint();
 
                             GrabbableObject? heldItem = ai.HeldItem;
-                            if (LethalBotAI.IsItemScrap(heldItem))
+                            if (heldItem != null && FindObject(heldItem))
                             {
                                 ai.DropItem();
                                 LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
                                 shouldWalkLootToShip = false;
                             }
-                            else if (ai.HasGrabbableObjectInInventory(FindObjectToDrop, out int objectSlot))
+                            else if (ai.HasGrabbableObjectInInventory(FindObject, out int objectSlot))
                             {
                                 ai.SwitchItemSlotsAndSync(objectSlot);
                                 shouldWalkLootToShip = false;
@@ -348,54 +356,50 @@ namespace LethalBots.AI.AIStates
         /// <summary>
         /// Simple function that checks if the give <paramref name="item"/> is scrap.
         /// </summary>
-        /// <remarks>
-        /// This was designed for use in <see cref="LethalBotAI.HasGrabbableObjectInInventory(System.Func{GrabbableObject, bool}, out int)"/> calls.
-        /// </remarks>
-        /// <param name="item"></param>
-        /// <returns></returns>
-        private static bool FindObjectToDrop(GrabbableObject item)
+        /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
+        protected override bool FindObject(GrabbableObject item)
         {
-            return LethalBotAI.IsItemScrap(item); // Found a scrap item, great, we want to drop it!
+            return LethalBotAI.IsItemScrap(item) && (!ai.IsGrabbableObjectInLoadout(item) || ai.HasDuplicateLoadoutItems(item, out _)); // Found a scrap item, great, we want to drop it!
         }
 
         /// <summary>
         /// Coroutine for making bot turn his body to look around him
         /// </summary>
         /// <returns></returns>
-        protected override IEnumerator LookingAround()
-        {
-            yield return null;
-            while (ai.State != null
-                    && ai.State == this)
-            {
-                float freezeTimeRandom = Random.Range(Const.MIN_TIME_SEARCH_LOOKING_AROUND, Const.MAX_TIME_SEARCH_LOOKING_AROUND);
-                float angleRandom = Random.Range(0f, 360f);
+        //protected override IEnumerator LookingAround()
+        //{
+        //    yield return null;
+        //    while (ai.State != null
+        //            && ai.State == this)
+        //    {
+        //        float freezeTimeRandom = Random.Range(Const.MIN_TIME_SEARCH_LOOKING_AROUND, Const.MAX_TIME_SEARCH_LOOKING_AROUND);
+        //        float angleRandom = Random.Range(0f, 360f);
 
-                // Only look around if we are already not doing so!
-                if (npcController.LookAtTarget.IsLookingForward())
-                {
-                    // Convert angle to world position for looking
-                    // Convert to local space (relative to the bot's forward direction)
-                    Vector3 lookDirection = Quaternion.Euler(0, angleRandom, 0) * Vector3.forward;
-                    float minLookDistance = 2f; // TODO: Move these into the Const class!
-                    float maxLookDistance = 8f;
-                    float lookDistance = Random.Range(minLookDistance, maxLookDistance); // Hardcoded for now
-                    Vector3 lookAtPoint = npcController.Npc.gameplayCamera.transform.position + lookDirection * lookDistance;
+        //        // Only look around if we are already not doing so!
+        //        if (npcController.LookAtTarget.IsLookingForward())
+        //        {
+        //            // Convert angle to world position for looking
+        //            // Convert to local space (relative to the bot's forward direction)
+        //            Vector3 lookDirection = Quaternion.Euler(0, angleRandom, 0) * Vector3.forward;
+        //            float minLookDistance = 2f; // TODO: Move these into the Const class!
+        //            float maxLookDistance = 8f;
+        //            float lookDistance = Random.Range(minLookDistance, maxLookDistance); // Hardcoded for now
+        //            Vector3 lookAtPoint = npcController.Npc.gameplayCamera.transform.position + lookDirection * lookDistance;
 
-                    // Ensure bot doesn’t look at unreachable areas (optional raycast check)
-                    if (Physics.Raycast(npcController.Npc.thisController.transform.position, lookDirection, out RaycastHit hit, lookDistance, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
-                    {
-                        lookAtPoint = hit.point; // Adjust to the first obstacle it hits
-                    }
+        //            // Ensure bot doesn’t look at unreachable areas (optional raycast check)
+        //            if (Physics.Raycast(npcController.Npc.thisController.transform.position, lookDirection, out RaycastHit hit, lookDistance, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
+        //            {
+        //                lookAtPoint = hit.point; // Adjust to the first obstacle it hits
+        //            }
 
-                    // Use OrderToLookAtPosition as SetTurnBodyTowardsDirection can be overriden!
-                    npcController.OrderToLookAtPosition(lookAtPoint);
-                }
-                yield return new WaitForSeconds(freezeTimeRandom);
-            }
+        //            // Use OrderToLookAtPosition as SetTurnBodyTowardsDirection can be overriden!
+        //            npcController.OrderToLookAtPosition(lookAtPoint);
+        //        }
+        //        yield return new WaitForSeconds(freezeTimeRandom);
+        //    }
 
-            lookingAroundCoroutine = null;
-        }
+        //    lookingAroundCoroutine = null;
+        //}
 
         /// <remarks>
         /// We give the position of the entrance we want a safe path to!<br/>

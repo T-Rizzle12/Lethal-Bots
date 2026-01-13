@@ -97,13 +97,26 @@ namespace LethalBots.Managers
 
             // Log if we failed
             if (name != "empty")
+            { 
                 Plugin.LogWarning($"LoadoutManager failed to find loadout with name {name}! Using default: Empty!");
+                return GetLethalBotLoadoutWithName("Empty"); // NOTE: Prevents us from recreating the empty loadout!
+            }
 
+            // If the default loadout of empty doesn't exist yet, create it now!
+            // NOTE: You may ask why I don't do this when the mod starts and thats because if every bot has a vaild loadout,
+            // why waste the memory storing the default!
+            int defaultIndex = LethalBotLoadouts.Length;
+            Array.Resize(ref LethalBotLoadouts, defaultIndex + 1);
+            Plugin.LogInfo("LoadoutManager creating default loadout!");
+
+            // Create and add the default loadout to the Loadouts list!
             ConfigLoadout configLoadout = ConfigConst.DEFAULT_CONFIG_LOADOUT;
             const int idLoadout = -1;
             string defaultName = string.Format(configLoadout.name, idLoadout);
             Item[] defaultItems = new Item[0];
-            return new LethalBotLoadout(idLoadout, defaultName, defaultItems);
+            LethalBotLoadout defaultLoadout = new LethalBotLoadout(idLoadout, defaultName, defaultItems);
+            LethalBotLoadouts[defaultIndex] = defaultLoadout;
+            return defaultLoadout;
         }
 
         public LethalBotLoadout this[int index]

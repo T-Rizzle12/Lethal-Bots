@@ -3386,11 +3386,13 @@ namespace LethalBots.AI
 			waitUntilEndOfOffMeshLinkCoroutine = null;
 		}
 
-		/// <summary>
-		/// Is the lethalBot holding an item ?
-		/// </summary>
-		/// <returns>I mean come on</returns>
-		[MemberNotNullWhen(false, nameof(HeldItem))]
+        #region Inventory and Weapon Helpers
+
+        /// <summary>
+        /// Is the lethalBot holding an item ?
+        /// </summary>
+        /// <returns>I mean come on</returns>
+        [MemberNotNullWhen(false, nameof(HeldItem))]
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public bool AreHandsFree()
 		{
@@ -3419,7 +3421,12 @@ namespace LethalBots.AI
 		[MemberNotNullWhen(true, nameof(HeldItem))]
 		public bool IsHoldingRangedWeapon()
 		{
-			return IsItemRangedWeapon(HeldItem);
+            // Need ammo in order to use this weapon!
+            if (!HasAmmoForWeapon(HeldItem))
+            {
+                return false;
+            }
+            return IsItemRangedWeapon(HeldItem);
 		}
 
 		/// <summary>
@@ -3472,7 +3479,8 @@ namespace LethalBots.AI
 			}
 			foreach (var weapon in NpcController.Npc.ItemSlots)
 			{
-				if (IsItemRangedWeapon(weapon))
+				if (HasAmmoForWeapon(weapon) 
+					&& IsItemRangedWeapon(weapon))
 				{
 					return true;
 				}
@@ -3696,7 +3704,7 @@ namespace LethalBots.AI
 		{
 			// Check if the lethalBot is holding the object
 			objectSlot = -1;
-			if (HeldItem != null && objectPredicate(HeldItem))
+			if (!AreHandsFree() && objectPredicate(HeldItem))
 			{
 				objectSlot = NpcController.Npc.currentItemSlot;
 				return true;
@@ -3797,13 +3805,16 @@ namespace LethalBots.AI
 		/// <returns>I mean come on</returns>
 		public bool HasScrapInInventory()
 		{
-			if (!AreHandsFree() && IsItemScrap(HeldItem))
+			if (!AreHandsFree() 
+				&& IsItemScrap(HeldItem) 
+				&& !IsGrabbableObjectInLoadout(HeldItem))
 			{
 				return true;
 			}
 			foreach (var scrap in NpcController.Npc.ItemSlots)
 			{
-				if (IsItemScrap(scrap))
+				if (IsItemScrap(scrap) 
+					&& !IsGrabbableObjectInLoadout(scrap))
 				{
 					return true;
 				}
@@ -3832,11 +3843,64 @@ namespace LethalBots.AI
 			return false;
 		}
 
+        /// <summary>
+        /// Check if the lethalBot has duplicate loadout items in its inventory.
+        /// </summary>
+        /// <param name="grabbableObject">The object to check if the bot has duplicates of in its inventory</param>
+        /// <param name="objectSlot">The slot of where the duplicate object was found at! Is set to -1 if item was not found!</param>
+        /// <returns>true: the bot has a duplicate loadout object in its inventory, false: the bot doesn't have a duplicate loadout object in its inventory</returns>
+        public bool HasDuplicateLoadoutItems(GrabbableObject grabbableObject, out int objectSlot)
+		{
+			// Make sure this item is in our loadout!
+			objectSlot = -1;
+			if (!IsGrabbableObjectInLoadout(grabbableObject))
+			{
+				return false;
+			}
+
+			// Make sure this is in our inventory!
+			if (HasGrabbableObjectInInventory(grabbableObject, out int itemSlot))
+			{
+				GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+				for (int i = 0; i < itemSlots.Length; i++)
+				{
+					// Skip this item!
+					if (i == itemSlot)
+						continue;
+
+					// Lets see if they are the same!
+					GrabbableObject item = itemSlots[i];
+					if (item != null && item.itemProperties.itemName == grabbableObject.itemProperties.itemName)
+					{
+						objectSlot = i;
+						return true;
+					}
+				}
+			}
+			else
+			{
+				Plugin.LogWarning($"HasDuplicateLoadoutItems was called with a grabbable object \"{grabbableObject}\" not in the bot's inventory!");
+			}
+
+			return false;
+		}
+
 		/// <summary>
-		/// Basically a carbon copy of <see cref="PlayerControllerB.CanUseItem"/>, but made for bots
+		/// Is the given grabbable object a part of our loadout?
 		/// </summary>
-		/// <returns></returns>
-		public bool CanUseHeldItem()
+		/// <param name="grabbableObject">The object to check</param>
+		/// <returns>true: this object in in our loadout; otherwise false</returns>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsGrabbableObjectInLoadout([NotNullWhen(true)] GrabbableObject grabbableObject)
+		{
+			return LethalBotIdentity.Loadout.IsGrabbableObjectInLoadout(grabbableObject);
+		}
+
+        /// <summary>
+        /// Basically a carbon copy of <see cref="PlayerControllerB.CanUseItem"/>, but made for bots
+        /// </summary>
+        /// <returns></returns>
+        public bool CanUseHeldItem()
 		{
 			PlayerControllerB lethalBotController = NpcController.Npc;
 			if (!base.IsOwner || !lethalBotController.isPlayerControlled)
@@ -3910,12 +3974,14 @@ namespace LethalBots.AI
 			}
 		}
 
-		/// <summary>
-		/// Check all object array <c>LethalBotManager.grabbableObjectsInMap</c>, 
-		/// if lethalBot is close and can see an item to grab.
-		/// </summary>
-		/// <returns><c>GrabbableObject</c> if lethalBot sees an item he can grab, else null.</returns>
-		public GrabbableObject? LookingForObjectToGrab()
+        #endregion
+
+        /// <summary>
+        /// Check all object array <c>LethalBotManager.grabbableObjectsInMap</c>, 
+        /// if lethalBot is close and can see an item to grab.
+        /// </summary>
+        /// <returns><c>GrabbableObject</c> if lethalBot sees an item he can grab, else null.</returns>
+        public GrabbableObject? LookingForObjectToGrab()
 		{
 			GrabbableObject? closestObject = null;
 			float closestObjectDistSqr = float.MaxValue;
@@ -7707,6 +7773,36 @@ namespace LethalBots.AI
 		/// <returns>The <see cref="AIState"/> to run after spawning!</returns>
 		internal AIState GetDesiredAIState()
 		{
+			// Check if we have a set default AI state
+			EnumDefaultAIState defaultAIState = this.LethalBotIdentity.DefaultAIState;
+			if (defaultAIState != EnumDefaultAIState.Dynamic)
+			{
+				switch (defaultAIState)
+				{
+					case EnumDefaultAIState.FollowPlayer:
+					{
+						return new GetCloseToPlayerState(this, GetClosestIrlPlayer());
+					}
+					case EnumDefaultAIState.SearchForScrap:
+					{
+						return new SearchingForScrapState(this);
+					}
+					case EnumDefaultAIState.ShipDuty:
+					{
+						if (LethalBotManager.Instance.MissionControlPlayer != NpcController.Npc)
+						{
+							LethalBotManager.Instance.MissionControlPlayer = NpcController.Npc;
+						}
+						return new MissionControlState(this);
+					}
+					default:
+					{
+						Plugin.LogWarning($"Bot {NpcController.Npc.playerUsername} has an invaild default AI state. Falling back to dynamic!");
+						break;
+					}
+				}
+			}
+
 			// If we spawned on the ship as it was landing or taking off, follow closest player!
 			PlayerControllerB closestHumanPlayer = GetClosestIrlPlayer();
             if ((NpcController.Npc.isInElevator || NpcController.Npc.isInHangarShipRoom) 
@@ -7717,12 +7813,15 @@ namespace LethalBots.AI
 			}
 
 			// We are within awareness range, they probably revived us! Better get back to following them now.
-			float sqrHorizontalDistanceWithTarget = Vector3.Scale((closestHumanPlayer.transform.position - NpcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
-            float sqrVerticalDistanceWithTarget = Vector3.Scale((closestHumanPlayer.transform.position - NpcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
-            if (sqrHorizontalDistanceWithTarget < Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR
-                    && sqrVerticalDistanceWithTarget < Const.DISTANCE_AWARENESS_VER * Const.DISTANCE_AWARENESS_VER)
+			if (closestHumanPlayer != null && closestHumanPlayer.isPlayerControlled && !closestHumanPlayer.isPlayerDead)
 			{
-				return new GetCloseToPlayerState(this, closestHumanPlayer);
+				float sqrHorizontalDistanceWithTarget = Vector3.Scale((closestHumanPlayer.transform.position - NpcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
+				float sqrVerticalDistanceWithTarget = Vector3.Scale((closestHumanPlayer.transform.position - NpcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
+				if (sqrHorizontalDistanceWithTarget < Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR
+						&& sqrVerticalDistanceWithTarget < Const.DISTANCE_AWARENESS_VER * Const.DISTANCE_AWARENESS_VER)
+				{
+					return new GetCloseToPlayerState(this, closestHumanPlayer);
+				}
 			}
 
 			// We are the current mission controller, better get back to it!

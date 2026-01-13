@@ -1287,7 +1287,7 @@ namespace LethalBots.AI
         /// <returns></returns>
         protected virtual bool FindObject(GrabbableObject item)
         {
-            return true; // Found an item, great, we want to drop it!
+            return !ai.IsGrabbableObjectInLoadout(item) || ai.HasDuplicateLoadoutItems(item, out _); // Found an item, great, we only want to drop it if its not a part of our loadout!
         }
 
         /// <summary>

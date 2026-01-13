@@ -56,6 +56,9 @@ namespace LethalBots.AI.AIStates
 
         public override void DoAI()
         {
+            // Start coroutine for looking around
+            StartLookingAroundCoroutine();
+
             // Check for enemies
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)

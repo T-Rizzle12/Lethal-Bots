@@ -108,6 +108,18 @@ namespace LethalBots.Managers
 
             }
 
+            // Default AI State
+            EnumDefaultAIState defaultAIState;
+            if (!Enum.IsDefined(typeof(EnumDefaultAIState), configIdentity))
+            {
+                Plugin.LogWarning($"Could not get option bot default AI state config in config file, value {configIdentity.defaultAIState}, for {configIdentity.name}, now using default value.");
+                defaultAIState = EnumDefaultAIState.Dynamic;
+            }
+            else
+            {
+                defaultAIState = (EnumDefaultAIState)configIdentity.defaultAIState;
+            }
+
             // Voice
             LethalBotVoice voice = new LethalBotVoice(configIdentity.voiceFolder,
                                                 configIdentity.volume, 
@@ -117,7 +129,7 @@ namespace LethalBots.Managers
             LethalBotLoadout loadout = LoadoutManager.Instance.GetLethalBotLoadoutWithName(configIdentity.loadoutName ?? string.Empty);
 
             // LethalBotIdentity
-            return new LethalBotIdentity(idIdentity, name, suitID, voice, loadout);
+            return new LethalBotIdentity(idIdentity, name, suitID, voice, loadout, defaultAIState);
         }
 
         public string[] GetIdentitiesNamesLowerCaseWithoutSpace()
