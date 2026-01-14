@@ -39,6 +39,7 @@ using UnityEngine;
 using Object = UnityEngine.Object;
 using GameNetcodeStuff;
 using PySpeech;
+using LethalBots.Patches.ModPatches.LCVR;
 
 namespace LethalBots
 {
@@ -70,6 +71,7 @@ namespace LethalBots
     [BepInDependency(Const.FACILITYMELTDOWN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(Const.NAVMESHINCOMPANY_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(Const.LETHALINTERNS_GUID, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(LCVR.Plugin.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         // Please don't use the MyPluginInfo class for the GUID, my mod is
@@ -266,6 +268,7 @@ namespace LethalBots
             bool isModLCAlwaysHearWalkieModLoaded = IsModLoaded(Const.LCALWAYSHEARWALKIEMOD_GUID);
             bool isModButteryFixesLoaded = IsModLoaded(Const.BUTTERYFIXES_GUID);
             bool isModPeepersLoaded = IsModLoaded(Const.PEEPERS_GUID);
+            bool isModLethalCompanyVRLoaded = IsModLoaded(LCVR.Plugin.PLUGIN_GUID);
 
             // -------------------
             // Read the preloaders
@@ -381,6 +384,17 @@ namespace LethalBots
             if (isModPeepersLoaded)
             {
                 _harmony.PatchAll(typeof(PeeperAttachHitboxPatch));
+            }
+            if (isModLethalCompanyVRLoaded)
+            {
+                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCVR.Patches.Spectating.SpectatorPlayerPatches"), "BeforePlayerDeath"),
+                               new HarmonyMethod(typeof(LCVRPatchesPatch), nameof(LCVRPatchesPatch.BeforePlayerDeath_Prefix)));
+                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCVR.Patches.Spectating.SpectatorPlayerPatches"), "OnPlayerDeath"),
+                               new HarmonyMethod(typeof(LCVRPatchesPatch), nameof(LCVRPatchesPatch.OnPlayerDeath_Prefix)));
+                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCVR.Patches.Items.ShotgunItemPatches"), "DisplaySafetyPatch"),
+                               new HarmonyMethod(typeof(LCVRPatchesPatch), nameof(LCVRPatchesPatch.DisplaySafetyPatch_Prefix)));
+                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCVR.Patches.PlayerControllerPatches"), "AfterDamagePlayer"),
+                               new HarmonyMethod(typeof(LCVRPatchesPatch), nameof(LCVRPatchesPatch.AfterDamagePlayer_Prefix)));
             }
         }
 

@@ -168,6 +168,9 @@
 	<Reference Include="Zaprillator">
 	  <HintPath>lib\mods\Zaprillator.dll</HintPath>
 	</Reference>
+	<Reference Include="LCVR">
+	  <HintPath>lib\mods\LCVR.dll</HintPath>
+	</Reference>
     <Reference Include="Unity.Animation.Rigging">
       <HintPath>lib\Unity.Animation.Rigging.dll</HintPath>
     </Reference>

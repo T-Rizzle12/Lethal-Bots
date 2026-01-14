@@ -96,6 +96,7 @@ namespace LethalBots.AI.AIStates
             // So, we don't have a item in our inventory, lets check the ship!
             GrabbableObject? closestItem = null;
             float closestItemSqr = float.MaxValue;
+            LevelWeatherType levelWeatherType = TimeOfDay.Instance.currentLevelWeather;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
                 GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
@@ -108,7 +109,8 @@ namespace LethalBots.AI.AIStates
                 GrabbableObject? item = gameObject.GetComponent<GrabbableObject>();
                 if (item != null
                     && item.isInShipRoom
-                    && item.itemProperties.itemName == name)
+                    && item.itemProperties.itemName == name 
+                    && (levelWeatherType != LevelWeatherType.Stormy || !item.itemProperties.isConductiveMetal)) // Don't pickup conductive items during storms!
                 {
                     float itemSqr = (item.transform.position - npcController.Npc.transform.position).sqrMagnitude;
                     if (itemSqr < closestItemSqr

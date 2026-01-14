@@ -11,10 +11,9 @@
   ],
   "configLoadouts": [
     {
-      "name": "Test Loadout",
+      "name": "Combat",
       "itemNames": [
-        "Shovel",
-        "Walkie-talkie"
+        "Shovel"
       ]
     }
   ]
