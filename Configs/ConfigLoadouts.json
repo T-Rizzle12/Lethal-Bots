@@ -11,9 +11,22 @@
   ],
   "configLoadouts": [
     {
-      "name": "Combat",
+      "name": "ShovelLoadout",
       "itemNames": [
         "Shovel"
+      ]
+    },
+    {
+      "name": "ShotgunLoadout",
+      "itemNames": [
+        "Ammo",
+        "Shotgun"
+      ]
+    },
+    {
+      "name": "ZapGunLoadout",
+      "itemNames": [
+        "Zap gun"
       ]
     }
   ]
