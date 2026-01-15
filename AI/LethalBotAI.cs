@@ -523,6 +523,7 @@ namespace LethalBots.AI
 			// Update movement
 			float x;
 			float z;
+			//Vector3 tempVelocity = Vector3.zero;
 			if (NpcController.HasToMove)
 			{
 				Vector2 vector2 = (new Vector2(NpcController.MoveVector.x, NpcController.MoveVector.z));
@@ -539,24 +540,31 @@ namespace LethalBots.AI
 					NpcController.SetTurnBodyTowardsDirectionWithPosition(this.transform.position);
 				}
 
-				x = Mathf.Lerp(NpcController.Npc.transform.position.x, this.transform.position.x, 0.075f);
-				z = Mathf.Lerp(NpcController.Npc.transform.position.z, this.transform.position.z, 0.075f);
-			}
+                //Vector3 tempVector = Vector3.SmoothDamp(NpcController.Npc.transform.position, this.transform.position, ref tempVelocity, 0.075f);
+                //x = tempVector.x;
+                //z = tempVector.z;
+                x = Mathf.Lerp(NpcController.Npc.transform.position.x, this.transform.position.x, 0.075f);
+                z = Mathf.Lerp(NpcController.Npc.transform.position.z, this.transform.position.z, 0.075f);
+            }
 			else
 			{
-				if (IsInsideElevator)
-				{
-					// NOTE: We use the same code as above when in an elevator or we end up creating prediction issues
-					x = Mathf.Lerp(NpcController.Npc.transform.position.x, this.transform.position.x, 0.075f);
-					z = Mathf.Lerp(NpcController.Npc.transform.position.z, this.transform.position.z, 0.075f);
-				}
-				else
-				{
-					SetAgent(enabled: false);
-					x = Mathf.Lerp(NpcController.Npc.transform.position.x + NpcController.MoveVector.x * Time.deltaTime, this.transform.position.x, 0.075f);
-					z = Mathf.Lerp(NpcController.Npc.transform.position.z + NpcController.MoveVector.z * Time.deltaTime, this.transform.position.z, 0.075f);
-				}
-			}
+                //Vector3 tempVector = Vector3.SmoothDamp(NpcController.Npc.transform.position, this.transform.position, ref tempVelocity, 0.075f);
+                //x = tempVector.x;
+                //z = tempVector.z;
+                //SetAgent(enabled: !IsInsideElevator);
+                if (IsInsideElevator)
+                {
+                    // NOTE: We use the same code as above when in an elevator or we end up creating prediction issues
+                    x = Mathf.Lerp(NpcController.Npc.transform.position.x, this.transform.position.x, 0.075f);
+                    z = Mathf.Lerp(NpcController.Npc.transform.position.z, this.transform.position.z, 0.075f);
+                }
+                else
+                {
+                    SetAgent(enabled: false);
+                    x = Mathf.Lerp(NpcController.Npc.transform.position.x + NpcController.MoveVector.x * Time.deltaTime, this.transform.position.x, 0.075f);
+                    z = Mathf.Lerp(NpcController.Npc.transform.position.z + NpcController.MoveVector.z * Time.deltaTime, this.transform.position.z, 0.075f);
+                }
+            }
 
 			// Movement free (falling from bridge, jetpack, tulip snake taking off...)
 			bool shouldFreeMovement = ShouldFreeMovement();
