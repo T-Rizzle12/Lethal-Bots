@@ -588,7 +588,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Alright, look at the body first
-            npcController.OrderToLookAtPosition(playerBody.transform.position);
+            npcController.OrderToLookAtPosition(playerBody.transform.position, EnumLookAtPriority.HIGH_PRIORITY);
             yield return null;
 
             // Now we fake the revive time
@@ -708,7 +708,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Alright, look at the body first
-            npcController.OrderToLookAtPosition(playerBody.transform.position);
+            npcController.OrderToLookAtPosition(playerBody.transform.position, EnumLookAtPriority.HIGH_PRIORITY);
             yield return new WaitForSeconds(2f); // Two seconds should be enough time!
 
             if (!ai.HasGrabbableObjectInInventory(FindZapGun, out int itemSlot))

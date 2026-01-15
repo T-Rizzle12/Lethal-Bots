@@ -72,11 +72,13 @@ namespace LethalBots.AI.AIStates
 
             // Check for object to grab
             // Or drop in ship room
+            bool canInverseTeleport = true;
             if (npcController.Npc.isInHangarShipRoom)
             {
                 // If we are holding an item with a battery, we should charge it!
                 if (ChargeHeldItemState.HasItemToCharge(ai, out _))
                 {
+                    canInverseTeleport = false;
                     ai.State = new ChargeHeldItemState(this, true);
                     return;
                 }
@@ -85,12 +87,14 @@ namespace LethalBots.AI.AIStates
                 GrabbableObject? heldItem = ai.HeldItem;
                 if (heldItem != null && FindObject(heldItem))
                 {
+                    canInverseTeleport = false;
                     ai.DropItem();
                 }
                 // If we still have stuff in our inventory,
                 // we should swap to it and drop it!
                 else if (ai.HasGrabbableObjectInInventory(FindObject, out int objectSlot))
                 {
+                    canInverseTeleport = false;
                     ai.SwitchItemSlotsAndSync(objectSlot);
                 }
             }
@@ -137,7 +141,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Is the inverse teleporter on, we should use it!
-            if (LethalBotManager.IsInverseTeleporterActive && npcController.Npc.isInHangarShipRoom && !ai.HasSomethingInInventory())
+            if (LethalBotManager.IsInverseTeleporterActive && npcController.Npc.isInHangarShipRoom && canInverseTeleport)
             {
                 ai.State = new UseInverseTeleporterState(this);
                 return;
@@ -239,7 +243,7 @@ namespace LethalBots.AI.AIStates
                     if (player != null
                         && player.playerClientId != StartOfRound.Instance.localPlayerController.playerClientId)
                     {
-                        npcController.OrderToLookAtPosition(hit.point);
+                        npcController.OrderToLookAtPosition(hit.point, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
                         npcController.SetTurnBodyTowardsDirectionWithPosition(hit.point);
                         return;
                     }
@@ -262,7 +266,7 @@ namespace LethalBots.AI.AIStates
                     }
 
                     // Look at position
-                    npcController.OrderToLookAtPosition(hit.point);
+                    npcController.OrderToLookAtPosition(hit.point, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
                     npcController.SetTurnBodyTowardsDirectionWithPosition(hit.point);
                     break;
                 }

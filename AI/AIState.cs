@@ -1170,7 +1170,7 @@ namespace LethalBots.AI
                 }
 
                 // Use OrderToLookAtPosition as SetTurnBodyTowardsDirection can be overriden!
-                npcController.OrderToLookAtPosition(lookAtPoint);
+                npcController.OrderToLookAtPosition(lookAtPoint, EnumLookAtPriority.MEDIUM_PRIORITY, 1.0f);
                 yield return new WaitForSeconds(freezeTimeRandom);
             }
 

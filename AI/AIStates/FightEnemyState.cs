@@ -187,7 +187,7 @@ namespace LethalBots.AI.AIStates
             if (!Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, targetPos + Vector3.up * 0.2f, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault)
                 || hitInfo.collider.gameObject.GetComponentInParent<EnemyAI>() == this.currentEnemy)
             {
-                npcController.OrderToLookAtPosition(targetPos);
+                npcController.OrderToLookAtPosition(targetPos, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
             }
             else
             {

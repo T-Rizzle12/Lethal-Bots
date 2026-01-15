@@ -531,15 +531,12 @@ namespace LethalBots.AI
 				//agent.autoTraverseOffMeshLink = false;
 				//agent.acceleration = 1f * vector2.magnitude; // Is this a good idea?
 
-				if (!NpcController.Npc.isClimbingLadder
-					&& !NpcController.Npc.inSpecialInteractAnimation
-					&& !NpcController.Npc.enteringSpecialAnimation)
+				// Look where we are going!
+				if (NpcController.LookAtTarget.IsLookingForward() 
+					|| NpcController.LookAtTarget.CanSwapAimState(lookAtMustExpire: true))
 				{
-					// Npc is following ai agent position that follows destination path
-					if (NpcController.LookAtTarget.IsLookingForward())
-					{
-						NpcController.SetTurnBodyTowardsDirectionWithPosition(this.transform.position);
-					}
+					NpcController.OrderToLookForward();
+					NpcController.SetTurnBodyTowardsDirectionWithPosition(this.transform.position);
 				}
 
 				x = Mathf.Lerp(NpcController.Npc.transform.position.x, this.transform.position.x, 0.075f);

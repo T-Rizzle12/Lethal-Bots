@@ -183,7 +183,7 @@ namespace LethalBots.AI.AIStates
                 || hitInfo.transform.GetComponent<DoorLock>() == this.targetDoor  // Did we hit the door?
                 || hitInfo.transform.GetComponent<TriggerPointToDoor>()?.pointToDoor == this.targetDoor) // Did we hit the door trigger?
             {
-                npcController.OrderToLookAtPosition(lockerPickerPos); // Look at the door so we can use the key or lockpicker
+                npcController.OrderToLookAtPosition(lockerPickerPos, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime); // Look at the door so we can use the key or lockpicker
             }
             else
             {

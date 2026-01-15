@@ -262,7 +262,7 @@ namespace LethalBots.AI.AIStates
             // Look at the enemy if they are a coil head!
             if (this.currentEnemy is SpringManAI || this.currentEnemy is FlowermanAI)
             {
-                npcController.OrderToLookAtPosition(this.currentEnemy.eye.position);
+                npcController.OrderToLookAtPosition(this.currentEnemy.eye.position, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
                 npcController.SetTurnBodyTowardsDirectionWithPosition(this.currentEnemy.eye.position);
             }
             // Ok, there are three state indexes for nutcrackers to date!

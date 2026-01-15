@@ -23,16 +23,14 @@ namespace LethalBots.AI.AIStates
 
         public override void OnEnterState()
         {
-            if (!hasBeenStarted)
+            // First things first, find out what we need to grab!
+            itemsToGrab.Clear();
+            foreach (var item in ai.LethalBotIdentity.Loadout.Items)
             {
-                // First things first, find out what we need to grab!
-                foreach (var item in ai.LethalBotIdentity.Loadout.Items)
+                if (item != null
+                    && !itemsToGrab.Contains(item.itemName))
                 {
-                    if (item != null
-                        && !itemsToGrab.Contains(item.itemName))
-                    {
-                        itemsToGrab.Add(item.itemName);
-                    }
+                    itemsToGrab.Add(item.itemName);
                 }
             }
             base.OnEnterState();

@@ -6,7 +6,6 @@
     public enum EnumObjectsLookingAt
     {
         Forward,
-        Player,
         Position
     }
 }

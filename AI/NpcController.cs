@@ -1,24 +1,26 @@
 ﻿using GameNetcodeStuff;
+using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.NetworkSerializers;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
+using LethalInternship.AI;
 using ModelReplacement;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using TooManyEmotes.Networking;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using TooManyEmotes;
+using TooManyEmotes.Networking;
+using Unity.IO.LowLevel.Unsafe;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;
 using Random = UnityEngine.Random;
-using System.Reflection;
-using HarmonyLib;
-using LethalBots.NetworkSerializers;
-using LethalInternship.AI;
 
 namespace LethalBots.AI
 {
@@ -2314,8 +2316,8 @@ namespace LethalBots.AI
         /// <param name="positionPlayerEyeToLookAt"></param>
         public void OrderToLookAtPlayer(Vector3 positionPlayerEyeToLookAt)
         {
-            this.LookAtTarget.enumObjectsLookingAt = EnumObjectsLookingAt.Player;
-            this.LookAtTarget.positionPlayerEyeToLookAt = positionPlayerEyeToLookAt;
+            this.LookAtTarget.enumObjectsLookingAt = EnumObjectsLookingAt.Position;
+            this.LookAtTarget.AimHeadTowards(positionPlayerEyeToLookAt, EnumLookAtPriority.MEDIUM_PRIORITY, bypassSteadyCheck: true);
         }
         /// <summary>
         /// Make the controller look straight forward
@@ -2323,15 +2325,16 @@ namespace LethalBots.AI
         public void OrderToLookForward()
         {
             this.LookAtTarget.enumObjectsLookingAt = EnumObjectsLookingAt.Forward;
+            this.LookAtTarget.lookAtPriority = EnumLookAtPriority.LOW_PRIORITY; // HACKHACK: Reset LookAtPriority
         }
         /// <summary>
         /// Make the controller look at an specific vector position
         /// </summary>
         /// <param name="positionToLookAt"></param>
-        public void OrderToLookAtPosition(Vector3 positionToLookAt)
+        public void OrderToLookAtPosition(Vector3 positionToLookAt, EnumLookAtPriority priority = EnumLookAtPriority.LOW_PRIORITY, float duration = 0.0f, bool bypassSteadyCheck = false, float maxBodyFOV = Const.LETHAL_BOT_FOV)
         {
             this.LookAtTarget.enumObjectsLookingAt = EnumObjectsLookingAt.Position;
-            this.LookAtTarget.positionToLookAt = positionToLookAt;
+            this.LookAtTarget.AimHeadTowards(positionToLookAt, priority, duration, bypassSteadyCheck, maxBodyFOV);
         }
 
         /// <summary>
@@ -2347,79 +2350,10 @@ namespace LethalBots.AI
         /// <summary>
         /// Update the head of the bot to look at what he is set to
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void UpdateLookAt()
         {
-            Vector3 direction;
-            switch (LookAtTarget.enumObjectsLookingAt)
-            {
-                case EnumObjectsLookingAt.Forward:
-
-                    if (Npc.gameplayCamera.transform.rotation == Npc.thisPlayerBody.rotation)
-                    {
-                        break;
-                    }
-
-                    Npc.gameplayCamera.transform.rotation = Quaternion.RotateTowards(Npc.gameplayCamera.transform.rotation, Npc.thisPlayerBody.rotation, Const.CAMERA_TURNSPEED);
-                    break;
-
-                case EnumObjectsLookingAt.Player:
-
-                    direction = LookAtTarget.positionPlayerEyeToLookAt - Npc.gameplayCamera.transform.position;
-                    if (!DirectionNotZero(direction.x) && !DirectionNotZero(direction.y) && !DirectionNotZero(direction.z))
-                    {
-                        break;
-                    }
-
-                    if (direction != lastDirectionToLookAt)
-                    {
-                        lastDirectionToLookAt = direction;
-                        cameraRotationToUpdateLookAt = Quaternion.LookRotation(new Vector3(direction.x, direction.y, direction.z));
-                    }
-
-                    // FIXME: make this close to rather than equal to!
-                    if (Npc.gameplayCamera.transform.rotation == cameraRotationToUpdateLookAt)
-                    {
-                        if (this.HasToMove)
-                            LookAtTarget.enumObjectsLookingAt = EnumObjectsLookingAt.Forward;
-                        break;
-                    }
-
-                    Npc.gameplayCamera.transform.rotation = Quaternion.RotateTowards(Npc.gameplayCamera.transform.rotation, cameraRotationToUpdateLookAt, Const.CAMERA_TURNSPEED);
-                    if (Vector3.Angle(Npc.gameplayCamera.transform.forward, Npc.thisPlayerBody.transform.forward) > Const.LETHAL_BOT_FOV - 5f)
-                    {
-                        SetTurnBodyTowardsDirectionWithPosition(LookAtTarget.positionPlayerEyeToLookAt);
-                    }
-                    break;
-
-                case EnumObjectsLookingAt.Position:
-
-                    direction = LookAtTarget.positionToLookAt - Npc.gameplayCamera.transform.position;
-                    if (!DirectionNotZero(direction.x) && !DirectionNotZero(direction.y) && !DirectionNotZero(direction.z))
-                    {
-                        break;
-                    }
-
-                    if (direction != lastDirectionToLookAt)
-                    {
-                        lastDirectionToLookAt = direction;
-                        cameraRotationToUpdateLookAt = Quaternion.LookRotation(new Vector3(direction.x, direction.y, direction.z));
-                    }
-
-                    // FIXME: make this close to rather than equal to!
-                    if (Npc.gameplayCamera.transform.rotation == cameraRotationToUpdateLookAt)
-                    {
-                        if (this.HasToMove)
-                            LookAtTarget.enumObjectsLookingAt = EnumObjectsLookingAt.Forward;
-                        break;
-                    }
-
-                    Npc.gameplayCamera.transform.rotation = Quaternion.RotateTowards(Npc.gameplayCamera.transform.rotation, cameraRotationToUpdateLookAt, Const.CAMERA_TURNSPEED);
-                    if (Vector3.Angle(Npc.gameplayCamera.transform.forward, Npc.thisPlayerBody.transform.forward) > Const.LETHAL_BOT_FOV - 20f)
-                    {
-                        SetTurnBodyTowardsDirectionWithPosition(LookAtTarget.positionToLookAt);
-                    }
-                    break;
-            }
+            this.LookAtTarget.Update(this, this.LethalBotAIController);
         }
 
         public bool IsMoving()
@@ -2432,7 +2366,7 @@ namespace LethalBots.AI
         {
             if (Npc.inSpecialInteractAnimation && Npc.inShockingMinigame && Npc.shockingTarget != null)
             {
-                OrderToLookAtPosition(Npc.shockingTarget.position);
+                OrderToLookAtPosition(Npc.shockingTarget.position, EnumLookAtPriority.MAXIMUM_PRIORITY);
             }
             else if (Npc.inAnimationWithEnemy
                      && EnemyInAnimationWith != null)
@@ -2447,7 +2381,7 @@ namespace LethalBots.AI
                     pos = EnemyInAnimationWith.transform.position;
                 }
 
-                OrderToLookAtPosition(pos);
+                OrderToLookAtPosition(pos, EnumLookAtPriority.MAXIMUM_PRIORITY);
             }
         }
 
@@ -2536,7 +2470,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="direction"></param>
         /// <returns></returns>
-        private bool DirectionNotZero(float direction)
+        internal bool DirectionNotZero(float direction)
         {
             return direction < -Const.EPSILON || Const.EPSILON < direction;
         }
