@@ -91,6 +91,7 @@ Also, the bot only checks for the keywords anywhere in the message, for example,
 </br>**man the ship** - Makes the bot you are looking at go to the ship terminal and start manning it.
 </br>**transmit (desired message)** - The bot who is currently on the terminal will send the given message on the signal translator.
 </br>**transfer loot** - The bot will cycle between facility entrances and transfer any loot they find to the ship.
+</br>**gear up** - Bots that are following the player will automatically swap to the GrabLoadoutState and grab their set loadout.
 </br>Please note that you must be in chat range for the bot to hear you. If you are too far away, the bot will not respond to your command.
 If both you and the bot have a walkie-talkie, you can use the command in the chat and the bot will respond to it.
 </br>Please note that these are also voice commands, but they require you to only say the word unlike how they work as said in the chat.
