@@ -96,6 +96,7 @@
       "name": "Justin Case",
       "suitID": 0,
       "suitConfigOption": 1,
+      "defaultAIState": 0,
       "voiceFolder": "Mathew_kelly",
       "volume": 0.2,
       "voicePitch": 0.89,
