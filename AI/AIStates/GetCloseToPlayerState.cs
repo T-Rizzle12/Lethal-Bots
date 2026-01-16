@@ -55,6 +55,14 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // Wait for ship to land before doing anything!
+            if ((npcController.Npc.isInElevator || npcController.Npc.isInHangarShipRoom)
+                && (StartOfRound.Instance.shipIsLeaving
+                    || !StartOfRound.Instance.shipHasLanded))
+            {
+                return;
+            }
+
             // Lost target player
             if (ai.targetPlayer == null)
             {

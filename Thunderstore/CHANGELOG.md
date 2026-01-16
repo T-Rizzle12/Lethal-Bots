@@ -1,5 +1,57 @@
 # Changelog
 
+## 2.0.0 - 2026-1-16
+Hello and welcome the the first **MAJOR** patch of Lethal Bots! Please do note that you **MUST** update your custom identity config files. If not, many errors may occur! Ok, now onto the changes!
+
+## Bot Loadouts
+You have heard correctly, bots can now have loadouts! No longer will have to give each bot an item when moving out to loot. Just set the bot's loadout in a custom identity config and tell them to "gear up!" Bots that are set to search for scrap will also automatically grab their loadout!
+- Added new LoadoutManager which manages all available loadouts
+- Bots identity files have been updated to have a new member loadoutName. This is the name of the loadout the bot wants to use can be set to Empty to tell the game the bot has no loadout.
+- Bots that are grabbing their loadout will not grab conductive items if the current planet weather is stormy
+- Added new state GrabLoadoutState, bots in this state will find and grab all items that are in their loadout on the ship.
+- Added new chat command, "gear up." Bots that are following the player will automatically swap to the GrabLoadoutState.
+- Added a bunch of important networking functions and classes to sync the host's loadouts for bots to other clients
+- LethalBotNetworkSerializer has a new function SerializeStringArray. This was made to help sync the loadouts between clients.
+- Bots will not automatically drop items that are in their loadout while at the ship. They will drop duplicate loadout items they may have.
+- Multiple inventory functions have been updated to consider loadout items
+- Added new function to LethalBotAI HasDuplicateLoadoutItems. This checks if the bot has more than one of the same items for their particular loadout
+- Added IsGrabbableObjectInLoadout to LethalBotAI and LethalBotLoadout classes. This checks if the given grabbable object is in the bots current loadout.
+- SearchingForScrapState automatically makes bots grab their loadout.
+
+## New Default AI States
+As requested in #27, bots can now be assigned a default AI state. It gets kind of annoying to make all of the bots lead the way at round start and oops you send the wrong bot to lead the way when you wanted them on the terminal. Well look no further, you can now use a custom Identity file and set their default state.
+1. Dynamic: This is the default, if the bot finds a human player to follow when spawning, the bot will do just that. Other than that the bot will choose which AI state to enter dynamically!
+2. FollowPlayer: Self explanatory, makes the bot follow the nearest human player
+3. SearchForScrap: Makes the bot search for scrap upon spawning
+4. ShipDuty: Makes the bot man the ship upon spawning
+
+- Added EnumDefaultAIState which is used by bots to check which state to enter upon spawning, there are four options, Dynamic, FollowPlayer, SearchForScrap, ShipDuty. Closes #27 
+- GetDesiredAIState has been updated to respect the new bot config option defaultAIState. Bots can now be assigned a default AI state that they swap to upon spawn.
+- Fixed a logic error in GetDesiredAIState where dead players were considered valid follow targets
+- Updated default ConfigIdentity file with the new defaultAIState member
+
+## Aiming system overhaul
+The aiming system used to be **TERRIBLE**, no joke it sucked a lot. There was no way to set look at priorities which made it hard to make the bot look where it was running and look at the coil head heading Mack 10 at them.
+- The aiming system bots use has been reworked. Bots can how have priorities set for look targets and can even define how long to look at said look at target.
+- All AIStates have been updated to use this new system.
+- NpcController has been updated to use this new system and expose some helper methods for use as well.
+- Bots that are returning to ship will now look around randomly
+
+## Bug Fixes
+Of course, we can't have an update without **CRUSHING** some bugs! Most of these I found while testing.
+- Fixed IsHoldingRangedWeapon and HasRangedWeapon not checking if the bot has ammo for said ranged weapon
+- Fixed a logic error in SellScrapState where there was a rare chance the bot would sell an item that was marked not to be sold.
+- Fixed a logic error in ChillWithPlayerState that would cause bots following the player to not use the inverse teleporter if they were holding any items. (This would cause bots with loadouts to not use the inverse teleporter)
+- Potential fix for Lethal Company VR mod breaking when bots die. I don't have a VR headset so I can't really test if it was fixed. Should fix #24
+
+## Misc. Changes 
+And the changes I don't really know where to put anywhere else, so uh, here you go!
+- Changed ChillAtShipState to be more like ChillWithPlayerState when checking for items in their inventory to charge
+- Bots that are in the SearchingForScrapState will wait for the ship to land before doing anything
+- Cleaned up some code
+- Bots that are returning to the ship will now sprint if they are exposed
+- Made a minor optimization to the loading of this mod's asset bundle.
+
 ## 1.2.1 - 2026-1-12
 Hotfix for the 1.2.0 update. I added some experimental retreat code, but it made the bots too afraid to run away at times.
 - Reverted some of the new parts of the experimental retreat code
