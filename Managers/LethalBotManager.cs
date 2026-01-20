@@ -3321,6 +3321,28 @@ namespace LethalBots.Managers
                 return;
             }
 
+            // Check should the bots always be animated?
+            if (Plugin.Config.AlwaysAnimateBots.Value)
+            {
+                foreach (LethalBotAI? lethalBotAI in AllLethalBotAIs)
+                {
+                    if (lethalBotAI == null
+                        || lethalBotAI.isEnemyDead
+                        || lethalBotAI.NpcController == null
+                        || !lethalBotAI.NpcController.Npc.isPlayerControlled
+                        || lethalBotAI.NpcController.Npc.isPlayerDead)
+                    {
+                        continue;
+                    }
+
+                    // Alright, let them be animated!
+                    lethalBotAI.NpcController.ShouldAnimate = true;
+                }
+
+                // No need to run the rest of the code!
+                return;
+            }
+
             if (timerNoAnimationAfterLag > 0f)
             {
                 timerNoAnimationAfterLag += Time.deltaTime;
