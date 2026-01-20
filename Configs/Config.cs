@@ -171,7 +171,7 @@ namespace LethalBots.Configs
                                             "Should the bots be able to hear what you say in voice chat. (It would only be used for the voice commands!)");
 
             VoiceRecognitionSimilarityThreshold = cfg.Bind(ConfigConst.ConfigSectionVoiceRecognition,
-                                                           "The level of accuracy used when assessing what is said in the voice chat.",
+                                                           "Voice recognition similarity threshold",
                                                            defaultValue: 0.8f,
                                                            new ConfigDescription("This is the level of accuracy that would be used by PySpeech when the bot attempts to determine if the given message was a valid chat command. (Higher numbers means a higher level of accuracy is needed!)", 
                                                                             new AcceptableValueRange<float>(0.0f, 1.0f)));
