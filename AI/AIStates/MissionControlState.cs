@@ -123,10 +123,7 @@ namespace LethalBots.AI.AIStates
             if (LethalBotManager.Instance.MissionControlPlayer != npcController.Npc 
                 || StartOfRound.Instance.shipIsLeaving)
             {
-                if (npcController.Npc.inTerminalMenu)
-                {
-                    ai.LeaveTerminal();
-                }
+                GetOffTerminal();
                 if (StartOfRound.Instance.shipIsLeaving)
                 {
                     LethalBotManager.Instance.MissionControlPlayer = null;
