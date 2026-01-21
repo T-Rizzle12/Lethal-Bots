@@ -1463,7 +1463,8 @@ namespace LethalBots.AI.AIStates
                     PlayerControllerB? hostPlayer = LethalBotManager.HostPlayerScript;
                     if (hostPlayer == null
                         || hostPlayer == playerWhoSentMessage
-                        || hostPlayer.isPlayerDead)
+                        || hostPlayer.isPlayerDead 
+                        || !Plugin.Config.StartShipChatCommandProtection.Value)
                     {
                         if (LethalBotManager.AreWeAtTheCompanyBuilding())
                         {
@@ -1475,11 +1476,15 @@ namespace LethalBots.AI.AIStates
                         }
                         playerRequestLeave = true;
                     }
+                    else
+                    {
+                        ai.SendChatMessage($"Sorry {playerWhoSentMessage.playerUsername}, but only the captain can tell me to start the ship!");
+                    }
                 }
                 // A player is requesting we monitor them
                 else if (message.Contains("request monitoring"))
                 {
-                    ai.SendChatMessage("Roger, I will only monitor you.");
+                    ai.SendChatMessage($"Roger, I will only monitor you, {playerWhoSentMessage.playerUsername}.");
                     monitoredPlayer = playerWhoSentMessage;
                 }
                 // The player wants to stop being monitored
@@ -1516,6 +1521,7 @@ namespace LethalBots.AI.AIStates
                     // FIXME: There has to be a better way to do this!
                     int transmitIndex = message.IndexOf(Const.TRANSMIT_KEYWORD) + Const.TRANSMIT_KEYWORD_LENGTH;
                     string messageToTransmit = message.Substring(transmitIndex).Trim();
+                    ai.SendChatMessage($"Alright, I will relay, {messageToTransmit} to the rest of the crew.");
 
                     // Queue the message to be sent!
                     SendMessageUsingSignalTranslator(messageToTransmit, MessagePriority.High);
