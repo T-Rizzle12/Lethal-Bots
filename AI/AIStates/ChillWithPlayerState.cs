@@ -206,7 +206,7 @@ namespace LethalBots.AI.AIStates
             {
                 if (position.HasValue)
                 {
-                    npcController.OrderToLookAtPlayer(position.Value + new Vector3(0, 2.35f, 0));
+                    npcController.OrderToLookAtPosition(position.Value + new Vector3(0, 2.35f, 0), priority: EnumLookAtPriority.HIGH_PRIORITY, 1.0f);
                 }
                 else
                 {
