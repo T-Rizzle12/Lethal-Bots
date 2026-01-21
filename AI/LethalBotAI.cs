@@ -425,7 +425,21 @@ namespace LethalBots.AI
 					State = new BrainDeadState(this);
 				}
 
-				return;
+                // No AI calculation if in special animation if climbing ladder or inSpecialInteractAnimation
+                if (!NpcController.Npc.isClimbingLadder && !NpcController.Npc.inTerminalMenu
+                    && (NpcController.Npc.inSpecialInteractAnimation || NpcController.Npc.enteringSpecialAnimation))
+                {
+                    // If we are using a trigger, set our position and rotation to it!
+                    InteractTrigger ourTrigger = NpcController.Npc.currentTriggerInAnimationWith;
+                    if (ourTrigger != null)
+                    {
+                        NpcController.Npc.thisPlayerBody.localPosition = Vector3.Lerp(NpcController.Npc.thisPlayerBody.localPosition, NpcController.Npc.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
+                        NpcController.Npc.thisPlayerBody.rotation = Quaternion.Lerp(NpcController.Npc.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
+                        NpcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
+                    }
+                }
+
+                return;
 			}
 
 			if (NpcController == null
