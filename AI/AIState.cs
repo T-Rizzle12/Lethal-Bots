@@ -701,8 +701,9 @@ namespace LethalBots.AI
             {
                 // TODO: Change this to be better with longer day mods.
                 // I mean it works partially, but could be better!
-                DayMode dayMode = timeOfDay.GetDayPhase(timeOfDay.currentDayTime / timeOfDay.totalTime);
-                if ((dayMode == DayMode.Sundown || dayMode == DayMode.Midnight)
+                //DayMode dayMode = timeOfDay.GetDayPhase(timeOfDay.currentDayTime / timeOfDay.totalTime);
+                //(dayMode == DayMode.Sundown || dayMode == DayMode.Midnight)
+                if (timeOfDay.normalizedTimeOfDay > Plugin.Config.ReturnToShipTime
                     || timeOfDay.votesForShipToLeaveEarly >= LethalBotManager.Instance.AllRealPlayersCount 
                     || timeOfDay.shipLeavingAlertCalled)
                 {

@@ -37,6 +37,7 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> AllowBotsToChat;
         [SyncedEntryField] public SyncedEntry<bool> StartShipChatCommandProtection;
         [SyncedEntryField] public SyncedEntry<bool> AutoMissionControl;
+        [SyncedEntryField] public SyncedEntry<float> ReturnToShipTime;
         [SyncedEntryField] public SyncedEntry<bool> TeleportWhenUsingLadders;
         [SyncedEntryField] public SyncedEntry<bool> SellAllScrapOnShip;
         [SyncedEntryField] public SyncedEntry<bool> DropHeldEquipmentAtShip;
@@ -119,6 +120,12 @@ namespace LethalBots.Configs
                                                 "Allow automatic mission control assignment",
                                                 defaultVal: true,
                                                 "Should bots that are chilling at the ship automatically assume the mission control state if the current mission controller is not set or dead?");
+
+            ReturnToShipTime = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                                "Return to ship time",
+                                                defaultValue: 0.63f,
+                                                new ConfigDescription("At what time should bots automatically return to the ship. This has to be a normalized value. TIP: 10:00 PM is about 0.9f and the time the ship auto leaves at is 0.996f!", 
+                                                    new AcceptableValueRange<float>(0.0f, 1.0f)));
 
             TeleportWhenUsingLadders = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Teleport when using ladders",
