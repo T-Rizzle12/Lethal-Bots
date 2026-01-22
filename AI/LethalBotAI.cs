@@ -4831,9 +4831,9 @@ namespace LethalBots.AI
 				GiantKiwiAI giantKiwiAI = egg.mamaAI;
 				if (giantKiwiAI == null || giantKiwiAI.isEnemyDead)
 				{
-					return true; // Parent is dead, allow pickup
+					return false; // Parent is dead, allow pickup
 				}
-				return false; // Don't allow pickup if parent is alive
+				return true; // Don't allow pickup if parent is alive
 			}
 
 			// Wheelbarrow
