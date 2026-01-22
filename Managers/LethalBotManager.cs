@@ -435,6 +435,7 @@ namespace LethalBots.Managers
             // Register default threats
             DictionaryLethalBotThreats.Clear();
             RegisterDefaultThreats();
+            RegisterCustomThreats();
         }
 
         private void Update()
@@ -831,6 +832,21 @@ namespace LethalBots.Managers
 
             // Girl aka Ghost Girl is always ignored (for now), so skip or:
             RegisterThreat(typeof(DressGirlAI), (float?)null, (float?)null, (float?)null);
+        }
+
+        /// <summary>
+        /// Helper function that registers custom enemies that are added by mods!
+        /// </summary>
+        /// <remarks>
+        /// Very rarely will modded enemies will be manually added here. This exists for the sole purpose 
+        /// of allowing modders a function to patch to that will guarantee two things:<br/>
+        /// 1. The ability to override the default enemies panik levels and/or functions as desired.<br/>
+        /// 2. A hook to safely register their modded enemies into the threat list.
+        /// </remarks>
+        private static void RegisterCustomThreats()
+        {
+            // We do nothing here, by default.......
+            return;
         }
 
         #endregion
