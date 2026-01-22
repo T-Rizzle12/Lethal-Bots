@@ -36,6 +36,7 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> ChangeSuitAutoBehaviour;
         [SyncedEntryField] public SyncedEntry<bool> AllowBotsToChat;
         [SyncedEntryField] public SyncedEntry<bool> StartShipChatCommandProtection;
+        [SyncedEntryField] public SyncedEntry<bool> AutoMissionControl;
         [SyncedEntryField] public SyncedEntry<bool> TeleportWhenUsingLadders;
         [SyncedEntryField] public SyncedEntry<bool> SellAllScrapOnShip;
         [SyncedEntryField] public SyncedEntry<bool> DropHeldEquipmentAtShip;
@@ -113,6 +114,11 @@ namespace LethalBots.Configs
                                                 "Start the ship chat command protection",
                                                 defaultVal: true,
                                                 "Should non-host players be allowed to tell the mission controller bot to start the ship? (NOTE: Bots will allow non-host players to start the ship if the host is dead regardless of this option!)");
+
+            AutoMissionControl = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                                "Allow automatic mission control assignment",
+                                                defaultVal: true,
+                                                "Should bots that are chilling at the ship automatically assume the mission control state if the current mission controller is not set or dead?");
 
             TeleportWhenUsingLadders = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Teleport when using ladders",

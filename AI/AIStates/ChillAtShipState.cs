@@ -98,7 +98,8 @@ namespace LethalBots.AI.AIStates
                 // If there is no mission controller, or its dead, we should be it!
                 else if (!StartOfRound.Instance.shipIsLeaving)
                 {
-                    if (missionController == null || !missionController.isPlayerControlled || missionController.isPlayerDead)
+                    if ((missionController == null || !missionController.isPlayerControlled || missionController.isPlayerDead) 
+                        && Plugin.Config.AutoMissionControl.Value)
                     {
                         LethalBotManager.Instance.MissionControlPlayer = npcController.Npc;
                         canInverseTeleport = false;

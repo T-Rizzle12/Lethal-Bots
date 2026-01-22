@@ -1456,6 +1456,22 @@ namespace LethalBots.Managers
 
             StartOfRound playersManager = StartOfRound.Instance;
             PlayerControllerB playerWhoSentMessage = playersManager.allPlayerScripts[playerId];
+            if (!IsPlayerLethalBot(playerWhoSentMessage))
+            {
+                // Alright, a human player said this. Check if this is a "global" chat command!
+                if (message.Contains("i will man the ship"))
+                {
+                    // A human player has dedicated themself as the Mission Controller. Sync to others!
+                    // HACKHACK: Only network this once, since LethalBotsRespondToChatMessage is called for all players,
+                    // we can check this here!
+                    if (playerWhoSentMessage == GameNetworkManager.Instance.localPlayerController)
+                    { 
+                        MissionControlPlayer = playerWhoSentMessage; 
+                    }
+                    return;
+                }
+            }
+
             foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
             {
                 PlayerControllerB? botController = lethalBotAI?.NpcController?.Npc;
