@@ -4425,7 +4425,9 @@ namespace LethalBots.AI
 			}
 
 			if (grabbableObject == null
-				|| !grabbableObject.gameObject.activeSelf)
+				|| !grabbableObject.gameObject.activeSelf 
+				|| grabbableObject.NetworkObject == null
+                || !grabbableObject.NetworkObject.IsSpawned)
 			{
 				return false;
 			}
@@ -4541,7 +4543,9 @@ namespace LethalBots.AI
 		public bool IsGrabbableObjectSellable(GrabbableObject grabbableObject, bool ignoreHeldFlag = false, bool skipPathCheck = false)
 		{
 			if (grabbableObject == null
-				|| !grabbableObject.gameObject.activeSelf)
+				|| !grabbableObject.gameObject.activeSelf 
+				|| grabbableObject.NetworkObject == null
+				|| !grabbableObject.NetworkObject.IsSpawned)
 			{
 				return false;
 			}
