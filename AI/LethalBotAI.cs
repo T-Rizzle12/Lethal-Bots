@@ -4751,13 +4751,21 @@ namespace LethalBots.AI
 			lethalBotController.previousElevatorPosition = lethalBotController.playersManager.elevatorTransform.position;
 		}
 
-		/// <summary>
-		/// Checks if the given object is blacklisted
-		/// </summary>
-		/// <param name="grabbableObjectToEvaluate">The object to check</param>
-		/// <param name="enumGrabbable">Type of blacklist checks that should be done or skipped</param>
-		/// <returns>true: this object is blacklisted. false: we are allowed to pick up this object</returns>
-		private bool IsGrabbableObjectBlackListed(GrabbableObject grabbableObjectToEvaluate, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default)
+        /// <summary>
+        /// Allows me to check if the extensionLadderItemLadderActivated field is true or not!
+        /// </summary>
+        /// <remarks>
+        /// Not up top like the others since this is only used by <see cref="IsGrabbableObjectBlackListed(GrabbableObject, EnumGrabbableObjectCall)"/>
+        /// </remarks>
+        private static readonly FieldInfo extensionLadderItemLadderActivated = AccessTools.Field(typeof(ExtensionLadderItem), "ladderActivated");
+
+        /// <summary>
+        /// Checks if the given object is blacklisted
+        /// </summary>
+        /// <param name="grabbableObjectToEvaluate">The object to check</param>
+        /// <param name="enumGrabbable">Type of blacklist checks that should be done or skipped</param>
+        /// <returns>true: this object is blacklisted. false: we are allowed to pick up this object</returns>
+        private bool IsGrabbableObjectBlackListed(GrabbableObject grabbableObjectToEvaluate, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default)
 		{
 			// Bee nest
 			GameObject gameObject = grabbableObjectToEvaluate.gameObject;
@@ -4857,6 +4865,12 @@ namespace LethalBots.AI
 
 			// ZedDogs!
 			if (enumGrabbable == EnumGrabbableObjectCall.Selling && gameObject.name.Contains("ZeddogPlushie"))
+			{
+				return true;
+			}
+
+			// Don't pickup extended extention ladders
+			if (grabbableObjectToEvaluate is ExtensionLadderItem extensionLadder && (bool)extensionLadderItemLadderActivated.GetValue(extensionLadder))
 			{
 				return true;
 			}
