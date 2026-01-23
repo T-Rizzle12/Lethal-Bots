@@ -34,7 +34,7 @@ namespace LethalBots.AI.AIStates
 
             // Lets pick a random node on the ship to go to
             targetShipTransform = GetRandomInsideShipTransform(false);
-            targetShipPos = GetTargetShipPos();
+            targetShipPos = npcController.Npc.transform.position;
         }
 
         public ReturnToShipState(LethalBotAI ai, bool endIfOutside = false, AIState? changeToOnEnd = null) : base(ai, changeToOnEnd)
@@ -44,7 +44,7 @@ namespace LethalBots.AI.AIStates
 
             // Lets pick a random node on the ship to go to
             targetShipTransform = GetRandomInsideShipTransform(false);
-            targetShipPos = GetTargetShipPos();
+            targetShipPos = npcController.Npc.transform.position;
         }
 
         public override void OnEnterState()
