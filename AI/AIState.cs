@@ -467,7 +467,7 @@ namespace LethalBots.AI
                     //float entranceDistSqr = (entrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
                     if (entrance.FindExitPoint()
                         && !IsEntranceCoveredInQuickSand(entrance)
-                        && LethalBotAI.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitPoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1)
+                        && LethalBotAI.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitPoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, false, out _)
                         && CanPathToEntrance(entrance, true) 
                         && ai.pathDistance < closestEntranceDist)
                     {
@@ -587,7 +587,7 @@ namespace LethalBots.AI
             if (!ai.IsValidPathToTarget(targetEntrance.entrancePoint.position, calculatePathDistance))
             {
                 // Check if this is the front entrance if we need to use an elevator
-                if (!targetEntrance.isEntranceToBuilding && IsFrontEntrance(targetEntrance) && LethalBotAI.ElevatorScript != null)
+                if (IsFrontEntrance(targetEntrance) && !targetEntrance.isEntranceToBuilding && LethalBotAI.ElevatorScript != null)
                 {
                     // Check if we can path to the bottom of the elevator
                     if (ai.IsValidPathToTarget(LethalBotAI.ElevatorScript.elevatorBottomPoint.position, calculatePathDistance))
@@ -884,7 +884,11 @@ namespace LethalBots.AI
                 CancelAsyncPathfindToken(); // Clear the old token
                 pathfindCancellationToken = new CancellationTokenSource();
                 Task<(bool isDangerous, float pathDistance)> pathfindTask = ai.TryStartPathDangerousAsync(targetDestination.Value, token: pathfindCancellationToken.Token);
-                yield return new WaitUntil(() => pathfindTask.IsCompleted);
+                //yield return new WaitUntil(() => pathfindTask.IsCompleted);
+                while (!pathfindTask.IsCompleted)
+                {
+                    yield return null;
+                }
 
                 // Check if an error occured!
                 if (pathfindTask.IsFaulted)
@@ -917,6 +921,7 @@ namespace LethalBots.AI
                 for (var i = 0; i < nodes.Length; i++)
                 {
                     Transform nodeTransform = nodes[i].transform;
+                    Vector3 nodePos = RoundManager.Instance.GetNavMeshPosition(nodeTransform.position, default, 2.7f);
 
                     // Give the main thread a chance to do something else
                     // We still need the yield return null here!
@@ -931,8 +936,12 @@ namespace LethalBots.AI
                     // Can we path to the node and is it safe?
                     CancelAsyncPathfindToken(); // Clear the old token
                     pathfindCancellationToken = new CancellationTokenSource();
-                    pathfindTask = ai.TryStartPathDangerousAsync(nodeTransform.position, token: pathfindCancellationToken.Token);
-                    yield return new WaitUntil(() => pathfindTask.IsCompleted);
+                    pathfindTask = ai.TryStartPathDangerousAsync(nodePos, token: pathfindCancellationToken.Token);
+                    //yield return new WaitUntil(() => pathfindTask.IsCompleted);
+                    while (!pathfindTask.IsCompleted)
+                    {
+                        yield return null;
+                    }
 
                     // Check if an error occured!
                     if (pathfindTask.IsFaulted)
@@ -952,7 +961,7 @@ namespace LethalBots.AI
                         continue;
                     }
 
-                    safePathPos = nodeTransform.position;
+                    safePathPos = nodePos;
                     foundSafePath = true;
                     break;
                 }
@@ -986,6 +995,7 @@ namespace LethalBots.AI
                     for (var i = 0; i < nodes.Length; i++)
                     {
                         Transform nodeTransform = nodes[i].transform;
+                        Vector3 nodePos = RoundManager.Instance.GetNavMeshPosition(nodeTransform.position, default, 2.7f);
 
                         // Give the main thread a chance to do something else
                         if (i % 15 == 0)
@@ -994,7 +1004,6 @@ namespace LethalBots.AI
                         }
 
                         // Can we path to the node and is it safe?
-                        Vector3 nodePos = nodeTransform.position;
                         if (!ai.IsValidPathToTarget(nodePos))
                         {
                             continue;
@@ -1039,14 +1048,15 @@ namespace LethalBots.AI
                             continue;
                         }
 
-                        Plugin.LogDebug($"Bot {npcController.Npc.playerUsername} found fallback spot at {nodeTransform.position}!");
-                        safePathPos = nodeTransform.position;
+                        Plugin.LogDebug($"Bot {npcController.Npc.playerUsername} found fallback spot at {nodePos}!");
+                        safePathPos = nodePos;
                         foundSafePath = true;
                         break;
                     }
                 }
 
                 // Hold if we found no safe path at the moment!
+                bool forceMove = false;
                 if (!foundSafePath)
                 {
                     // If we are under water, move to the closest node instead!
@@ -1057,22 +1067,37 @@ namespace LethalBots.AI
                         // may be stuck and teleport us back onto the navmesh!
                         if (!ai.agent.isOnNavMesh)
                         {
-                            safePathPos = GetClosestNode(npcController.Npc.transform.position)?.position ?? npcController.Npc.transform.position;
+                            // Alright, some really extreme stuff here, some nodes are partially off the mesh or something.
+                            Transform? closestNode = GetClosestNode(npcController.Npc.transform.position);
+                            if (closestNode != null && (closestNode.position - npcController.Npc.transform.position).sqrMagnitude < Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
+                            {
+                                closestNode = GetClosestNode(npcController.Npc.transform.position, closestNode.gameObject);
+                            }
+                            safePathPos = RoundManager.Instance.GetNavMeshPosition(closestNode?.position ?? npcController.Npc.transform.position, default, 2.7f);
+                            forceMove = true;
                             Plugin.LogWarning($"Bot {npcController.Npc.playerUsername} off NavMesh, setting safePathPos to closest node at {safePathPos}");
                         }
-                        else
-                        {
-                            safePathPos = npcController.Npc.transform.position; 
-                        }
+                        // FIXME: WHY!!!!!!!!!! For some reason, doing this can cause us to get stuck off of the mesh. 
+                        // It depends on the map's terrain, but its better for the bot to walk into danger than to get stuck in
+                        // some on/off NavMesh limbo as we can find a better spot later.......
+                        //else
+                        //{
+                        //    //safePathPos = RoundManager.Instance.GetNavMeshPosition(npcController.Npc.transform.position, default, 2.7f); 
+                        //}
                     }
                     else
                     {
-                        safePathPos = GetClosestNode(npcController.Npc.transform.position)?.position ?? npcController.Npc.transform.position;
+                        safePathPos = RoundManager.Instance.GetNavMeshPosition(GetClosestNode(npcController.Npc.transform.position)?.position ?? npcController.Npc.transform.position, default, 2.7f);
+                        forceMove = true;
                     }
                 }
 
                 // Successfull or not we should wait a bit before checking again!
                 ai.SetDestinationToPositionLethalBotAI(safePathPos);
+                if (forceMove)
+                {
+                    ai.OrderMoveToDestination();
+                }
                 yield return new WaitForSeconds(ai.AIIntervalTime);
             }
 
@@ -1121,6 +1146,15 @@ namespace LethalBots.AI
                 ai.StopCoroutine(safePathCoroutine);
                 safePathCoroutine = null;
             }
+        }
+
+        /// <summary>
+        /// Public helper that allows checking if the safe path system is running.
+        /// </summary>
+        /// <returns></returns>
+        public bool IsSafePathRunning()
+        {
+            return safePathCoroutine != null;
         }
 
         /// <summary>

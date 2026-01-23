@@ -537,7 +537,6 @@ namespace LethalBots.AI
 			// Update movement
 			float x;
 			float z;
-			//Vector3 tempVelocity = Vector3.zero;
 			if (NpcController.HasToMove)
 			{
 				Vector2 vector2 = (new Vector2(NpcController.MoveVector.x, NpcController.MoveVector.z));
@@ -554,34 +553,27 @@ namespace LethalBots.AI
 					NpcController.SetTurnBodyTowardsDirectionWithPosition(this.transform.position);
 				}
 
-                //Vector3 tempVector = Vector3.SmoothDamp(NpcController.Npc.transform.position, this.transform.position, ref tempVelocity, 0.075f);
-                //x = tempVector.x;
-                //z = tempVector.z;
-                x = Mathf.Lerp(NpcController.Npc.transform.position.x, this.transform.position.x, 0.075f);
-                z = Mathf.Lerp(NpcController.Npc.transform.position.z, this.transform.position.z, 0.075f);
-            }
-			else
-			{
-                //Vector3 tempVector = Vector3.SmoothDamp(NpcController.Npc.transform.position, this.transform.position, ref tempVelocity, 0.075f);
-                //x = tempVector.x;
-                //z = tempVector.z;
-                //SetAgent(enabled: !IsInsideElevator);
-                if (IsInsideElevator)
-                {
-                    // NOTE: We use the same code as above when in an elevator or we end up creating prediction issues
-                    x = Mathf.Lerp(NpcController.Npc.transform.position.x, this.transform.position.x, 0.075f);
-                    z = Mathf.Lerp(NpcController.Npc.transform.position.z, this.transform.position.z, 0.075f);
-                }
-                else
-                {
-                    SetAgent(enabled: false);
-                    x = Mathf.Lerp(NpcController.Npc.transform.position.x + NpcController.MoveVector.x * Time.deltaTime, this.transform.position.x, 0.075f);
-                    z = Mathf.Lerp(NpcController.Npc.transform.position.z + NpcController.MoveVector.z * Time.deltaTime, this.transform.position.z, 0.075f);
-                }
+			}
+			// Disable agent if we are not moving!
+			else if (!IsInsideElevator && (State == null || !State.IsSafePathRunning()))
+            {
+                SetAgent(enabled: false);
             }
 
-			// Movement free (falling from bridge, jetpack, tulip snake taking off...)
-			bool shouldFreeMovement = ShouldFreeMovement();
+			// Copied from PlayerControllerB!
+			// This also fixes the issue where bots would move slower or even spin in place with low FPS.
+            float num9 = 8f;
+            if (NpcController.Npc.jetpackControls)
+            {
+                num9 = 15f;
+            }
+            float num10 = Mathf.Clamp(num9 * Vector3.Distance(NpcController.Npc.transform.position, this.transform.position), 0.9f, 300f);
+            Vector3 tempVector = Vector3.MoveTowards(NpcController.Npc.transform.position, this.transform.position, num10 * Time.deltaTime);
+            x = tempVector.x;
+            z = tempVector.z;
+
+            // Movement free (falling from bridge, jetpack, tulip snake taking off...)
+            bool shouldFreeMovement = ShouldFreeMovement();
 			bool shouldFixedMovement = ShouldFixedMovement();
 
 			// Update position
@@ -994,26 +986,28 @@ namespace LethalBots.AI
 			State.PlayerHeard(noisePosition);
 		}
 
-		/// <summary>
-		/// Helper method that determines whether a complete and valid NavMesh path exists between two points.
-		/// </summary>
-		/// <remarks>
-		/// This is an enhanced check that wraps <see cref="NavMesh.CalculatePath(Vector3, Vector3, int, NavMeshPath)"/> with additional validation:
-		/// <list type="bullet">
-		///   <item>Ensures the path calculation succeeds</item>
-		///   <item>Confirms the path is not empty</item>
-		///   <item>Verifies that the last path corner is sufficiently close to the destination, ensuring the path is complete</item>
-		/// </list>
-		/// </remarks>
-		/// <param name="startPosition">The starting position of the path</param>
-		/// <param name="endPosition">The target position to reach</param>
-		/// <param name="areaMask">The NavMesh area mask to use when calculating the path</param>
-		/// <param name="path">A reference to the <see cref="NavMeshPath"/> that will contain the calculated path if valid</param>
-		/// <returns><see langword="true"/> if a valid and complete path exists; otherwise, <see langword="false"/></returns>
+        /// <summary>
+        /// Helper method that determines whether a complete and valid NavMesh path exists between two points.
+        /// </summary>
+        /// <remarks>
+        /// This is an enhanced check that wraps <see cref="NavMesh.CalculatePath(Vector3, Vector3, int, NavMeshPath)"/> with additional validation:
+        /// <list type="bullet">
+        ///   <item>Ensures the path calculation succeeds</item>
+        ///   <item>Confirms the path is not empty</item>
+        ///   <item>Verifies that the last path corner is sufficiently close to the destination, ensuring the path is complete</item>
+        /// </list>
+        /// </remarks>
+        /// <param name="startPosition">The starting position of the path</param>
+        /// <param name="endPosition">The target position to reach</param>
+        /// <param name="areaMask">The NavMesh area mask to use when calculating the path</param>
+        /// <param name="path">A reference to the <see cref="NavMeshPath"/> that will contain the calculated path if valid</param>
+        /// <param name="calculatePathDistance">This updates <paramref name="pathDistance"/> with the length of the path. <paramref name="pathDistance"/> is set to zero on failure</param>
+        /// <returns><see langword="true"/> if a valid and complete path exists; otherwise, <see langword="false"/></returns>
 
-		public static bool IsValidPathToTarget(Vector3 startPosition, Vector3 endPosition, int areaMask, ref NavMeshPath path)
+        public static bool IsValidPathToTarget(Vector3 startPosition, Vector3 endPosition, int areaMask, ref NavMeshPath path, bool calculatePathDistance, out float pathDistance)
 		{
 			// Check if we can create a path there first!
+			pathDistance = 0f;
 			if (!NavMesh.CalculatePath(startPosition, endPosition, areaMask, path))
 			{
 				return false;
@@ -1031,7 +1025,15 @@ namespace LethalBots.AI
 				return false;
 			}
 
-			return true;
+            if (calculatePathDistance)
+            {
+                for (int i = 1; i < path.corners.Length; i++)
+                {
+                    pathDistance += Vector3.Distance(path.corners[i - 1], path.corners[i]);
+                }
+            }
+
+            return true;
 		}
 
 		/// <inheritdoc cref="IsValidPathToTarget(Vector3, ref NavMeshPath, bool, float, float)"/>
@@ -1057,12 +1059,14 @@ namespace LethalBots.AI
 		public bool IsValidPathToTarget(Vector3 targetPos, ref NavMeshPath path, bool calculatePathDistance = false, float nearestNavAreaRange = 2.7f, float maxRangeToEnd = 1.5f)
 		{
 			pathDistance = 0f;
-			Plugin.LogDebug($"Is agent on NavMesh {agent.isOnNavMesh}?");
-			Plugin.LogDebug($"Is agent enabled {agent.enabled}?");
+			Plugin.LogDebug($"BEFORE: Is agent on NavMesh {agent.isOnNavMesh}?");
+			Plugin.LogDebug($"BEFORE: Is agent enabled {agent.enabled}?");
 			// Make sure the agent is enabled BEFORE we call the pathfind function!
 			bool wasEnabled = agent.enabled;
-			agent.enabled = true;
-			if (!agent.isOnNavMesh || !agent.CalculatePath(targetPos, path))
+            agent.enabled = true;
+            Plugin.LogDebug($"AFTER: Is agent on NavMesh {agent.isOnNavMesh}?");
+            Plugin.LogDebug($"AFTER: Is agent enabled {agent.enabled}?");
+            if (agent.isOnNavMesh && !agent.CalculatePath(targetPos, path))
 			{
 				Plugin.LogDebug("IsValidPathToTarget: Path could not be calculated");
 				return false;

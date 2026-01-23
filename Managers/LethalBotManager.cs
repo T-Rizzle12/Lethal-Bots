@@ -2348,13 +2348,13 @@ namespace LethalBots.Managers
         public static bool IsValidPathToEntrance(Vector3 startPosition, Vector3 entrancePosition, int areaMask, ref NavMeshPath path, EntranceTeleport targetEntrance)
         {
             // Check if we can path to the entrance!
-            if (!LethalBotAI.IsValidPathToTarget(startPosition, entrancePosition, areaMask, ref path))
+            if (!LethalBotAI.IsValidPathToTarget(startPosition, entrancePosition, areaMask, ref path, false, out _))
             {
                 // Check if this is the front entrance if we need to use an elevator
-                if (!targetEntrance.isEntranceToBuilding && AIState.IsFrontEntrance(targetEntrance) && LethalBotAI.ElevatorScript != null)
+                if (AIState.IsFrontEntrance(targetEntrance) && !targetEntrance.isEntranceToBuilding && LethalBotAI.ElevatorScript != null)
                 {
                     // Check if we can path to the bottom of the elevator
-                    if (LethalBotAI.IsValidPathToTarget(startPosition, LethalBotAI.ElevatorScript.elevatorBottomPoint.position, areaMask, ref path))
+                    if (LethalBotAI.IsValidPathToTarget(startPosition, LethalBotAI.ElevatorScript.elevatorBottomPoint.position, areaMask, ref path, false, out _))
                     {
                         return true;
                     }
