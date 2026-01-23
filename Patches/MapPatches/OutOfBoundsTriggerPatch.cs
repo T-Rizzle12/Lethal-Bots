@@ -10,6 +10,9 @@ using UnityEngine;
 
 namespace LethalBots.Patches.MapPatches
 {
+    /// <summary>
+    /// Patch for <c>OutOfBoundsTrigger</c>
+    /// </summary>
     [HarmonyPatch(typeof(OutOfBoundsTrigger))]
     public class OutOfBoundsTriggerPatch
     {

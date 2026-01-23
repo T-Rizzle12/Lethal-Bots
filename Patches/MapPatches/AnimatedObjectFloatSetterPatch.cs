@@ -9,6 +9,9 @@ using UnityEngine;
 
 namespace LethalBots.Patches.MapPatches
 {
+    /// <summary>
+    /// Patch for <c>AnimatedObjectFloatSetter</c>
+    /// </summary>
     [HarmonyPatch(typeof(AnimatedObjectFloatSetter))]
     public class AnimatedObjectFloatSetterPatch
     {

@@ -233,6 +233,7 @@ namespace LethalBots
 
             // Map
             _harmony.PatchAll(typeof(AnimatedObjectFloatSetterPatch));
+            _harmony.PatchAll(typeof(CompanyMonsterCollisionDetectPatch));
             _harmony.PatchAll(typeof(DoorLockPatch));
             _harmony.PatchAll(typeof(InteractTriggerPatch));
             _harmony.PatchAll(typeof(OutOfBoundsTriggerPatch));

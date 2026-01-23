@@ -12,6 +12,9 @@ using UnityEngine.Rendering;
 
 namespace LethalBots.Patches.ModPatches.BetterEmotes
 {
+    /// <summary>
+    /// Patch for <c>CustomAnimationObjects</c>
+    /// </summary>
     [HarmonyPatch(typeof(CustomAnimationObjects))]
     public class BetterEmotesCustomAnimationObjectsPatch
     {
