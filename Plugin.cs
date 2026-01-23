@@ -306,6 +306,7 @@ namespace LethalBots
                                null,
                                null,
                                new HarmonyMethod(typeof(BetterEmotesPatch), nameof(BetterEmotesPatch.PerformEmotePrefix_Transpiler)));
+                _harmony.PatchAll(typeof(BetterEmotesCustomAnimationObjectsPatch));
             }
             if (IsModTooManyEmotesLoaded)
             {

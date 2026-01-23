@@ -1454,7 +1454,7 @@ namespace LethalBots.AI
 
         private void CutAnimations()
         {
-            Npc.playerBodyAnimator.SetInteger("emoteNumber", 0);
+            //Npc.playerBodyAnimator.SetInteger("emoteNumber", 0);
             Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_WALKING, false);
             Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SPRINTING, false);
             Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SIDEWAYS, false);
