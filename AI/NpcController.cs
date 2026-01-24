@@ -152,7 +152,7 @@ namespace LethalBots.AI
 
             this.IsCameraDisabled = true;
             Npc.sprintMeter = 1f;
-            Npc.ItemSlots = new GrabbableObject[4];
+            Npc.ItemSlots ??= new GrabbableObject[4]; // Only create new array if it doesn't exist!
             RightArmProceduralTargetBasePosition = Npc.rightArmProceduralTarget.localPosition;
 
             Npc.usernameBillboardText.text = Npc.playerUsername;

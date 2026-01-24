@@ -171,6 +171,9 @@
 	<Reference Include="LCVR">
 	  <HintPath>lib\mods\LCVR.dll</HintPath>
 	</Reference>
+	<Reference Include="ReservedItemSlotCore">
+	  <HintPath>lib\mods\ReservedItemSlotCore.dll</HintPath>
+	</Reference>
     <Reference Include="Unity.Animation.Rigging">
       <HintPath>lib\Unity.Animation.Rigging.dll</HintPath>
     </Reference>

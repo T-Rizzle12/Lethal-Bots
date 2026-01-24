@@ -17,6 +17,9 @@ using LethalBots.Utils;
 using LethalInternship.AI;
 using LethalLib.Modules;
 using Newtonsoft.Json.Linq;
+using ReservedItemSlotCore;
+using ReservedItemSlotCore.Data;
+using ReservedItemSlotCore.Patches;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -3788,12 +3791,11 @@ namespace LethalBots.AI
 		/// <returns>I mean come on</returns>
 		public bool HasSpaceInInventory()
 		{
-			if (AreHandsFree())
+			GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+			int inventorySize = GetInventorySize(itemSlots);
+			for (int i = 0; i < inventorySize; i++)
 			{
-				return true;
-			}
-			foreach (var item in NpcController.Npc.ItemSlots)
-			{
+				GrabbableObject? item = itemSlots[i];
 				if (item == null)
 				{
 					return true;
@@ -5942,7 +5944,7 @@ namespace LethalBots.AI
 		{
 			PlayerControllerB lethalBotController = NpcController.Npc;
 			Plugin.LogDebug($"{lethalBotController.playerUsername} try to grab item {grabbableObject} on client #{NetworkManager.LocalClientId}");
-			int itemSlot = FirstEmptyItemSlot();
+			int itemSlot = FirstEmptyItemSlot(grabbableObject);
 			if (itemSlot == -1)
 			{
 				Plugin.LogDebug($"{lethalBotController.playerUsername} failed to grab item on client #{NetworkManager.LocalClientId}, no free slots!");
@@ -6002,30 +6004,113 @@ namespace LethalBots.AI
 			Plugin.LogDebug($"{lethalBotController.playerUsername} Grabbed item {grabbableObject} on client #{NetworkManager.LocalClientId}");
 		}
 
-		/// <summary>
-		/// Returns the first empty slot the bot has
-		/// Returns -1 if no slot is avilable!
-		/// </summary>
-		/// <returns>Returns the open slot <c>int</c> or -1 </returns>
-		private int FirstEmptyItemSlot()
+        /// <summary>
+        /// Returns the first empty slot the bot has
+        /// Returns -1 if no slot is avilable!
+        /// </summary>
+        /// <param name="grabbableObject">The object the bot is grabbing!</param>
+        /// <returns>Returns the open slot <c>int</c> or -1 </returns>
+        private int FirstEmptyItemSlot(GrabbableObject? grabbableObject = null)
 		{
 			int result = -1;
-			if (NpcController.Npc.ItemSlots[NpcController.Npc.currentItemSlot] == null)
+			GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+			if (itemSlots[NpcController.Npc.currentItemSlot] == null)
 			{
 				result = NpcController.Npc.currentItemSlot;
 			}
 			else
 			{
-				for (int i = 0; i < NpcController.Npc.ItemSlots.Length; i++)
+				for (int i = 0; i < itemSlots.Length; i++)
 				{
-					if (NpcController.Npc.ItemSlots[i] == null)
+					if (itemSlots[i] == null)
 					{
 						result = i;
 						break;
 					}
 				}
 			}
+
+			// Support for reserved item slots!
+			if (Plugin.IsModReservedItemSlotCoreLoaded)
+			{
+				return GetFirstEmptyReservedItemSlot(result, grabbableObject);
+			}
+
 			return result;
+		}
+
+        /// <summary>
+        /// Helper function that checks if the bot has an open reserved item slot for this item!
+        /// </summary>
+        /// <param name="grabbableObject">The object the bot is grabbing!</param>
+        /// <returns>Returns the open slot <c>int</c> or -1</returns>
+        private int GetFirstEmptyReservedItemSlot(int foundIndex, GrabbableObject? grabbableObject = null)
+		{
+			if (PlayerPatcher.reservedHotbarSize <= 0 || !HUDPatcher.hasReservedItemSlotsAndEnabled)
+			{
+				return foundIndex;
+			}
+
+			if (grabbableObject == null || !ReservedPlayerData.allPlayerData.TryGetValue(NpcController.Npc, out var playerData))
+			{ 
+				return foundIndex; 
+			}
+
+			// Alright, we fallback onto the item name but the session manager lets us get the actual 
+			// name they use if it exists.
+			string itemName = grabbableObject.itemProperties.itemName;
+			if (SessionManager.TryGetUnlockedItemData(grabbableObject, out var itemData))
+			{
+				itemName = itemData.itemName;
+			}
+
+			var reservedItemSlot = playerData.GetFirstEmptySlotForReservedItem(itemName);
+			if (reservedItemSlot != null)
+			{
+				return reservedItemSlot.GetIndexInInventory(NpcController.Npc);
+			}
+
+			if (playerData.IsReservedItemSlot(foundIndex))
+			{
+				foundIndex = -1;
+				GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+				for (int i = 0; i < itemSlots.Length; i++)
+				{
+					if (!playerData.IsReservedItemSlot(i) && itemSlots[i] == null)
+					{
+						foundIndex = i;
+						break;
+					}
+				}
+			}
+
+			return foundIndex;
+		}
+
+		/// <summary>
+		/// Helper function that is used to get the size of the bot's inventory if we want to consider reserved item slots
+		/// </summary>
+		/// <remarks>
+		/// Only use this function if you don't want to check the bot's reserved item slots!
+		/// </remarks>
+		/// <param name="cachedInventory">The bot's inventory. Only exists as an optimization!</param>
+		/// <returns></returns>
+		public int GetInventorySize(GrabbableObject[] cachedInventory = null!)
+		{
+			// Minor optimization, lets me skip an index call!
+			cachedInventory ??= NpcController.Npc.ItemSlots;
+
+            // Support for reserved item slots!
+			int inventorySize = cachedInventory.Length;
+            if (Plugin.IsModReservedItemSlotCoreLoaded)
+			{
+				if (ReservedPlayerData.allPlayerData.TryGetValue(NpcController.Npc, out var playerData))
+				{
+					return Mathf.Min(playerData.reservedHotbarStartIndex, inventorySize); // Sanity check, use the smaller value!
+                }
+			}
+
+			return inventorySize;
 		}
 
 		/// <summary>
