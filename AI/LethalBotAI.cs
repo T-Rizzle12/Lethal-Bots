@@ -6104,14 +6104,26 @@ namespace LethalBots.AI
 			int inventorySize = cachedInventory.Length;
             if (Plugin.IsModReservedItemSlotCoreLoaded)
 			{
-				if (ReservedPlayerData.allPlayerData.TryGetValue(NpcController.Npc, out var playerData))
-				{
-					return Mathf.Min(playerData.reservedHotbarStartIndex, inventorySize); // Sanity check, use the smaller value!
-                }
+				return GetReservedInventorySize(inventorySize);
 			}
 
 			return inventorySize;
 		}
+
+        /// <summary>
+        /// Helper function that only exists to stop my mod from attempting to load ReservedItemSlotCore if its not installed!
+        /// </summary>
+        /// <param name="inventorySize"></param>
+        /// <returns></returns>
+        private int GetReservedInventorySize(int inventorySize)
+		{
+            if (ReservedPlayerData.allPlayerData.TryGetValue(NpcController.Npc, out var playerData))
+            {
+                return Mathf.Min(playerData.reservedHotbarStartIndex, inventorySize); // Sanity check, use the smaller value!
+            }
+
+			return inventorySize;
+        }
 
 		/// <summary>
 		/// Makes the lethalBot swap its currently held item to the slot indicated
