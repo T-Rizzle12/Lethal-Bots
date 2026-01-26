@@ -514,7 +514,7 @@ namespace LethalBots.AI
 			{
 				// Give the bot a cooldown after the elevator finishing moving before we press the button
 				// this gives players and other bots time to move into or out of the elevator
-				if (ElevatorScript.elevatorFinishedMoving && ElevatorScript.elevatorDoorOpen)
+				if (ElevatorScript.elevatorFinishedMoving)
 				{
 					timerElevatorCooldown += Time.deltaTime;
 				}
@@ -2658,49 +2658,59 @@ namespace LethalBots.AI
 		/// <summary>
 		/// Returns true if the given EnemyAI can be killed!
 		/// </summary>
-		/// <remarks>
-		/// <para>NOTE: This is a switch statement and doesn't work with custom enemies!</para>
-		/// TODO: Move this into a Query system like the fear ranges!
-		/// </remarks>
-		/// <param name="enemy"></param>
-		/// <returns>Can the enemy be killed?</returns>
+		/// <inheritdoc cref="LethalBotAI.CanEnemyBeKilled(EnemyAI, bool, bool)"/>
 		public bool CanEnemyBeKilled(EnemyAI enemy)
 		{
-			// FIXME: Only a few enemies can be targeted since
-			// I need to check when its a good idea to fight!
-			bool hasRangedWeapon = HasRangedWeapon();
-			bool isEnemyStunned = enemy.stunnedIndefinitely > 0f || enemy.stunNormalizedTimer > 0f; 
-			switch (enemy.enemyType.enemyName)
-			{
-				case "Centipede":
-				case "Masked":
-				case "Crawler":
-				case "Hoarding bug":
-					return true;
-				case "Nutcracker":
-					if ((hasRangedWeapon || isEnemyStunned)
-                        && (enemy.currentBehaviourStateIndex == 2 
-							|| (enemy is NutcrackerEnemyAI nutcracker 
-								&& (bool)nutcrackerIsInspecting.GetValue(nutcracker))))
-					{
-						return true;
-					}
-					return false;
-				case "Flowerman":
-				case "Bunker Spider":
-				case "Baboon hawk":
-					return hasRangedWeapon || isEnemyStunned;
-				case "Butler": // For now, don't kill them!
-				case "ForestGiant":
-				case "MouthDog":
-				case "Maneater":
-					return false; // Don't even bother its suicide!
-				default:
-					// Either they are not killable or not dangerous
-					// return enemy.enemyType.canDie;
-					return false; // NOTE: enemy.enemyType.canDie can be true on enemies that can't be killed by our weapons!
-			}
-			/*switch(enemy.enemyType.enemyName)
+			return CanEnemyBeKilled(enemy, HasRangedWeapon(), false);
+		}
+
+        /// <summary>
+        /// Returns true if the given EnemyAI can be killed!
+        /// </summary>
+        /// <remarks>
+        /// <para>NOTE: This is a switch statement and doesn't work with custom enemies!</para>
+        /// TODO: Move this into a Query system like the fear ranges!
+        /// </remarks>
+        /// <param name="enemy"></param>
+        /// <returns>Can the enemy be killed?</returns>
+        public static bool CanEnemyBeKilled(EnemyAI enemy, bool hasRangedWeapon = false, bool isHumanPlayer = false)
+        {
+            // FIXME: Only a few enemies can be targeted since
+            // I need to check when its a good idea to fight!
+            bool isEnemyStunned = enemy.stunnedIndefinitely > 0f || enemy.stunNormalizedTimer > 0f;
+            switch (enemy.enemyType.enemyName)
+            {
+                case "Centipede":
+                case "Masked":
+                case "Crawler":
+                case "Hoarding bug":
+                    return true;
+                case "Nutcracker":
+                    if ((hasRangedWeapon || isHumanPlayer || isEnemyStunned)
+                        && (enemy.currentBehaviourStateIndex == 2
+                            || (enemy is NutcrackerEnemyAI nutcracker
+                                && (bool)nutcrackerIsInspecting.GetValue(nutcracker))))
+                    {
+                        return true;
+                    }
+                    return false;
+                case "Flowerman":
+                case "Bunker Spider":
+                case "Baboon hawk":
+                case "Bush Wolf":
+                    return hasRangedWeapon || isHumanPlayer || isEnemyStunned;
+                case "Butler": // For now, don't kill them!
+                case "MouthDog":
+                case "Maneater":
+                    return isHumanPlayer;
+                case "ForestGiant":
+                    return false; // Don't even bother its suicide!
+                default:
+                    // Either they are not killable or not dangerous
+                    // return enemy.enemyType.canDie;
+                    return false; // NOTE: enemy.enemyType.canDie can be true on enemies that can't be killed by our weapons!
+            }
+            /*switch(enemy.enemyType.enemyName)
 			{
 				case "Masked":
 				case "Maneater":
@@ -2750,19 +2760,19 @@ namespace LethalBots.AI
 					// "Tulip Snake"
 					return false;
 			}*/
-		}
+        }
 
-		/// <summary>
-		/// Checks if there is an eyeless dog nearby, 
-		/// the bot will use this to determine if the should crouch or not
-		/// </summary>
-		/// <remarks>
-		/// This only updates every <see cref="Const.TIMER_CHECK_EXPOSED"/> when called, this is done as an optimization.
-		/// This will return a cached value inbetween updates
-		/// </remarks>
-		/// <param name="bypassCooldown">If set to true, this forces an update! This is great for if you teleport the bot!</param>
-		/// <returns>true: there is an eyeless dog nearby, false: no eyeless dog nearby</returns>
-		public bool CheckProximityForEyelessDogs(bool bypassCooldown = false)
+        /// <summary>
+        /// Checks if there is an eyeless dog nearby, 
+        /// the bot will use this to determine if the should crouch or not
+        /// </summary>
+        /// <remarks>
+        /// This only updates every <see cref="Const.TIMER_CHECK_EXPOSED"/> when called, this is done as an optimization.
+        /// This will return a cached value inbetween updates
+        /// </remarks>
+        /// <param name="bypassCooldown">If set to true, this forces an update! This is great for if you teleport the bot!</param>
+        /// <returns>true: there is an eyeless dog nearby, false: no eyeless dog nearby</returns>
+        public bool CheckProximityForEyelessDogs(bool bypassCooldown = false)
 		{
 			if (!bypassCooldown && (Time.timeSinceLevelLoad - nextEyelessdogCheckTimer) < Const.TIMER_CHECK_EXPOSED)
 			{
@@ -3244,8 +3254,7 @@ namespace LethalBots.AI
 			if (ElevatorScript.elevatorFinishedMoving 
 				&& (distanceFromInsidePosition <= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION || IsValidPathToTarget(ElevatorScript.elevatorInsidePoint.position, false)))
 			{
-				if (ElevatorScript.elevatorDoorOpen 
-					&& distanceFromInsidePosition <= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION
+				if (distanceFromInsidePosition <= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION
 					&& ElevatorScript.elevatorMovingDown == goUp 
 					&& (timerElevatorCooldown > Const.TIMER_USE_ELEVATOR || NpcController.Npc.isPlayerAlone)
                     && (Time.timeSinceLevelLoad - pressElevatorButtonCooldown) > (AIIntervalTime + 0.16f))
@@ -3270,8 +3279,7 @@ namespace LethalBots.AI
 			if (distanceFromInsidePosition > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION && IsValidPathToTarget(vector, false))
 			{
 				float distanceFromVector = Vector3.Distance(NpcController.Npc.transform.position, vector);
-				if (ElevatorScript.elevatorDoorOpen 
-					&& distanceFromVector <= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION
+				if (distanceFromVector <= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION
 					&& ElevatorScript.elevatorMovingDown != goUp 
 					&& !ElevatorScript.elevatorCalled 
 					&& (timerElevatorCooldown > Const.TIMER_USE_ELEVATOR || NpcController.Npc.isPlayerAlone)

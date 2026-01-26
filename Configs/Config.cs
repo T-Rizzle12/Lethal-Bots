@@ -35,6 +35,7 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> FollowCrouchWithPlayer;
         [SyncedEntryField] public SyncedEntry<bool> ChangeSuitAutoBehaviour;
         [SyncedEntryField] public SyncedEntry<bool> AllowBotsToChat;
+        [SyncedEntryField] public SyncedEntry<bool> AllowMissionControlTeleport;
         [SyncedEntryField] public SyncedEntry<bool> StartShipChatCommandProtection;
         [SyncedEntryField] public SyncedEntry<bool> AutoMissionControl;
         [SyncedEntryField] public SyncedEntry<float> ReturnToShipTime;
@@ -80,13 +81,13 @@ namespace LethalBots.Configs
                                                                  new AcceptableValueRange<int>(ConfigConst.MIN_BOTS_AVAILABLE, ConfigConst.MAX_BOTS_AVAILABLE)));
 
             MaxAnimatedBots = cfg.Bind(ConfigConst.ConfigSectionMain,
-                                   "Max animated bots at once",
+                                   "Max animated bots at once (Client only)",
                                    defaultValue: ConfigConst.MAX_BOTS_AVAILABLE,
                                    new ConfigDescription("Set the maximum of bots that can be animated at the same time (if heavy lag occurs when looking at a lot of bots) (client only)",
                                                          new AcceptableValueRange<int>(1, ConfigConst.MAX_BOTS_AVAILABLE)));
 
             AlwaysAnimateBots = cfg.Bind(ConfigConst.ConfigSectionMain,
-                                    "Always animate bots",
+                                    "Always animate bots (Client only)",
                                     defaultValue: false,
                                     "If set to true, bots will not have their animations culled when you are not looking at them");
 
@@ -96,7 +97,7 @@ namespace LethalBots.Configs
                                               defaultVal: false,
                                               "Spawn the bot with random identities from the file rather than in order?");
 
-            // Behaviour
+            // Behavior
             FollowCrouchWithPlayer = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Crouch with player",
                                                defaultVal: true,
@@ -111,6 +112,11 @@ namespace LethalBots.Configs
                                                "Allow using chat",
                                                defaultVal: true,
                                                "Should the bot be allowed to use the chat? (NOTE: This is useful if you don't want bots spamming the chat! Also this doesn't affect bots calling out jesters!)");
+
+            AllowMissionControlTeleport = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                                "Allow the mission controller to teleport living players",
+                                                defaultVal: false,
+                                                "Should the bot who is the active mission controller be allowed to teleport living players. (NOTE: This doesn't affect dead body teleportation or if a player specifically request to be teleported!)");
 
             StartShipChatCommandProtection = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                 "Start the ship chat command protection",
@@ -191,12 +197,12 @@ namespace LethalBots.Configs
 
             // Voice Recognition
             AllowVoiceRecognition = cfg.Bind(ConfigConst.ConfigSectionVoiceRecognition,
-                                            "Enable bot Voice Recognition",
+                                            "Enable bot Voice Recognition (Client only)",
                                             defaultValue: true,
                                             "Should the bots be able to hear what you say in voice chat. (It would only be used for the voice commands!)");
 
             VoiceRecognitionSimilarityThreshold = cfg.Bind(ConfigConst.ConfigSectionVoiceRecognition,
-                                                           "Voice recognition similarity threshold",
+                                                           "Voice recognition similarity threshold (Client only)",
                                                            defaultValue: 0.8f,
                                                            new ConfigDescription("This is the level of accuracy that would be used by PySpeech when the bot attempts to determine if the given message was a valid chat command. (Higher numbers means a higher level of accuracy is needed!)", 
                                                                             new AcceptableValueRange<float>(0.0f, 1.0f)));

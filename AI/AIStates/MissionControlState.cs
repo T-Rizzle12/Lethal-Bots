@@ -1006,6 +1006,12 @@ namespace LethalBots.AI.AIStates
                 return true;
             }
 
+            // This host has disabled rescuing players if they are in danger.
+            if (!Plugin.Config.AllowMissionControlTeleport.Value)
+            {
+                return false;
+            }
+
             // TODO: Put this behind a config option incase players don't want this!
             // NEEDTOVALIDATE: Should I make it where the bot waits for the player to spin
             // or shake their camera instead?
@@ -1025,6 +1031,14 @@ namespace LethalBots.AI.AIStates
                             if (player.criticallyInjured)
                             {
                                 return true;
+                            }
+
+                            // They are probably fighting an enemy, leave them alone!
+                            LethalBotAI? isPlayerBot = LethalBotManager.Instance.GetLethalBotAI(player);
+                            bool hasRangedWeapon = isPlayerBot?.HasRangedWeapon() ?? false; // NOTE: hasRangedWeapon has no effect for human players in CanEnemyBeKilled
+                            if (LethalBotAI.CanEnemyBeKilled(spawnedEnemy, hasRangedWeapon, isPlayerBot == null) && DoesPlayerHaveWeaponInInventory(player))
+                            {
+                                return false;
                             }
 
                             // They are the one being targeted!
@@ -1050,6 +1064,31 @@ namespace LethalBots.AI.AIStates
                     }
                 }
             }
+            return false;
+        }
+
+        /// <summary>
+        /// Helper function that checks if the given player has a weapon in their inventory!
+        /// </summary>
+        /// <param name="player">The player to check</param>
+        /// <returns><see langword="true"/> if <paramref name="player"/> has a weapon; otherwise <see langword="false"/></returns>
+        private bool DoesPlayerHaveWeaponInInventory(PlayerControllerB? player)
+        {
+            if (player == null)
+            {
+                return false; 
+            }
+
+            bool isPlayerBot = LethalBotManager.Instance.IsPlayerLethalBot(player);
+            foreach (var weapon in player.ItemSlots)
+            {
+                if (LethalBotAI.IsItemWeapon(weapon) 
+                    || (!isPlayerBot && weapon.itemProperties.isDefensiveWeapon))
+                {
+                    return true; 
+                }
+            }
+
             return false;
         }
 
