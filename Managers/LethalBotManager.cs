@@ -1183,6 +1183,10 @@ namespace LethalBots.Managers
             // Bots will automatically "disconnect" when they are despawned since the player slot is freed up!
             lethalBotController.quickMenuManager.AddUserToPlayerList(0ul, lethalBotController.playerUsername, (int)lethalBotController.playerClientId);
 
+            // Change voice volume to what is set in the identiy file!
+            // HACKHACK: MoreCompany for some reason sets the voicevolume to whatever the default is which is 1f, making the bots WAY too loud!
+            lethalBotController.quickMenuManager.playerListSlots[lethalBotController.playerClientId].volumeSlider.normalizedValue = lethalBotAI.LethalBotIdentity.Voice.Volume;
+
             // Radar name update
             //foreach (var radarTarget in instance.mapScreen.radarTargets)
             //{
