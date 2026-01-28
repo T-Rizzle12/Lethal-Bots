@@ -1498,6 +1498,27 @@ namespace LethalBots.Managers
                     }
                     return;
                 }
+                //else if (message.Contains("light level"))
+                //{
+                //    Light[] lights = Object.FindObjectsOfType<Light>();
+                //    Vector3 pos = playerWhoSentMessage.transform.position;
+                //    float lightLevel = 0f;
+                //    foreach (var light in lights)
+                //    {
+                //        if (!light.enabled || light.intensity <= 0)
+                //            continue;
+
+                //        float dist = Vector3.Distance(pos, light.transform.position);
+                //        if (dist > light.range)
+                //            continue;
+
+                //        float atten = 1f - (dist / light.range);
+
+                //        lightLevel += light.intensity * atten;
+                //    }
+                //    HUDManager.Instance.AddTextToChatOnServer($"Light level is {lightLevel}");
+                //    return;
+                //}
             }
 
             foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)

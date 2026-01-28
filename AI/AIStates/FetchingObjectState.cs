@@ -52,7 +52,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Close enough to item for grabbing, attempt to grab
-            float sqrMagDistanceItem = (this.TargetItem.transform.position - npcController.Npc.transform.position).sqrMagnitude;
+            float sqrMagDistanceItem = (this.TargetItem.transform.position - npcController.Npc.gameplayCamera.transform.position).sqrMagnitude;
             if (sqrMagDistanceItem < npcController.Npc.grabDistance * npcController.Npc.grabDistance)
             {
                 if (!npcController.Npc.inAnimationWithEnemy 
@@ -110,7 +110,7 @@ namespace LethalBots.AI.AIStates
             {
                 npcController.OrderToSprint();
             }
-            else
+            else if (sqrMagDistanceItem < Const.DISTANCE_STOP_RUNNING * Const.DISTANCE_STOP_RUNNING)
             {
                 npcController.OrderToStopSprint();
             }
