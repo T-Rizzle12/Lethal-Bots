@@ -52,7 +52,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Close enough to item for grabbing, attempt to grab
-            float sqrMagDistanceItem = (this.TargetItem.transform.position - npcController.Npc.gameplayCamera.transform.position).sqrMagnitude;
+            float sqrMagDistanceItem = Mathf.Min((this.TargetItem.transform.position - npcController.Npc.gameplayCamera.transform.position).sqrMagnitude, (this.TargetItem.transform.position - npcController.Npc.transform.position).sqrMagnitude); // HACKHACK: Let the bot's grab range be a little better than a human player's.....
             if (sqrMagDistanceItem < npcController.Npc.grabDistance * npcController.Npc.grabDistance)
             {
                 if (!npcController.Npc.inAnimationWithEnemy 
