@@ -97,18 +97,18 @@ namespace LethalBots.Patches.EnemiesPatches
                     if (LethalBotManager.Instance.IsPlayerLethalBotOwnerLocal(targetPlayer) && __instance.CheckLineOfSightForPosition(targetPlayer.gameplayCamera.transform.position, 70f, 60, 1f) && ___timeSinceSeeingTarget < 8f)
                     {
                         if (___timeSinceFiringGun > 0.75f && !___reloadingGun && !___aimingGun && ___timeSinceHittingPlayer > 1f && Vector3.Angle(__instance.gun.shotgunRayPoint.forward, targetPlayer.gameplayCamera.transform.position - __instance.gun.shotgunRayPoint.position) < 30f)
-				        {
-					        ___timeSinceFiringGun = 0f;
-					        __instance.agent.speed = 0f;
-					        __instance.AimGunServerRpc(__instance.transform.position);
-				        }
-				        if (___lostPlayerInChase)
-				        {
-					        ___lostPlayerInChase = false;
-					        __instance.SetLostPlayerInChaseServerRpc(lostPlayer: false);
-				        }
-				        ___timeSinceSeeingTarget = 0f;
-				        ___lastSeenPlayerPos = targetPlayer.transform.position;
+                        {
+                            ___timeSinceFiringGun = 0f;
+                            __instance.agent.speed = 0f;
+                            __instance.AimGunServerRpc(__instance.transform.position);
+                        }
+                        if (___lostPlayerInChase)
+                        {
+                            ___lostPlayerInChase = false;
+                            __instance.SetLostPlayerInChaseServerRpc(lostPlayer: false);
+                        }
+                        ___timeSinceSeeingTarget = 0f;
+                        ___lastSeenPlayerPos = targetPlayer.transform.position;
                     }
 
                     // Got to make sure bots are considered as valid targets as well!
