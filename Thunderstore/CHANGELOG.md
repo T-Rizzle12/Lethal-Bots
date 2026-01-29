@@ -18,7 +18,7 @@ There is a bug in the base game when first opening a lobby that clients that joi
   - Bots now correctly teleport players who request it
   - Added AllowMissionControlTeleport config option, if AllowMissionControlTeleport is set to false, bots will no longer teleport players or bots they consider in danger. There is ONE exception to this, if the player is in an animation with an enemy, for example Forest Giants eating the player!
   - Mission Controller bots no longer teleport armed players fighting an enemy unless critically injured.
-- Added new mission control–related config and chat command:
+- Added new mission control-related config and chat command:
   - StartShipChatCommandProtection: If set to false, non-host clients can tell the Mission Controller bot to start the ship. By default this is true, making it so only the host can tell the bot to start the ship. Regardless if this setting is true or false, bots will allow non-host clients to use this chat command if the host is dead!
   - AutoMissionControl: if true, bots will be allowed to assume the mission control state if the current mission controller is not set or dead. If false, bots will not be allowed to assume the mission control position.
   - Added new chat command "i will man the ship", this tells all bots that the player who said this will be the mission controller. THIS WORKS FOR HUMAN PLAYERS! Good for if you want AutoMissionControl true, but a human player wants the role!
