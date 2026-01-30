@@ -13,14 +13,20 @@ namespace LethalBots.AI.AIStates
     {
         private Coroutine searchingWanderCoroutine = null!;
         private float findEntranceTimer;
+        private readonly LethalBotSearchRoutine stuckSearch = new();
+
         public LostInFacilityState(AIState oldState) : base(oldState)
         {
             CurrentState = EnumAIStates.LostInFacility;
+            stuckSearch.searchCenterFollowsBot = true;
+            stuckSearch.nodeChance = 0.65f;
         }
 
         public LostInFacilityState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.LostInFacility;
+            stuckSearch.searchCenterFollowsBot = true;
+            stuckSearch.nodeChance = 0.65f;
         }
 
         public override void DoAI()
@@ -43,6 +49,8 @@ namespace LethalBots.AI.AIStates
                 ai.State = new RescueAndReviveState(this, playerController);
                 return;
             }
+
+            // TODO: If bot finds a key, bot should drop least valuable item in inventory and pick the key up
 
             // Check for object to grab
             if (ai.HasSpaceInInventory())
@@ -91,15 +99,23 @@ namespace LethalBots.AI.AIStates
             ai.SetDestinationToPositionLethalBotAI(ai.destination);
             ai.OrderMoveToDestination();
 
-            if (!searchForPlayers.inProgress)
+            if (!ai.searchForScrap.inProgress && ai.HasSpaceInInventory())
             {
-                // Start the coroutine from base game to search for players
-                ai.StartSearch(ai.NpcController.Npc.transform.position, searchForPlayers);
+                // All we can do now is search for loot or keys
+                ai.StopSearch(stuckSearch, false);
+                ai.StartSearch(ai.searchForScrap);
+            }
+            // Because the bot's inventory is full, the bot will ignore the loot it is passing by, when the bot frees space in inventory the bot should be able to revisit those areas again for loot, that's why we use stuckSearch instead of ai.searchForScrap
+            else if (ai.agent.isOnNavMesh && !stuckSearch.inProgress)
+            {
+                ai.StopSearch(ai.searchForScrap, false);
+                ai.StartSearch(stuckSearch);
             }
         }
 
         public override void StopAllCoroutines()
         {
+            ai.StopSearch(stuckSearch, false);
             base.StopAllCoroutines();
             StopSearchingWanderCoroutine();
         }

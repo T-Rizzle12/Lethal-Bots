@@ -45,8 +45,6 @@ namespace LethalBots.AI
         /// <c>NpcController</c> from the <c>LethalBotAI</c>
         /// </summary>
         protected NpcController npcController;
-        protected AISearchRoutine searchForPlayers;
-        protected AISearchRoutine searchForScrap;
 
         protected Vector3? targetLastKnownPosition;
         public GrabbableObject? TargetItem
@@ -81,8 +79,6 @@ namespace LethalBots.AI
             this.panikCoroutine = oldState.panikCoroutine;
             this.currentEnemy = oldState.currentEnemy;
 
-            this.searchForPlayers = oldState.searchForPlayers;
-            this.searchForScrap = oldState.searchForScrap;
         }
 
         /// <summary>
@@ -105,17 +101,6 @@ namespace LethalBots.AI
             // Mark our current position as "safe"
             // We will adjust our safe pos later as required
             this.safePathPos = this.npcController.Npc.transform.position;
-
-            if (this.searchForPlayers == null)
-            {
-                this.searchForPlayers = new AISearchRoutine();
-                this.searchForPlayers.randomized = true;
-            }
-            if (this.searchForScrap == null)
-            {
-                this.searchForScrap = new AISearchRoutine();
-                this.searchForScrap.randomized = true;
-            }
         }
 
         // Create a destructor here to destory the token incase we somehow get removed or something
@@ -866,13 +851,13 @@ namespace LethalBots.AI
         /// </summary>
         public virtual void StopAllCoroutines()
         {
-            if (searchForPlayers.inProgress)
+            if (ai.searchForPlayers.inProgress)
             {
-                ai.StopSearch(searchForPlayers, true);
+                ai.StopSearch(ai.searchForPlayers, false);
             }
-            if (searchForScrap.inProgress)
+            if (ai.searchForScrap.inProgress)
             {
-                ai.StopSearch(searchForScrap, false);
+                ai.StopSearch(ai.searchForScrap, false);
             }
             StopSafePathCoroutine();
             StopLookingAroundCoroutine();

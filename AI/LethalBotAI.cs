@@ -163,6 +163,12 @@ namespace LethalBots.AI
             }
         }
         private Dictionary<Collider, BridgeTrigger> dictColliderToBridge = null!;
+        
+        public new LethalBotSearchRoutine currentSearch = new();
+        public LethalBotSearchRoutine searchForScrap = new();
+        public LethalBotSearchRoutine searchForPlayers = new();
+        private Random searchRoutineRandom = new();
+        private Coroutine? passByNodeCoroutine = null;
 
         private Coroutine grabObjectCoroutine = null!;
         private Coroutine? spawnAnimationCoroutine = null;
@@ -289,6 +295,13 @@ namespace LethalBots.AI
             this.isEnemyDead = false;
             this.enabled = true;
             addPlayerVelocityToDestination = 3f;
+            
+            // Search settings
+            this.searchForScrap.searchWidth = float.MaxValue;
+            this.searchForScrap.searchCenterFollowsBot = true;
+            this.searchForScrap.nodeChance = 0.65f;
+            this.searchForPlayers.searchWidth = float.MaxValue;
+            this.searchForPlayers.nodeChance = 0.65f;
 
             // Body collider
             LethalBotBodyCollider = NpcController.Npc.GetComponentInChildren<Collider>();
@@ -5029,6 +5042,277 @@ namespace LethalBots.AI
             NpcController.Npc.playerBadgeMesh.gameObject.GetComponent<MeshRenderer>().enabled = show;
         }
 
+        // Based on base game EnemyAI search related functions
+        #region Better Search
+        // TODO: Maybe code for shared node search, bots will know the nodes that already has been visited by other bots
+        public void StartSearch(LethalBotSearchRoutine? newSearch = null)
+        {
+            currentSearch = newSearch ?? new LethalBotSearchRoutine();
+            currentSearch.inProgress = true;
+            // NEEDTOVALIDATE: If random seed when LethalBotAI are created is different to other bots random seed.
+            searchRoutineRandom = new();
+            if (currentSearch.UnsearchedNodes.Count <= 0)
+            {
+                PopulateSearchNodes();
+            }
+            searchCoroutine = StartCoroutine(CurrentSearchCoroutine());
+            passByNodeCoroutine = StartCoroutine(PassByNodeCoroutine());
+        }
+
+        public void StopSearch(LethalBotSearchRoutine search, bool clear = true)
+        {
+            if (search == null) return;
+            if (searchCoroutine != null) StopCoroutine(searchCoroutine);
+            if (chooseTargetNodeCoroutine != null) StopCoroutine(chooseTargetNodeCoroutine);
+            if (passByNodeCoroutine != null) StopCoroutine(passByNodeCoroutine);
+            search.currentTargetNode = null;
+            search.nextTargetNode = null;
+            search.lastCheckPosition = Vector3.zero;
+            search.hasChosenTarget = false;
+            search.isWaitingForTarget = false;
+            search.inProgress = false;
+            search.isCalculating = false;
+            if (clear)
+            {
+                ClearSearch(search);
+            }
+        }
+
+        public void ClearSearch(LethalBotSearchRoutine search)
+        {
+            search.searchCenter = Vector3.zero;
+            search.UnsearchedNodes.Clear();
+            search.PassedByNodes.Clear();
+        }
+
+        private void PopulateSearchNodes()
+        {
+            currentSearch.UnsearchedNodes = [..allAINodes];
+            if (currentSearch.nodeChance < 1f || currentSearch.searchMinDistance > 0f)
+            {
+            	// The currentSearch.NodeChance random checks favours the deepest nodes in the list
+                // When there is a minimum distance and there is no node outside minimum distance, we accept a random node closer than minimum distance as fallback
+                // A shuffle solves the two problems above
+                // TODO: Maybe remove some nodes based on area node density? Some interior areas can have more nodes than others
+                int n = currentSearch.UnsearchedNodes.Count;
+                while (n > 1)
+                {
+                    n--;
+                    int k = searchRoutineRandom.Next(n + 1);
+                    (currentSearch.UnsearchedNodes[k], currentSearch.UnsearchedNodes[n]) = (currentSearch.UnsearchedNodes[n], currentSearch.UnsearchedNodes[k]);
+                }
+            }
+        }
+
+        private IEnumerator CurrentSearchCoroutine()
+        {
+            yield return null;
+            while (searchCoroutine != null && base.IsOwner)
+            {
+                if (!IsValidTargetNode(currentSearch.nextTargetNode))
+                {
+                    currentSearch.currentTargetNode = null;
+                    currentSearch.nextTargetNode = null;
+                    currentSearch.isWaitingForTarget = true;
+                    // NEEDTOVALIDATE: Move this code to a virtual function and override them SearchingForScrapState and SearchingForPlayerState?
+                    if (currentSearch.searchCenterFollowsBot)
+                    {
+                        // If we search for nodes from a position that the agent is when the agent isn't on navmesh, it will not find any nodes, it will assume all nodes it could reach was searched and remove all searched nodes from memory.
+                        // NEEDTOVALIDATE: Will State.OnBotStuck() trigger while we are waiting?
+                        yield return new WaitUntil(() => agent.isOnNavMesh);
+                        // NEEDTOVALIDATE: transform.position or NpcController.Npc.transform.position?
+                        currentSearch.searchCenter = transform.position;
+                    }
+                    StartCalculatingNextTargetNode();
+                    yield return new WaitUntil(() => currentSearch.hasChosenTarget);
+                }
+                else
+                {
+                    currentSearch.currentTargetNode = currentSearch.nextTargetNode;
+                }
+                currentSearch.isWaitingForTarget = false;
+                if (currentSearch.currentTargetNode == null)
+                {
+                    // TODO: Should the bot only remove reachable visited nodes from memory? Lets say, the bot explores the interior a bit, leaves the interior, goes back to interior through another entrance but now the bot is a room with a fire exit in a locked door, after exploring the room the bot will reset the list of searched nodes, including the searched nodes from the other entrances, maybe the bot needs logic for checking if there are reachable unvisited nodes from other entrances and continue the exploration from the other entrances before resetting the searched nodes list
+                    StopSearch(currentSearch);
+                    continue;
+                }
+                if (!SetDestinationToPosition(currentSearch.currentTargetNode.transform.position))
+                {
+                    continue;
+                }
+                if (currentSearch.searchCenterFollowsBot)
+                {
+                    currentSearch.searchCenter = currentSearch.currentTargetNode.transform.position;
+                }
+                StartCalculatingNextTargetNode();
+                float precisionSqr = currentSearch.searchPrecision * currentSearch.searchPrecision;
+                // FIXME: It is possible to get stuck in modded doors, but the State.OnBotStuck() function can teleport the bot to the other side (does this always happen?) and keep moving to destination, bit cheaty
+                // It is also possible to get stuck in interior navmesh that includes a node under the floor, seems to only happens in some modded interiors though (Scarlet Devil Mansion)
+                while (searchCoroutine != null)
+                {
+                    if ((transform.position - currentSearch.currentTargetNode.transform.position).sqrMagnitude < precisionSqr || agent.isOnNavMesh && !IsValidTargetNode(currentSearch.currentTargetNode))
+                    {
+                        break;
+                    }
+                    yield return new WaitForSeconds(0.2f);
+                }
+                yield return null;
+            }
+            if (!base.IsOwner)
+            {
+                StopSearch(currentSearch, false);
+            }
+        }
+
+        private bool IsValidTargetNode(GameObject? node)
+        {
+            return node != null && 
+                currentSearch.UnsearchedNodes.Contains(node) && 
+                GetPathDistance(node.transform.position, transform.position, -1f);
+        }
+
+        private void StartCalculatingNextTargetNode()
+        {
+            if (chooseTargetNodeCoroutine == null)
+            {
+                currentSearch.hasChosenTarget = false;
+                chooseTargetNodeCoroutine = StartCoroutine(ChooseNextNodeInSearchRoutine());
+            }
+            else if (!currentSearch.isCalculating)
+            {
+                currentSearch.hasChosenTarget = false;
+                currentSearch.isCalculating = true;
+                StopCoroutine(chooseTargetNodeCoroutine);
+                chooseTargetNodeCoroutine = StartCoroutine(ChooseNextNodeInSearchRoutine());
+            }
+        }
+
+        // TODO: Line of sight check, if too expensive, create a grid cache/system with each cell having the size of LOS range and only check line of sight with nodes in those cells
+        private IEnumerator PassByNodeCoroutine()
+        {
+            yield return null;
+            float precisionSqr = currentSearch.searchPrecision * currentSearch.searchPrecision;
+            float checkDistSqr = precisionSqr / 4f;
+            while (searchCoroutine != null)
+            {
+                // NEEDTOVALIDATE: Check if node is inside a checkDistSqr sized cube before checking the condition below?
+                if ((transform.position - currentSearch.lastCheckPosition).sqrMagnitude > checkDistSqr)
+                {
+                    currentSearch.lastCheckPosition = transform.position;
+                    for (int i = 0; i < currentSearch.UnsearchedNodes.Count; i++)
+                    {
+                        var node = currentSearch.UnsearchedNodes[i];
+                        if ((transform.position - node.transform.position).sqrMagnitude < precisionSqr && 
+                            currentSearch.PassedByNodes.Add(node))
+                        {
+                            if (currentSearch.nextTargetNode == node)
+                            {
+                                currentSearch.nextTargetNode = null;
+                                StartCalculatingNextTargetNode();
+                            }
+                        }
+                    }
+                }
+                yield return null;
+            }
+        }
+
+        private IEnumerator ChooseNextNodeInSearchRoutine()
+        {
+            yield return null;
+            while (true)
+            {
+                if (!base.IsOwner)
+                {
+                    currentSearch.isCalculating = false;
+                    chooseTargetNodeCoroutine = null;
+                    yield break;
+                }
+                currentSearch.UnsearchedNodes.RemoveAll(x => currentSearch.PassedByNodes.Contains(x));
+                currentSearch.PassedByNodes.Clear();
+                float closestDist = currentSearch.searchWidth;
+                float closestDistSqr = currentSearch.searchWidth * currentSearch.searchWidth;
+                int iterAmount = 10;
+                GameObject? chosenNode = null;
+                for (int i = 0; i < currentSearch.UnsearchedNodes.Count; i++)
+                {
+                    // TODO: When a new node is chosen, increase iterAmount depending on closestDist (lower closestDist = higher iterAmount, cpu time used is lower because we are pathfinding only to closer nodes)?
+                    if (i % iterAmount == 0)
+                    {
+                        yield return null;
+                    }
+                    GameObject? node = currentSearch.UnsearchedNodes[i];
+                    if (node == null || node == currentSearch.currentTargetNode) continue;
+                    if (chosenNode == null || currentSearch.nodeChance >= 1f || (float)searchRoutineRandom.NextDouble() < currentSearch.nodeChance)
+                    {
+                        float sqrDistToNode = (currentSearch.searchCenter - node.transform.position).sqrMagnitude;
+                        // FIXME: GetPathDistance passes through some locked modded doors and causes the issues listed in the comment above "while (searchCoroutine != null)", find ways to prevent those issues from happening
+                        if (sqrDistToNode < closestDistSqr && GetPathDistance(node.transform.position, currentSearch.searchCenter, closestDist))
+                        {
+                            // TODO: If framerate is low, bots will wait for the next destination, adding a minimum distance will allow the bot to walk for more time, so there is more time for the bot to find a next destination while going to the already designed destination, the problem is that bot is less likely to try to go for nodes that are in the end of corridors/rooms.
+                            if (pathDistance < closestDist && pathDistance >= currentSearch.searchMinDistance)
+                            {
+                                closestDist = pathDistance;
+                                closestDistSqr = pathDistance * pathDistance;
+                                chosenNode = node;
+                                if (closestDist <= 0f) break;
+                            }
+                            else if (chosenNode == null) //when SearchMinimumDistance > 0 we still want to have a node
+                            {
+                               chosenNode = node;
+                            }
+
+							// TODO: Simple random node choice? The minimum path distance and this could be useful for bot personalities/identities or plugin config, but not important for now
+                            // Simple random node choice isn't used because it favours travelling around nodes in the center of the map even when they are already visited, the bot will only try for end of room/corridor nodes very late in the game
+                            // chosenNode = node;
+                            // break;
+                        }
+                    }
+                }
+                if (chosenNode != null && currentSearch.PassedByNodes.Contains(chosenNode))
+                {
+                    continue;
+                }
+                if (currentSearch.isWaitingForTarget)
+                {
+                    currentSearch.currentTargetNode = chosenNode;
+                }
+                else
+                {
+                    currentSearch.nextTargetNode = chosenNode;
+                }
+                currentSearch.hasChosenTarget = true;
+                currentSearch.isCalculating = false;
+                chooseTargetNodeCoroutine = null;
+                yield break;
+            }
+        }
+
+        public bool GetPathDistance(Vector3 targetPos, Vector3 sourcePos, float maxDist = float.MaxValue)
+        {
+            if (!NavMesh.CalculatePath(sourcePos, targetPos, agent.areaMask, path1)
+            || path1 == null
+            || path1.corners.Length == 0
+            || (path1.corners[^1] - RoundManager.Instance.GetNavMeshPosition(targetPos, RoundManager.Instance.navHit, 2.7f)).sqrMagnitude > 2.25f)
+            {
+                return false;
+            }
+            if (maxDist >= 0)
+            {
+                pathDistance = 0f;
+                for (int i = 1; i < path1.corners.Length; i++) {
+                    pathDistance += Vector3.Distance(path1.corners[i - 1], path1.corners[i]);
+                    if (pathDistance > maxDist)
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        #endregion
+
         #region Voices
 
         public void UpdateLethalBotVoiceEffects()
@@ -5525,12 +5809,14 @@ namespace LethalBots.AI
 
             if (NpcController.IsControllerInCruiser)
             {
+                ClearSearch(searchForPlayers);
                 this.State = new PlayerInCruiserState(this, this.GetVehicleCruiserTargetPlayerIsIn());
             }
             else if (this.State == null
                 || this.State.GetAIState() != EnumAIStates.GetCloseToPlayer
                 || this.targetPlayer != targetPlayer)
             {
+                ClearSearch(searchForPlayers);
                 this.State = new GetCloseToPlayerState(this, targetPlayer);
             }
         }

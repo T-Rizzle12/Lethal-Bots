@@ -19,7 +19,7 @@ namespace LethalBots.AI.AIStates
     {
         private float lookForPlayerTimer;
         private Coroutine searchingWanderCoroutine = null!;
-
+        private bool foundSearchCenter;
         /// <summary>
         /// <inheritdoc cref="AIState(AIState)"/>
         /// </summary>
@@ -126,10 +126,15 @@ namespace LethalBots.AI.AIStates
             ai.SetDestinationToPositionLethalBotAI(ai.destination);
             ai.OrderMoveToDestination();
 
-            if (!searchForPlayers.inProgress)
+            if (!ai.searchForPlayers.inProgress && ai.agent.isOnNavMesh)
             {
-                // Start the coroutine from base game to search for players
-                ai.StartSearch(ai.NpcController.Npc.transform.position, searchForPlayers);
+                if (!foundSearchCenter)
+                {
+                    ai.searchForPlayers.searchCenter = ai.transform.position;
+                    foundSearchCenter = true;
+                }
+                // Start the coroutine to search for players
+                ai.StartSearch(ai.searchForPlayers);
             }
         }
 
