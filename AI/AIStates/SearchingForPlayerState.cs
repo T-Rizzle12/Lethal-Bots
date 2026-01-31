@@ -126,13 +126,13 @@ namespace LethalBots.AI.AIStates
             ai.SetDestinationToPositionLethalBotAI(ai.destination);
             ai.OrderMoveToDestination();
 
-            if (!ai.searchForPlayers.inProgress && ai.agent.isOnNavMesh)
+            if (!foundSearchCenter && ai.agent.isOnNavMesh)
             {
-                if (!foundSearchCenter)
-                {
-                    ai.searchForPlayers.searchCenter = ai.transform.position;
-                    foundSearchCenter = true;
-                }
+                ai.searchForPlayers.searchCenter = ai.transform.position;
+                foundSearchCenter = true;
+            }
+            else if (!ai.searchForPlayers.inProgress)
+            {
                 // Start the coroutine to search for players
                 ai.StartSearch(ai.searchForPlayers);
             }

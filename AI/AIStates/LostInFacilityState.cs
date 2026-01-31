@@ -18,14 +18,14 @@ namespace LethalBots.AI.AIStates
         public LostInFacilityState(AIState oldState) : base(oldState)
         {
             CurrentState = EnumAIStates.LostInFacility;
-            stuckSearch.searchCenterFollowsBot = true;
+            stuckSearch.searchCenterFollowsAI = true;
             stuckSearch.nodeChance = 0.65f;
         }
 
         public LostInFacilityState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.LostInFacility;
-            stuckSearch.searchCenterFollowsBot = true;
+            stuckSearch.searchCenterFollowsAI = true;
             stuckSearch.nodeChance = 0.65f;
         }
 

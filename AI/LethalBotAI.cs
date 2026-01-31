@@ -39,7 +39,6 @@ using UnityEngine.UI;
 using Component = UnityEngine.Component;
 using Object = UnityEngine.Object;
 using Quaternion = UnityEngine.Quaternion;
-using Random = System.Random;
 using Vector2 = UnityEngine.Vector2;
 using Vector3 = UnityEngine.Vector3;
 
@@ -167,7 +166,6 @@ namespace LethalBots.AI
         public new LethalBotSearchRoutine currentSearch = new();
         public LethalBotSearchRoutine searchForScrap = new();
         public LethalBotSearchRoutine searchForPlayers = new();
-        private Random searchRoutineRandom = new();
         private Coroutine? passByNodeCoroutine = null;
 
         private Coroutine grabObjectCoroutine = null!;
@@ -297,11 +295,7 @@ namespace LethalBots.AI
             addPlayerVelocityToDestination = 3f;
             
             // Search settings
-            this.searchForScrap.searchWidth = float.MaxValue;
-            this.searchForScrap.searchCenterFollowsBot = true;
-            this.searchForScrap.nodeChance = 0.65f;
-            this.searchForPlayers.searchWidth = float.MaxValue;
-            this.searchForPlayers.nodeChance = 0.65f;
+            this.searchForScrap.searchCenterFollowsAI = true;
 
             // Body collider
             LethalBotBodyCollider = NpcController.Npc.GetComponentInChildren<Collider>();
@@ -5043,15 +5037,14 @@ namespace LethalBots.AI
         }
 
         // Based on base game EnemyAI search related functions
+        // TODO: Optional config that allows Logic for shared node search, bots will know the nodes that already has been visited by other bots
         #region Better Search
-        // TODO: Maybe code for shared node search, bots will know the nodes that already has been visited by other bots
+
         public void StartSearch(LethalBotSearchRoutine? newSearch = null)
         {
             currentSearch = newSearch ?? new LethalBotSearchRoutine();
             currentSearch.inProgress = true;
-            // NEEDTOVALIDATE: If random seed when LethalBotAI are created is different to other bots random seed.
-            searchRoutineRandom = new();
-            if (currentSearch.UnsearchedNodes.Count <= 0)
+            if (currentSearch.unsearchedNodes.Count <= 0)
             {
                 PopulateSearchNodes();
             }
@@ -5081,25 +5074,25 @@ namespace LethalBots.AI
         public void ClearSearch(LethalBotSearchRoutine search)
         {
             search.searchCenter = Vector3.zero;
-            search.UnsearchedNodes.Clear();
-            search.PassedByNodes.Clear();
+            search.unsearchedNodes.Clear();
+            search.passedByNodes.Clear();
         }
 
         private void PopulateSearchNodes()
         {
-            currentSearch.UnsearchedNodes = [..allAINodes];
-            if (currentSearch.nodeChance < 1f || currentSearch.searchMinDistance > 0f)
+            currentSearch.unsearchedNodes = [..allAINodes];
+            if (currentSearch.nodeChance < 1f || currentSearch.minimumPathDistance > 0f)
             {
             	// The currentSearch.NodeChance random checks favours the deepest nodes in the list
-                // When there is a minimum distance and there is no node outside minimum distance, we accept a random node closer than minimum distance as fallback
+                // When there is a minimum distance and there are no nodes outside minimum distance, we accept a random node closer than minimum distance as fallback
                 // A shuffle solves the two problems above
-                // TODO: Maybe remove some nodes based on area node density? Some interior areas can have more nodes than others
-                int n = currentSearch.UnsearchedNodes.Count;
+                // TODO: Make UnsearchedNodes a (GameObject node, float weight) tuple, add weight to nodes based on how far nodes are from each other, cache node weights in LethalBotManager so weights are processed only once
+                int n = currentSearch.unsearchedNodes.Count;
                 while (n > 1)
                 {
                     n--;
-                    int k = searchRoutineRandom.Next(n + 1);
-                    (currentSearch.UnsearchedNodes[k], currentSearch.UnsearchedNodes[n]) = (currentSearch.UnsearchedNodes[n], currentSearch.UnsearchedNodes[k]);
+                    int k = UnityEngine.Random.Range(0,n+1);;
+                    (currentSearch.unsearchedNodes[k], currentSearch.unsearchedNodes[n]) = (currentSearch.unsearchedNodes[n], currentSearch.unsearchedNodes[k]);
                 }
             }
         }
@@ -5109,16 +5102,15 @@ namespace LethalBots.AI
             yield return null;
             while (searchCoroutine != null && base.IsOwner)
             {
-                if (!IsValidTargetNode(currentSearch.nextTargetNode))
+                if (!IsTargetNodeValidDestination(currentSearch.nextTargetNode))
                 {
                     currentSearch.currentTargetNode = null;
                     currentSearch.nextTargetNode = null;
                     currentSearch.isWaitingForTarget = true;
-                    // NEEDTOVALIDATE: Move this code to a virtual function and override them SearchingForScrapState and SearchingForPlayerState?
-                    if (currentSearch.searchCenterFollowsBot)
+                    if (currentSearch.searchCenterFollowsAI)
                     {
-                        // If we search for nodes from a position that the agent is when the agent isn't on navmesh, it will not find any nodes, it will assume all nodes it could reach was searched and remove all searched nodes from memory.
-                        // NEEDTOVALIDATE: Will State.OnBotStuck() trigger while we are waiting?
+                        // If we search for nodes from the bot position when the bot isn't on navmesh, it will not find any nodes, it will assume all nodes it could reach has been visited and remove all visited nodes from memory.
+                        // NEEDTOVALIDATE: Will State.OnBotStuck() trigger while we are waiting, is it possible to be stuck in this line for a long time?
                         yield return new WaitUntil(() => agent.isOnNavMesh);
                         // NEEDTOVALIDATE: transform.position or NpcController.Npc.transform.position?
                         currentSearch.searchCenter = transform.position;
@@ -5133,7 +5125,7 @@ namespace LethalBots.AI
                 currentSearch.isWaitingForTarget = false;
                 if (currentSearch.currentTargetNode == null)
                 {
-                    // TODO: Should the bot only remove reachable visited nodes from memory? Lets say, the bot explores the interior a bit, leaves the interior, goes back to interior through another entrance but now the bot is a room with a fire exit in a locked door, after exploring the room the bot will reset the list of searched nodes, including the searched nodes from the other entrances, maybe the bot needs logic for checking if there are reachable unvisited nodes from other entrances and continue the exploration from the other entrances before resetting the searched nodes list
+                    // TODO: Should the bot only remove reachable visited nodes from memory? Lets say, the bot explores the interior a bit, leaves the interior, goes back to interior through another entrance but now the bot is in a room with a fire exit and a locked door, after exploring the room the bot will reset the list of searched nodes, including the searched nodes from the other entrances, maybe the bot needs logic for checking if there are reachable unvisited nodes from other entrances and continue the exploration from the other entrances before resetting the searched nodes list
                     StopSearch(currentSearch);
                     continue;
                 }
@@ -5141,21 +5133,51 @@ namespace LethalBots.AI
                 {
                     continue;
                 }
-                if (currentSearch.searchCenterFollowsBot)
+                if (currentSearch.searchCenterFollowsAI)
                 {
                     currentSearch.searchCenter = currentSearch.currentTargetNode.transform.position;
                 }
                 StartCalculatingNextTargetNode();
-                float precisionSqr = currentSearch.searchPrecision * currentSearch.searchPrecision;
-                // FIXME: It is possible to get stuck in modded doors, but the State.OnBotStuck() function can teleport the bot to the other side (does this always happen?) and keep moving to destination, bit cheaty
-                // It is also possible to get stuck in interior navmesh that includes a node under the floor, seems to only happens in some modded interiors though (Scarlet Devil Mansion)
+                float proximitySqr = currentSearch.proximityThreshold * currentSearch.proximityThreshold;
+                float nextValidCheck = Time.timeSinceLevelLoad + 0.2f;
+                float lowestPathDistance = float.MaxValue;
+                int stuckChecks = 0;
+                // FIXME: It is possible to get stuck in some modded doors, State.OnBotStuck() function can teleport the bot to the other side of the door (does this always happen?) and keep moving to destination, not intended
+                // NEEDTOVALIDATE: It is possible to get stuck in interior an navmesh that includes a node under the floor (not sure if that was the actual reason the bot was stuck), seems to only happens in some modded interiors though (Scarlet Devil Mansion), for now we are ignoring the .y element when checking distance to destination
                 while (searchCoroutine != null)
                 {
-                    if ((transform.position - currentSearch.currentTargetNode.transform.position).sqrMagnitude < precisionSqr || agent.isOnNavMesh && !IsValidTargetNode(currentSearch.currentTargetNode))
+                    //NEEDTOVALIDATE: Bot will stop moving when it reaches the destination
+                    if (agent.velocity.sqrMagnitude < 0.002f)
                     {
-                        break;
+                        Vector2 tempPos = new(transform.position.x - currentSearch.currentTargetNode.transform.position.x,
+                                              transform.position.z - currentSearch.currentTargetNode.transform.position.z);
+                        if (tempPos.sqrMagnitude < proximitySqr)
+                        {
+                            break;
+                        }
                     }
-                    yield return new WaitForSeconds(0.2f);
+                    if (Time.timeSinceLevelLoad > nextValidCheck)
+                    {
+                        if (agent.isOnNavMesh && (!IsTargetNodeValidDestination(currentSearch.currentTargetNode, true) || stuckChecks >= 20))
+                        {
+                            if (currentSearch.searchCenterFollowsAI)
+                            {
+                                currentSearch.nextTargetNode = null;
+                            }
+                            break;
+                        }
+                        if (pathDistance < lowestPathDistance)
+                        {
+                        	stuckChecks = 0;
+                        	lowestPathDistance = pathDistance - 0.5f;
+                    	}
+                    	else
+                    	{
+                    		stuckChecks++;
+                    	}
+                    	nextValidCheck += 0.2f;
+                    }
+                    yield return null;
                 }
                 yield return null;
             }
@@ -5165,11 +5187,11 @@ namespace LethalBots.AI
             }
         }
 
-        private bool IsValidTargetNode(GameObject? node)
+        private bool IsTargetNodeValidDestination(GameObject? node, bool checkPathDistance = false)
         {
             return node != null && 
-                currentSearch.UnsearchedNodes.Contains(node) && 
-                GetPathDistance(node.transform.position, transform.position, -1f);
+                currentSearch.unsearchedNodes.Contains(node) && 
+                GetPathDistance(node.transform.position, transform.position, checkPathDistance: checkPathDistance);
         }
 
         private void StartCalculatingNextTargetNode()
@@ -5179,33 +5201,33 @@ namespace LethalBots.AI
                 currentSearch.hasChosenTarget = false;
                 chooseTargetNodeCoroutine = StartCoroutine(ChooseNextNodeInSearchRoutine());
             }
-            else if (!currentSearch.isCalculating)
+            else if (!currentSearch.isCalculating || currentSearch.searchCenterFollowsAI)
             {
                 currentSearch.hasChosenTarget = false;
-                currentSearch.isCalculating = true;
                 StopCoroutine(chooseTargetNodeCoroutine);
                 chooseTargetNodeCoroutine = StartCoroutine(ChooseNextNodeInSearchRoutine());
             }
         }
 
-        // TODO: Line of sight check, if too expensive, create a grid cache/system with each cell having the size of LOS range and only check line of sight with nodes in those cells
         private IEnumerator PassByNodeCoroutine()
         {
             yield return null;
-            float precisionSqr = currentSearch.searchPrecision * currentSearch.searchPrecision;
-            float checkDistSqr = precisionSqr / 4f;
+            float proximitySqr = currentSearch.proximityThreshold * currentSearch.proximityThreshold;
+            float checkDistSqr = proximitySqr / 4f;
             while (searchCoroutine != null)
             {
-                // NEEDTOVALIDATE: Check if node is inside a checkDistSqr sized cube before checking the condition below?
+                // NEEDTOVALIDATE: Skipping nodes that are outside a checkDistSqr sized cube before checking distances uses less CPU time?
                 if ((transform.position - currentSearch.lastCheckPosition).sqrMagnitude > checkDistSqr)
                 {
                     currentSearch.lastCheckPosition = transform.position;
-                    for (int i = 0; i < currentSearch.UnsearchedNodes.Count; i++)
+                    // TODO: Distance checks can be improved further with a grid cell dictionary system where cells have the size of proximityThreshold, we only check nodes in the neighbouring cells
+                    // TODO: Having a high proximityThreshold means that bots will not search the end or corner of corridors/rooms, they can miss loot inside drawers or loot behind interior objects, logic should check if the node has no loot next or visible to it
+                    for (int i = 0; i < currentSearch.unsearchedNodes.Count; i++)
                     {
-                        var node = currentSearch.UnsearchedNodes[i];
-                        if ((transform.position - node.transform.position).sqrMagnitude < precisionSqr && 
-                            currentSearch.PassedByNodes.Add(node))
+                        var node = currentSearch.unsearchedNodes[i];
+                        if (!currentSearch.passedByNodes.Contains(node) && (transform.position - node.transform.position).sqrMagnitude < proximitySqr && !Physics.Linecast(eye.position, node.transform.position + Vector3.up * 0.10f, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
                         {
+                            currentSearch.passedByNodes.Add(node);
                             if (currentSearch.nextTargetNode == node)
                             {
                                 currentSearch.nextTargetNode = null;
@@ -5229,39 +5251,44 @@ namespace LethalBots.AI
                     chooseTargetNodeCoroutine = null;
                     yield break;
                 }
-                currentSearch.UnsearchedNodes.RemoveAll(x => currentSearch.PassedByNodes.Contains(x));
-                currentSearch.PassedByNodes.Clear();
-                float closestDist = currentSearch.searchWidth;
-                float closestDistSqr = currentSearch.searchWidth * currentSearch.searchWidth;
+                currentSearch.isCalculating = true;
+                currentSearch.unsearchedNodes.RemoveAll(x => currentSearch.passedByNodes.Contains(x));
+                currentSearch.passedByNodes.Clear();
+                float closestDist = currentSearch.searchRadius;
+                float closestDistSqr = currentSearch.searchRadius * currentSearch.searchRadius;
                 int iterAmount = 10;
-                GameObject? chosenNode = null;
-                for (int i = 0; i < currentSearch.UnsearchedNodes.Count; i++)
+                GameObject? selectedNode = null;
+                for (int i = 0; i < currentSearch.unsearchedNodes.Count; i++)
                 {
-                    // TODO: When a new node is chosen, increase iterAmount depending on closestDist (lower closestDist = higher iterAmount, cpu time used is lower because we are pathfinding only to closer nodes)?
+                    // TODO: When a new node is chosen, increase iterAmount depending on closestDist (lower closestDist = higher iterAmount, CPU time used is lower because we are pathfinding only to closer nodes)?
                     if (i % iterAmount == 0)
                     {
                         yield return null;
                     }
-                    GameObject? node = currentSearch.UnsearchedNodes[i];
+                    GameObject? node = currentSearch.unsearchedNodes[i];
                     if (node == null || node == currentSearch.currentTargetNode) continue;
-                    if (chosenNode == null || currentSearch.nodeChance >= 1f || (float)searchRoutineRandom.NextDouble() < currentSearch.nodeChance)
+                    if (selectedNode == null || currentSearch.nodeChance >= 1f || UnityEngine.Random.value < currentSearch.nodeChance)
                     {
                         float sqrDistToNode = (currentSearch.searchCenter - node.transform.position).sqrMagnitude;
                         // FIXME: GetPathDistance passes through some locked modded doors and causes the issues listed in the comment above "while (searchCoroutine != null)", find ways to prevent those issues from happening
                         if (sqrDistToNode < closestDistSqr && GetPathDistance(node.transform.position, currentSearch.searchCenter, closestDist))
                         {
-                            // TODO: If framerate is low, bots will wait for the next destination, adding a minimum distance will allow the bot to walk for more time, so there is more time for the bot to find a next destination while going to the already designed destination, the problem is that bot is less likely to try to go for nodes that are in the end of corridors/rooms.
-                            if (pathDistance < closestDist && pathDistance >= currentSearch.searchMinDistance)
+                            // GetPathDistance already handles the condition below
+                            // if (pathDistance < closestDist) {
+                            // If framerate is low, bots will wait for the next destination, adding a minimum distance will make the bot walk for more time, so there is more time for the bot to find next destination while walking to the already designed destination, the problem is that bot is less likely to try to go for nodes that are in the end of corridors/rooms.
+                            if (pathDistance >= currentSearch.minimumPathDistance)
                             {
+                                selectedNode = node;
                                 closestDist = pathDistance;
                                 closestDistSqr = pathDistance * pathDistance;
-                                chosenNode = node;
                                 if (closestDist <= 0f) break;
                             }
-                            else if (chosenNode == null) //when SearchMinimumDistance > 0 we still want to have a node
+                            // Fallback to nodes closer than minimumPathDistance when there are no selected node
+                            else if (selectedNode == null)
                             {
-                               chosenNode = node;
+                                selectedNode = node;
                             }
+                            // }
 
 							// TODO: Simple random node choice? The minimum path distance and this could be useful for bot personalities/identities or plugin config, but not important for now
                             // Simple random node choice isn't used because it favours travelling around nodes in the center of the map even when they are already visited, the bot will only try for end of room/corridor nodes very late in the game
@@ -5270,17 +5297,17 @@ namespace LethalBots.AI
                         }
                     }
                 }
-                if (chosenNode != null && currentSearch.PassedByNodes.Contains(chosenNode))
+                if (selectedNode != null && currentSearch.passedByNodes.Contains(selectedNode))
                 {
                     continue;
                 }
                 if (currentSearch.isWaitingForTarget)
                 {
-                    currentSearch.currentTargetNode = chosenNode;
+                    currentSearch.currentTargetNode = selectedNode;
                 }
                 else
                 {
-                    currentSearch.nextTargetNode = chosenNode;
+                    currentSearch.nextTargetNode = selectedNode;
                 }
                 currentSearch.hasChosenTarget = true;
                 currentSearch.isCalculating = false;
@@ -5289,7 +5316,7 @@ namespace LethalBots.AI
             }
         }
 
-        public bool GetPathDistance(Vector3 targetPos, Vector3 sourcePos, float maxDist = float.MaxValue)
+        public bool GetPathDistance(Vector3 targetPos, Vector3 sourcePos, float maxDist = float.MaxValue, bool checkPathDistance = true)
         {
             if (!NavMesh.CalculatePath(sourcePos, targetPos, agent.areaMask, path1)
             || path1 == null
@@ -5298,11 +5325,12 @@ namespace LethalBots.AI
             {
                 return false;
             }
-            if (maxDist >= 0)
+            if (checkPathDistance)
             {
                 pathDistance = 0f;
                 for (int i = 1; i < path1.corners.Length; i++) {
                     pathDistance += Vector3.Distance(path1.corners[i - 1], path1.corners[i]);
+                    // FIXME: maxDist doesn't work if checkPathDistance is false
                     if (pathDistance > maxDist)
                     {
                         return false;
