@@ -163,9 +163,9 @@ namespace LethalBots.AI
         }
         private Dictionary<Collider, BridgeTrigger> dictColliderToBridge = null!;
         
-        public new LethalBotSearchRoutine currentSearch = new();
-        public LethalBotSearchRoutine searchForScrap = new();
-        public LethalBotSearchRoutine searchForPlayers = new();
+        public new LethalBotSearchRoutine currentSearch = new LethalBotSearchRoutine();
+        public LethalBotSearchRoutine searchForScrap = new LethalBotSearchRoutine();
+        public LethalBotSearchRoutine searchForPlayers = new LethalBotSearchRoutine();
         private Coroutine? passByNodeCoroutine = null;
 
         private Coroutine grabObjectCoroutine = null!;

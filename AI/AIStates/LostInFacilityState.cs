@@ -13,7 +13,7 @@ namespace LethalBots.AI.AIStates
     {
         private Coroutine searchingWanderCoroutine = null!;
         private float findEntranceTimer;
-        private readonly LethalBotSearchRoutine stuckSearch = new();
+        private LethalBotSearchRoutine stuckSearch = new LethalBotSearchRoutine();
 
         public LostInFacilityState(AIState oldState) : base(oldState)
         {
