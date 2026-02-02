@@ -19,7 +19,6 @@ using LethalBots.Patches.ModPatches.LethalProgression;
 using LethalBots.Patches.ModPatches.ModelRplcmntAPI;
 using LethalBots.Patches.ModPatches.MoreEmotes;
 using LethalBots.Patches.ModPatches.Peepers;
-using LethalBots.Patches.ModPatches.ReservedItemSlotCore;
 using LethalBots.Patches.ModPatches.ReviveCompany;
 using LethalBots.Patches.ModPatches.ShowCapacity;
 using LethalBots.Patches.ModPatches.TooManyEmotes;
@@ -358,13 +357,6 @@ namespace LethalBots
                 _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("Zaprillator.Behaviors.RevivablePlayer"), "IShockableWithGun.StopShockingWithGun"),
                                new HarmonyMethod(typeof(RevivablePlayerPatch), nameof(RevivablePlayerPatch.StopShockingWithGun_Prefix)));
             }
-            /*if (isModReservedItemSlotCoreLoaded)
-            {
-                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("ReservedItemSlotCore.Patches.PlayerPatcher"), "InitializePlayerControllerLate"),
-                               new HarmonyMethod(typeof(PlayerPatcherPatch), nameof(PlayerPatcherPatch.InitializePlayerControllerLate_Prefix)));
-                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("ReservedItemSlotCore.Patches.PlayerPatcher"), "CheckForChangedInventorySize"),
-                               new HarmonyMethod(typeof(PlayerPatcherPatch), nameof(PlayerPatcherPatch.CheckForChangedInventorySize_Prefix)));
-            }*/
             if (isModLethalProgressionLoaded)
             {
                 _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LethalProgression.Skills.HPRegen"), "HPRegenUpdate"),
