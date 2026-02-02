@@ -44,6 +44,7 @@ namespace LethalBots.Patches.NpcPatches
                                   ref bool ___disabledJetpackControlsThisFrame,
                                   ref bool ___startedJetpackControls,
                                   ref float ___upperBodyAnimationsWeight,
+                                  ref bool ___throwingObject,
                                   ref float ___timeSinceSwitchingSlots,
                                   ref float ___timeSinceTakingGravityDamage,
                                   ref bool ___teleportingThisFrame,
@@ -73,6 +74,7 @@ namespace LethalBots.Patches.NpcPatches
                 npcController.DisabledJetpackControlsThisFrame = ___disabledJetpackControlsThisFrame;
                 npcController.StartedJetpackControls = ___startedJetpackControls;
                 npcController.UpperBodyAnimationsWeight = ___upperBodyAnimationsWeight;
+                npcController.ThrowingObject = ___throwingObject;
                 npcController.TimeSinceSwitchingSlots = ___timeSinceSwitchingSlots;
                 npcController.TimeSinceTakingGravityDamage = ___timeSinceTakingGravityDamage;
                 npcController.TeleportingThisFrame = ___teleportingThisFrame;
@@ -91,6 +93,7 @@ namespace LethalBots.Patches.NpcPatches
 
                 ___startedJetpackControls = npcController.StartedJetpackControls;
                 ___upperBodyAnimationsWeight = npcController.UpperBodyAnimationsWeight;
+                ___throwingObject = npcController.ThrowingObject;
                 ___timeSinceSwitchingSlots = npcController.TimeSinceSwitchingSlots;
                 ___timeSinceTakingGravityDamage = npcController.TimeSinceTakingGravityDamage;
                 ___teleportingThisFrame = npcController.TeleportingThisFrame;

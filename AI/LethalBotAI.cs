@@ -6180,12 +6180,12 @@ namespace LethalBots.AI
             PlayerControllerB thisBot = NpcController.Npc;
             if (thisBot.isGrabbingObjectAnimation 
                 || thisBot.inSpecialInteractAnimation 
-                || (bool)AccessTools.Field(typeof(PlayerControllerB), "throwingObject").GetValue(thisBot) 
                 || thisBot.isTypingChat 
                 || thisBot.twoHanded 
                 || thisBot.activatingItem 
                 || thisBot.jetpackControls 
                 || thisBot.disablingJetpackControls
+                || NpcController.ThrowingObject
                 || NpcController.TimeSinceSwitchingSlots < 0.3f)
             {
                 return false;
@@ -6335,6 +6335,7 @@ namespace LethalBots.AI
             {
                 if (parentObjectTo == null)
                 {
+                    NpcController.ThrowingObject = true; // Just like the base game!
                     if (NpcController.Npc.isInElevator)
                     {
                         placePosition = StartOfRound.Instance.elevatorTransform.InverseTransformPoint(placePosition);
@@ -6390,73 +6391,72 @@ namespace LethalBots.AI
                         SkipPlayer = NetworkManager.LocalClientId
                     });
                 }
+                return;
             }
-            else
+
+            // More base game logic!
+            NpcController.ThrowingObject = true;
+            bool droppedInElevator = this.NpcController.Npc.isInElevator;
+            Vector3 targetFloorPosition;
+            if (!NpcController.Npc.isInElevator)
             {
-                bool droppedInElevator = this.NpcController.Npc.isInElevator;
-                Vector3 targetFloorPosition;
-                if (!NpcController.Npc.isInElevator)
+                Vector3 vector2;
+                if (grabbableObject.itemProperties.allowDroppingAheadOfPlayer)
                 {
-                    Vector3 vector2;
-                    if (grabbableObject.itemProperties.allowDroppingAheadOfPlayer)
-                    {
-                        vector2 = DropItemAheadOfPlayer(grabbableObject, NpcController.Npc);
-                    }
-                    else
-                    {
-                        vector2 = grabbableObject.GetItemFloorPosition(default(Vector3));
-                    }
-                    if (!NpcController.Npc.playersManager.shipBounds.bounds.Contains(vector2))
-                    {
-                        targetFloorPosition = NpcController.Npc.playersManager.propsContainer.InverseTransformPoint(vector2);
-                    }
-                    else
-                    {
-                        droppedInElevator = true;
-                        targetFloorPosition = NpcController.Npc.playersManager.elevatorTransform.InverseTransformPoint(vector2);
-                    }
+                    vector2 = DropItemAheadOfPlayer(grabbableObject, NpcController.Npc);
                 }
                 else
                 {
-                    Vector3 vector2 = grabbableObject.GetItemFloorPosition(default(Vector3));
-                    if (!NpcController.Npc.playersManager.shipBounds.bounds.Contains(vector2))
-                    {
-                        droppedInElevator = false;
-                        targetFloorPosition = NpcController.Npc.playersManager.propsContainer.InverseTransformPoint(vector2);
-                    }
-                    else
-                    {
-                        targetFloorPosition = NpcController.Npc.playersManager.elevatorTransform.InverseTransformPoint(vector2);
-                    }
+                    vector2 = grabbableObject.GetItemFloorPosition(default(Vector3));
                 }
-                int floorYRot = (int)base.transform.localEulerAngles.y;
-
-                // on client
-                SetObjectAsNoLongerHeld(grabbableObject,
-                                        droppedInElevator,
-                                        this.NpcController.Npc.isInHangarShipRoom,
-                                        targetFloorPosition,
-                                        floorYRot);
-
-                if (grabbableObject.NetworkObject == null || !grabbableObject.NetworkObject.IsSpawned)
+                if (!NpcController.Npc.playersManager.shipBounds.bounds.Contains(vector2))
                 {
-                    Plugin.LogWarning($"{NpcController.Npc.playerUsername}: Tried to drop an unspawned object! Not networking to other clients!");
-                    return;
+                    targetFloorPosition = NpcController.Npc.playersManager.propsContainer.InverseTransformPoint(vector2);
                 }
-
-                // for other clients
-                SetObjectAsNoLongerHeldServerRpc(new DropItemNetworkSerializable()
+                else
                 {
-                    DroppedInElevator = droppedInElevator,
-                    DroppedInShipRoom = this.NpcController.Npc.isInHangarShipRoom,
-                    FloorYRot = floorYRot,
-                    GrabbedObject = grabbableObject.NetworkObject,
-                    TargetFloorPosition = targetFloorPosition,
-                    SkipPlayer = NetworkManager.LocalClientId
-                });
+                    droppedInElevator = true;
+                    targetFloorPosition = NpcController.Npc.playersManager.elevatorTransform.InverseTransformPoint(vector2);
+                }
+            }
+            else
+            {
+                Vector3 vector2 = grabbableObject.GetItemFloorPosition(default(Vector3));
+                if (!NpcController.Npc.playersManager.shipBounds.bounds.Contains(vector2))
+                {
+                    droppedInElevator = false;
+                    targetFloorPosition = NpcController.Npc.playersManager.propsContainer.InverseTransformPoint(vector2);
+                }
+                else
+                {
+                    targetFloorPosition = NpcController.Npc.playersManager.elevatorTransform.InverseTransformPoint(vector2);
+                }
+            }
+            int floorYRot = (int)base.transform.localEulerAngles.y;
+
+            // on client
+            SetObjectAsNoLongerHeld(grabbableObject,
+                                    droppedInElevator,
+                                    this.NpcController.Npc.isInHangarShipRoom,
+                                    targetFloorPosition,
+                                    floorYRot);
+
+            if (grabbableObject.NetworkObject == null || !grabbableObject.NetworkObject.IsSpawned)
+            {
+                Plugin.LogWarning($"{NpcController.Npc.playerUsername}: Tried to drop an unspawned object! Not networking to other clients!");
+                return;
             }
 
-
+            // for other clients
+            SetObjectAsNoLongerHeldServerRpc(new DropItemNetworkSerializable()
+            {
+                DroppedInElevator = droppedInElevator,
+                DroppedInShipRoom = this.NpcController.Npc.isInHangarShipRoom,
+                FloorYRot = floorYRot,
+                GrabbedObject = grabbableObject.NetworkObject,
+                TargetFloorPosition = targetFloorPosition,
+                SkipPlayer = NetworkManager.LocalClientId
+            });
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -6634,6 +6634,7 @@ namespace LethalBots.AI
             lethalBot.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
 
             // Despawn and sync with others!
+            NpcController.ThrowingObject = true;
             DespawnHeldObjectOnClient();
             DespawnHeldObjectOnServerRpc();
         }
@@ -6690,6 +6691,7 @@ namespace LethalBots.AI
         [ClientRpc]
         private void DespawnHeldObjectClientRpc()
         {
+            NpcController.ThrowingObject = false; // Set false for all!
             if (!IsOwner)
             {
                 DespawnHeldObjectOnClient();
@@ -6733,6 +6735,9 @@ namespace LethalBots.AI
         [ClientRpc]
         private void SetObjectAsNoLongerHeldClientRpc(DropItemNetworkSerializable dropItemNetworkSerializable)
         {
+            // Always set ThrowingObject to false!
+            NpcController.ThrowingObject = false;
+
             // Skip the owner if we were told to!
             ulong? skipClientId = dropItemNetworkSerializable.SkipPlayer;
             if (skipClientId.HasValue && skipClientId.Value == NetworkManager.LocalClientId)
@@ -6820,6 +6825,9 @@ namespace LethalBots.AI
         [ClientRpc]
         private void PlaceGrabbableObjectClientRpc(PlaceItemNetworkSerializable placeItemNetworkSerializable)
         {
+            // Always set ThrowingObject to false!
+            NpcController.ThrowingObject = false;
+
             ulong? skipClientId = placeItemNetworkSerializable.SkipPlayer;
             if (skipClientId.HasValue && skipClientId.Value == NetworkManager.LocalClientId)
             {

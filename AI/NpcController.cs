@@ -50,6 +50,7 @@ namespace LethalBots.AI
         public bool StartedJetpackControls;
         public float UpperBodyAnimationsWeight;
         public Vector3 RightArmProceduralTargetBasePosition;
+        public bool ThrowingObject;
         public float TimeSinceSwitchingSlots;
         public float TimeSinceTakingGravityDamage;
         public bool TeleportingThisFrame;
