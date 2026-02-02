@@ -1476,15 +1476,16 @@ namespace LethalBots.AI
             }
             Npc.movementAudio.pitch = Random.Range(0.93f, 1.07f);
 
+            bool flag = LethalBotAIController.IsOwner ? Npc.isSprinting : Npc.playerBodyAnimator.GetCurrentAnimatorStateInfo(0).IsTag(Const.PLAYER_ANIMATION_BOOL_SPRINTING);
             float volumeScale = 0.9f;
-            if (!Npc.isSprinting)
+            if (!flag)
             {
                 volumeScale = 0.6f;
             }
 
             Npc.movementAudio.PlayOneShot(currentFootstepAudioClips[currentFootstepAudioClip], volumeScale);
             this.previousFootstepClip = currentFootstepAudioClip;
-            //WalkieTalkie.TransmitOneShotAudio(this.movementAudio, StartOfRound.Instance.footstepSurfaces[this.currentFootstepSurfaceIndex].clips[num], num2);
+            WalkieTalkie.TransmitOneShotAudio(Npc.movementAudio, StartOfRound.Instance.footstepSurfaces[Npc.currentFootstepSurfaceIndex].clips[currentFootstepAudioClip], volumeScale);
         }
 
         #endregion
