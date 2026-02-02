@@ -338,8 +338,8 @@ namespace LethalBots
             }
             if (isModShowCapacityLoaded)
             {
-                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("ShowCapacity.Patches.PlayerControllerBPatch"), "Update_PreFix"),
-                               new HarmonyMethod(typeof(ShowCapacityPatch), nameof(ShowCapacityPatch.Update_PreFix_Prefix)));
+                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("ShowCapacity.Patches.PlayerControllerBPatch"), "Update_PostFix"),
+                               new HarmonyMethod(typeof(ShowCapacityPatch), nameof(ShowCapacityPatch.Update_PostFix_Prefix)));
             }
             if (IsModReviveCompanyLoaded)
             {
