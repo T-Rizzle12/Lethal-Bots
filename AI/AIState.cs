@@ -851,13 +851,13 @@ namespace LethalBots.AI
         /// </summary>
         public virtual void StopAllCoroutines()
         {
-            if (ai.searchForPlayers.inProgress)
+            if (ai.searchForPlayers.searchInProgress)
             {
-                ai.StopSearch(ai.searchForPlayers, false);
+                ai.searchForPlayers.StopSearch();
             }
-            if (ai.searchForScrap.inProgress)
+            if (ai.searchForScrap.searchInProgress)
             {
-                ai.StopSearch(ai.searchForScrap, false);
+                ai.searchForScrap.StopSearch();
             }
             StopSafePathCoroutine();
             StopLookingAroundCoroutine();
@@ -1188,6 +1188,20 @@ namespace LethalBots.AI
                 pathfindCancellationToken = null;
             }
         }
+
+        /// <summary>
+        /// This decides if <paramref name="node"/> is valid or not when finding a valid node<br/>
+        /// </summary>
+        /// <remarks>
+        /// This was designed for use in <see cref="LethalBotSearchRoutine.ChooseTargetCoroutine()"/> calls.
+        /// </remarks>
+        /// <param name="node"></param>
+        /// <returns>true if the candidate node is considered valid</returns>
+        // Uncomment here and in LethalBotSearchRoutine when a State needs it
+        // public virtual bool IsNodeValidForTarget(GameObject node)
+        // {
+        //     return true;
+        // }
 
         /// <summary>
         /// Coroutine for making bot turn his body to look around him

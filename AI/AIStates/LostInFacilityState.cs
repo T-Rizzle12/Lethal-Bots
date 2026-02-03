@@ -18,15 +18,13 @@ namespace LethalBots.AI.AIStates
         public LostInFacilityState(AIState oldState) : base(oldState)
         {
             CurrentState = EnumAIStates.LostInFacility;
-            stuckSearch.searchCenterFollowsAI = true;
-            stuckSearch.nodeChance = 0.65f;
+            stuckSearch.ai = ai;
         }
 
         public LostInFacilityState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.LostInFacility;
-            stuckSearch.searchCenterFollowsAI = true;
-            stuckSearch.nodeChance = 0.65f;
+            stuckSearch.ai = ai;
         }
 
         public override void DoAI()
@@ -52,6 +50,7 @@ namespace LethalBots.AI.AIStates
 
             // TODO: If bot finds a key, bot should drop least valuable item in inventory and pick the key up
 
+            bool hasSpaceInInventory = false;
             // Check for object to grab
             if (ai.HasSpaceInInventory())
             {
@@ -61,6 +60,7 @@ namespace LethalBots.AI.AIStates
                     ai.State = new FetchingObjectState(this, grabbableObject);
                     return;
                 }
+                hasSpaceInInventory = true;
             }
 
             if (ai.isOutside)
@@ -96,26 +96,38 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
-            ai.SetDestinationToPositionLethalBotAI(ai.destination);
-            ai.OrderMoveToDestination();
-
-            if (!ai.searchForScrap.inProgress && ai.HasSpaceInInventory())
+            Vector3? destination;
+            if (hasSpaceInInventory)
             {
-                // All we can do now is search for loot or keys
-                ai.StopSearch(stuckSearch, false);
-                ai.StartSearch(ai.searchForScrap);
+                // We still grab loot so we use ai.searchForScrap
+                destination = ai.searchForScrap.GetTargetPosition();
+                if (!ai.searchForScrap.searchInProgress)
+                {
+                    stuckSearch.StopSearch();
+                    ai.searchForScrap.StartSearch();
+                }
             }
-            // Because the bot's inventory is full, the bot will ignore the loot it is passing by, when the bot frees space in inventory the bot should be able to revisit those areas again for loot, that's why we use stuckSearch instead of ai.searchForScrap
-            else if (ai.agent.isOnNavMesh && !stuckSearch.inProgress)
+            else
             {
-                ai.StopSearch(ai.searchForScrap, false);
-                ai.StartSearch(stuckSearch);
+                // Because the bot's inventory is full, the bot will ignore any loot it is passing by, when the bot frees space in inventory the bot should be able to revisit those areas again for loot, that's why we use stuckSearch instead of ai.searchForScrap
+                destination = stuckSearch.GetTargetPosition();
+                if (ai.agent.isOnNavMesh && !stuckSearch.searchInProgress)
+                {
+                    ai.searchForScrap.StopSearch();
+                    stuckSearch.StartSearch();
+                }
+            }
+
+            if (destination != null)
+            {
+                ai.SetDestinationToPositionLethalBotAI(destination.Value);
+                ai.OrderMoveToDestination();
             }
         }
 
         public override void StopAllCoroutines()
         {
-            ai.StopSearch(stuckSearch, false);
+            stuckSearch.StopSearch();
             base.StopAllCoroutines();
             StopSearchingWanderCoroutine();
         }

@@ -110,9 +110,9 @@ namespace LethalBots.AI.AIStates
                 }
             }
 
-            // If we are at the company building and have some scrap, we should sell it!
+            // If we are at the company building and have sellable items, we should sell it!
             if (LethalBotManager.AreWeAtTheCompanyBuilding() 
-                && ai.HasScrapInInventory())
+                && ai.HasSellableItemInInventory())
             {
                 ai.State = new SellScrapState(this);
                 return;

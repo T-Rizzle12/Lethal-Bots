@@ -123,18 +123,22 @@ namespace LethalBots.AI.AIStates
                 lookForPlayerTimer += ai.AIIntervalTime;
             }
 
-            ai.SetDestinationToPositionLethalBotAI(ai.destination);
-            ai.OrderMoveToDestination();
+            Vector3? destination = ai.searchForPlayers.GetTargetPosition();
+            if (destination != null)
+            {
+                ai.SetDestinationToPositionLethalBotAI(destination.Value);
+                ai.OrderMoveToDestination();
+            }
 
             if (!foundSearchCenter && ai.agent.isOnNavMesh)
             {
                 ai.searchForPlayers.searchCenter = ai.transform.position;
                 foundSearchCenter = true;
             }
-            else if (!ai.searchForPlayers.inProgress)
+            else if (!ai.searchForPlayers.searchInProgress)
             {
                 // Start the coroutine to search for players
-                ai.StartSearch(ai.searchForPlayers);
+                ai.searchForPlayers.StartSearch();
             }
         }
 

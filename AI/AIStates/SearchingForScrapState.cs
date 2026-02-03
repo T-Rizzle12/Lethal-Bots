@@ -297,10 +297,10 @@ namespace LethalBots.AI.AIStates
                 // If we need to go down an elevator we should do so!
                 if (LethalBotAI.ElevatorScript != null && ai.IsInElevatorStartRoom)
                 {
-                    if (ai.searchForScrap.inProgress)
+                    if (ai.searchForScrap.searchInProgress)
                     {
                         // Stop the coroutine while we use the elevator
-                        ai.StopSearch(ai.searchForScrap, false);
+                        ai.searchForScrap.StopSearch();
                     }
                     ai.UseElevator(false);
                 }
@@ -329,13 +329,17 @@ namespace LethalBots.AI.AIStates
                     }
 
                     // Lets get ourselves some loot
-                    ai.SetDestinationToPositionLethalBotAI(ai.destination);
-                    ai.OrderMoveToDestination();
+                    Vector3? destination = ai.searchForScrap.GetTargetPosition();
+                    if (destination != null)
+                    {
+                        ai.SetDestinationToPositionLethalBotAI(destination.Value);
+                        ai.OrderMoveToDestination();
+                    }
 
-                    if (!ai.searchForScrap.inProgress)
+                    if (!ai.searchForScrap.searchInProgress)
                     {
                         // Start the coroutine to search for loot
-                        ai.StartSearch(ai.searchForScrap);
+                        ai.searchForScrap.StartSearch();
                     }
                 }
             }
