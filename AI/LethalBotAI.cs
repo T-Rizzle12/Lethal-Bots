@@ -2374,8 +2374,7 @@ namespace LethalBots.AI
             float closestEnemyDistSqr = float.MaxValue;
             foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
             {
-
-                if (spawnedEnemy.isEnemyDead)
+                if (spawnedEnemy == null || spawnedEnemy.isEnemyDead)
                 {
                     continue;
                 }
@@ -7735,7 +7734,7 @@ namespace LethalBots.AI
             NpcController.Npc.isPlayerControlled = false;
             NpcController.Npc.thisPlayerModelArms.enabled = false;
             NpcController.Npc.localVisor.position = NpcController.Npc.playersManager.notSpawnedPosition.position;
-            LethalBotManager.Instance.DisableLethalBotControllerModel(NpcController.Npc.gameObject, NpcController.Npc, enable: false, disableLocalArms: false);
+            NpcController.Npc.DisablePlayerModel(NpcController.Npc.gameObject, enable: false, disableLocalArms: false);
             NpcController.Npc.isInsideFactory = false;
             NpcController.Npc.IsInspectingItem = false;
             if (NpcController.Npc.inTerminalMenu)

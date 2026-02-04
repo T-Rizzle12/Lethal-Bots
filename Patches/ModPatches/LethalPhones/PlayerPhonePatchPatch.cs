@@ -12,16 +12,16 @@ namespace LethalBots.Patches.ModPatches.LethalPhones
     [HarmonyPatch(typeof(PlayerPhonePatch))]
     public class PlayerPhonePatchPatch
     {
-        [HarmonyPatch("PlayerModelDisabled")]
-        [HarmonyPrefix]
-        static bool PlayerModelDisabled_Prefix(PlayerControllerB __0)
-        {
-            if (LethalBotManager.Instance.IsPlayerLethalBot(__0))
-            {
-                return false;
-            }
-            return true;
-        }
+        //[HarmonyPatch("PlayerModelDisabled")]
+        //[HarmonyPrefix]
+        //static bool PlayerModelDisabled_Prefix(PlayerControllerB __0)
+        //{
+        //    if (LethalBotManager.Instance.IsPlayerLethalBot(__0))
+        //    {
+        //        return false;
+        //    }
+        //    return true;
+        //}
 
         [HarmonyPatch("PlayerSpawnBody")]
         [HarmonyPrefix]

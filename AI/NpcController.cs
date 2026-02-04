@@ -50,7 +50,21 @@ namespace LethalBots.AI
         public bool StartedJetpackControls;
         public float UpperBodyAnimationsWeight;
         public Vector3 RightArmProceduralTargetBasePosition;
-        public bool ThrowingObject;
+
+        // HACKHACK: OverrideThrowingObject only exists since ThrowingObject can be changed in RPCs which are called
+        // after update is run and will get overriden next PlayerControllerB updated.
+        public bool OverrideThrowingObject;
+        private bool _throwingObject;
+        public bool ThrowingObject
+        {
+            set
+            {
+                OverrideThrowingObject = true;
+                _throwingObject = value;
+            }
+            get => _throwingObject;
+        }
+
         public float TimeSinceSwitchingSlots;
         public float TimeSinceTakingGravityDamage;
         public bool TeleportingThisFrame;

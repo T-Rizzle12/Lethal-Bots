@@ -1079,7 +1079,7 @@ namespace LethalBots.Managers
             lethalBotController.actualClientId = lethalBotController.playerClientId + Const.LETHAL_BOT_ACTUAL_ID_OFFSET;
             lethalBotController.playerActions = new PlayerActions();
             lethalBotController.health = 100;
-            DisableLethalBotControllerModel(objectParent, lethalBotController, enable: true, disableLocalArms: true);
+            lethalBotController.DisablePlayerModel(objectParent, enable: true, disableLocalArms: true);
             lethalBotController.isInsideFactory = !spawnParamsNetworkSerializable.IsOutside;
             lethalBotController.isMovementHindered = 0;
             lethalBotController.hinderedMultiplier = 1f;
@@ -1312,7 +1312,7 @@ namespace LethalBots.Managers
 
                 lethalBotController.TeleportPlayer(lethalBotController.playersManager.notSpawnedPosition.position);
                 lethalBotController.localVisor.position = lethalBotController.playersManager.notSpawnedPosition.position;
-                DisableLethalBotControllerModel(lethalBotController.gameObject, lethalBotController, enable: true, disableLocalArms: true);
+                lethalBotController.DisablePlayerModel(lethalBotController.gameObject, enable: true, disableLocalArms: true);
 
                 // Reset the animator state
                 Animator lethalBotAnimator = lethalBotController.playerBodyAnimator;
@@ -1414,22 +1414,6 @@ namespace LethalBots.Managers
             if (lethalBotAI != null)
             {
                 HandleLethalBotKicked(lethalBotAI);
-            }
-        }
-
-        /// <summary>
-        /// Manual DisablePlayerModel, for compatibility with mod LethalPhones, does not trigger patch of DisablePlayerModel in LethalPhones
-        /// </summary>
-        public void DisableLethalBotControllerModel(GameObject lethalBotObject, PlayerControllerB lethalBotController, bool enable = false, bool disableLocalArms = false)
-        {
-            SkinnedMeshRenderer[] componentsInChildren = lethalBotObject.GetComponentsInChildren<SkinnedMeshRenderer>();
-            foreach (var component in componentsInChildren)
-            {
-                component.enabled = enable;
-            }
-            if (disableLocalArms)
-            {
-                lethalBotController.thisPlayerModelArms.enabled = false;
             }
         }
 
@@ -2993,7 +2977,7 @@ namespace LethalBots.Managers
                 lethalBotController.isPlayerControlled = false;
                 lethalBotController.TeleportPlayer(lethalBotController.playersManager.notSpawnedPosition.position);
                 lethalBotController.localVisor.position = lethalBotController.playersManager.notSpawnedPosition.position;
-                DisableLethalBotControllerModel(lethalBotController.gameObject, lethalBotController, enable: true, disableLocalArms: true);
+                lethalBotController.DisablePlayerModel(lethalBotController.gameObject, enable: true, disableLocalArms: true);
 
                 // HACKHACK: ModelReplacementAPI recreates the body replacement even on disabled player controllers,
                 // we have to mimic what the base game does and switch back to the default suit here!
