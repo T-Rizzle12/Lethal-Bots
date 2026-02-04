@@ -5978,7 +5978,7 @@ namespace LethalBots.AI
                 lethalBotController.itemAudio.PlayOneShot(grabbableObject.itemProperties.grabSFX, 1f);
             }
 
-            lethalBotController.carryWeight += Mathf.Clamp(grabbableObject.itemProperties.weight - 1f, 0f, 10f);
+            lethalBotController.carryWeight += Mathf.Clamp(grabbableObject.itemProperties.weight - 1f, 1f, 10f);
             NpcController.GrabbedObjectValidated = true;
 
             // Only call this on the owner, it will be networked if needed!
