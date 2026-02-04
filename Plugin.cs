@@ -378,11 +378,11 @@ namespace LethalBots
                                null,
                                new HarmonyMethod(typeof(LCAlwaysHearActiveWalkiePatch), nameof(LCAlwaysHearActiveWalkiePatch.alwaysHearWalkieTalkiesPatch_Transpiler)));
             }*/
-            if (isModButteryFixesLoaded)
+            /*if (isModButteryFixesLoaded)
             {
                 _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("ButteryFixes.Patches.Player.BodyPatches"), "DeadBodyInfoPostStart"),
                                new HarmonyMethod(typeof(BodyPatchesPatch), nameof(BodyPatchesPatch.DeadBodyInfoPostStart_Prefix)));
-            }
+            }*/
             if (isModPeepersLoaded)
             {
                 _harmony.PatchAll(typeof(PeeperAttachHitboxPatch));
