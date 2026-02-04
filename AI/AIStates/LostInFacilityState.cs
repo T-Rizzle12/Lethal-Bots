@@ -111,7 +111,7 @@ namespace LethalBots.AI.AIStates
             {
                 // Because the bot's inventory is full, the bot will ignore any loot it is passing by, when the bot frees space in inventory the bot should be able to revisit those areas again for loot, that's why we use stuckSearch instead of ai.searchForScrap
                 destination = stuckSearch.GetTargetPosition();
-                if (ai.agent.isOnNavMesh && !stuckSearch.searchInProgress)
+                if (!stuckSearch.searchInProgress)
                 {
                     ai.searchForScrap.StopSearch();
                     stuckSearch.StartSearch();
