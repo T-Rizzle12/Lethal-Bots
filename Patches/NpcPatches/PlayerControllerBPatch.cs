@@ -74,14 +74,8 @@ namespace LethalBots.Patches.NpcPatches
                 npcController.DisabledJetpackControlsThisFrame = ___disabledJetpackControlsThisFrame;
                 npcController.StartedJetpackControls = ___startedJetpackControls;
                 npcController.UpperBodyAnimationsWeight = ___upperBodyAnimationsWeight;
-
-                // HACKHACK: ThrowingObject is updated in and RPC which is not during the standard update call
-                if (!npcController.OverrideThrowingObject)
-                { 
-                    npcController.ThrowingObject = ___throwingObject; 
-                }
-
-                npcController.TimeSinceSwitchingSlots = ___timeSinceSwitchingSlots;
+                npcController.ThrowingObject.Apply(___throwingObject); // NOTE: ThrowingObject is updated in an RPC which is not during the standard update call
+                npcController.TimeSinceSwitchingSlots.Apply(___timeSinceSwitchingSlots); // NOTE: TimeSinceSwitchingSlots can be updated in an RPC which is not during the standard update call
                 npcController.TimeSinceTakingGravityDamage = ___timeSinceTakingGravityDamage;
                 npcController.TeleportingThisFrame = ___teleportingThisFrame;
                 npcController.PreviousFrameDeltaTime = ___previousFrameDeltaTime;
@@ -99,7 +93,6 @@ namespace LethalBots.Patches.NpcPatches
 
                 ___startedJetpackControls = npcController.StartedJetpackControls;
                 ___upperBodyAnimationsWeight = npcController.UpperBodyAnimationsWeight;
-                npcController.OverrideThrowingObject = false; // Always set this to false after updating!
                 ___throwingObject = npcController.ThrowingObject;
                 ___timeSinceSwitchingSlots = npcController.TimeSinceSwitchingSlots;
                 ___timeSinceTakingGravityDamage = npcController.TimeSinceTakingGravityDamage;

@@ -1077,8 +1077,12 @@ namespace LethalBots.Managers
             lethalBotController.playerSteamId = 0ul; // Set SteamId to 0 since the game code considers that invalid
             lethalBotController.playerClientId = (ulong)spawnParamsNetworkSerializable.IndexNextPlayerObject;
             lethalBotController.actualClientId = lethalBotController.playerClientId + Const.LETHAL_BOT_ACTUAL_ID_OFFSET;
+            lethalBotController.isInElevator = true;
+            lethalBotController.isInHangarShipRoom = true;
+            lethalBotAI.isInsidePlayerShip = true;
+            lethalBotController.parentedToElevatorLastFrame = false; // Force update!
             lethalBotController.playerActions = new PlayerActions();
-            lethalBotController.health = 100;
+            lethalBotController.health = spawnParamsNetworkSerializable.Hp == 0 ? 100 : spawnParamsNetworkSerializable.Hp;
             lethalBotController.DisablePlayerModel(objectParent, enable: true, disableLocalArms: true);
             lethalBotController.isInsideFactory = !spawnParamsNetworkSerializable.IsOutside;
             lethalBotController.isMovementHindered = 0;
@@ -2213,6 +2217,7 @@ namespace LethalBots.Managers
                 }
                 playerControllerB.isInElevator = false;
                 playerControllerB.isInHangarShipRoom = false;
+                lethalBotAI.isInsidePlayerShip = false;
                 playerControllerB.isInsideFactory = true;
                 playerControllerB.averageVelocity = 0f;
                 playerControllerB.velocityLastFrame = Vector3.zero;
@@ -3080,6 +3085,7 @@ namespace LethalBots.Managers
                             {
                                 lethalBotController.isInElevator = true;
                                 lethalBotController.isInHangarShipRoom = true;
+                                lethalBotAI.isInsidePlayerShip = true;
                                 Vector3 shipPos = StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, (int)lethalBotController.playerClientId, false);
                                 lethalBotController.thisController.enabled = false;
                                 lethalBotController.TeleportPlayer(shipPos);

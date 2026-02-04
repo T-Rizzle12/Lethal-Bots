@@ -6202,43 +6202,49 @@ namespace LethalBots.AI
             {
                 return;
             }
-            NpcController.Npc.currentItemSlot = slot;
+
+            // Cached Values
+            PlayerControllerB thisBot = NpcController.Npc;
+            GrabbableObject[] itemSlots = thisBot.ItemSlots;
+
+            // Rest of copied code!
+            thisBot.currentItemSlot = slot;
             if (fillSlotWithItem != null)
             {
-                NpcController.Npc.ItemSlots[slot] = fillSlotWithItem;
+                itemSlots[slot] = fillSlotWithItem;
             }
             if (!this.AreHandsFree())
             {
-                this.HeldItem.playerHeldBy = NpcController.Npc;
+                this.HeldItem.playerHeldBy = thisBot;
                 this.SetSpecialGrabAnimationBool(false, this.HeldItem);
                 this.HeldItem.PocketItem();
-                if (NpcController.Npc.ItemSlots[slot] != null && !string.IsNullOrEmpty(NpcController.Npc.ItemSlots[slot].itemProperties.pocketAnim))
+                if (itemSlots[slot] != null && !string.IsNullOrEmpty(itemSlots[slot].itemProperties.pocketAnim))
                 {
-                    NpcController.Npc.playerBodyAnimator.SetTrigger(NpcController.Npc.ItemSlots[slot].itemProperties.pocketAnim);
+                    thisBot.playerBodyAnimator.SetTrigger(itemSlots[slot].itemProperties.pocketAnim);
                 }
             }
-            if (NpcController.Npc.ItemSlots[slot] != null)
+            if (itemSlots[slot] != null)
             {
-                NpcController.Npc.ItemSlots[slot].playerHeldBy = NpcController.Npc;
-                NpcController.Npc.ItemSlots[slot].EquipItem();
-                this.SetSpecialGrabAnimationBool(true, NpcController.Npc.ItemSlots[slot]);
+                itemSlots[slot].playerHeldBy = thisBot;
+                itemSlots[slot].EquipItem();
+                this.SetSpecialGrabAnimationBool(true, itemSlots[slot]);
                 if (!this.AreHandsFree())
                 {
-                    if (NpcController.Npc.ItemSlots[slot].itemProperties.twoHandedAnimation || this.HeldItem.itemProperties.twoHandedAnimation)
+                    if (itemSlots[slot].itemProperties.twoHandedAnimation || this.HeldItem.itemProperties.twoHandedAnimation)
                     {
-                        NpcController.Npc.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATIONTWOHANDED);
-                        NpcController.Npc.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATIONTWOHANDED);
+                        thisBot.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATIONTWOHANDED);
+                        thisBot.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATIONTWOHANDED);
                     }
-                    NpcController.Npc.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATION);
-                    NpcController.Npc.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATION);
+                    thisBot.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATION);
+                    thisBot.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATION);
                 }
-                NpcController.Npc.twoHandedAnimation = NpcController.Npc.ItemSlots[slot].itemProperties.twoHandedAnimation;
-                NpcController.Npc.twoHanded = NpcController.Npc.ItemSlots[slot].itemProperties.twoHanded;
-                NpcController.Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, true);
-                NpcController.Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, false);
-                NpcController.Npc.isHoldingObject = true;
-                NpcController.Npc.currentlyHeldObjectServer = NpcController.Npc.ItemSlots[slot];
-                this.HeldItem = NpcController.Npc.ItemSlots[slot];
+                thisBot.twoHandedAnimation = itemSlots[slot].itemProperties.twoHandedAnimation;
+                thisBot.twoHanded = itemSlots[slot].itemProperties.twoHanded;
+                thisBot.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, true);
+                thisBot.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, false);
+                thisBot.isHoldingObject = true;
+                thisBot.currentlyHeldObjectServer = itemSlots[slot];
+                this.HeldItem = itemSlots[slot];
                 if (fillSlotWithItem == null)
                 {
                     this.HeldItem.gameObject.GetComponent<AudioSource>().PlayOneShot(this.HeldItem.itemProperties.grabSFX, 0.6f);
@@ -6247,13 +6253,13 @@ namespace LethalBots.AI
             else
             {
                 this.HeldItem = null;
-                NpcController.Npc.currentlyHeldObject = null;
-                NpcController.Npc.currentlyHeldObjectServer = null;
-                NpcController.Npc.isHoldingObject = false;
-                NpcController.Npc.twoHanded = false;
-                NpcController.Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, true);
+                thisBot.currentlyHeldObject = null;
+                thisBot.currentlyHeldObjectServer = null;
+                thisBot.isHoldingObject = false;
+                thisBot.twoHanded = false;
+                thisBot.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, true);
             }
-            NpcController.TimeSinceSwitchingSlots = 0f;
+            NpcController.TimeSinceSwitchingSlots.Value = 0f;
         }
 
         /// <summary>
@@ -6334,7 +6340,7 @@ namespace LethalBots.AI
             {
                 if (parentObjectTo == null)
                 {
-                    NpcController.ThrowingObject = true; // Just like the base game!
+                    NpcController.ThrowingObject.Value = true; // Just like the base game!
                     if (NpcController.Npc.isInElevator)
                     {
                         placePosition = StartOfRound.Instance.elevatorTransform.InverseTransformPoint(placePosition);
@@ -6394,7 +6400,7 @@ namespace LethalBots.AI
             }
 
             // More base game logic!
-            NpcController.ThrowingObject = true;
+            NpcController.ThrowingObject.Value = true;
             bool droppedInElevator = this.NpcController.Npc.isInElevator;
             Vector3 targetFloorPosition;
             if (!NpcController.Npc.isInElevator)
@@ -6633,7 +6639,7 @@ namespace LethalBots.AI
             lethalBot.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
 
             // Despawn and sync with others!
-            NpcController.ThrowingObject = true;
+            NpcController.ThrowingObject.Value = true;
             DespawnHeldObjectOnClient();
             DespawnHeldObjectOnServerRpc();
         }
@@ -6653,11 +6659,12 @@ namespace LethalBots.AI
 
             Plugin.LogDebug($"{NpcController.Npc.playerUsername} Try to despawn held item {this.HeldItem} on client #{NetworkManager.LocalClientId}");
             PlayerControllerB lethalBot = NpcController.Npc;
-            for (int i = 0; i < lethalBot.ItemSlots.Length; i++)
+            GrabbableObject?[] itemSlots = lethalBot.ItemSlots;
+            for (int i = 0; i < itemSlots.Length; i++)
             {
-                if (lethalBot.ItemSlots[i] == this.HeldItem)
+                if (itemSlots[i] == this.HeldItem)
                 {
-                    lethalBot.ItemSlots[i] = null;
+                    itemSlots[i] = null;
                     break;
                 }
             }
@@ -6690,7 +6697,7 @@ namespace LethalBots.AI
         [ClientRpc]
         private void DespawnHeldObjectClientRpc()
         {
-            NpcController.ThrowingObject = false; // Set false for all!
+            NpcController.ThrowingObject.Value = false; // Set false for all!
             if (!IsOwner)
             {
                 DespawnHeldObjectOnClient();
@@ -6735,7 +6742,7 @@ namespace LethalBots.AI
         private void SetObjectAsNoLongerHeldClientRpc(DropItemNetworkSerializable dropItemNetworkSerializable)
         {
             // Always set ThrowingObject to false!
-            NpcController.ThrowingObject = false;
+            NpcController.ThrowingObject.Value = false;
 
             // Skip the owner if we were told to!
             ulong? skipClientId = dropItemNetworkSerializable.SkipPlayer;
@@ -6825,7 +6832,7 @@ namespace LethalBots.AI
         private void PlaceGrabbableObjectClientRpc(PlaceItemNetworkSerializable placeItemNetworkSerializable)
         {
             // Always set ThrowingObject to false!
-            NpcController.ThrowingObject = false;
+            NpcController.ThrowingObject.Value = false;
 
             ulong? skipClientId = placeItemNetworkSerializable.SkipPlayer;
             if (skipClientId.HasValue && skipClientId.Value == NetworkManager.LocalClientId)
@@ -6914,11 +6921,12 @@ namespace LethalBots.AI
             NpcController.Npc.twoHanded = false;
             NpcController.Npc.twoHandedAnimation = false;
             NpcController.GrabbedObjectValidated = false;
-            for (int i = 0; i < NpcController.Npc.ItemSlots.Length; i++)
+            GrabbableObject?[] itemSlots = NpcController.Npc.ItemSlots;
+            for (int i = 0; i < itemSlots.Length; i++)
             {
-                if (NpcController.Npc.ItemSlots[i] == grabbableObject)
+                if (itemSlots[i] == grabbableObject)
                 {
-                    NpcController.Npc.ItemSlots[i] = null;
+                    itemSlots[i] = null;
                     break;
                 }
             }
