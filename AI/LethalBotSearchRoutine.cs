@@ -9,7 +9,7 @@ namespace LethalBots.AI
     public class LethalBotSearchRoutine
     {
         public LethalBotAI ai = null!;
-        public List<GameObject?> unsearchedNodes { get; set; } = [];
+public List<GameObject?> unsearchedNodes { get; set; } = new List<GameObject?>();
         private Coroutine? searchCoroutine;
         private Coroutine? selectTargetCoroutine;
 
