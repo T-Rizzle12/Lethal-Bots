@@ -60,6 +60,7 @@ namespace LethalBots.Configs
         // Voices
         public ConfigEntry<int> Talkativeness;
         public ConfigEntry<bool> AllowSwearing;
+        [SyncedEntryField] public SyncedEntry<bool> AllowTalkingWhileDead;
 
         // Debug
         public ConfigEntry<bool> EnableDebugLog;
@@ -213,6 +214,11 @@ namespace LethalBots.Configs
                                      "Swear words (Client only)",
                                      defaultValue: false,
                                      "Allow the use of swear words in bots voice lines ?");
+
+            AllowTalkingWhileDead = cfg.BindSyncedEntry(ConfigConst.ConfigSectionVoices,
+                                                        "Allow bots to talk while dead",
+                                                        defaultVal: true,
+                                                        "Are bots that are dead allowed to talk? (NOTE: Only other dead players can hear them!)");
 
             // Debug
             EnableDebugLog = cfg.Bind(ConfigConst.ConfigSectionDebug,

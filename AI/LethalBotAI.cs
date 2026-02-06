@@ -476,6 +476,7 @@ namespace LethalBots.AI
                     {
                         // Do the AI calculation behaviour for the current state
                         State.DoAI();
+                        State.TryPlayCurrentStateVoiceAudio();
                         updateDestinationIntervalLethalBotAI = AIIntervalTime;
                     }
                 }
@@ -5978,7 +5979,7 @@ namespace LethalBots.AI
                 lethalBotController.itemAudio.PlayOneShot(grabbableObject.itemProperties.grabSFX, 1f);
             }
 
-            lethalBotController.carryWeight += Mathf.Clamp(grabbableObject.itemProperties.weight - 1f, 1f, 10f);
+            lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight + (grabbableObject.itemProperties.weight - 1f), 1f, 10f);
             NpcController.GrabbedObjectValidated = true;
 
             // Only call this on the owner, it will be networked if needed!
@@ -6673,9 +6674,7 @@ namespace LethalBots.AI
             lethalBot.isHoldingObject = false;
             lethalBot.twoHanded = false;
             lethalBot.twoHandedAnimation = false;
-
-            float weightToLose = this.HeldItem.itemProperties.weight - 1f < 0f ? 0f : this.HeldItem.itemProperties.weight - 1f;
-            lethalBot.carryWeight = Mathf.Clamp(lethalBot.carryWeight - weightToLose, 1f, 10f);
+            lethalBot.carryWeight = Mathf.Clamp(lethalBot.carryWeight - (this.HeldItem.itemProperties.weight - 1f), 1f, 10f);
         }
 
         /// <summary>
@@ -6931,8 +6930,7 @@ namespace LethalBots.AI
                 }
             }
 
-            float weightToLose = grabbableObject.itemProperties.weight - 1f < 0f ? 0f : grabbableObject.itemProperties.weight - 1f;
-            NpcController.Npc.carryWeight = Mathf.Clamp(NpcController.Npc.carryWeight - weightToLose, 1f, 10f);
+            NpcController.Npc.carryWeight = Mathf.Clamp(NpcController.Npc.carryWeight - (grabbableObject.itemProperties.weight - 1f), 1f, 10f);
 
             SyncBatteryLethalBot(grabbableObject, (int)(grabbableObject.insertedBattery.charge * 100f));
             Plugin.LogDebug($"{NpcController.Npc.playerUsername} dropped {grabbableObject}, on client #{NetworkManager.LocalClientId}");

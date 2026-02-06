@@ -84,7 +84,28 @@ namespace LethalBots.AI.AIStates
 
         public override void TryPlayCurrentStateVoiceAudio()
         {
-            ai.LethalBotIdentity.Voice.StopAudioFadeOut();
+            //ai.LethalBotIdentity.Voice.StopAudioFadeOut();
+
+            if (Plugin.Config.AllowTalkingWhileDead.Value)
+            {
+                // Default states, wait for cooldown and if no one is talking close
+                ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
+                {
+                    VoiceState = EnumVoicesState.Chilling, // TODO: Add dedicated dead voice state!
+                    CanTalkIfOtherLethalBotTalk = false,
+                    WaitForCooldown = true,
+                    CutCurrentVoiceStateToTalk = false,
+                    CanRepeatVoiceState = true,
+
+                    ShouldSync = true,
+                    IsLethalBotInside = npcController.Npc.isInsideFactory,
+                    AllowSwearing = Plugin.Config.AllowSwearing.Value
+                });
+            }
+            else
+            {
+                ai.LethalBotIdentity.Voice.StopAudioFadeOut();
+            }
         }
 
         // We are dead, these messages mean nothing to us!

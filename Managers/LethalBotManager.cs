@@ -3310,11 +3310,10 @@ namespace LethalBots.Managers
             {
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
-                    || lethalBotAI.isEnemyDead
                     || lethalBotAI.NpcController == null
-                    || lethalBotAI.NpcController.Npc.isPlayerDead
-                    || !lethalBotAI.NpcController.Npc.isPlayerControlled
-                    || lethalBotAI.creatureVoice == null)
+                    || lethalBotAI.creatureVoice == null
+                    || (!lethalBotAI.NpcController.Npc.isPlayerDead
+                        && !lethalBotAI.NpcController.Npc.isPlayerControlled))
                 {
                     continue;
                 }
@@ -3331,10 +3330,9 @@ namespace LethalBots.Managers
             {
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
-                    || lethalBotAI.isEnemyDead
                     || lethalBotAI.NpcController == null
-                    || lethalBotAI.NpcController.Npc.isPlayerDead
-                    || !lethalBotAI.NpcController.Npc.isPlayerControlled)
+                    || (!lethalBotAI.NpcController.Npc.isPlayerDead
+                        && !lethalBotAI.NpcController.Npc.isPlayerControlled))
                 {
                     continue;
                 }
