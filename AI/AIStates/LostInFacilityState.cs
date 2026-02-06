@@ -13,18 +13,18 @@ namespace LethalBots.AI.AIStates
     {
         private Coroutine searchingWanderCoroutine = null!;
         private float findEntranceTimer;
-        private LethalBotSearchRoutine stuckSearch = new LethalBotSearchRoutine();
+        private LethalBotSearchRoutine stuckSearch = null!;
 
         public LostInFacilityState(AIState oldState) : base(oldState)
         {
             CurrentState = EnumAIStates.LostInFacility;
-            stuckSearch.ai = ai;
+            stuckSearch = new LethalBotSearchRoutine(ai);
         }
 
         public LostInFacilityState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.LostInFacility;
-            stuckSearch.ai = ai;
+            stuckSearch = new LethalBotSearchRoutine(ai);
         }
 
         public override void DoAI()

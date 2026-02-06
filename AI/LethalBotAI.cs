@@ -163,8 +163,8 @@ namespace LethalBots.AI
         }
         private Dictionary<Collider, BridgeTrigger> dictColliderToBridge = null!;
         
-        public LethalBotSearchRoutine searchForScrap = new LethalBotSearchRoutine();
-        public LethalBotSearchRoutine searchForPlayers = new LethalBotSearchRoutine();
+        public LethalBotSearchRoutine searchForScrap = null!;
+        public LethalBotSearchRoutine searchForPlayers = null!;
         
         private Coroutine grabObjectCoroutine = null!;
         private Coroutine? spawnAnimationCoroutine = null;
@@ -293,8 +293,6 @@ namespace LethalBots.AI
             addPlayerVelocityToDestination = 3f;
             
             // Search coroutines
-            searchForScrap.ai = this;
-            searchForPlayers.ai = this;
             searchForPlayers.searchCenterFollowsAI = false;
 
             // Body collider
