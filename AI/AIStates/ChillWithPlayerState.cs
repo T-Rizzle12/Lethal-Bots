@@ -106,6 +106,14 @@ namespace LethalBots.AI.AIStates
                     ai.State = new FetchingObjectState(this, grabbableObject);
                     return;
                 }
+                if (!ai.searchForScrap.visitInProgress && !ai.isOutside)
+                {
+                    ai.searchForScrap.StartSearch(true);
+                }
+            }
+            if (ai.isOutside && ai.searchForScrap.visitInProgress)
+            {
+                ai.searchForScrap.StopSearch();
             }
 
             VehicleController? vehicleController = ai.GetVehicleCruiserTargetPlayerIsIn();

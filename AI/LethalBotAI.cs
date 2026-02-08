@@ -293,7 +293,10 @@ namespace LethalBots.AI
             addPlayerVelocityToDestination = 3f;
             
             // Search coroutines
+            searchForScrap = new LethalBotSearchRoutine(this);
+            searchForPlayers = new LethalBotSearchRoutine(this);
             searchForPlayers.searchCenterFollowsAI = false;
+            searchForPlayers.allowSearchOutside = true;
 
             // Body collider
             LethalBotBodyCollider = NpcController.Npc.GetComponentInChildren<Collider>();
