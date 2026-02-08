@@ -822,11 +822,26 @@ namespace LethalBots.Managers
             );
 
             // TODO: Improve this as I study the AI!
+            float? GiantKiwiPanikFunc(LethalBotFearQuery fearQuery)
+            {
+                int stateIndex = fearQuery.EnemyAI.currentBehaviourStateIndex;
+                if (stateIndex == 1)
+                {
+                    return 15f; // Not attacking, but getting close will cause the Giant Sapsucker to retaliate!
+                }
+                else if (stateIndex == 2)
+                { 
+                    return 30f; // Attacking, get the hell out of there!
+                }
+
+                return 5f; // Giant Sapsucker is idle, only a threat if we get too close
+            }
+
             // Giant Sapsucker
             RegisterThreat(typeof(GiantKiwiAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
+                GiantKiwiPanikFunc,
                 _ => null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : 15f
+                fq => fq.EnemyAI.currentBehaviourStateIndex > 1 ? 30f : 15f
             );
 
             // Girl behavior (currently commented out for fixing bugs)
