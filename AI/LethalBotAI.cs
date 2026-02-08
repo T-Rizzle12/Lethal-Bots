@@ -7565,7 +7565,7 @@ namespace LethalBots.AI
                 {
                     NpcController.Npc.healthRegenerateTimer = healthRegenerateTimerMax;
                     NpcController.Npc.health = NpcController.Npc.health + 1 > MaxHealth ? MaxHealth : NpcController.Npc.health + 1;
-                    if (NpcController.Npc.criticallyInjured &&
+                    if (IsOwner && NpcController.Npc.criticallyInjured &&
                         (NpcController.Npc.health >= MaxHealthPercent(20) || MaxHealth == 1))
                     {
                         NpcController.Npc.MakeCriticallyInjured(false);
