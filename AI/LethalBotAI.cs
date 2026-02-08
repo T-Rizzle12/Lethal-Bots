@@ -3002,7 +3002,7 @@ namespace LethalBots.AI
             Vector3 npcBodyPos = NpcController.Npc.thisController.transform.position;
             foreach (var door in doorLocksArray)
             {
-                if (!door.isLocked && (door.transform.position - npcBodyPos).sqrMagnitude < Const.DISTANCE_NPCBODY_FROM_DOOR * Const.DISTANCE_NPCBODY_FROM_DOOR)
+                if (door != null && !door.isLocked && (door.transform.position - npcBodyPos).sqrMagnitude < Const.DISTANCE_NPCBODY_FROM_DOOR * Const.DISTANCE_NPCBODY_FROM_DOOR)
                 {
                     return door;
                 }
