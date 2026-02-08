@@ -409,7 +409,8 @@ namespace LethalBots.AI
             // Update identity
             if (NpcController != null)
             { 
-                LethalBotIdentity.Hp = NpcController.Npc.isPlayerDead ? 0 : NpcController.Npc.health; 
+                LethalBotIdentity.Hp = NpcController.Npc.isPlayerDead ? 0 : NpcController.Npc.health;
+                isEnemyDead = !LethalBotIdentity.Alive; // Let the identity manager handle this!
             }
 
             // Not owner no AI
@@ -2999,9 +3000,9 @@ namespace LethalBots.AI
         public DoorLock? GetDoorIfWantsToOpen()
         {
             Vector3 npcBodyPos = NpcController.Npc.thisController.transform.position;
-            foreach (var door in doorLocksArray.Where(x => !x.isLocked))
+            foreach (var door in doorLocksArray)
             {
-                if ((door.transform.position - npcBodyPos).sqrMagnitude < Const.DISTANCE_NPCBODY_FROM_DOOR * Const.DISTANCE_NPCBODY_FROM_DOOR)
+                if (!door.isLocked && (door.transform.position - npcBodyPos).sqrMagnitude < Const.DISTANCE_NPCBODY_FROM_DOOR * Const.DISTANCE_NPCBODY_FROM_DOOR)
                 {
                     return door;
                 }
@@ -3059,13 +3060,14 @@ namespace LethalBots.AI
                         if (distSqrFromDoor < lockedDoorRange * lockedDoorRange)
                         {
                             // If we are nearby the door, we don't need to be able to see it!
-                            if (proximityRange < 0 || distSqrFromDoor > proximityRange)
+                            if (proximityRange < 0 || distSqrFromDoor > proximityRange * proximityRange)
                             {
                                 if (checkLineOfSight
                                 && Physics.Linecast(eye.position, lockedDoor.transform.position + Vector3.up * 0.2f, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
                                 {
                                     // If the hit object is not the door, it's blocked
-                                    if (hitInfo.collider.gameObject.GetComponentInParent<DoorLock>() != lockedDoor)
+                                    if (hitInfo.transform.gameObject.GetComponentInParent<DoorLock>() != lockedDoor 
+                                        && hitInfo.transform.gameObject.GetComponentInParent<TriggerPointToDoor>()?.pointToDoor != lockedDoor)
                                         continue;
                                 }
                             }
@@ -4495,7 +4497,11 @@ namespace LethalBots.AI
             }
 
             // Item just dropped, should wait a bit before grab it again
-            if (!grabbableObject.isHeld && DictJustDroppedItems.TryGetValue(grabbableObject, out float justDroppedItemTime))
+            CaveDwellerPhysicsProp? caveDwellerGrabbableObject = grabbableObject as CaveDwellerPhysicsProp;
+            if (!grabbableObject.isHeld 
+                && (caveDwellerGrabbableObject == null
+                || !caveDwellerGrabbableObject.caveDwellerScript.babyCrying)
+                && DictJustDroppedItems.TryGetValue(grabbableObject, out float justDroppedItemTime))
             {
                 if (Time.realtimeSinceStartup - justDroppedItemTime < Const.WAIT_TIME_FOR_GRAB_DROPPED_OBJECTS)
                 {
@@ -4508,7 +4514,7 @@ namespace LethalBots.AI
             {
                 // If the item requires one hand then we can set down our large item and pick up the small one!
                 if (grabbableObject.itemProperties.twoHanded 
-                    && (grabbableObject is not CaveDwellerPhysicsProp caveDwellerGrabbableObject 
+                    && (caveDwellerGrabbableObject == null 
                         || !caveDwellerGrabbableObject.caveDwellerScript.babyCrying))
                 {
                     return false;
@@ -6567,11 +6573,7 @@ namespace LethalBots.AI
                 }
                 if (itemsFall)
                 {
-                    // If the object is not a maneater baby, we should add it to the just dropped items dictionary!
-                    if (grabbableObject is not CaveDwellerPhysicsProp)
-                    {
-                        DictJustDroppedItems[grabbableObject] = Time.realtimeSinceStartup;
-                    }
+                    DictJustDroppedItems[grabbableObject] = Time.realtimeSinceStartup;
                     grabbableObject.parentObject = null;
                     grabbableObject.heldByPlayerOnServer = false;
                     if (NpcController.Npc.isInElevator)
@@ -6908,12 +6910,7 @@ namespace LethalBots.AI
             this.SetSpecialGrabAnimationBool(false, grabbableObject);
             NpcController.Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, true);
             NpcController.Npc.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
-
-            // If the object is not a maneater baby, we should add it to the just dropped items dictionary!
-            if (grabbableObject is not CaveDwellerPhysicsProp)
-            {
-                DictJustDroppedItems[grabbableObject] = Time.realtimeSinceStartup;
-            }
+            DictJustDroppedItems[grabbableObject] = Time.realtimeSinceStartup;
             this.HeldItem = null;
             NpcController.Npc.isHoldingObject = false;
             NpcController.Npc.currentlyHeldObjectServer = null;

@@ -665,7 +665,8 @@ namespace LethalBots.AI.AIStates
                     DeadBodyInfo deadBodyInfo = player.deadBody;
                     if (!deadBodyInfo.isInShip
                         && !deadBodyInfo.grabBodyObject.isInShipRoom
-                        && StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position))
+                        && StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position) 
+                        && ai.IsGrabbableObjectGrabbable(deadBodyInfo.grabBodyObject))
                     {
                         //npcController.Npc.SetItemInElevator(true, true, deadBodyInfo.grabBodyObject);
                         bodyToCollect = deadBodyInfo.grabBodyObject;

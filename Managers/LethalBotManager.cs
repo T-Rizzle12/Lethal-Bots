@@ -1484,6 +1484,13 @@ namespace LethalBots.Managers
                     }
                     return;
                 }
+                //else if (message.Contains("time info"))
+                //{
+                //    TimeOfDay timeOfDay = TimeOfDay.Instance;
+                //    HUDManager.Instance.AddTextToChatOnServer($"numberOfHours: {timeOfDay.numberOfHours} \n lengthOfHours: {timeOfDay.lengthOfHours}");
+                //    HUDManager.Instance.AddTextToChatOnServer($"currentDayTime: {timeOfDay.currentDayTime} \n totalTime {timeOfDay.totalTime}");
+                //    return;
+                //}
                 //else if (message.Contains("light level"))
                 //{
                 //    Light[] lights = Object.FindObjectsOfType<Light>();
