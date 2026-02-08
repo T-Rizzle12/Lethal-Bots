@@ -88,7 +88,8 @@ namespace LethalBots.AI.AIStates
                 if (heldItem != null && FindObject(heldItem))
                 {
                     canInverseTeleport = false;
-                    ai.DropItem();
+                    if (!ai.TurnOffHeldItem())
+                        ai.DropItem();
                 }
                 // If we still have stuff in our inventory,
                 // we should swap to it and drop it!

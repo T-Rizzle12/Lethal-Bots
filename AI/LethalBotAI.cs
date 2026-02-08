@@ -3964,6 +3964,41 @@ namespace LethalBots.AI
         }
 
         /// <summary>
+        /// Helper function to turn off the item held by the bot!
+        /// </summary>
+        /// <returns>false: we didn't press a button to turn off the held item. true: we pressed a button to turn off the held item</returns>
+        public bool TurnOffHeldItem()
+        {
+            GrabbableObject? grabbableObject = HeldItem;
+            if (grabbableObject == null)
+            {
+                return false;
+            }
+
+            if (grabbableObject is FlashlightItem flashlight && flashlight.isBeingUsed)
+            {
+                flashlight.UseItemOnClient(true);
+                if (flashlight.itemProperties.holdButtonUse)
+                {
+                    flashlight.UseItemOnClient(false); // HACKHACK: Fake release the button!
+                }
+                return true;
+            }
+            else if (grabbableObject is WalkieTalkie walkieTalkie && walkieTalkie.isBeingUsed)
+            {
+                // Wait until we are not holding the button anymore
+                // we may be talking to someone
+                // UseHeldItem is called in the base class, and will handle the button release
+                if (!walkieTalkie.isHoldingButton)
+                {
+                    walkieTalkie.ItemInteractLeftRightOnClient(false);
+                }
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Change the ownership of the lethalBot inventory to the given player.
         /// </summary>
         /// <remarks>
