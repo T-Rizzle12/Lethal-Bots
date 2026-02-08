@@ -7206,160 +7206,94 @@ namespace LethalBots.AI
 
         #endregion
 
-        /*#region Give item to intern RPC
+        #region Light Level Helpers
 
-        [ServerRpc(RequireOwnership = false)]
-        public void GiveItemToInternServerRpc(ulong playerClientIdGiver, NetworkObjectReference networkObjectReference)
+        /// <summary>
+        /// Gets the current light level around the bot!
+        /// </summary>
+        /// <remarks>
+        /// NOTE: This is not perfect and may have some misleading values.....
+        /// </remarks>
+        /// <returns>The light level around the bot</returns>
+        public float GetLightLevelAroundBot()
         {
-            if (!networkObjectReference.TryGet(out NetworkObject networkObject))
+            Vector3 ourPos = NpcController.Npc.gameplayCamera.transform.position;
+            float lightLevel = 0f;
+            foreach (var light in LethalBotManager.lightsOnMap)
             {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} GiveItemToInternServerRpc for LethalBotAI {this.BotId} {NpcController.Npc.playerUsername}: Failed to get network object from network object reference (Grab item RPC)");
-                return;
-            }
+                // Make sure we want to consider this light source
+                if (ShouldIgnoreLightSource(light))
+                    continue;
 
-            GrabbableObject grabbableObject = networkObject.GetComponent<GrabbableObject>();
-            if (grabbableObject == null)
-            {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} GiveItemToInternServerRpc for LethalBotAI {this.BotId} {NpcController.Npc.playerUsername}: Failed to get GrabbableObject component from network object (Grab item RPC)");
-                return;
-            }
-
-            GiveItemToInternClientRpc(playerClientIdGiver, networkObjectReference);
-        }
-
-        [ClientRpc]
-        private void GiveItemToInternClientRpc(ulong playerClientIdGiver, NetworkObjectReference networkObjectReference)
-        {
-            if (!networkObjectReference.TryGet(out NetworkObject networkObject))
-            {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} GiveItemToInternClientRpc for LethalBotAI {this.BotId}: Failed to get network object from network object reference (Grab item RPC)");
-                return;
-            }
-
-            GrabbableObject grabbableObject = networkObject.GetComponent<GrabbableObject>();
-            if (grabbableObject == null)
-            {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} GiveItemToInternClientRpc for LethalBotAI {this.BotId}: Failed to get GrabbableObject component from network object (Grab item RPC)");
-                return;
-            }
-
-            GiveItemToIntern(playerClientIdGiver, grabbableObject);
-        }
-
-        private void GiveItemToIntern(ulong playerClientIdGiver, GrabbableObject grabbableObject)
-        {
-            Plugin.LogDebug($"GiveItemToIntern playerClientIdGiver {playerClientIdGiver}, localPlayerController {StartOfRound.Instance.localPlayerController.playerClientId}");
-            PlayerControllerB player = StartOfRound.Instance.allPlayerScripts[playerClientIdGiver];
-
-            // Discard for player
-            if (player.playerClientId == StartOfRound.Instance.localPlayerController.playerClientId)
-            {
-                PlayerControllerBPatch.SetSpecialGrabAnimationBool_ReversePatch(player, false, player.currentlyHeldObjectServer);
-                player.playerBodyAnimator.SetBool("cancelHolding", true);
-                player.playerBodyAnimator.SetTrigger("Throw");
-                HUDManager.Instance.itemSlotIcons[player.currentItemSlot].enabled = false;
-                HUDManager.Instance.holdingTwoHandedItem.enabled = false;
-                HUDManager.Instance.ClearControlTips();
-            }
-
-            for (int i = 0; i < player.ItemSlots.Length; i++)
-            {
-                if (player.ItemSlots[i] == grabbableObject)
+                // Check the light direction (if applicable)
+                Vector3 toBot = ourPos - light.transform.position;
+                float coneFactor = 1f;
+                if (light.type == LightType.Spot)
                 {
-                    player.ItemSlots[i] = null;
-                }
-            }
-
-            grabbableObject.EnablePhysics(true);
-            grabbableObject.EnableItemMeshes(true);
-            grabbableObject.parentObject = null;
-            grabbableObject.heldByPlayerOnServer = false;
-            grabbableObject.DiscardItem();
-
-            player.isHoldingObject = false;
-            player.currentlyHeldObjectServer = null;
-            player.twoHanded = false;
-            player.twoHandedAnimation = false;
-
-            float weightToLose = grabbableObject.itemProperties.weight - 1f < 0f ? 0f : grabbableObject.itemProperties.weight - 1f;
-            player.carryWeight = Mathf.Clamp(player.carryWeight - weightToLose, 1f, 10f);
-
-            SyncBatteryLethalBotServerRpc(grabbableObject.NetworkObject, (int)(grabbableObject.insertedBattery.charge * 100f));
-
-            // Intern grab item
-            GrabItem(grabbableObject);
-        }
-
-        #endregion*/
-
-        /*#region Damage bot from client players RPC
-
-        /// <summary>
-        /// Server side, call client to sync the damage to the lethalBot coming from a player
-        /// </summary>
-        /// <param name="damageAmount"></param>
-        /// <param name="hitDirection"></param>
-        /// <param name="playerWhoHit"></param>
-        [ServerRpc(RequireOwnership = false)]
-        public void DamageLethalBotFromOtherClientServerRpc(int damageAmount, Vector3 hitDirection, int playerWhoHit)
-        {
-            DamageLethalBotFromOtherClientClientRpc(damageAmount, hitDirection, playerWhoHit);
-        }
-
-        /// <summary>
-        /// Client side, update and apply the damage to the lethalBot coming from a player
-        /// </summary>
-        /// <param name="damageAmount"></param>
-        /// <param name="hitDirection"></param>
-        /// <param name="playerWhoHit"></param>
-        [ClientRpc]
-        private void DamageLethalBotFromOtherClientClientRpc(int damageAmount, Vector3 hitDirection, int playerWhoHit)
-        {
-            DamageLethalBotFromOtherClient(damageAmount, hitDirection, playerWhoHit);
-        }
-
-        /// <summary>
-        /// Update and apply the damage to the lethalBot coming from a player
-        /// </summary>
-        /// <param name="damageAmount"></param>
-        /// <param name="hitDirection"></param>
-        /// <param name="playerWhoHit"></param>
-        private void DamageLethalBotFromOtherClient(int damageAmount, Vector3 hitDirection, int playerWhoHit)
-        {
-            if (NpcController == null)
-            {
-                return;
-            }
-
-            if (!NpcController.Npc.AllowPlayerDeath())
-            {
-                return;
-            }
-
-            if (NpcController.Npc.isPlayerControlled)
-            {
-                CentipedeAI[] array = Object.FindObjectsByType<CentipedeAI>(FindObjectsSortMode.None);
-                foreach (CentipedeAI snareFlea in array)
-                {
-                    if (snareFlea.clingingToPlayer == this)
+                    float angle = Vector3.Angle(light.transform.forward, toBot.normalized);
+                    if (angle > light.spotAngle)
                     {
-                        return;
+                        continue;
                     }
+                    coneFactor = Mathf.Clamp01(coneFactor - (angle / light.spotAngle));
                 }
-                this.DamageLethalBot(damageAmount, CauseOfDeath.Bludgeoning, 0, false, default(Vector3));
-            }
 
-            NpcController.Npc.movementAudio.PlayOneShot(StartOfRound.Instance.hitPlayerSFX);
-            if (NpcController.Npc.health < MaxHealthPercent(6))
-            {
-                NpcController.Npc.DropBlood(hitDirection, true, false);
-                NpcController.Npc.bodyBloodDecals[0].SetActive(true);
-                NpcController.Npc.playersManager.allPlayerScripts[playerWhoHit].AddBloodToBody();
-                NpcController.Npc.playersManager.allPlayerScripts[playerWhoHit].movementAudio.PlayOneShot(StartOfRound.Instance.bloodGoreSFX);
+                // Have to be in range of the light to consider it
+                float dist = toBot.magnitude; // NOTE: We don't use sqr distance since we need to use the exact range later.
+                if (dist > light.range)
+                    continue;
+
+                // Adjust the light strength based on its distance from the bot and its intensity
+                float atten = 1f - (dist / light.range);
+                float occlusion = GetLightOcclusionFactor(light.transform.position, ourPos);
+                lightLevel += light.intensity * atten * coneFactor * occlusion;
             }
+            return lightLevel;
         }
 
-        #endregion*/
+        /// <summary>
+        /// Used in <see cref="GetLightLevelAroundBot"/> to check if the given <paramref name="light"/> should be considered.
+        /// </summary>
+        /// <param name="light">The light to check</param>
+        /// <returns>true: don't consider this light source; otherwise false</returns>
+        internal static bool ShouldIgnoreLightSource([NotNullWhen(false)] Light? light)
+        {
+            // Make sure its a active light!
+            if (light == null || !light.enabled || light.intensity <= 0f) 
+            { 
+                return true; 
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Helper function that checks if we have LOS to the light
+        /// </summary>
+        /// <remarks>
+        /// This isn't perfect whatsoever, but its better than nothing!
+        /// </remarks>
+        /// <param name="lightPos"></param>
+        /// <param name="targetPos"></param>
+        /// <returns></returns>
+        internal static float GetLightOcclusionFactor(Vector3 lightPos, Vector3 targetPos)
+        {
+            StartOfRound instanceSOR = StartOfRound.Instance;
+            int blocked = 0;
+            const int samples = 3;
+
+            Vector3 dir = (targetPos - lightPos).normalized;
+            Vector3 right = Vector3.Cross(dir, Vector3.up) * 0.2f;
+
+            if (Physics.Linecast(lightPos, targetPos, instanceSOR.collidersAndRoomMaskAndDefault)) blocked++;
+            if (Physics.Linecast(lightPos + right, targetPos, instanceSOR.collidersAndRoomMaskAndDefault)) blocked++;
+            if (Physics.Linecast(lightPos - right, targetPos, instanceSOR.collidersAndRoomMaskAndDefault)) blocked++;
+
+            float occlusion = 1f - (blocked / (float)samples);
+            return Mathf.Max(occlusion, 0.15f); // light wrap
+        }
+
+        #endregion
 
         #region Damage bot RPC
 

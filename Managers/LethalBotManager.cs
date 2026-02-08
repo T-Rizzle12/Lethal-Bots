@@ -241,6 +241,7 @@ namespace LethalBots.Managers
         private List<EnemyAI> ListEnemyAINonNoiseListeners = new List<EnemyAI>();
         private static Dictionary<Type, LethalBotThreat> DictionaryLethalBotThreats = new Dictionary<Type, LethalBotThreat>();
         public static List<GameObject> grabbableObjectsInMap = new List<GameObject>();
+        public static List<Light> lightsOnMap = new List<Light>();
         public Dictionary<string, int> DictTagSurfaceIndex = new Dictionary<string, int>();
 
         private float timerSetLethalBotInElevator;
@@ -376,11 +377,15 @@ namespace LethalBots.Managers
 
         private IEnumerator RegisterItemsCoroutine()
         {
+            lightsOnMap.Clear();
             grabbableObjectsInMap.Clear();
             yield return null;
 
+            Light[] lights = Object.FindObjectsOfType<Light>();
+            List<Light> lightsToIgnore = new List<Light>();
             GrabbableObject[] array = Object.FindObjectsOfType<GrabbableObject>();
-            Plugin.LogDebug($"Bot register grabbable object, found : {array.Length}");
+            Plugin.LogDebug($"Bot register grabbable objects, found: {array.Length}");
+            Plugin.LogDebug($"Bot register lights, found: {lights.Length}");
             foreach (var grabbableObject in array)
             {
                 // Now you may be asking, why I do this, and that because of a base game desync issue.
@@ -401,8 +406,48 @@ namespace LethalBots.Managers
                     //GameNetworkManager.Instance.localPlayerController.SetItemInElevator(inElevator, inShipRoom, grabbableObject);
 
                     grabbableObjectsInMap.Add(grabbableObject.gameObject);
+
+                    // While we have the flashlight object, add its light objects to the ignore list!
+                    if (grabbableObject is FlashlightItem flashlight)
+                    {
+                        lightsToIgnore.Add(flashlight.flashlightBulb);
+                        lightsToIgnore.Add(flashlight.flashlightBulbGlow);
+                    }
                 }
                 yield return null;
+            }
+
+            // Alright, lets get the rest of those lights sorted!
+            foreach (var light in lights)
+            {
+                yield return null; // Pause for a frame as needed!
+
+                // Make sure the light is valid, or that we didn't mark it to be ignored already!
+                if (light == null || lightsToIgnore.Contains(light))
+                {
+                    continue;
+                }
+
+                // Ignore NightVision!
+                bool shouldIgnore = false;
+                foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
+                {
+                    // Check each player.....
+                    if (player.nightVision == light
+                        || player.nightVisionRadar == light
+                        || player.helmetLight == light
+                        || player.allHelmetLights.Contains(light))
+                    {
+                        shouldIgnore = true;
+                        break;
+                    }
+                }
+
+                // Should we add this light?
+                if (shouldIgnore)
+                    continue;
+
+                lightsOnMap.Add(light);
             }
 
             registerItemsCoroutine = null!;
@@ -1506,27 +1551,43 @@ namespace LethalBots.Managers
                 //    HUDManager.Instance.AddTextToChatOnServer($"currentDayTime: {timeOfDay.currentDayTime} \n totalTime {timeOfDay.totalTime}");
                 //    return;
                 //}
-                //else if (message.Contains("light level"))
-                //{
-                //    Light[] lights = Object.FindObjectsOfType<Light>();
-                //    Vector3 pos = playerWhoSentMessage.transform.position;
-                //    float lightLevel = 0f;
-                //    foreach (var light in lights)
-                //    {
-                //        if (!light.enabled || light.intensity <= 0)
-                //            continue;
+                else if (message.Contains("light level"))
+                {
+                    //Light[] lights = Object.FindObjectsOfType<Light>();
+                    Vector3 ourPos = playerWhoSentMessage.gameplayCamera.transform.position;
+                    float lightLevel = 0f;
+                    foreach (var light in lightsOnMap)
+                    {
+                        // Make sure we want to consider this light source
+                        if (LethalBotAI.ShouldIgnoreLightSource(light))
+                            continue;
 
-                //        float dist = Vector3.Distance(pos, light.transform.position);
-                //        if (dist > light.range)
-                //            continue;
+                        // Check the light direction (if applicable)
+                        Vector3 toBot = ourPos - light.transform.position;
+                        float coneFactor = 1f;
+                        if (light.type == LightType.Spot)
+                        {
+                            float angle = Vector3.Angle(light.transform.forward, toBot.normalized);
+                            if (angle > light.spotAngle)
+                            {
+                                continue;
+                            }
+                            coneFactor = Mathf.Clamp01(coneFactor - (angle / light.spotAngle));
+                        }
 
-                //        float atten = 1f - (dist / light.range);
+                        // Have to be in range of the light to consider it
+                        float dist = toBot.magnitude; // NOTE: We don't use sqr distance since we need to use the exact range later.
+                        if (dist > light.range)
+                            continue;
 
-                //        lightLevel += light.intensity * atten;
-                //    }
-                //    HUDManager.Instance.AddTextToChatOnServer($"Light level is {lightLevel}");
-                //    return;
-                //}
+                        // Adjust the light strength based on its distance from the bot and its intensity
+                        float atten = 1f - (dist / light.range);
+                        float occlusion = LethalBotAI.GetLightOcclusionFactor(light.transform.position, ourPos);
+                        lightLevel += light.intensity * atten * coneFactor * occlusion;
+                    }
+                    HUDManager.Instance.AddTextToChatOnServer($"Light level is {lightLevel}");
+                    return;
+                }
             }
 
             foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
