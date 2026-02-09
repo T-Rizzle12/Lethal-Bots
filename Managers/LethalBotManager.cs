@@ -241,6 +241,7 @@ namespace LethalBots.Managers
         private List<EnemyAI> ListEnemyAINonNoiseListeners = new List<EnemyAI>();
         private static Dictionary<Type, LethalBotThreat> DictionaryLethalBotThreats = new Dictionary<Type, LethalBotThreat>();
         public static List<GameObject> grabbableObjectsInMap = new List<GameObject>();
+        private float timerUpdateLightsOnMap;
         public static List<Light> lightsOnMap = new List<Light>();
         public Dictionary<string, int> DictTagSurfaceIndex = new Dictionary<string, int>();
 
@@ -301,6 +302,14 @@ namespace LethalBots.Managers
         private void FixedUpdate()
         {
             RegisterAINoiseListener(Time.fixedDeltaTime);
+
+            timerUpdateLightsOnMap += Time.fixedDeltaTime;
+            if (timerUpdateLightsOnMap >= 5f 
+                && registerItemsCoroutine == null)
+            {
+                timerUpdateLightsOnMap = 0f;
+                RegisterItems(); // Update items and lights!
+            }
         }
 
         private void RegisterAINoiseListener(float deltaTime)
@@ -371,6 +380,7 @@ namespace LethalBots.Managers
         {
             if (registerItemsCoroutine == null)
             {
+                timerUpdateLightsOnMap = 0f;
                 registerItemsCoroutine = StartCoroutine(RegisterItemsCoroutine());
             }
         }
@@ -450,6 +460,7 @@ namespace LethalBots.Managers
                 lightsOnMap.Add(light);
             }
 
+            timerUpdateLightsOnMap = 0f;
             registerItemsCoroutine = null!;
             yield break;
         }
