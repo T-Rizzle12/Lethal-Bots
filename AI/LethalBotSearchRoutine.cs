@@ -19,6 +19,7 @@ namespace LethalBots.AI
         private GameObject? currentTarget;
         private GameObject? nextTarget;
         private int targetCheckIndex;
+        private int visitCheckIndex;
         private bool unsearchedNodesHasNullRef;
 
         public bool searchInProgress;
@@ -83,6 +84,7 @@ namespace LethalBots.AI
         {
             unsearchedNodes.Clear();
             unsearchedNodesHasNullRef = false;
+            visitCheckIndex = 0;
         }
 
         private IEnumerator SearchCoroutine()
@@ -129,6 +131,12 @@ namespace LethalBots.AI
                         {
                             if ((ai.transform.position - currentTarget.transform.position).sqrMagnitude < proximitySqr)
                             {
+                                int currentTargetIndex = unsearchedNodes.FindIndex(x => x == currentTarget);
+                                if (currentTargetIndex != -1)
+                                {
+                                    unsearchedNodes[currentTargetIndex] = null;
+                                    unsearchedNodesHasNullRef = true;
+                                }
                                 break;
                             }
                         }
@@ -294,11 +302,10 @@ namespace LethalBots.AI
             Vector3 lastVisitedCheckCenter = ai.transform.position;
             float proximitySqr = proximityThreshold * proximityThreshold;
             float checkDist = proximityThreshold / 2;
-            int visitCheckIndex = 0;
             while (visitNodesCoroutine != null)
             {
                 // We check nodes as we move based on the amount of unsearchedNodes we have
-                int checkAmount = (int)Mathf.Lerp(0f, unsearchedNodes.Count, Mathf.Min((ai.transform.position - lastVisitedCheckCenter).magnitude / checkDist, 1.0f));
+                int checkAmount = (int)Mathf.Ceil(Mathf.Lerp(0f, unsearchedNodes.Count, Mathf.Min((ai.transform.position - lastVisitedCheckCenter).magnitude / checkDist, 1.0f)));
                 for (int i = 0;i < checkAmount;i++)
                 {
                     GameObject? node = unsearchedNodes[visitCheckIndex];
@@ -332,21 +339,21 @@ namespace LethalBots.AI
                 yield return null;
             }
             visitInProgress = false;
-            
+
             void TrimVisitedNodes()
             {
                 if (unsearchedNodesHasNullRef)
                 {
                     // We move iterator indexes backwards, this way we can continue iterating through nodes without skipping them or iterating through nodes twice before a full cycle
-                    for (int i = Mathf.Max(visitCheckIndex, targetCheckIndex);i > 0;i--)
+                    for (int i = Mathf.Max(visitCheckIndex, targetCheckIndex) - 1;i >= 0;i--)
                     {
                         if (unsearchedNodes[i] == null)
                         {
-                            if (targetCheckIndex >= i)
+                            if (targetCheckIndex > i)
                             {
                                 targetCheckIndex--;
                             }
-                            if (visitCheckIndex >= i)
+                            if (visitCheckIndex > i)
                             {
                                 visitCheckIndex--;
                             }
@@ -354,6 +361,12 @@ namespace LethalBots.AI
                     }
                     unsearchedNodes.RemoveAll(x => x == null);
                     unsearchedNodes.TrimExcess();
+                    unsearchedNodesHasNullRef = false;
+                    // When visitCheckIndex before RemoveAll was a null node and the last element of unsearchedNodes
+                    if (visitCheckIndex >= unsearchedNodes.Count)
+                    {
+                        visitCheckIndex = 0;
+                    }
                 }
             }
         }
