@@ -41,6 +41,7 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> TeleportWhenUsingLadders;
         [SyncedEntryField] public SyncedEntry<bool> SellAllScrapOnShip;
         [SyncedEntryField] public SyncedEntry<bool> DropHeldEquipmentAtShip;
+        [SyncedEntryField] public SyncedEntry<bool> ShouldKillEverything;
         [SyncedEntryField] public SyncedEntry<bool> GrabItemsNearEntrances;
         [SyncedEntryField] public SyncedEntry<bool> GrabBeesNest;
         [SyncedEntryField] public SyncedEntry<bool> GrabDeadBodies;
@@ -143,6 +144,11 @@ namespace LethalBots.Configs
                                                "Drop held equipment at ship",
                                                defaultVal: false,
                                                "Should the bot drop all equipment its holding when at the ship? If false, bots will hold onto equipment, such as shovels! (NOTE: This doesn't affect bot loadouts or if it returns to the ship on its own!)");
+
+            ShouldKillEverything = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                                "Should bots attempt to kill everything",
+                                                defaultVal: false,
+                                                "Should bots attempt to kill every enemy in the game, even if they can't be killed normally?");
 
             GrabItemsNearEntrances = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Grab items near entrances",

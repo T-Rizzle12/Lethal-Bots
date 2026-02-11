@@ -1,4 +1,5 @@
 ﻿using GameNetcodeStuff;
+using JetBrains.Annotations;
 using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Enums;
@@ -18,6 +19,7 @@ namespace LethalBots.NetworkSerializers
     {
         // Look at stuff
         public Vector3 lookAtPos;
+        public NetworkObjectReference? lookAtSubject;
         public EnumLookAtPriority lookAtPriority;
         public CountdownTimer lookAtExpireTimer;
         public IntervalTimer lookAtDurationTimer;
@@ -33,10 +35,12 @@ namespace LethalBots.NetworkSerializers
         // Not networked stuff
         private Vector3 lastDirectionToLookAt;
         private Quaternion cameraRotationToUpdateLookAt;
+        public const float ON_TARGET_TOLERANCE = 0.98f;
 
         public LookAtTarget()
         {
             lookAtPos = Vector3.zero;
+            lookAtSubject = null;
             lookAtPriority = EnumLookAtPriority.LOW_PRIORITY;
             lookAtExpireTimer = new CountdownTimer();
             lookAtDurationTimer = new IntervalTimer();
@@ -50,6 +54,7 @@ namespace LethalBots.NetworkSerializers
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
             serializer.SerializeValue(ref lookAtPos);
+            LethalBotNetworkSerializer.SerializeNullable(serializer, ref lookAtSubject);
             serializer.SerializeValue(ref lookAtPriority);
             serializer.SerializeValue(ref lookAtExpireTimer);
             serializer.SerializeValue(ref lookAtDurationTimer);
@@ -139,6 +144,7 @@ namespace LethalBots.NetworkSerializers
         {
             return new LookAtTarget() {
                 lookAtPos = this.lookAtPos,
+                lookAtSubject = this.lookAtSubject,
                 lookAtPriority = this.lookAtPriority,
                 lookAtExpireTimer = this.lookAtExpireTimer.Clone(),
                 lookAtDurationTimer = this.lookAtDurationTimer.Clone(),
@@ -183,6 +189,46 @@ namespace LethalBots.NetworkSerializers
             }
 
             this.lookAtPos = lookAtPos;
+            this.lookAtSubject = null;
+            this.lookAtDurationTimer.Start();
+            this.lookAtPriority = priority;
+            this.hasBeenSightedIn = false;
+            this.maxBodyFOV = maxBodyFOV;
+        }
+
+        /// <summary>
+        /// Makes the <see cref="LethalBotAI"/> associated with this <see cref="LookAtTarget"/> look at the given <paramref name="lookAtSubject"/>
+        /// </summary>
+        /// <param name="lookAtSubject">The <see cref="NetworkObject"/> to look at</param>
+        /// <param name="priority">The <see cref="EnumLookAtPriority"/> of the given <paramref name="lookAtSubject"/></param>
+        /// <param name="duration">How long we should look at <paramref name="lookAtSubject"/></param>
+        /// <param name="bypassSteadyCheck">If the given <paramref name="priority"/> is the same as our current, should we bypass the steady head checks</param>
+        /// <param name="maxBodyFOV">The maximum FOV the bot is allowed to look at before its forced to turn its body and not just its head</param>
+        public void AimHeadTowards(NetworkObjectReference lookAtSubject, EnumLookAtPriority priority = EnumLookAtPriority.LOW_PRIORITY, float duration = 0.0f, bool bypassSteadyCheck = false, float maxBodyFOV = Const.LETHAL_BOT_FOV)
+        {
+            // Duration can not be negative!
+            if (duration <= 0.0f)
+            {
+                duration = 0.1f;
+            }
+
+            // Make sure we can actually change aim states!
+            if (!CanSwapAimState(priority: priority, bypassSteadyCheck: bypassSteadyCheck))
+            {
+                return;
+            }
+
+            this.lookAtExpireTimer.Start(duration);
+
+            // If given the same target, just update priority and FOV
+            if (this.lookAtSubject.Equals(lookAtSubject))
+            {
+                this.lookAtPriority = priority;
+                this.maxBodyFOV = maxBodyFOV;
+                return;
+            }
+
+            this.lookAtSubject = lookAtSubject;
             this.lookAtDurationTimer.Start();
             this.lookAtPriority = priority;
             this.hasBeenSightedIn = false;
@@ -194,7 +240,13 @@ namespace LethalBots.NetworkSerializers
         /// </summary>
         public void Update(NpcController npcController, LethalBotAI lethalBotAI)
         {
+            // If we are aiming at a target subject, make sure to update our target lookAtPos!
             PlayerControllerB lethalBotController = npcController.Npc;
+            if (lookAtSubject.HasValue && lookAtSubject.Value.TryGet(out var subject))
+            {
+                lookAtPos = subject.transform.position;
+            }
+
             Vector3 direction = lookAtPos - lethalBotController.gameplayCamera.transform.position;
             if (!npcController.DirectionNotZero(direction.x) && !npcController.DirectionNotZero(direction.y) && !npcController.DirectionNotZero(direction.z))
             {
@@ -207,8 +259,10 @@ namespace LethalBots.NetworkSerializers
                 cameraRotationToUpdateLookAt = Quaternion.LookRotation(new Vector3(direction.x, direction.y, direction.z));
             }
 
-            // FIXME: make this close to rather than equal to!
-            if (lethalBotController.gameplayCamera.transform.rotation == cameraRotationToUpdateLookAt)
+            // Check if we are sighted in!
+            Vector3 to = direction.normalized;
+            Vector3 forward = lethalBotController.gameplayCamera.transform.forward;
+            if (Vector3.Dot(forward, to) > ON_TARGET_TOLERANCE)
             {
                 // We are sighted in!
                 if (!hasBeenSightedIn)
@@ -223,7 +277,6 @@ namespace LethalBots.NetworkSerializers
                 }
 
                 isSightedIn = true;
-                return;
             }
             else
             {
@@ -257,6 +310,7 @@ namespace LethalBots.NetworkSerializers
                 return false;
             }
             return lookAtPos == other.lookAtPos 
+                && lookAtSubject.Equals(other.lookAtSubject)
                 && lookAtPriority == other.lookAtPriority
                 && lookAtExpireTimer == other.lookAtExpireTimer
                 && lookAtDurationTimer == other.lookAtDurationTimer
@@ -276,6 +330,7 @@ namespace LethalBots.NetworkSerializers
         {
             var hash = new HashCode();
             hash.Add(lookAtPos);
+            hash.Add(lookAtSubject);
             hash.Add(lookAtPriority);
             hash.Add(lookAtExpireTimer);
             hash.Add(lookAtDurationTimer);

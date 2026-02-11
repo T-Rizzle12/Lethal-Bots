@@ -2676,6 +2676,13 @@ namespace LethalBots.AI
         /// <returns>Can the enemy be killed?</returns>
         public static bool CanEnemyBeKilled(EnemyAI enemy, bool hasRangedWeapon = false, bool isHumanPlayer = false)
         {
+            // If you turn this on.....just know what you are getting yourself into......
+            // After all, the bots can't tell if you are outmatched here...........
+            if (Plugin.Config.ShouldKillEverything)
+            {
+                return true;
+            }
+
             // FIXME: Only a few enemies can be targeted since
             // I need to check when its a good idea to fight!
             bool isEnemyStunned = enemy.stunnedIndefinitely > 0f || enemy.stunNormalizedTimer > 0f;
@@ -7338,80 +7345,11 @@ namespace LethalBots.AI
             return;
         }
 
-        /*/// <summary>
-        /// Sync the damage taken by the lethalBot between server and clients
-        /// </summary>
-        /// <remarks>
-        /// Better to call <see cref="PlayerControllerB.DamagePlayer"><c>PlayerControllerB.DamagePlayer</c></see> so prefixes from other mods can activate. (ex : peepers)
-        /// The base game function will be ignored because the lethalBot playerController is not owned because not spawned
-        /// </remarks>
-        /// <param name="damageNumber"></param>
-        /// <param name="causeOfDeath"></param>
-        /// <param name="deathAnimation"></param>
-        /// <param name="fallDamage">Coming from a long fall ?</param>
-        /// <param name="force">Force applied to the lethalBot when taking the hit</param>
-        public void SyncDamageLethalBot(int damageNumber,
-                                     CauseOfDeath causeOfDeath = CauseOfDeath.Unknown,
-                                     int deathAnimation = 0,
-                                     bool fallDamage = false,
-                                     Vector3 force = default)
+        public override void SetEnemyStunned(bool setToStunned, float setToStunTime = 1, PlayerControllerB setStunnedByPlayer = null!)
         {
-            Plugin.LogDebug($"SyncDamageLethalBot for LOCAL client #{NetworkManager.LocalClientId}, lethalBot object: Bot #{this.BotId} {NpcController.Npc.playerUsername}");
-
-            if (NpcController.Npc.isPlayerDead)
-            {
-                return;
-            }
-            if (!NpcController.Npc.AllowPlayerDeath())
-            {
-                return;
-            }
-
-            if (base.IsServer)
-            {
-                DamageLethalBotClientRpc(damageNumber, causeOfDeath, deathAnimation, fallDamage, force);
-            }
-            else
-            {
-                DamageLethalBotServerRpc(damageNumber, causeOfDeath, deathAnimation, fallDamage, force);
-            }
+            // TODO: Assess if this function is actually called. May be worth using!
+            return;
         }
-
-        /// <summary>
-        /// Server side, call clients to update and apply the damage taken by the lethalBot
-        /// </summary>
-        /// <param name="damageNumber"></param>
-        /// <param name="causeOfDeath"></param>
-        /// <param name="deathAnimation"></param>
-        /// <param name="fallDamage">Coming from a long fall ?</param>
-        /// <param name="force">Force applied to the lethalBot when taking the hit</param>
-        [ServerRpc]
-        private void DamageLethalBotServerRpc(int damageNumber,
-                                           CauseOfDeath causeOfDeath,
-                                           int deathAnimation,
-                                           bool fallDamage,
-                                           Vector3 force)
-        {
-            DamageLethalBotClientRpc(damageNumber, causeOfDeath, deathAnimation, fallDamage, force);
-        }
-
-        /// <summary>
-        /// Client side, update and apply the damage taken by the lethalBot
-        /// </summary>
-        /// <param name="damageNumber"></param>
-        /// <param name="causeOfDeath"></param>
-        /// <param name="deathAnimation"></param>
-        /// <param name="fallDamage">Coming from a long fall ?</param>
-        /// <param name="force">Force applied to the lethalBot when taking the hit</param>
-        [ClientRpc]
-        private void DamageLethalBotClientRpc(int damageNumber,
-                                           CauseOfDeath causeOfDeath,
-                                           int deathAnimation,
-                                           bool fallDamage,
-                                           Vector3 force)
-        {
-            DamageLethalBot(damageNumber, causeOfDeath, deathAnimation, fallDamage, force);
-        }*/
 
         /// <summary>
         /// Apply the damage to the lethalBot, kill him if needed, or make critically injured

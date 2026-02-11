@@ -783,16 +783,13 @@ namespace LethalBots.AI
             // NOTE: Due to the way the walkie-talkie is coded, this seems to work really well!
             if (heldItem is WalkieTalkie walkieTalkie)
             {
-                // Turn it on
-                if (!walkieTalkie.isBeingUsed && !walkieTalkie.insertedBattery.empty)
-                {
-                    walkieTalkie.ItemInteractLeftRightOnClient(false);
-                }
-
-                // Check if we should press the talk button
                 if (ai.LethalBotIdentity.Voice.IsTalking())
                 {
-                    if (walkieTalkie.isBeingUsed && !walkieTalkie.isHoldingButton)
+                    if (!walkieTalkie.isBeingUsed && !walkieTalkie.insertedBattery.empty)
+                    {
+                        walkieTalkie.ItemInteractLeftRightOnClient(false);
+                    }
+                    else if (walkieTalkie.isBeingUsed && !walkieTalkie.isHoldingButton)
                     {
                         walkieTalkie.UseItemOnClient(true);
                     }
