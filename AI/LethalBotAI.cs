@@ -20,6 +20,7 @@ using Newtonsoft.Json.Linq;
 using ReservedItemSlotCore;
 using ReservedItemSlotCore.Data;
 using ReservedItemSlotCore.Patches;
+using Scoops.misc;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -1455,12 +1456,12 @@ namespace LethalBots.AI
         /// Please note that you <c>MUST</c> wait until <see cref="Task.IsCompleted"/> is true before you can get the result!
         /// </returns>
         /// <inheritdoc cref="IsPathDangerousAsync(NavMeshPath, bool, bool, bool, bool, CancellationToken)"/>
-        public Task<(bool isDangerous, float pathDistance)> TryStartPathDangerousAsync(Vector3 targetPos, bool calculatePathDistance = false, bool useEyePosition = true, bool checkForEnemies = true, bool checkForQuicksand = true, CancellationToken token = default)
+        public Task<(bool isDangerous, bool isPathValid, float pathDistance)> TryStartPathDangerousAsync(Vector3 targetPos, bool calculatePathDistance = false, bool useEyePosition = true, bool checkForEnemies = true, bool checkForQuicksand = true, CancellationToken token = default)
         {
             // Check if we were canceled before pathfinding!  
             if (token.IsCancellationRequested)
             {
-                return Task.FromCanceled<(bool isDangerous, float pathDistance)>(token);
+                return Task.FromCanceled<(bool isDangerous, bool isPathValid, float pathDistance)>(token);
             }
 
             // Lets us know when the bot is checking if a path is dangerous
@@ -1474,7 +1475,7 @@ namespace LethalBots.AI
             if (!IsValidPathToTarget(targetPos, ref ourPath))
             {
                 Plugin.LogDebug($"Bot {NpcController.Npc.playerUsername} failed to find a path to {targetPos}!");
-                return Task.FromResult((true, 0f));
+                return Task.FromResult((true, false, 0f));
             }
 
             Plugin.LogDebug($"Path found to target {targetPos}. Checking for danger...");
@@ -1498,7 +1499,7 @@ namespace LethalBots.AI
         /// <param name="checkForQuicksand">Should we check for quicksand and water on the path</param>
         /// <param name="token">The cancelation token, this allows you to stop the function early!</param>
         /// <returns>Task indicating if the path is safe or not</returns>
-        private async Task<(bool isDangerous, float pathDistance)> IsPathDangerousAsync(NavMeshPath ourPath, bool calculatePathDistance = false, bool useEyePosition = true, bool checkForEnemies = true, bool checkForQuicksand = true, CancellationToken token = default)
+        private async Task<(bool isDangerous, bool isPathValid, float pathDistance)> IsPathDangerousAsync(NavMeshPath ourPath, bool calculatePathDistance = false, bool useEyePosition = true, bool checkForEnemies = true, bool checkForQuicksand = true, CancellationToken token = default)
         {
             // Check if we were canceled before pathfinding!
             if (token.IsCancellationRequested)
@@ -1509,7 +1510,7 @@ namespace LethalBots.AI
             // We need to make sure we have a valid path
             if (ourPath == null || ourPath.corners.Length == 0)
             {
-                return (true, 0f);
+                return (true, false, 0f);
             }
 
             // Cache stuff we use a lot, since this could get very expensive fast!
@@ -1553,7 +1554,7 @@ namespace LethalBots.AI
                     if (!calculatePathDistance)
                     {
                         Plugin.LogDebug($"{NpcController.Npc.playerUsername}: Reached corner 15, stopping checks now");
-                        return (false, pathDistance);
+                        return (false, true, pathDistance);
                     }
                     continue;
                 }
@@ -1593,7 +1594,7 @@ namespace LethalBots.AI
                     {
                         Plugin.LogDebug($"Danger detected at segment {j} from {previousNode} to {nodePos}. Path is dangerous!");
                         if (!calculatePathDistance)
-                            return (true, pathDistance);
+                            return (true, true, pathDistance);
                         else
                             isPathDangerous = true;
                     }
@@ -1608,7 +1609,7 @@ namespace LethalBots.AI
                     {
                         Plugin.LogDebug($"Danger detected due to quicksand or water at segment {j}. Path is dangerous!");
                         if (!calculatePathDistance)
-                            return (true, pathDistance);
+                            return (true, true, pathDistance);
                         else
                             isPathDangerous = true;
                     }
@@ -1621,7 +1622,7 @@ namespace LethalBots.AI
             if (!isPathDangerous)
                 Plugin.LogDebug("Path is safe. No danger detected.");
 
-            return (isPathDangerous, pathDistance); // NOTE: Return the path distance here since it may be modifed by other pathfind calls!
+            return (isPathDangerous, true, pathDistance); // NOTE: Return the path distance here since it may be modifed by other pathfind calls!
         }
 
         /// <summary>
@@ -4043,7 +4044,11 @@ namespace LethalBots.AI
             if (!IsServer && !IsHost)
             {
                 ChangeOwnershipOfBotInventoryServerRpc(this.OwnerClientId);
-                ChangeNpcOwnershipOfBotServerRPC(this.OwnerClientId);
+                ChangeNpcOwnershipOfBotServerRpc(this.OwnerClientId);
+                if (Plugin.IsModLethalPhonesLoaded)
+                {
+                    ChangeOwnershipOfLethalPhoneServerRpc(this.OwnerClientId);
+                }
                 return;
             }
             foreach (var item in NpcController.Npc.ItemSlots)
@@ -4062,6 +4067,12 @@ namespace LethalBots.AI
             {
                 playerControllerObject.ChangeOwnership(this.OwnerClientId);
             }
+
+            // Make sure lethal phone ownership is up to date!
+            if (Plugin.IsModLethalPhonesLoaded)
+            {
+                UpdateLethalPhoneOwnership();
+            }
         }
 
         /// <summary>
@@ -4073,12 +4084,51 @@ namespace LethalBots.AI
         /// NEEDTOVALIDATE: Should this be internal? Rather than public?
         /// <param name="newOwnerClientId"></param>
         [ServerRpc(RequireOwnership = false)]
-        public void ChangeNpcOwnershipOfBotServerRPC(ulong newOwnerClientId)
+        public void ChangeNpcOwnershipOfBotServerRpc(ulong newOwnerClientId)
         {
             NetworkObject? playerControllerObject = NpcController.Npc.gameObject.GetComponent<NetworkObject>();
             if (playerControllerObject != null && playerControllerObject.OwnerClientId != newOwnerClientId)
             {
                 playerControllerObject.ChangeOwnership(newOwnerClientId);
+            }
+        }
+
+        /// <summary>
+        /// Change the ownership of the lethalBot's <see cref="PlayerPhone"/>.
+        /// </summary>
+        /// <remarks>
+        /// This is called when the bot switches ownership to another player.
+        /// </remarks>
+        /// NEEDTOVALIDATE: Should this be internal? Rather than public?
+        /// <param name="newOwnerClientId"></param>
+        [ServerRpc(RequireOwnership = false)]
+        public void ChangeOwnershipOfLethalPhoneServerRpc(ulong newOwnerClientId)
+        {
+            PlayerPhone phone = NpcController.Npc.transform.Find("PhonePrefab(Clone)").GetComponent<PlayerPhone>();
+            if (phone != null)
+            {
+                NetworkObject? lethalPhoneNetworkObject = phone.GetComponent<NetworkObject>();
+                if (lethalPhoneNetworkObject != null && lethalPhoneNetworkObject.OwnerClientId != newOwnerClientId)
+                {
+                    lethalPhoneNetworkObject.ChangeOwnership(newOwnerClientId);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Small helper function that only exists since Lethal Phones is a soft dependency,
+        /// and some users may not have the mod installed.
+        /// </summary>
+        private void UpdateLethalPhoneOwnership()
+        {
+            PlayerPhone phone = NpcController.Npc.transform.Find("PhonePrefab(Clone)").GetComponent<PlayerPhone>();
+            if (phone != null)
+            {
+                NetworkObject? lethalPhoneNetworkObject = phone.GetComponent<NetworkObject>();
+                if (lethalPhoneNetworkObject != null && lethalPhoneNetworkObject.OwnerClientId != this.OwnerClientId)
+                {
+                    lethalPhoneNetworkObject.ChangeOwnership(this.OwnerClientId);
+                }
             }
         }
 
@@ -7142,8 +7192,6 @@ namespace LethalBots.AI
 
         #endregion
 
-        // TODO: This needs A LOT of work, hopefully this will pay off in the long run.
-        // This would require some workarounds to get this to work!
         // NOTE: We HAVE to fake the use terminal call, it would make some incompatability with some mods,
         // but they can be fixed with custom patches.
         #region Bot Terminal
@@ -7261,7 +7309,8 @@ namespace LethalBots.AI
         {
             Vector3 ourPos = NpcController.Npc.gameplayCamera.transform.position;
             float lightLevel = 0f;
-            foreach (var light in LethalBotManager.lightsOnMap)
+            int numLightsConsidered = 0;
+            foreach (var light in LethalBotManager.LightsOnMap)
             {
                 // Make sure we want to consider this light source
                 if (ShouldIgnoreLightSource(light))
@@ -7273,11 +7322,12 @@ namespace LethalBots.AI
                 if (light.type == LightType.Spot)
                 {
                     float angle = Vector3.Angle(light.transform.forward, toBot.normalized);
-                    if (angle > light.spotAngle)
+                    float halfAngle = light.spotAngle * 0.5f;
+                    if (angle > halfAngle)
                     {
                         continue;
                     }
-                    coneFactor = Mathf.Clamp01(coneFactor - (angle / light.spotAngle));
+                    coneFactor = Mathf.Clamp01(coneFactor - (angle / halfAngle));
                 }
 
                 // Have to be in range of the light to consider it
@@ -7286,11 +7336,13 @@ namespace LethalBots.AI
                     continue;
 
                 // Adjust the light strength based on its distance from the bot and its intensity
-                float atten = 1f - (dist / light.range);
+                float atten = 1f - Mathf.Clamp01(dist / light.range);
+                atten *= atten;
                 float occlusion = GetLightOcclusionFactor(light.transform.position, ourPos);
                 lightLevel += light.intensity * atten * coneFactor * occlusion;
+                numLightsConsidered++;
             }
-            return lightLevel;
+            return lightLevel / (numLightsConsidered > 0 ? numLightsConsidered : 1); // Average light level, avoid divide by 0
         }
 
         /// <summary>
@@ -7325,7 +7377,11 @@ namespace LethalBots.AI
             const int samples = 3;
 
             Vector3 dir = (targetPos - lightPos).normalized;
-            Vector3 right = Vector3.Cross(dir, Vector3.up) * 0.2f;
+            Vector3 right = Vector3.Cross(dir, Vector3.up);
+            if (right.sqrMagnitude < 0.01f)
+                right = Vector3.Cross(dir, Vector3.forward);
+
+            right = right.normalized * 0.2f;
 
             if (Physics.Linecast(lightPos, targetPos, instanceSOR.collidersAndRoomMaskAndDefault)) blocked++;
             if (Physics.Linecast(lightPos + right, targetPos, instanceSOR.collidersAndRoomMaskAndDefault)) blocked++;

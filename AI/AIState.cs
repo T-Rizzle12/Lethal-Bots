@@ -904,7 +904,7 @@ namespace LethalBots.AI
                 // If the direct path safe?
                 CancelAsyncPathfindToken(); // Clear the old token
                 pathfindCancellationToken = new CancellationTokenSource();
-                Task<(bool isDangerous, float pathDistance)> pathfindTask = ai.TryStartPathDangerousAsync(targetDestination.Value, token: pathfindCancellationToken.Token);
+                Task<(bool isDangerous, bool isPathValid, float pathDistance)> pathfindTask = ai.TryStartPathDangerousAsync(targetDestination.Value, token: pathfindCancellationToken.Token);
                 //yield return new WaitUntil(() => pathfindTask.IsCompleted);
                 while (!pathfindTask.IsCompleted)
                 {

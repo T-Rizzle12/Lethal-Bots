@@ -8,6 +8,10 @@ using LethalBots.NetworkSerializers;
 using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.NpcPatches;
+using Scoops.customization;
+using Scoops.misc;
+using Scoops.patch;
+using Scoops.service;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -242,7 +246,8 @@ namespace LethalBots.Managers
         private static Dictionary<Type, LethalBotThreat> DictionaryLethalBotThreats = new Dictionary<Type, LethalBotThreat>();
         public static List<GameObject> grabbableObjectsInMap = new List<GameObject>();
         private float timerUpdateLightsOnMap;
-        public static List<Light> lightsOnMap = new List<Light>();
+        private static HashSet<Light> lightsOnMap = new HashSet<Light>();
+        public static IReadOnlyCollection<Light> LightsOnMap => lightsOnMap;
         public Dictionary<string, int> DictTagSurfaceIndex = new Dictionary<string, int>();
 
         private float timerSetLethalBotInElevator;
@@ -304,11 +309,11 @@ namespace LethalBots.Managers
             RegisterAINoiseListener(Time.fixedDeltaTime);
 
             timerUpdateLightsOnMap += Time.fixedDeltaTime;
-            if (timerUpdateLightsOnMap >= 5f 
+            if (timerUpdateLightsOnMap >= 5f
                 && registerItemsCoroutine == null)
             {
                 timerUpdateLightsOnMap = 0f;
-                RegisterItems(); // Update items and lights!
+                RegisterItems(false); // Update items and lights!
             }
         }
 
@@ -347,6 +352,8 @@ namespace LethalBots.Managers
             }
         }
 
+        #region Items and Lights management
+
         /// <summary>
         /// Coppied from <see cref="GrabbableObject.Start"><c>GrabbableObject.Start</c></see>
         /// </summary>
@@ -376,46 +383,58 @@ namespace LethalBots.Managers
             grabbableObjectsInMap.Add(newItem.gameObject);
         }
 
-        public void RegisterItems()
+        public void RegisterItems(bool updateShipState = true)
         {
             if (registerItemsCoroutine == null)
             {
-                timerUpdateLightsOnMap = 0f;
-                registerItemsCoroutine = StartCoroutine(RegisterItemsCoroutine());
+                registerItemsCoroutine = StartCoroutine(RegisterItemsCoroutine(updateShipState));
             }
         }
 
-        private IEnumerator RegisterItemsCoroutine()
+        private IEnumerator RegisterItemsCoroutine(bool updateShipState = true)
         {
-            lightsOnMap.Clear();
-            grabbableObjectsInMap.Clear();
+            HashSet<Light> lightsOnMap = new HashSet<Light>();
+            List<GameObject> grabbableObjectsInMap = new List<GameObject>();
             yield return null;
 
             Light[] lights = Object.FindObjectsOfType<Light>();
-            List<Light> lightsToIgnore = new List<Light>();
+            HashSet<Light> lightsToIgnore = new HashSet<Light>();
             GrabbableObject[] array = Object.FindObjectsOfType<GrabbableObject>();
             Plugin.LogDebug($"Bot register grabbable objects, found: {array.Length}");
             Plugin.LogDebug($"Bot register lights, found: {lights.Length}");
-            foreach (var grabbableObject in array)
+            for (int i = 0; i < array.Length; i++)
             {
                 // Now you may be asking, why I do this, and that because of a base game desync issue.
                 // Items are not set as in the ship for other clients by default.
+                var grabbableObject = array[i];
+                if (i % 20 == 0)
+                {
+                    yield return null;
+                }
+
                 if (grabbableObject != null)
                 {
-                    Vector3 floorPosition;
-                    floorPosition = grabbableObject.GetItemFloorPosition(default(Vector3));
-                    if (StartOfRound.Instance.shipStrictInnerRoomBounds.bounds.Contains(floorPosition))
+                    if (updateShipState)
                     {
-                        grabbableObject.isInElevator = true;
-                        grabbableObject.isInShipRoom = true;
+                        Vector3 floorPosition;
+                        floorPosition = grabbableObject.GetItemFloorPosition(default(Vector3));
+                        if (StartOfRound.Instance.shipStrictInnerRoomBounds.bounds.Contains(floorPosition))
+                        {
+                            grabbableObject.isInElevator = true;
+                            grabbableObject.isInShipRoom = true;
+                        }
+                        else if (StartOfRound.Instance.shipBounds.bounds.Contains(floorPosition))
+                        {
+                            grabbableObject.isInElevator = true;
+                        }
+                        //GameNetworkManager.Instance.localPlayerController.SetItemInElevator(inElevator, inShipRoom, grabbableObject);
                     }
-                    else if (StartOfRound.Instance.shipBounds.bounds.Contains(floorPosition))
-                    {
-                        grabbableObject.isInElevator = true;
-                    }
-                    //GameNetworkManager.Instance.localPlayerController.SetItemInElevator(inElevator, inShipRoom, grabbableObject);
 
-                    grabbableObjectsInMap.Add(grabbableObject.gameObject);
+                    // Don't add it again!
+                    if (!grabbableObjectsInMap.Contains(grabbableObject.gameObject))
+                    { 
+                        grabbableObjectsInMap.Add(grabbableObject.gameObject); 
+                    }
 
                     // While we have the flashlight object, add its light objects to the ignore list!
                     if (grabbableObject is FlashlightItem flashlight)
@@ -424,46 +443,102 @@ namespace LethalBots.Managers
                         lightsToIgnore.Add(flashlight.flashlightBulbGlow);
                     }
                 }
-                yield return null;
             }
 
             // Alright, lets get the rest of those lights sorted!
-            foreach (var light in lights)
+            for (int i = 0; i < lights.Length; i++)
             {
-                yield return null; // Pause for a frame as needed!
+                // Check each light and register them.
+                // We yield every 20 iterations to avoid doing this all in one frame and causing a hitch,
+                // since there can be a lot of lights in the scene!
+                var light = lights[i];
+                if (i % 20 == 0)
+                {
+                    yield return null;
+                }
 
                 // Make sure the light is valid, or that we didn't mark it to be ignored already!
-                if (light == null || lightsToIgnore.Contains(light))
-                {
-                    continue;
-                }
-
-                // Ignore NightVision!
-                bool shouldIgnore = false;
-                foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
-                {
-                    // Check each player.....
-                    if (player.nightVision == light
-                        || player.nightVisionRadar == light
-                        || player.helmetLight == light
-                        || player.allHelmetLights.Contains(light))
-                    {
-                        shouldIgnore = true;
-                        break;
-                    }
-                }
-
-                // Should we add this light?
-                if (shouldIgnore)
-                    continue;
-
-                lightsOnMap.Add(light);
+                TryRegisterLight(light, lightsOnMap, lightsToIgnore);
             }
 
+            LethalBotManager.lightsOnMap = lightsOnMap;
+            LethalBotManager.grabbableObjectsInMap = grabbableObjectsInMap;
             timerUpdateLightsOnMap = 0f;
             registerItemsCoroutine = null!;
             yield break;
         }
+
+        /// <summary>
+        /// Attempts to register the specified light in the map, unless it is already present, is a suit light, or is
+        /// included in the ignore list.
+        /// </summary>
+        /// <param name="light">The light to register. Cannot be null. If the light is a suit light or is already registered, it will not
+        /// be added.</param>
+        /// <param name="ignoreList">An optional list of lights to exclude from registration. If provided and contains the specified light, the
+        /// light will not be registered.</param>
+        public static void TryRegisterLight(Light light, HashSet<Light>? targetSet = null, HashSet<Light>? ignoreList = null)
+        {
+            // Make sure the light is valid
+            targetSet ??= lightsOnMap;
+            if (light == null)
+            {
+                return;
+            }
+
+            // This is only used by default in the RegisterItemsCoroutine,
+            // You can also use it to ignore specific lights you don't want the bots to interact with, like suit lights for example!
+            if (ignoreList != null && ignoreList.Contains(light))
+            {
+                return;
+            }
+
+            // Suit lights are not the same light components as the ones on the flashlights.
+            // We have to check if the light is a suit light, since we want to ignore flashlights for light level checks.
+            if (IsPlayerLight(light))
+            {
+                return;
+            }
+
+            // HashSets already make sure there are no duplicates.
+            targetSet.Add(light);
+        }
+
+        /// <summary>
+        /// Removes the specified light from the collection of registered lights if it is present.
+        /// </summary>
+        /// <param name="light">The light to remove from the registered collection. If the light is not found, no action is taken.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void TryRemoveRegisteredLight(Light light)
+        {
+            lightsOnMap.Remove(light);
+        }
+
+        /// <summary>
+        /// Determines whether the specified light instance is associated with any player as a personal or helmet light.
+        /// </summary>
+        /// <remarks>
+        /// This checks all player controllers check if the
+        /// provided light when a flashlight is pocketed.
+        /// </remarks>
+        /// <param name="light">The light instance to check for association with a player. Cannot be null.</param>
+        /// <returns>true if the light is linked to a player's night vision, night vision radar, helmet light, or is included in
+        /// the player's helmet lights collection; otherwise, false.</returns>
+        private static bool IsPlayerLight(Light light)
+        {
+            foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
+            {
+                if (player.nightVision == light
+                    || player.nightVisionRadar == light
+                    || player.helmetLight == light
+                    || player.allHelmetLights.Contains(light))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        #endregion
 
         private void Start()
         {
@@ -1246,6 +1321,12 @@ namespace LethalBots.Managers
                 lethalBotAI.HideShowModelReplacement(show: true);
             }
 
+            // Setup Lethal Phones
+            if (Plugin.IsModLethalPhonesLoaded)
+            {
+                SetupLethalPhoneForBot(lethalBotController);
+            }
+
             // Add the bot to the quick menu
             // NOTE: Funnily enough, this doesn't actually add an entry to the list, but rather just updated the slot for that player index!
             // This means we don't have to worry about duplicates or anything!
@@ -1318,6 +1399,98 @@ namespace LethalBots.Managers
 
             Plugin.LogDebug($"++ Bot with body {lethalBotController.playerClientId} with identity spawned: {lethalBotIdentity.ToString()}");
             lethalBotAI.Init(spawnParamsNetworkSerializable.enumSpawnAnimation);
+        }
+
+        /// <summary>
+        /// Initializes the phone for a bot player, assigning default customization settings.
+        /// </summary>
+        /// <remarks>
+        /// The bot's phone is assigned default skin, charm, and ringtone settings, as
+        /// customization is not currently supported for bots.
+        /// </remarks>
+        /// <param name="lethalBotController">The controller representing the bot player whose phone will be set up.</param>
+        private void SetupLethalPhoneForBot(PlayerControllerB lethalBotController)
+        {
+            // TODO: Allow players to customize the bot's phone like they can with their own in the customization menu! For now, we just give them the default phone!
+            // Related Code: CustomizationManager.SelectedSkin, CustomizationManager.SelectedCharm, CustomizationManager.SelectedRingtone
+            // HACKHACK: ConnectClientToPlayerObject is only called on the owning client, we recreate that so only the owning client initializes the phone,
+            // preventing issues with multiple clients trying to initialize the same phone and overwriting each other's changes!
+            if (!lethalBotController.IsOwner)
+            {
+                return;
+            }
+            PlayerPhonePatch.PhoneManager = PhoneNetworkHandler.Instance;
+            PhoneBehavior phone = lethalBotController.transform.Find("PhonePrefab(Clone)").GetComponent<PhoneBehavior>();
+            if (PhoneNetworkHandler.allPhoneBehaviors.Contains(phone))
+            {
+                return; // Phone is already initialized, no need to do it again! This happens if the bot was revived mid-round.
+            }
+
+            PlayerPhonePatch.PhoneManager.CreateNewPhone(phone.NetworkObjectId, CustomizationManager.DEFAULT_SKIN, CustomizationManager.DEFAULT_CHARM, CustomizationManager.DEFAULT_RINGTONE);
+
+            if (GameNetworkManager.Instance.localPlayerController == lethalBotController)
+            {
+                phone.playPos = lethalBotController.playerGlobalHead;
+                phone.recordPos = lethalBotController.localArmsTransform.Find("shoulder.L/arm.L_upper/arm.L_lower/hand.L/LocalPhoneModel(Clone)");
+            }
+            else
+            {
+                phone.playPos = lethalBotController.lowerSpine.Find("spine.002/spine.003/shoulder.L/arm.L_upper/arm.L_lower/hand.L/ServerPhoneModel(Clone)");
+                phone.recordPos = lethalBotController.lowerSpine.Find("spine.002/spine.003/shoulder.L/arm.L_upper/arm.L_lower/hand.L/ServerPhoneModel(Clone)");
+            }
+
+            // For some reason the phone starts active, we need to disable it for bots
+            // NOTE: This is both a null check and a type check in one!
+            if (phone is PlayerPhone playerPhone)
+            {
+                StartCoroutine(togglePhoneModelAfterSpawn(playerPhone, lethalBotController.playerUsername));
+            }
+        }
+
+        /// <summary>
+        /// Helper coroutine that waits until the end of the frame after spawning the phone to toggle the phone model for bots
+        /// </summary>
+        /// <param name="playerPhone"></param>
+        /// <returns></returns>
+        private IEnumerator togglePhoneModelAfterSpawn(PlayerPhone playerPhone, string botName)
+        {
+            float startTime = Time.realtimeSinceStartup;
+            yield return null;
+            yield return new WaitUntil(() => playerPhone == null || playerPhone.IsSpawned || (Time.realtimeSinceStartup - startTime) > 5f);
+
+            // If the phone didn't spawn after waiting, just give up!
+            if (playerPhone != null && playerPhone.IsSpawned)
+            { 
+                playerPhone.ToggleServerPhoneModelServerRpc(false); 
+            }
+            else
+            {
+                Plugin.LogWarning($"Phone for bot {botName} failed to spawn after waiting, it may be desynced with the server!");
+            }
+        }
+
+        /// <summary>
+        /// Removes the phone associated with the specified bot controller from the networked game environment.
+        /// </summary>
+        /// <param name="lethalBotControllerId">The unique identifier of the bot controller whose phone should be deleted.</param>
+        private void CleanupLethalPhoneForBot(int lethalBotControllerId)
+        {
+            // Only host or server can delete network objects, so only do this on those instances!
+            if (!IsHost || !IsServer)
+            {
+                return;
+            }
+            PhoneNetworkHandler.Instance.DeletePlayerPhone(lethalBotControllerId);
+        }
+
+        /// <summary>
+        /// Helper method that calls <see cref="CleanupLethalPhoneForBot(int)"/> if given a <see cref="PlayerControllerB"/> instead of an ID
+        /// </summary>
+        /// <param name="lethalBotController">The controller to cleanup the phone for.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void CleanupLethalPhoneForBot(PlayerControllerB lethalBotController)
+        {
+            CleanupLethalPhoneForBot((int)lethalBotController.playerClientId);
         }
 
         /// <summary>
@@ -1429,6 +1602,12 @@ namespace LethalBots.Managers
                 {
                     instanceSOR.allPlayersDead = true;
                     instanceSOR.ShipLeaveAutomatically();
+                }
+
+                // Mod support!!!!
+                if (Plugin.IsModLethalPhonesLoaded)
+                {
+                    CleanupLethalPhoneForBot(lethalBotController);
                 }
 
                 // Mimic suit switch to default suit on kick
@@ -1567,7 +1746,8 @@ namespace LethalBots.Managers
                     //Light[] lights = Object.FindObjectsOfType<Light>();
                     Vector3 ourPos = playerWhoSentMessage.gameplayCamera.transform.position;
                     float lightLevel = 0f;
-                    foreach (var light in lightsOnMap)
+                    int numLightsConsidered = 0;
+                    foreach (var light in LightsOnMap)
                     {
                         // Make sure we want to consider this light source
                         if (LethalBotAI.ShouldIgnoreLightSource(light))
@@ -1579,11 +1759,12 @@ namespace LethalBots.Managers
                         if (light.type == LightType.Spot)
                         {
                             float angle = Vector3.Angle(light.transform.forward, toBot.normalized);
-                            if (angle > light.spotAngle)
+                            float halfAngle = light.spotAngle * 0.5f;
+                            if (angle > halfAngle)
                             {
                                 continue;
                             }
-                            coneFactor = Mathf.Clamp01(coneFactor - (angle / light.spotAngle));
+                            coneFactor = Mathf.Clamp01(coneFactor - (angle / halfAngle));
                         }
 
                         // Have to be in range of the light to consider it
@@ -1592,11 +1773,13 @@ namespace LethalBots.Managers
                             continue;
 
                         // Adjust the light strength based on its distance from the bot and its intensity
-                        float atten = 1f - (dist / light.range);
+                        float atten = 1f - Mathf.Clamp01(dist / light.range);
+                        atten *= atten;
                         float occlusion = LethalBotAI.GetLightOcclusionFactor(light.transform.position, ourPos);
                         lightLevel += light.intensity * atten * coneFactor * occlusion;
+                        numLightsConsidered++;
                     }
-                    HUDManager.Instance.AddTextToChatOnServer($"Light level is {lightLevel}");
+                    HUDManager.Instance.AddTextToChatOnServer($"Light level is {lightLevel / (numLightsConsidered > 0 ? numLightsConsidered : 1)}"); // Average light level, avoid divide by 0
                     return;
                 }
             }
@@ -3230,6 +3413,12 @@ namespace LethalBots.Managers
                 {
                     // If the bot was not in the BrainDead state, we set it to it so it doesn't do anything after this!
                     lethalBotAI.State = new BrainDeadState(lethalBotAI);
+                }
+
+                // Mod support!!!!
+                if (Plugin.IsModLethalPhonesLoaded)
+                {
+                    CleanupLethalPhoneForBot(lethalBotController);
                 }
 
                 // Cache the lethal bot stats for the end of game stats.

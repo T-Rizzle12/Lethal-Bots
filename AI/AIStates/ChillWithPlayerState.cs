@@ -232,7 +232,6 @@ namespace LethalBots.AI.AIStates
             RaycastHit[] raycastHits = Physics.RaycastAll(interactRay);
             if (raycastHits.Length == 0)
             {
-                npcController.SetTurnBodyTowardsDirection(ai.targetPlayer.gameplayCamera.transform.forward);
                 npcController.OrderToLookForward();
             }
             else
@@ -245,7 +244,6 @@ namespace LethalBots.AI.AIStates
                         && player.playerClientId != StartOfRound.Instance.localPlayerController.playerClientId)
                     {
                         npcController.OrderToLookAtPosition(hit.point, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
-                        npcController.SetTurnBodyTowardsDirectionWithPosition(hit.point);
                         return;
                     }
                 }
@@ -255,7 +253,6 @@ namespace LethalBots.AI.AIStates
                 {
                     if (hit.distance < 0.1f)
                     {
-                        npcController.SetTurnBodyTowardsDirection(ai.targetPlayer.gameplayCamera.transform.forward);
                         npcController.OrderToLookForward();
                         return;
                     }
@@ -268,7 +265,6 @@ namespace LethalBots.AI.AIStates
 
                     // Look at position
                     npcController.OrderToLookAtPosition(hit.point, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
-                    npcController.SetTurnBodyTowardsDirectionWithPosition(hit.point);
                     break;
                 }
             }

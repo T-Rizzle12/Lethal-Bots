@@ -99,6 +99,7 @@ namespace LethalBots
         internal static bool IsModFacilityMeltdownLoaded = false;
         internal static bool IsModNavmeshInCompanyLoaded = false;
         internal static bool IsModReservedItemSlotCoreLoaded = false;
+        internal static bool IsModLethalPhonesLoaded = false;
         private readonly Harmony _harmony = new(ModGUID);
 
         private void Awake()
@@ -267,10 +268,10 @@ namespace LethalBots
             IsModFacilityMeltdownLoaded = IsModLoaded(Const.FACILITYMELTDOWN_GUID);
             IsModNavmeshInCompanyLoaded = IsModLoaded(Const.NAVMESHINCOMPANY_GUID);
             IsModReservedItemSlotCoreLoaded = IsModLoaded(Const.RESERVEDITEMSLOTCORE_GUID);
+            IsModLethalPhonesLoaded = IsModLoaded(Const.LETHALPHONES_GUID);
 
             bool isModMoreEmotesLoaded = IsModLoaded(Const.MOREEMOTES_GUID);
             bool isModBetterEmotesLoaded = IsModLoaded(Const.BETTEREMOTES_GUID);
-            bool isModLethalPhonesLoaded = IsModLoaded(Const.LETHALPHONES_GUID);
             bool isModShowCapacityLoaded = IsModLoaded(Const.SHOWCAPACITY_GUID);
             bool isModLethalProgressionLoaded = IsModLoaded(Const.LETHALPROGRESSION_GUID);
             bool isModLCAlwaysHearWalkieModLoaded = IsModLoaded(Const.LCALWAYSHEARWALKIEMOD_GUID);
@@ -322,11 +323,12 @@ namespace LethalBots
                 _harmony.PatchAll(typeof(ModelReplacementAPIPatch));
                 //_harmony.PatchAll(typeof(ManagerBasePatch)); // This gives me an error, commenting out for now
             }
-            if (isModLethalPhonesLoaded)
+            if (IsModLethalPhonesLoaded)
             {
-                _harmony.PatchAll(typeof(PlayerPhonePatchPatch));
                 _harmony.PatchAll(typeof(PhoneBehaviorPatch));
-                _harmony.PatchAll(typeof(PlayerPhonePatchLI));
+                _harmony.PatchAll(typeof(PlayerPhonePatch));
+                _harmony.PatchAll(typeof(PlayerPhonePatchPatch));
+                PhoneBehaviorPatch.SetupReflectionFields();
             }
             if (isModAdditionalNetworkingLoaded)
             {

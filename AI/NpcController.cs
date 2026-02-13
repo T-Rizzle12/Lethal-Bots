@@ -2068,7 +2068,7 @@ namespace LethalBots.AI
             if (this.UpdatePlayerLookInterval > 0.25f)
             {
                 this.UpdatePlayerLookInterval = 0f;
-                LethalBotAIController.SyncUpdateLethalBotRotationAndLook(LethalBotAIController.State.GetBillboardStateIndicator(),
+                LethalBotAIController.SyncUpdateLethalBotRotationAndLook(LethalBotAIController.State?.GetBillboardStateIndicator() ?? "",
                                                                    LookAtTarget);
                 this.oldLookAtTarget = this.LookAtTarget.Clone();
             }

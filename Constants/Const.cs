@@ -229,6 +229,9 @@ namespace LethalBots.Constants
         public const float DISTANCE_TO_ELEVATOR_TOP = 20f;
         public const float LETHAL_BOT_DROWN_TIME = 10f; // Makes it easier to update how long a bot has until it drowns!
 
+        // Mod specific
+        public const short LETHAL_PHONES_NO_CALLER_ID = -1; // Lethal Phones uses this to indicate that there is no caller.
+
         // Tips
         public const string TOOLTIP_DROP_ITEM = "Drop your item : [{0}]";
         public const string TOOLTIP_FOLLOW_ME = "Follow me: [{0}]";

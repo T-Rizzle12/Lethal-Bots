@@ -59,7 +59,11 @@ namespace LethalBots.Patches.NpcPatches
             {
                 Plugin.LogDebug($"[POSTFIX]: Try ChangeOwnershipOfEnemy for lethalBot newOwnerClientId : {(int)newOwnerClientId}");
                 lethalBotAI.ChangeOwnershipOfBotInventoryServerRpc(newOwnerClientId);
-                lethalBotAI.ChangeNpcOwnershipOfBotServerRPC(newOwnerClientId);
+                lethalBotAI.ChangeNpcOwnershipOfBotServerRpc(newOwnerClientId);
+                if (Plugin.IsModLethalPhonesLoaded)
+                {
+                    lethalBotAI.ChangeOwnershipOfLethalPhoneServerRpc(newOwnerClientId);
+                }
             }
         }
 
