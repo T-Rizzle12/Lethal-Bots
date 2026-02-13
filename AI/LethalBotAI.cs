@@ -164,8 +164,6 @@ namespace LethalBots.AI
         private Dictionary<Collider, BridgeTrigger> dictColliderToBridge = null!;
         
         public LethalBotSearchRoutine searchForScrap = null!;
-        public LethalBotSearchRoutine searchForPlayers = null!;
-        
         private Coroutine grabObjectCoroutine = null!;
         private Coroutine? spawnAnimationCoroutine = null;
         public Coroutine? useLadderCoroutine = null;
@@ -294,9 +292,6 @@ namespace LethalBots.AI
             
             // Search coroutines
             searchForScrap = new LethalBotSearchRoutine(this);
-            searchForPlayers = new LethalBotSearchRoutine(this);
-            searchForPlayers.searchCenterFollowsAI = false;
-            searchForPlayers.allowSearchOutside = true;
 
             // Body collider
             LethalBotBodyCollider = NpcController.Npc.GetComponentInChildren<Collider>();
@@ -5443,6 +5438,10 @@ namespace LethalBots.AI
             }
 
             this.allAINodes = nodeList.ToArray();
+            if (outside && searchForScrap != null && (searchForScrap.searchInProgress || searchForScrap.visitInProgress))
+            {
+                searchForScrap.StopSearch();
+            }
 
             #if DEBUG
             for (int i = 0; i < this.allAINodes.Length; i++)
@@ -5528,14 +5527,12 @@ namespace LethalBots.AI
 
             if (NpcController.IsControllerInCruiser)
             {
-                searchForPlayers.ClearSearch();
                 this.State = new PlayerInCruiserState(this, this.GetVehicleCruiserTargetPlayerIsIn());
             }
             else if (this.State == null
                 || this.State.GetAIState() != EnumAIStates.GetCloseToPlayer
                 || this.targetPlayer != targetPlayer)
             {
-                searchForPlayers.ClearSearch();
                 this.State = new GetCloseToPlayerState(this, targetPlayer);
             }
         }

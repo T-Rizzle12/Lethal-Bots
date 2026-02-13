@@ -20,12 +20,17 @@ namespace LethalBots.AI.AIStates
         private float lookForPlayerTimer;
         private Coroutine searchingWanderCoroutine = null!;
         private bool foundSearchCenter;
+        private LethalBotSearchRoutine searchForPlayers = null!;
+
         /// <summary>
         /// <inheritdoc cref="AIState(AIState)"/>
         /// </summary>
         public SearchingForPlayerState(AIState oldState) : base(oldState)
         {
             CurrentState = EnumAIStates.SearchingForPlayer;
+            searchForPlayers = new LethalBotSearchRoutine(ai);
+            searchForPlayers.searchCenterFollowsAI = false;
+            searchForPlayers.allowSearchOutside = true;
         }
         /// <summary>
         /// <inheritdoc cref="AIState(LethalBotAI)"/>
@@ -33,6 +38,9 @@ namespace LethalBots.AI.AIStates
         public SearchingForPlayerState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.SearchingForPlayer;
+            searchForPlayers = new LethalBotSearchRoutine(ai);
+            searchForPlayers.searchCenterFollowsAI = false;
+            searchForPlayers.allowSearchOutside = true;
         }
 
         /// <summary>
@@ -80,7 +88,7 @@ namespace LethalBots.AI.AIStates
                     ai.searchForScrap.StartSearch(true);
                 }
             }
-            if (ai.isOutside && ai.searchForScrap.visitInProgress)
+            else if (ai.searchForScrap.visitInProgress)
             {
                 ai.searchForScrap.StopSearch();
             }
@@ -131,28 +139,28 @@ namespace LethalBots.AI.AIStates
                 lookForPlayerTimer += ai.AIIntervalTime;
             }
 
-            Vector3? destination = ai.searchForPlayers.GetTargetPosition();
+            Vector3? destination = searchForPlayers.GetTargetPosition();
             if (destination != null)
             {
                 ai.SetDestinationToPositionLethalBotAI(destination.Value);
                 ai.OrderMoveToDestination();
             }
-
             if (!foundSearchCenter && ai.agent.isOnNavMesh)
             {
-                ai.searchForPlayers.searchCenter = ai.transform.position;
+                searchForPlayers.searchCenter = ai.transform.position;
                 foundSearchCenter = true;
             }
-            else if (!ai.searchForPlayers.searchInProgress)
+            else if (!searchForPlayers.searchInProgress)
             {
                 // Start the coroutine to search for players
-                ai.searchForPlayers.StartSearch();
+                searchForPlayers.StartSearch();
             }
         }
 
         public override void StopAllCoroutines()
         {
             base.StopAllCoroutines();
+            searchForPlayers.StopSearch();
             StopSearchingWanderCoroutine();
         }
 

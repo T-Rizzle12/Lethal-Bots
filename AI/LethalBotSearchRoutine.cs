@@ -1,7 +1,8 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using LethalBots.Constants;
 using UnityEngine;
 using Vector3 = UnityEngine.Vector3;
 
@@ -127,7 +128,7 @@ namespace LethalBots.AI
                 {
                     if (ai.agent.isOnNavMesh)
                     {
-                        if (ai.agent.velocity.sqrMagnitude < 0.002f)
+                        if (ai.agent.remainingDistance == 0)
                         {
                             if ((ai.transform.position - currentTarget.transform.position).sqrMagnitude < proximitySqr)
                             {
@@ -299,13 +300,13 @@ namespace LethalBots.AI
         {
             visitInProgress = true;
             yield return null;
-            Vector3 lastVisitedCheckCenter = ai.transform.position;
+            Vector3 lastVisitCheckPos = ai.transform.position;
             float proximitySqr = proximityThreshold * proximityThreshold;
             float checkDist = proximityThreshold / 2;
             while (visitNodesCoroutine != null)
             {
-                // We check nodes as we move based on the amount of unsearchedNodes we have
-                int checkAmount = (int)Mathf.Ceil(Mathf.Lerp(0f, unsearchedNodes.Count, Mathf.Min((ai.transform.position - lastVisitedCheckCenter).magnitude / checkDist, 1.0f)));
+                // We check nodes with the amount based on how much we moved and the amount of unsearchedNodes we have
+                int checkAmount = (int)Mathf.Ceil(Mathf.Lerp(0f, unsearchedNodes.Count, Mathf.Min((ai.transform.position - lastVisitCheckPos).magnitude / checkDist, 1.0f)));
                 for (int i = 0;i < checkAmount;i++)
                 {
                     GameObject? node = unsearchedNodes[visitCheckIndex];
@@ -313,7 +314,8 @@ namespace LethalBots.AI
                     // TODO: Having a high proximityThreshold means that bots will not search the end or corner of corridors/rooms, they can miss loot inside drawers or loot behind interior objects, logic should check if the node has no loot next or visible to it before marking it as visited
                     if (node != null)
                     {
-                        if ((lastVisitedCheckCenter - node.transform.position).sqrMagnitude < proximitySqr && !Physics.Linecast(ai.eye.position, node.transform.position + Vector3.up * 0.10f, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
+                        // NEEDTOVALIDATE: Is using NavMeshAgent.Raycast is better than Physics.Linecast?, Physics.Linecast can hit the floor when a node is under the floor, with NavMeshAgent.Raycast the problem is that the bot can mark nodes behind walkable slopes as visited
+                        if ((ai.transform.position - node.transform.position).sqrMagnitude < proximitySqr && Vector3.Angle(ai.eye.forward, node.transform.position - ai.eye.transform.position) < Const.LETHAL_BOT_FOV && !ai.agent.Raycast(node.transform.position, out _))
                         {
                             unsearchedNodes[visitCheckIndex] = null;
                             unsearchedNodesHasNullRef = true;
@@ -335,7 +337,7 @@ namespace LethalBots.AI
                     }
                 }
                 TrimVisitedNodes();
-                lastVisitedCheckCenter = ai.transform.position;
+                lastVisitCheckPos = ai.transform.position;
                 yield return null;
             }
             visitInProgress = false;
@@ -362,7 +364,7 @@ namespace LethalBots.AI
                     unsearchedNodes.RemoveAll(x => x == null);
                     unsearchedNodes.TrimExcess();
                     unsearchedNodesHasNullRef = false;
-                    // When visitCheckIndex before RemoveAll was a null node and the last element of unsearchedNodes
+                    // When visitCheckIndex was null and the last element of unsearchedNodes before calling RemoveAll
                     if (visitCheckIndex >= unsearchedNodes.Count)
                     {
                         visitCheckIndex = 0;

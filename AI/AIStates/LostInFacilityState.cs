@@ -13,18 +13,18 @@ namespace LethalBots.AI.AIStates
     {
         private Coroutine searchingWanderCoroutine = null!;
         private float findEntranceTimer;
-        private LethalBotSearchRoutine stuckSearch = null!;
+        private LethalBotSearchRoutine searchForExit = null!;
 
         public LostInFacilityState(AIState oldState) : base(oldState)
         {
             CurrentState = EnumAIStates.LostInFacility;
-            stuckSearch = new LethalBotSearchRoutine(ai);
+            searchForExit = new LethalBotSearchRoutine(ai);
         }
 
         public LostInFacilityState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.LostInFacility;
-            stuckSearch = new LethalBotSearchRoutine(ai);
+            searchForExit = new LethalBotSearchRoutine(ai);
         }
 
         public override void DoAI()
@@ -61,20 +61,26 @@ namespace LethalBots.AI.AIStates
                 }
                 // We still can still grab loot we use ai.searchForScrap
                 destination = ai.searchForScrap.GetTargetPosition();
+                if (searchForExit.searchInProgress)
+                {
+                    searchForExit.StopSearch();
+                }
                 if (!ai.searchForScrap.searchInProgress)
                 {
-                    stuckSearch.StopSearch();
                     ai.searchForScrap.StartSearch();
                 }
             }
             else
             {
                 // Because the bot's inventory is full, the bot will ignore any loot it is passing by, when the bot frees space in inventory the bot should be able to revisit those areas again for loot, that's why we use stuckSearch instead of ai.searchForScrap
-                destination = stuckSearch.GetTargetPosition();
-                if (!stuckSearch.searchInProgress)
+                destination = searchForExit.GetTargetPosition();
+                if (ai.searchForScrap.searchInProgress)
                 {
                     ai.searchForScrap.StopSearch();
-                    stuckSearch.StartSearch();
+                }
+                if (searchForExit.searchInProgress)
+                {
+                    searchForExit.StartSearch();
                 }
             }
 
@@ -120,8 +126,8 @@ namespace LethalBots.AI.AIStates
 
         public override void StopAllCoroutines()
         {
-            stuckSearch.StopSearch();
             base.StopAllCoroutines();
+            searchForExit.StopSearch();
             StopSearchingWanderCoroutine();
         }
 

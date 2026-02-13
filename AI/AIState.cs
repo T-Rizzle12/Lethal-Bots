@@ -851,10 +851,6 @@ namespace LethalBots.AI
         /// </summary>
         public virtual void StopAllCoroutines()
         {
-            if (ai.searchForPlayers.searchInProgress)
-            {
-                ai.searchForPlayers.StopSearch();
-            }
             if (ai.searchForScrap.searchInProgress)
             {
                 ai.searchForScrap.StopSearch();
