@@ -71,6 +71,16 @@ namespace LethalBots.AI.AIStates
             base.OnEnterState();
         }
 
+        public override void OnExitState(AIState newState)
+        {
+            // If we got interupted while using the Zap Gun, break the beam!
+            if (ai.HeldItem is PatcherTool patcherTool && patcherTool.isShocking)
+            {
+                patcherTool.UseItemOnClient(true);
+            }
+            base.OnExitState(newState);
+        }
+
         public override void DoAI()
         {
             // Enemy is either dead or invaild!
@@ -118,6 +128,12 @@ namespace LethalBots.AI.AIStates
                 Plugin.LogWarning($"Bot {npcController.Npc.playerUsername} didn't have a weapon despite HasCombatWeapon telling us we did!");
                 ChangeBackToPreviousState();
                 return;
+            }
+
+            // We don't have time to be in a phone call right now!
+            if (Plugin.IsModLethalPhonesLoaded)
+            {
+                ai.HangupPhone();
             }
 
             // Switch to our weapon!

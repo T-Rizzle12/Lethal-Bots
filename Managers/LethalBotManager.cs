@@ -9,6 +9,7 @@ using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.NpcPatches;
 using Scoops.customization;
+using Scoops.gameobjects;
 using Scoops.misc;
 using Scoops.patch;
 using Scoops.service;
@@ -658,6 +659,7 @@ namespace LethalBots.Managers
 
         public void ResetIdentities()
         {
+            // FIXME: Bots lose levels and experience when this is called. We need to cache and reapply them here!
             IdentityManager.Instance.InitIdentities(Plugin.Config.ConfigIdentities.configIdentities);
         }
 
@@ -1218,6 +1220,7 @@ namespace LethalBots.Managers
             PlayerControllerB lethalBotController = instance.allPlayerScripts[spawnParamsNetworkSerializable.IndexNextPlayerObject.Value];
             lethalBotController.playerUsername = lethalBotIdentity.Name;
             lethalBotController.isPlayerDead = false;
+            lethalBotController.disconnectedMidGame = false;
             lethalBotController.isPlayerControlled = true;
             lethalBotController.transform.localScale = Vector3.one;
             lethalBotController.playerSteamId = 0ul; // Set SteamId to 0 since the game code considers that invalid
@@ -1597,6 +1600,7 @@ namespace LethalBots.Managers
                 instanceSOR.connectedPlayersAmount--; // Connected bot was kicked, decrement connected player count
 
                 lethalBotController.isPlayerControlled = false;
+                lethalBotController.disconnectedMidGame = true;
                 lethalBotController.isPlayerDead = false;
                 if (instanceSOR.livingPlayers == 0)
                 {
@@ -1607,6 +1611,7 @@ namespace LethalBots.Managers
                 // Mod support!!!!
                 if (Plugin.IsModLethalPhonesLoaded)
                 {
+                    lethalBotAI.StopBeingSwitchboardOperator();
                     CleanupLethalPhoneForBot(lethalBotController);
                 }
 
@@ -1808,6 +1813,10 @@ namespace LethalBots.Managers
                 }
 
                 bool flag = botController.holdingWalkieTalkie && playerWhoSentMessage.holdingWalkieTalkie;
+                if (!flag && Plugin.IsModLethalPhonesLoaded)
+                {
+                    flag = LethalPhonesCanBotsHearPlayer(botController, playerWhoSentMessage);
+                }
                 if (flag || (botController.transform.position - playerWhoSentMessage.transform.position).sqrMagnitude <= Const.MAX_CHAT_RANGE * Const.MAX_CHAT_RANGE)
                 {
                     Plugin.LogDebug($"Bot {botController.playerUsername} saw message {message} from {playerWhoSentMessage.playerUsername}!");
@@ -1860,6 +1869,10 @@ namespace LethalBots.Managers
                 // Just like text chat, there is a limited range, although, I need to find the actual voice range.
                 // Until then, its the same as using text chat!
                 bool flag = botController.holdingWalkieTalkie && playerWhoSaidMessage.speakingToWalkieTalkie; // We have to check if the player is speakingToWalkieTalkie not holdingWalkieTalkie
+                if (!flag && Plugin.IsModLethalPhonesLoaded)
+                {
+                    flag = LethalPhonesCanBotsHearPlayer(botController, playerWhoSaidMessage);
+                }
                 if (flag || (botController.transform.position - playerWhoSaidMessage.transform.position).sqrMagnitude <= Const.MAX_CHAT_RANGE * Const.MAX_CHAT_RANGE)
                 {
                     Plugin.LogDebug($"Bot {botController.playerUsername} heard message {message} from {playerWhoSaidMessage.playerUsername}!");
@@ -1915,6 +1928,38 @@ namespace LethalBots.Managers
                 return;
             }
             LethalBotsRespondToVoiceChat(message, playerWhoSaidMessage);
+        }
+
+        /// <summary>
+        /// This is the same logic used in <see cref="StartOfRoundPhonePatch"/>, 
+        /// we just need to reuse it here to check if bots can hear players through phones!
+        /// </summary>
+        /// <param name="botController"></param>
+        /// <param name="player"></param>
+        /// <returns></returns>
+        private static bool LethalPhonesCanBotsHearPlayer(PlayerControllerB botController, PlayerControllerB player)
+        {
+            PhoneBehavior? otherPhone = player.transform.Find("PhonePrefab(Clone)")?.GetComponent<PhoneBehavior>();
+            PhoneBehavior? botPhone = botController.transform.Find("PhonePrefab(Clone)")?.GetComponent<PhoneBehavior>();
+            if (otherPhone == null || botPhone == null)
+            {
+                return false;
+            }
+
+            SwitchboardPhone? switchboard = otherPhone.GetCallerPhone() as SwitchboardPhone;
+            if (switchboard == null)
+            {
+                switchboard = botPhone.GetCallerPhone() as SwitchboardPhone;
+            }
+
+            if (botPhone.GetCallerPhone() == otherPhone
+                || (switchboard != null && ((switchboard.switchboardOperator == player && botPhone.GetCallerPhone() == switchboard)
+                    || (switchboard.switchboardOperator == botController && otherPhone.GetCallerPhone() == switchboard))))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         #endregion
@@ -2014,6 +2059,76 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
+        /// Helper function that returns the value of all scrap on the ship.
+        /// </summary>
+        /// <param name="lethalBotAI">The <see cref="LethalBotAI"/> used to assess object grabbability of.</param>
+        /// <param name="shipOnly">true: only count items on the ship, false: count everything on the map</param>
+        /// <returns>The combined value of everything on the ship.</returns>
+        public static int GetValueOfAllScrapOnShip(LethalBotAI lethalBotAI, bool shipOnly = false)
+        {
+            int totalScrapValue = 0;
+            for (int i = 0; i < grabbableObjectsInMap.Count; i++)
+            {
+                GameObject gameObject = grabbableObjectsInMap[i];
+                if (gameObject == null)
+                {
+                    grabbableObjectsInMap.TrimExcess();
+                    continue;
+                }
+
+                // Get grabbable object infos
+                GrabbableObject? grabbableObject = gameObject.GetComponent<GrabbableObject>();
+                if (grabbableObject == null 
+                    || grabbableObject is RagdollGrabbableObject)
+                {
+                    continue;
+                }
+
+                // Only check what is on the ship
+                if (shipOnly
+                    && !grabbableObject.isInElevator
+                    && !grabbableObject.isInShipRoom)
+                {
+                    continue;
+                }
+
+                // Black listed ? 
+                if (lethalBotAI.IsGrabbableObjectBlackListed(grabbableObject, EnumGrabbableObjectCall.Selling))
+                {
+                    continue;
+                }
+
+                // Object in a container mod of some sort ?
+                if (Plugin.IsModCustomItemBehaviourLibraryLoaded)
+                {
+                    if (LethalBotAI.IsGrabbableObjectInContainerMod(grabbableObject))
+                    {
+                        continue;
+                    }
+                }
+
+                // Is a pickmin (LethalMin mod) holding the object ?
+                if (Plugin.IsModLethalMinLoaded)
+                {
+                    if (LethalBotAI.IsGrabbableObjectHeldByPikminMod(grabbableObject))
+                    {
+                        continue;
+                    }
+                }
+
+                // Grabbable object ?
+                // NOTE: We ignore if the object is held since other players may be already moving it to sell!
+                if (!lethalBotAI.IsGrabbableObjectSellable(grabbableObject, true))
+                {
+                    continue;
+                }
+
+                totalScrapValue += grabbableObject.scrapValue;
+            }
+            return totalScrapValue;
+        }
+
+        /// <summary>
         /// Helper function that checks if we have fulfilled the profit quota.
         /// </summary>
         /// <remarks>
@@ -2027,7 +2142,7 @@ namespace LethalBots.Managers
             if (Plugin.Config.SellAllScrapOnShip.Value)
             {
                 // We never technically fulfill the profit quota, so the bots will never stop selling scrap
-                Plugin.LogDebug("HaveWeFulfilledTheProfitQuota: SellAllScrapOnShip is enabled, returning false.");
+                //Plugin.LogDebug("HaveWeFulfilledTheProfitQuota: SellAllScrapOnShip is enabled, returning false.");
                 return false;
             }
 
@@ -3418,6 +3533,7 @@ namespace LethalBots.Managers
                 // Mod support!!!!
                 if (Plugin.IsModLethalPhonesLoaded)
                 {
+                    lethalBotAI.StopBeingSwitchboardOperator();
                     CleanupLethalPhoneForBot(lethalBotController);
                 }
 

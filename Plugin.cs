@@ -325,6 +325,7 @@ namespace LethalBots
             }
             if (IsModLethalPhonesLoaded)
             {
+                _harmony.PatchAll(typeof(AudioSourceStoragePatch));
                 _harmony.PatchAll(typeof(PhoneBehaviorPatch));
                 _harmony.PatchAll(typeof(PlayerPhonePatch));
                 _harmony.PatchAll(typeof(PlayerPhonePatchPatch));

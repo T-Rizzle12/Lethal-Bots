@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using Unity.Netcode;
+using UnityEngine.Animations.Rigging;
 
 namespace LethalBots.Patches.ModPatches.LethalPhones
 {
@@ -15,26 +17,32 @@ namespace LethalBots.Patches.ModPatches.LethalPhones
         // We use reflection to access them. It sucks, but it is what it is.
         #region Reflection Fields
 
-        public static FieldInfo incomingCall = null!;
+        public static AccessTools.FieldRef<PhoneBehavior, NetworkVariable<short>> incomingCall = null!;
 
-        public static FieldInfo outgoingCall = null!;
+        public static AccessTools.FieldRef<PhoneBehavior, NetworkVariable<short>> outgoingCall = null!;
 
-        public static FieldInfo activeCall = null!;
+        public static AccessTools.FieldRef<PhoneBehavior, NetworkVariable<short>> activeCall = null!;
 
-        public static FieldInfo incomingCaller = null!;
+        public static AccessTools.FieldRef<PhoneBehavior, NetworkVariable<ulong>> incomingCaller = null!;
 
-        public static FieldInfo outgoingCaller = null!;
+        public static AccessTools.FieldRef<PhoneBehavior, NetworkVariable<ulong>> outgoingCaller = null!;
 
-        public static FieldInfo activeCaller = null!;
+        public static AccessTools.FieldRef<PhoneBehavior, NetworkVariable<ulong>> activeCaller = null!;
+
+        public static AccessTools.FieldRef<PlayerPhone, ChainIKConstraint> serverLeftArmRig = null!;
 
         internal static void SetupReflectionFields()
         {
-            incomingCall = AccessTools.Field(typeof(PhoneBehavior), "incomingCall");
-            outgoingCall = AccessTools.Field(typeof(PhoneBehavior), "outgoingCall");
-            activeCall = AccessTools.Field(typeof(PhoneBehavior), "activeCall");
-            incomingCaller = AccessTools.Field(typeof(PhoneBehavior), "incomingCaller");
-            outgoingCaller = AccessTools.Field(typeof(PhoneBehavior), "outgoingCaller");
-            activeCaller = AccessTools.Field(typeof(PhoneBehavior), "activeCaller");
+            // PhoneBehavior
+            incomingCall = AccessTools.FieldRefAccess<NetworkVariable<short>>(typeof(PhoneBehavior), "incomingCall");
+            outgoingCall = AccessTools.FieldRefAccess<NetworkVariable<short>>(typeof(PhoneBehavior), "outgoingCall");
+            activeCall = AccessTools.FieldRefAccess<NetworkVariable<short>>(typeof(PhoneBehavior), "activeCall");
+            incomingCaller = AccessTools.FieldRefAccess<NetworkVariable<ulong>>(typeof(PhoneBehavior), "incomingCaller");
+            outgoingCaller = AccessTools.FieldRefAccess<NetworkVariable<ulong>>(typeof(PhoneBehavior), "outgoingCaller");
+            activeCaller = AccessTools.FieldRefAccess<NetworkVariable<ulong>>(typeof(PhoneBehavior), "activeCaller");
+
+            // PlayerPhone
+            serverLeftArmRig = AccessTools.FieldRefAccess<ChainIKConstraint>(typeof(PlayerPhone), "serverLeftArmRig");
         }
 
         #endregion

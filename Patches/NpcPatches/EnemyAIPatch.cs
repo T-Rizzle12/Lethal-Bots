@@ -138,67 +138,67 @@ namespace LethalBots.Patches.NpcPatches
         /// <param name="width"></param>
         /// <param name="range"></param>
         /// <param name="proximityAwareness"></param>
-        [HarmonyPatch("CheckLineOfSightForPlayer")]
-        [HarmonyPostfix]
-        static void CheckLineOfSightForPlayer_PostFix(EnemyAI __instance, ref PlayerControllerB __result, float width, ref int range, int proximityAwareness)
-        {
-            PlayerControllerB lethalBotControllerFound = null!;
+        //[HarmonyPatch("CheckLineOfSightForPlayer")]
+        //[HarmonyPostfix]
+        //static void CheckLineOfSightForPlayer_PostFix(EnemyAI __instance, ref PlayerControllerB __result, float width, ref int range, int proximityAwareness)
+        //{
+        //    PlayerControllerB lethalBotControllerFound = null!;
 
-            if (__instance.isOutside && !__instance.enemyType.canSeeThroughFog && TimeOfDay.Instance.currentLevelWeather == LevelWeatherType.Foggy)
-            {
-                range = Mathf.Clamp(range, 0, 30);
-            }
+        //    if (__instance.isOutside && !__instance.enemyType.canSeeThroughFog && TimeOfDay.Instance.currentLevelWeather == LevelWeatherType.Foggy)
+        //    {
+        //        range = Mathf.Clamp(range, 0, 30);
+        //    }
 
-            // FIXME: Is this still needed, this code only checks for bots, but still checks all players.....
-            for (int i = 0; i < StartOfRound.Instance.allPlayerScripts.Length; i++)
-            {
-                PlayerControllerB lethalBotController = StartOfRound.Instance.allPlayerScripts[i];
-                if (!__instance.PlayerIsTargetable(lethalBotController) 
-                    || !LethalBotManager.Instance.IsPlayerLethalBot(lethalBotController))
-                {
-                    continue;
-                }
+        //    // FIXME: Is this still needed, this code only checks for bots, but still checks all players.....
+        //    for (int i = 0; i < StartOfRound.Instance.allPlayerScripts.Length; i++)
+        //    {
+        //        PlayerControllerB lethalBotController = StartOfRound.Instance.allPlayerScripts[i];
+        //        if (!__instance.PlayerIsTargetable(lethalBotController) 
+        //            || !LethalBotManager.Instance.IsPlayerLethalBot(lethalBotController))
+        //        {
+        //            continue;
+        //        }
 
-                Vector3 position = lethalBotController.gameplayCamera.transform.position;
-                if (Vector3.Distance(position, __instance.eye.position) < (float)range && !Physics.Linecast(__instance.eye.position, position, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
-                {
-                    Vector3 to = position - __instance.eye.position;
-                    if (Vector3.Angle(__instance.eye.forward, to) < width || (proximityAwareness != -1 && Vector3.Distance(__instance.eye.position, position) < (float)proximityAwareness))
-                    {
-                        lethalBotControllerFound = lethalBotController;
-                    }
-                }
-            }
+        //        Vector3 position = lethalBotController.gameplayCamera.transform.position;
+        //        if (Vector3.Distance(position, __instance.eye.position) < (float)range && !Physics.Linecast(__instance.eye.position, position, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
+        //        {
+        //            Vector3 to = position - __instance.eye.position;
+        //            if (Vector3.Angle(__instance.eye.forward, to) < width || (proximityAwareness != -1 && Vector3.Distance(__instance.eye.position, position) < (float)proximityAwareness))
+        //            {
+        //                lethalBotControllerFound = lethalBotController;
+        //            }
+        //        }
+        //    }
 
-            if (__result == null && lethalBotControllerFound == null)
-            {
-                return;
-            }
-            else if (__result == null && lethalBotControllerFound != null)
-            {
-                Plugin.LogDebug("bot found, no player found");
-                __result = lethalBotControllerFound;
-                return;
-            }
-            else if (__result != null && lethalBotControllerFound == null)
-            {
-                Plugin.LogDebug("bot not found, player found");
-                return;
-            }
-            else
-            {
-                if (__result == null || lethalBotControllerFound == null) return;
-                Vector3 playerPosition = __result.gameplayCamera.transform.position;
-                Vector3 lethalBotPosition = lethalBotControllerFound.gameplayCamera.transform.position;
-                Vector3 aiEnemyPosition = __instance.eye == null ? __instance.transform.position : __instance.eye.position;
-                if ((lethalBotPosition - aiEnemyPosition).sqrMagnitude < (playerPosition - aiEnemyPosition).sqrMagnitude)
-                {
-                    Plugin.LogDebug("lethalBot closer");
-                    __result = lethalBotControllerFound;
-                }
-                else { Plugin.LogDebug("player closer"); }
-            }
-        }
+        //    if (__result == null && lethalBotControllerFound == null)
+        //    {
+        //        return;
+        //    }
+        //    else if (__result == null && lethalBotControllerFound != null)
+        //    {
+        //        Plugin.LogDebug("bot found, no player found");
+        //        __result = lethalBotControllerFound;
+        //        return;
+        //    }
+        //    else if (__result != null && lethalBotControllerFound == null)
+        //    {
+        //        Plugin.LogDebug("bot not found, player found");
+        //        return;
+        //    }
+        //    else
+        //    {
+        //        if (__result == null || lethalBotControllerFound == null) return;
+        //        Vector3 playerPosition = __result.gameplayCamera.transform.position;
+        //        Vector3 lethalBotPosition = lethalBotControllerFound.gameplayCamera.transform.position;
+        //        Vector3 aiEnemyPosition = __instance.eye == null ? __instance.transform.position : __instance.eye.position;
+        //        if ((lethalBotPosition - aiEnemyPosition).sqrMagnitude < (playerPosition - aiEnemyPosition).sqrMagnitude)
+        //        {
+        //            Plugin.LogDebug("lethalBot closer");
+        //            __result = lethalBotControllerFound;
+        //        }
+        //        else { Plugin.LogDebug("player closer"); }
+        //    }
+        //}
 
         /// <summary>
         /// Patch for making the enemy check lethalBot too when calling <c>GetClosestPlayer</c>
@@ -292,41 +292,41 @@ namespace LethalBots.Patches.NpcPatches
         /// <param name="requireLineOfSight"></param>
         /// <param name="viewWidth"></param>
         /// NEEDTOVAILIDATE: This addon changes the number of players "connected" so I do wonder if this is fixed?
-        [HarmonyPatch("TargetClosestPlayer")]
-        [HarmonyPostfix]
-        static void TargetClosestPlayer_PostFix(EnemyAI __instance, ref bool __result, float bufferDistance, bool requireLineOfSight, float viewWidth)
-        {
-            PlayerControllerB playerTargetted = __instance.targetPlayer;
+        //[HarmonyPatch("TargetClosestPlayer")]
+        //[HarmonyPostfix]
+        //static void TargetClosestPlayer_PostFix(EnemyAI __instance, ref bool __result, float bufferDistance, bool requireLineOfSight, float viewWidth)
+        //{
+        //    PlayerControllerB playerTargetted = __instance.targetPlayer;
 
-            // FIXME: Is this still needed, this code only checks for bots, but still checks all player indexes.....
-            for (int i = 0; i < StartOfRound.Instance.allPlayerScripts.Length; i++)
-            {
-                PlayerControllerB lethalBot = StartOfRound.Instance.allPlayerScripts[i];
-                if (!LethalBotManager.Instance.IsPlayerLethalBot(lethalBot) 
-                    || playerTargetted == lethalBot)
-                {
-                    continue;
-                }
+        //    // FIXME: Is this still needed, this code only checks for bots, but still checks all player indexes.....
+        //    for (int i = 0; i < StartOfRound.Instance.allPlayerScripts.Length; i++)
+        //    {
+        //        PlayerControllerB lethalBot = StartOfRound.Instance.allPlayerScripts[i];
+        //        if (!LethalBotManager.Instance.IsPlayerLethalBot(lethalBot) 
+        //            || playerTargetted == lethalBot)
+        //        {
+        //            continue;
+        //        }
 
-                if (__instance.PlayerIsTargetable(lethalBot, false, false)
-                    && !__instance.PathIsIntersectedByLineOfSight(lethalBot.transform.position, false, false)
-                    && (!requireLineOfSight || __instance.CheckLineOfSightForPosition(lethalBot.gameplayCamera.transform.position, viewWidth, 40, -1f, null)))
-                {
-                    __instance.tempDist = Vector3.Distance(__instance.transform.position, lethalBot.transform.position);
-                    if (__instance.tempDist < __instance.mostOptimalDistance)
-                    {
-                        __instance.mostOptimalDistance = __instance.tempDist;
-                        __instance.targetPlayer = lethalBot;
-                    }
-                }
-            }
-            if (__instance.targetPlayer != null && bufferDistance > 0f && playerTargetted != null
-                && Mathf.Abs(__instance.mostOptimalDistance - Vector3.Distance(__instance.transform.position, playerTargetted.transform.position)) < bufferDistance)
-            {
-                __instance.targetPlayer = playerTargetted;
-            }
-            __result = __instance.targetPlayer != null;
-        }
+        //        if (__instance.PlayerIsTargetable(lethalBot, false, false)
+        //            && !__instance.PathIsIntersectedByLineOfSight(lethalBot.transform.position, false, false)
+        //            && (!requireLineOfSight || __instance.CheckLineOfSightForPosition(lethalBot.gameplayCamera.transform.position, viewWidth, 40, -1f, null)))
+        //        {
+        //            __instance.tempDist = Vector3.Distance(__instance.transform.position, lethalBot.transform.position);
+        //            if (__instance.tempDist < __instance.mostOptimalDistance)
+        //            {
+        //                __instance.mostOptimalDistance = __instance.tempDist;
+        //                __instance.targetPlayer = lethalBot;
+        //            }
+        //        }
+        //    }
+        //    if (__instance.targetPlayer != null && bufferDistance > 0f && playerTargetted != null
+        //        && Mathf.Abs(__instance.mostOptimalDistance - Vector3.Distance(__instance.transform.position, playerTargetted.transform.position)) < bufferDistance)
+        //    {
+        //        __instance.targetPlayer = playerTargetted;
+        //    }
+        //    __result = __instance.targetPlayer != null;
+        //}
 
         #endregion
     }

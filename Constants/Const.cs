@@ -231,6 +231,8 @@ namespace LethalBots.Constants
 
         // Mod specific
         public const short LETHAL_PHONES_NO_CALLER_ID = -1; // Lethal Phones uses this to indicate that there is no caller.
+        public const float LETHAL_PHONES_CLOSED_PHONE = 0f;
+        public const float LETHAL_PHONES_OPEN_PHONE = 1f;
 
         // Tips
         public const string TOOLTIP_DROP_ITEM = "Drop your item : [{0}]";

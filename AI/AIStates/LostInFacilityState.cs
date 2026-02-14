@@ -119,7 +119,7 @@ namespace LethalBots.AI.AIStates
             ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
             {
                 VoiceState = EnumVoicesState.Lost,
-                CanTalkIfOtherLethalBotTalk = false,
+                CanTalkIfOtherLethalBotTalk = true,
                 WaitForCooldown = true,
                 CutCurrentVoiceStateToTalk = false,
                 CanRepeatVoiceState = true,
@@ -166,6 +166,7 @@ namespace LethalBots.AI.AIStates
             if (this.searchingWanderCoroutine != null)
             {
                 ai.StopCoroutine(this.searchingWanderCoroutine);
+                searchingWanderCoroutine = null!;
             }
         }
     }

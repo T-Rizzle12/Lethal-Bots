@@ -642,7 +642,8 @@ namespace LethalBots.AI
             if (entranceSafetyCache.TryGetValue(entrance, out var cachedSafety))
             {
                 // If the last safety check was less than 1 second ago, we can use the cached value
-                if ((Time.timeSinceLevelLoad - cachedSafety.lastSafetyCheck) < 1f)
+                const float cacheCooldownTimer = 1f;
+                if ((Time.timeSinceLevelLoad - cachedSafety.lastSafetyCheck) < cacheCooldownTimer)
                 {
                     return cachedSafety.isSafe;
                 }
@@ -660,7 +661,8 @@ namespace LethalBots.AI
             Vector3 entrancePoint = useEntrancePoint ? entrance.entrancePoint.position : entrance.exitPoint.position;
             foreach (EnemyAI enemy in RoundManager.Instance.SpawnedEnemies)
             {
-                if (!enemy.isEnemyDead && enemy is not LethalBotAI && (enemy.transform.position - entrancePoint).sqrMagnitude < 7.7f * 7.7f) // 7.7f is the same distance used by the base game to show the enemy activity nearby message!
+                const float dangerRange = 7.7f; // 7.7f is the same distance used by the base game to show the enemy activity nearby message!
+                if (!enemy.isEnemyDead && enemy is not LethalBotAI && (enemy.transform.position - entrancePoint).sqrMagnitude < dangerRange * dangerRange)
                 {
                     // We found an enemy near the exit point, so we should not use this entrance!
                     entranceSafetyCache[entrance] = (false, Time.timeSinceLevelLoad);
@@ -766,97 +768,168 @@ namespace LethalBots.AI
         /// The walkie-talkie will be used if the bot is talking!<br/>
         /// The shotgun will be used if the safety is not on or the bot has spare ammo and the shotgun needs to be reloaded!<br/>
         /// The TZPInhalant is managed by the <see cref="UseTZPInhalantState"/> state!<br/>
+        /// The flashlight will be used if the bot believes it is dark enough to need it.<br/>
         /// The Maneater baby will be rocked if the baby is crying!<br/>
         /// NOTE: The bot only uses <see cref="LethalBotAI.HeldItem"/>, so items in the inventory will not be used!<br/>
         /// This will be changed in the future!
         /// </remarks>
         public virtual void UseHeldItem()
         {
-            GrabbableObject? heldItem = ai.HeldItem;
-            if (heldItem == null 
-                || !ai.CanUseHeldItem())
+            bool canUseLethalPhones = Plugin.IsModLethalPhonesLoaded;
+            if (ai.CanUseHeldItem())
             {
-                return;
-            }
-
-            // If we are holding a walkie-talkie, we should use it!
-            // NOTE: Due to the way the walkie-talkie is coded, this seems to work really well!
-            if (heldItem is WalkieTalkie walkieTalkie)
-            {
-                if (ai.LethalBotIdentity.Voice.IsTalking())
+                // If we are holding a walkie-talkie, we should use it!
+                // NOTE: Due to the way the walkie-talkie is coded, this seems to work really well!
+                GrabbableObject? heldItem = ai.HeldItem;
+                if (heldItem is WalkieTalkie walkieTalkie)
                 {
-                    if (!walkieTalkie.isBeingUsed && !walkieTalkie.insertedBattery.empty)
+                    if (ai.LethalBotIdentity.Voice.IsTalking())
                     {
-                        walkieTalkie.ItemInteractLeftRightOnClient(false);
-                    }
-                    else if (walkieTalkie.isBeingUsed && !walkieTalkie.isHoldingButton)
-                    {
-                        walkieTalkie.UseItemOnClient(true);
-                    }
-                }
-                else if (walkieTalkie.isBeingUsed && walkieTalkie.isHoldingButton)
-                {
-                    walkieTalkie.UseItemOnClient(false);
-                }
-            }
-            else if (heldItem is ShotgunItem shotgun)
-            {
-                // Put the saftey back on
-                if (!shotgun.safetyOn)
-                {
-                    shotgun.ItemInteractLeftRightOnClient(false);
-                }
-                // Reload as needed!
-                else if (shotgun.shellsLoaded < 2 && ai.HasAmmoForWeapon(shotgun, true))
-                {
-                    shotgun.ItemInteractLeftRightOnClient(true);
-                }
-            }
-            else if (heldItem is TetraChemicalItem tzpItem)
-            {
-                // Stop using if we are using it!
-                if (tzpItem.isBeingUsed)
-                { 
-                    tzpItem.UseItemOnClient(false);
-                }
-            }
-            else if (heldItem is CaveDwellerPhysicsProp caveDwellerGrabbableObject)
-            {
-                CaveDwellerAI? caveDwellerAI = caveDwellerGrabbableObject.caveDwellerScript;
-                if (caveDwellerAI != null)
-                {
-                    // Rock the maneater if its crying and we are holding it!
-                    if (caveDwellerAI.babyCrying)
-                    {
-                        // Don't rock the baby if we are already rocking it!
-                        if (caveDwellerAI.rockingBaby <= 0)
+                        canUseLethalPhones = false;
+                        if (!walkieTalkie.isBeingUsed && !walkieTalkie.insertedBattery.empty)
                         {
-                            caveDwellerGrabbableObject.UseItemOnClient(true);
+                            walkieTalkie.ItemInteractLeftRightOnClient(false);
+                        }
+                        else if (walkieTalkie.isBeingUsed && !walkieTalkie.isHoldingButton)
+                        {
+                            walkieTalkie.UseItemOnClient(true);
                         }
                     }
-                    // If the baby is not crying, we should stop rocking it!
-                    else
+                    else if (walkieTalkie.isBeingUsed && walkieTalkie.isHoldingButton)
                     {
-                        // Stop rocking the maneater if its not crying anymore!
-                        if (caveDwellerAI.rockingBaby > 0)
+                        canUseLethalPhones = false;
+                        walkieTalkie.UseItemOnClient(false);
+                    }
+                }
+                else if (heldItem is ShotgunItem shotgun)
+                {
+                    // Put the saftey back on
+                    if (!shotgun.safetyOn)
+                    {
+                        canUseLethalPhones = false;
+                        shotgun.ItemInteractLeftRightOnClient(false);
+                    }
+                    // Reload as needed!
+                    else if (shotgun.shellsLoaded < 2 && ai.HasAmmoForWeapon(shotgun, true))
+                    {
+                        canUseLethalPhones = false;
+                        shotgun.ItemInteractLeftRightOnClient(true);
+                    }
+                }
+                else if (heldItem is TetraChemicalItem tzpItem)
+                {
+                    // Stop using if we are using it!
+                    if (tzpItem.isBeingUsed)
+                    {
+                        canUseLethalPhones = false;
+                        tzpItem.UseItemOnClient(false);
+                    }
+                }
+                else if (heldItem is FlashlightItem flashlight)
+                {
+                    // Kinda hard to use the flashlight if it has no juice!
+                    if (!flashlight.insertedBattery.empty 
+                        && !ai.CheckProximityForEyelessDogs())
+                    {
+                        // Now do we need to turn it on or off?
+                        bool shouldToggleFlashlight = false;
+                        float lightLevel = ai.GetLightLevelAroundBot();
+                        if (lightLevel < 1f)
                         {
-                            caveDwellerGrabbableObject.UseItemOnClient(false);
-                        }
-                        else
-                        {
-                            // Check if the baby doesn't like us, if it doesn't, we should drop it!
-                            // We also check if the config option is enabled or not!
-                            BabyPlayerMemory playerMemory = CaveDwellerAIPatch.GetBabyMemoryOfPlayer_ReversePatch(caveDwellerAI, npcController.Npc);
-                            if ((playerMemory != null && playerMemory.likeMeter < 0.1f) 
-                                || !Plugin.Config.AdvancedManeaterBabyAI.Value)
+                            // Its dark over here, turn the light on!
+                            if (!flashlight.isBeingUsed)
                             {
-                                // The baby doesn't like us, so we should drop it!
-                                // or else it will be mad at us after a while and would try to kill us!
-                                ai.DropItem();
+                                shouldToggleFlashlight = true;
+                            }
+                        }
+                        else if (flashlight.isBeingUsed)
+                        {
+                            // Its bright enough in here, turn the lights on!
+                            shouldToggleFlashlight = true;
+                        }
+
+                        if (shouldToggleFlashlight)
+                        {
+                            canUseLethalPhones = false;
+                            flashlight.UseItemOnClient(true);
+                            if (flashlight.itemProperties.holdButtonUse)
+                            {
+                                flashlight.UseItemOnClient(false); // HACKHACK: Fake release the button!
                             }
                         }
                     }
                 }
+                else if (heldItem is CaveDwellerPhysicsProp caveDwellerGrabbableObject)
+                {
+                    CaveDwellerAI? caveDwellerAI = caveDwellerGrabbableObject.caveDwellerScript;
+                    if (caveDwellerAI != null)
+                    {
+                        // Rock the maneater if its crying and we are holding it!
+                        if (caveDwellerAI.babyCrying)
+                        {
+                            // Don't rock the maneater if we are already rocking it!
+                            canUseLethalPhones = false;
+                            if (caveDwellerAI.rockingBaby <= 0)
+                            {
+                                caveDwellerGrabbableObject.UseItemOnClient(true);
+                            }
+                        }
+                        // If the maneater is not crying, we should stop rocking it!
+                        else
+                        {
+                            // Stop rocking the maneater if its not crying anymore!
+                            if (caveDwellerAI.rockingBaby > 0)
+                            {
+                                canUseLethalPhones = false;
+                                caveDwellerGrabbableObject.UseItemOnClient(false);
+                            }
+                            else
+                            {
+                                // Check if the maneater doesn't like us, if it doesn't, we should drop it!
+                                // We also check if the config option is enabled or not!
+                                BabyPlayerMemory playerMemory = CaveDwellerAIPatch.GetBabyMemoryOfPlayer_ReversePatch(caveDwellerAI, npcController.Npc);
+                                if ((playerMemory != null && playerMemory.likeMeter < 0.1f)
+                                    || !Plugin.Config.AdvancedManeaterBabyAI.Value)
+                                {
+                                    // The maneater doesn't like us, so we should drop it!
+                                    // or else it will be mad at us after a while and would try to kill us!
+                                    ai.DropItem();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Handle lethal phone calls after item usage, since the bot may using an item that
+            // prevents them from accepting the call, such as the walkie-talkie or the TZP inhalant!
+            if (canUseLethalPhones)
+            {
+                UseLethalPhones();
+            }
+        }
+
+        /// <summary>
+        /// Called every ai interval <see cref="EnemyAI.AIIntervalTime"/> in <see cref="AIState.UseHeldItem"/> by default. 
+        /// Will do certain actions with their phone based on given situation.
+        /// </summary>
+        /// <remarks>
+        /// It should be safe to call all Lethal Phones related functions in this function,
+        /// since it should only be called when <see cref="Plugin.IsModLethalPhonesLoaded"/> is true
+        /// </remarks>
+        public virtual void UseLethalPhones()
+        {
+            // If we have an incoming call, better pick it up!
+            if (!ai.IsLethalPhonesCoroutineRunning()
+                && ai.HasIncomingCall())
+            {
+                ai.AcceptIncomingCall();
+            }
+            // If we are not in a call or attempting to call someone,
+            // just put the phone away if we have it out!
+            else if (!ai.AreWeInCall() && ai.IsPhoneEquipped())
+            {
+                ai.HangupPhone();
             }
         }
 
@@ -1179,6 +1252,7 @@ namespace LethalBots.AI
         /// Public helper that allows checking if the safe path system is running.
         /// </summary>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsSafePathRunning()
         {
             return safePathCoroutine != null;

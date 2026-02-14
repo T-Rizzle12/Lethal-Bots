@@ -60,9 +60,15 @@ namespace LethalBots.AI.AIStates
             bool canInverseTeleport = true;
             if (npcController.Npc.isInHangarShipRoom)
             {
-                // Bot drop item
+                // If we are the mission controller, go to that state
                 PlayerControllerB? missionController = LethalBotManager.Instance.MissionControlPlayer;
-                if (!ai.AreHandsFree() 
+                if (missionController == npcController.Npc)
+                {
+                    ai.State = new MissionControlState(this);
+                    return;
+                }
+                // Bot drop item
+                else if (!ai.AreHandsFree() 
                     && FindObject(ai.HeldItem))
                 {
                     if (!ai.TurnOffHeldItem())
@@ -88,12 +94,6 @@ namespace LethalBots.AI.AIStates
                     {
                         ai.State = new TransferLootState(this); // Go to transferring loot state
                     }
-                    return;
-                }
-                // If we are the mission controller, go to that state
-                else if (missionController == npcController.Npc)
-                {
-                    ai.State = new MissionControlState(this);
                     return;
                 }
                 // If there is no mission controller, or its dead, we should be it!

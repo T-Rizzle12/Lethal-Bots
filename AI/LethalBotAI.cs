@@ -11,6 +11,7 @@ using LethalBots.NetworkSerializers;
 using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
+using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.ModPatches.ModelRplcmntAPI;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
@@ -20,7 +21,9 @@ using Newtonsoft.Json.Linq;
 using ReservedItemSlotCore;
 using ReservedItemSlotCore.Data;
 using ReservedItemSlotCore.Patches;
+using Scoops.gameobjects;
 using Scoops.misc;
+using Scoops.service;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -170,6 +173,7 @@ namespace LethalBots.AI
         public Coroutine? useLadderCoroutine = null;
         private Coroutine? waitUntilEndOfOffMeshLinkCoroutine = null;
         internal Coroutine? useInteractTriggerCoroutine = null;
+        private Coroutine? lethalPhonesCoroutine = null;
 
         // Networked Variables
         /// <summary>
@@ -752,10 +756,7 @@ namespace LethalBots.AI
             // Such as flashlights, tzp-inhalent, using the stun-gun, flashbangs, etc.
             // Right now the only equipment the bot uses are walkie-talkies, keys, shovels, knifes, and shotguns.
             // Adding use of more equipment would be nice and add a more "human" aspect to them!
-            if (CanUseHeldItem())
-            {
-                State.UseHeldItem();
-            }
+            State.UseHeldItem();
         }
 
         public void UpdateController()
@@ -3944,6 +3945,7 @@ namespace LethalBots.AI
         /// Basically a carbon copy of <see cref="PlayerControllerB.CanUseItem"/>, but made for bots
         /// </summary>
         /// <returns></returns>
+        [MemberNotNullWhen(true, nameof(HeldItem))]
         public bool CanUseHeldItem()
         {
             PlayerControllerB lethalBotController = NpcController.Npc;
@@ -4104,13 +4106,14 @@ namespace LethalBots.AI
         [ServerRpc(RequireOwnership = false)]
         public void ChangeOwnershipOfLethalPhoneServerRpc(ulong newOwnerClientId)
         {
-            PlayerPhone phone = NpcController.Npc.transform.Find("PhonePrefab(Clone)").GetComponent<PlayerPhone>();
+            PlayerPhone? phone = GetOurPlayerPhone();
             if (phone != null)
             {
                 NetworkObject? lethalPhoneNetworkObject = phone.GetComponent<NetworkObject>();
                 if (lethalPhoneNetworkObject != null && lethalPhoneNetworkObject.OwnerClientId != newOwnerClientId)
                 {
                     lethalPhoneNetworkObject.ChangeOwnership(newOwnerClientId);
+                    StopLethalPhonesCoroutine(); // We need to stop the coroutine since ownership is changing.
                 }
             }
         }
@@ -4121,13 +4124,14 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateLethalPhoneOwnership()
         {
-            PlayerPhone phone = NpcController.Npc.transform.Find("PhonePrefab(Clone)").GetComponent<PlayerPhone>();
+            PlayerPhone? phone = GetOurPlayerPhone();
             if (phone != null)
             {
                 NetworkObject? lethalPhoneNetworkObject = phone.GetComponent<NetworkObject>();
                 if (lethalPhoneNetworkObject != null && lethalPhoneNetworkObject.OwnerClientId != this.OwnerClientId)
                 {
                     lethalPhoneNetworkObject.ChangeOwnership(this.OwnerClientId);
+                    StopLethalPhonesCoroutine(); // We need to stop the coroutine since ownership is changing.
                 }
             }
         }
@@ -4685,16 +4689,19 @@ namespace LethalBots.AI
                 return false;
             }
 
-            // Actually allow selling of bodies as they could be the diffrence between meeting quota or not
-            // TODO: Add a desperation mechanic so the bot will sell bodies if they won't meet quota
-            /*RagdollGrabbableObject? ragdollGrabbableObject = grabbableObject as RagdollGrabbableObject;
-            if (ragdollGrabbableObject != null)
+            // Bots will only sell bodies if we don't have enough items to reach the profit quota
+            RagdollGrabbableObject? ragdollGrabbableObject = grabbableObject as RagdollGrabbableObject;
+            if (ragdollGrabbableObject != null 
+                && grabbableObject.tag == "PhysicsProp"
+                && grabbableObject.GetComponentInParent<DeadBodyInfo>() != null)
             {
-                if (!ragdollGrabbableObject.grabbableToEnemies)
+                // Welp, are we desperate for cash?
+                int valueOfScrapInShip = LethalBotManager.GetValueOfAllScrapOnShip(this);
+                if (valueOfScrapInShip <= 0)
                 {
                     return false;
                 }
-            }*/
+            }
 
             // Ignore drop cooldowns when selling!
             // Item just dropped, should wait a bit before grab it again
@@ -4873,7 +4880,7 @@ namespace LethalBots.AI
         /// <param name="grabbableObjectToEvaluate">The object to check</param>
         /// <param name="enumGrabbable">Type of blacklist checks that should be done or skipped</param>
         /// <returns>true: this object is blacklisted. false: we are allowed to pick up this object</returns>
-        private bool IsGrabbableObjectBlackListed(GrabbableObject grabbableObjectToEvaluate, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default)
+        public bool IsGrabbableObjectBlackListed(GrabbableObject grabbableObjectToEvaluate, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default)
         {
             // Are we returning to the ship?
             bool shouldReturnToShip = this.State?.ShouldReturnToShip() ?? false;
@@ -5000,12 +5007,12 @@ namespace LethalBots.AI
             return false;
         }
 
-        private bool IsGrabbableObjectInContainerMod(GrabbableObject grabbableObject)
+        internal static bool IsGrabbableObjectInContainerMod(GrabbableObject grabbableObject)
         {
             return CustomItemBehaviourLibrary.AbstractItems.ContainerBehaviour.CheckIfItemInContainer(grabbableObject);
         }
 
-        private bool IsGrabbableObjectHeldByPikminMod(GrabbableObject grabbableObject)
+        internal static bool IsGrabbableObjectHeldByPikminMod(GrabbableObject grabbableObject)
         {
             List<LethalMin.PikminItem> listPickMinItems = LethalMin.PikminManager.GetPikminItemsInMap();
             if (listPickMinItems == null
@@ -7147,6 +7154,333 @@ namespace LethalBots.AI
 
         #endregion
 
+        #region Lethal Phones AI
+
+        /// <summary>
+        /// Has the bot call the given <paramref name="player"/> using Lethal Phones!
+        /// </summary>
+        /// <param name="player"></param>
+        public void CallPlayer(PlayerControllerB player)
+        {
+            // Only the owner can call players using the phone!
+            if (!base.IsOwner)
+            {
+                return;
+            }
+
+            PlayerPhone? ourPhone = GetOurPlayerPhone();
+            if (ourPhone == null)
+            {
+                Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to call a player, but was unable to find their phone!");
+                return;
+            }
+
+            PlayerPhone? playerPhone = player.transform?.Find("PhonePrefab(Clone)")?.GetComponent<PlayerPhone>();
+            if (playerPhone == null)
+            {
+                Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to call player {player.playerUsername}, but was unable to find their phone!");
+                return;
+            }
+
+            if (lethalPhonesCoroutine != null)
+            {
+                StopCoroutine(lethalPhonesCoroutine);
+            }
+            lethalPhonesCoroutine = StartCoroutine(callPlayerCoroutine(ourPhone, playerPhone));
+        }
+
+        /// <summary>
+        /// Carbon copy of <see cref="PlayerPhone.HangupButtonPressed()"/>, but adjusted to work for bots.
+        /// </summary>
+        public void HangupPhone()
+        {
+            // Only the owner can hang up the phone!
+            if (!base.IsOwner)
+            {
+                return;
+            }
+
+            PlayerPhone? ourPhone = GetOurPlayerPhone();
+            if (ourPhone == null)
+            {
+                Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to hangup phone, but was unable to find their phone!");
+                return;
+            }
+
+            NetworkVariable<short> incomingCall = PhoneBehaviorPatch.incomingCall.Invoke(ourPhone);
+            NetworkVariable<short> activeCall = PhoneBehaviorPatch.activeCall.Invoke(ourPhone);
+            NetworkVariable<short> outgoingCall = PhoneBehaviorPatch.outgoingCall.Invoke(ourPhone);
+            if (incomingCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID)
+            {
+                PhoneNetworkHandler.Instance.HangUpCallServerRpc(incomingCall.Value, ourPhone.NetworkObjectId);
+                ourPhone.StopRingingServerRpc();
+                ourPhone.PlayHangupSoundServerRpc();
+                incomingCall.Value = Const.LETHAL_PHONES_NO_CALLER_ID;
+            }
+            else if (activeCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID)
+            {
+                PhoneNetworkHandler.Instance.HangUpCallServerRpc(activeCall.Value, ourPhone.NetworkObjectId);
+                ourPhone.PlayHangupSoundServerRpc();
+                activeCall.Value = Const.LETHAL_PHONES_NO_CALLER_ID;
+            }
+            else if (outgoingCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID)
+            {
+                PhoneNetworkHandler.Instance.HangUpCallServerRpc(outgoingCall.Value, ourPhone.NetworkObjectId);
+                ourPhone.PlayHangupSoundServerRpc();
+                outgoingCall.Value = Const.LETHAL_PHONES_NO_CALLER_ID;
+            }
+
+            // Make sure to put the phone away after hanging up!
+            ourPhone.ToggleServerPhoneModelServerRpc(false);
+        }
+
+        /// <summary>
+        /// Carbon copy of <see cref="PlayerPhone.CallButtonPressed"/>, but adjusted to work for bots.
+        /// </summary>
+        public void AcceptIncomingCall()
+        {
+            // Only the owner can accept calls using the phone!
+            if (!base.IsOwner)
+            {
+                return;
+            }
+
+            PlayerPhone? ourPhone = GetOurPlayerPhone();
+            if (ourPhone == null)
+            {
+                Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to accept an incoming call, but was unable to find their phone!");
+                return;
+            }
+
+            if (lethalPhonesCoroutine != null)
+            {
+                StopCoroutine(lethalPhonesCoroutine);
+            }
+            lethalPhonesCoroutine = StartCoroutine(pickupCallCoroutine(ourPhone));
+        }
+
+        /// <summary>
+        /// Checks if someone is calling the bot
+        /// </summary>
+        /// <returns>true: we have an incoming call; otherwise false</returns>
+        public bool HasIncomingCall()
+        {
+            PlayerPhone? ourPhone = GetOurPlayerPhone();
+            if (ourPhone == null)
+            {
+                Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to check for incoming call, but was unable to find their phone!");
+                return false;
+            }
+            NetworkVariable<short> incomingCall = PhoneBehaviorPatch.incomingCall.Invoke(ourPhone);
+            return incomingCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID;
+        }
+
+        /// <summary>
+        /// Checks if we are calling someone
+        /// </summary>
+        /// <returns>true: we are calling someone; otherwise false</returns>
+        public bool IsCallingPlayer()
+        {
+            PlayerPhone? ourPhone = GetOurPlayerPhone();
+            if (ourPhone == null)
+            {
+                Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to check if calling player, but was unable to find their phone!");
+                return false;
+            }
+            NetworkVariable<short> outgoingCall = PhoneBehaviorPatch.outgoingCall.Invoke(ourPhone);
+            return outgoingCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID;
+        }
+
+        /// <summary>
+        /// Checks if we are currently in a call
+        /// </summary>
+        /// <returns></returns>
+        public bool AreWeInCall()
+        {
+            PlayerPhone? ourPhone = GetOurPlayerPhone();
+            if (ourPhone == null)
+            {
+                Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to check if in call, but was unable to find their phone!");
+                return false;
+            }
+            return ourPhone.IsBusy();
+        }
+
+        private IEnumerator callPlayerCoroutine(PlayerPhone ourPhone, PlayerPhone targetPhone)
+        {
+            yield return null;
+            if (PhoneBehaviorPatch.serverLeftArmRig.Invoke(ourPhone).weight < Const.LETHAL_PHONES_OPEN_PHONE)
+            { 
+                ourPhone.ToggleServerPhoneModelServerRpc(true); 
+            }
+            HangupPhone();
+
+            // Alright, we need to fake dialing in the number
+            short phoneNumber = targetPhone.phoneNumber;
+
+            // Wait a second, just to make sure the phone is pulled out.
+            yield return null;
+            yield return new WaitUntil(() => PhoneBehaviorPatch.serverLeftArmRig.Invoke(ourPhone).weight >= Const.LETHAL_PHONES_OPEN_PHONE);
+
+            // So we have the entire number, 1234 for example, but we to dial it one by one.
+            string phoneNumberString = phoneNumber.ToString("D4");
+            foreach (char digit in phoneNumberString)
+            {
+                ourPhone.DialNumber((short)char.GetNumericValue(digit));
+                yield return new WaitForSeconds(UnityEngine.Random.Range(0.1f, 0.3f)); // Wait a bit between dialing each digit, again this is a band-aid solution
+            }
+
+            // Finally, we "press" the call button!
+            ourPhone.CallDialedNumber();
+            StopLethalPhonesCoroutine();
+        }
+
+        private IEnumerator pickupCallCoroutine(PlayerPhone ourPhone)
+        {
+            yield return null;
+            if (PhoneBehaviorPatch.serverLeftArmRig.Invoke(ourPhone).weight < Const.LETHAL_PHONES_OPEN_PHONE)
+            {
+                ourPhone.ToggleServerPhoneModelServerRpc(true);
+            }
+
+            // Wait a second, just to make sure the phone is pulled out.
+            yield return null;
+            yield return new WaitUntil(() => PhoneBehaviorPatch.serverLeftArmRig.Invoke(ourPhone).weight >= Const.LETHAL_PHONES_OPEN_PHONE);
+
+            // Ok, now give the bot a fake reaction time for reading the caller ID and deciding to pick up,
+            // we don't want the bot to be too fast at picking up calls!
+            yield return new WaitForSeconds(UnityEngine.Random.Range(0.5f, 1.5f));
+
+            // Code copied from PlayerPhone.CallButtonPressed, but adjusted to work for bots!
+            NetworkVariable<short> incomingCall = PhoneBehaviorPatch.incomingCall.Invoke(ourPhone);
+            NetworkVariable<ulong> incomingCaller = PhoneBehaviorPatch.incomingCaller.Invoke(ourPhone);
+            if (incomingCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID)
+            {
+                NetworkVariable<short> activeCall = PhoneBehaviorPatch.activeCall.Invoke(ourPhone);
+                NetworkVariable<ulong> activeCaller = PhoneBehaviorPatch.activeCaller.Invoke(ourPhone);
+                if (activeCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID)
+                {
+                    PhoneNetworkHandler.Instance.HangUpCallServerRpc(activeCall.Value, ourPhone.NetworkObjectId);
+                }
+
+                activeCall.Value = incomingCall.Value;
+                activeCaller.Value = incomingCaller.Value;
+                incomingCall.Value = Const.LETHAL_PHONES_NO_CALLER_ID;
+                PhoneNetworkHandler.Instance.AcceptIncomingCallServerRpc(activeCall.Value, ourPhone.NetworkObjectId);
+                ourPhone.StopRingingServerRpc();
+                ourPhone.PlayPickupSoundServerRpc();
+            }
+            StopLethalPhonesCoroutine();
+        }
+
+        /// <summary>
+        /// Helper that checks if the bot is currently in the middle of a lethal phones coroutine.
+        /// This exists to stop redundant calls to <see cref="CallPlayer(PlayerControllerB)"/> and <see cref="AcceptIncomingCall"/>
+        /// </summary>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsLethalPhonesCoroutineRunning()
+        {
+            return lethalPhonesCoroutine != null;
+        }
+
+        public void StopLethalPhonesCoroutine()
+        {
+            if (lethalPhonesCoroutine != null)
+            {
+                StopCoroutine(lethalPhonesCoroutine);
+                lethalPhonesCoroutine = null;
+            }
+        }
+
+        /// <summary>
+        /// Checks if the bot currently has their phone equipped, 
+        /// this is done by checking the phone equip animation progress, 
+        /// since there is no "isPhoneEquipped" boolean or anything like that.
+        /// </summary>
+        /// <returns>true: the bot has their phone out; otherwise false</returns>
+        public bool IsPhoneEquipped()
+        {
+            PlayerPhone? ourPhone = GetOurPlayerPhone();
+            if (ourPhone == null)
+            {
+                Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to check if phone equipped, but was unable to find their phone!");
+                return false;
+            }
+            return PhoneBehaviorPatch.serverLeftArmRig.Invoke(ourPhone).weight >= Const.LETHAL_PHONES_OPEN_PHONE;
+        }
+
+        /// <summary>
+        /// Helper function to get the bot's phone, if it has one! 
+        /// </summary>
+        /// <returns>The bot's <see cref="PlayerPhone"/>.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public PlayerPhone? GetOurPlayerPhone()
+        {
+            return NpcController.Npc.transform?.Find("PhonePrefab(Clone)")?.GetComponent<PlayerPhone>();
+        }
+
+        /// <summary>
+        /// For Lethal Phones <see cref="SwitchboardPhone"/>
+        /// </summary>
+        public void BecomeSwitchboardOperator()
+        {
+            // Only the owner can do this!
+            if (!base.IsOwner)
+            {
+                return;
+            }
+
+            SwitchboardPhone? switchboardPhone = PhoneNetworkHandler.Instance?.switchboard;
+            if (switchboardPhone == null)
+            {
+                // Just do nothing, we may not have the switchboard upgrade!
+                return;
+            }
+
+            // If someone is already the switchboardOperator, there is nothing we can do here!
+            PlayerControllerB switchboardOperator = switchboardPhone.switchboardOperator;
+            if (switchboardOperator != null)
+            {
+                return;
+            }
+
+            // Alright, make us the operator!
+            switchboardPhone.OperatorSwitch(NpcController.Npc);
+        }
+
+        /// <summary>
+        /// For Lethal Phones <see cref="SwitchboardPhone"/>
+        /// </summary>
+        public void StopBeingSwitchboardOperator()
+        {
+            // Only the owner can do this!
+            if (!base.IsOwner)
+            {
+                return;
+            }
+
+            SwitchboardPhone? switchboardPhone = PhoneNetworkHandler.Instance?.switchboard;
+            if (switchboardPhone == null)
+            {
+                // Just do nothing, we may not have the switchboard upgrade!
+                return;
+            }
+
+            // If someone is already the switchboardOperator, there is nothing we can do here!
+            PlayerControllerB switchboardOperator = switchboardPhone.switchboardOperator;
+            if (switchboardOperator == null 
+                || switchboardOperator != NpcController.Npc)
+            {
+                return;
+            }
+
+            // Alright, we don't want to be the operator anymore!
+            switchboardPhone.OperatorSwitch(NpcController.Npc);
+        }
+
+        #endregion
+
         #region Vote to leave early RPC
 
         /*[ServerRpc(RequireOwnership = false)]
@@ -7783,6 +8117,12 @@ namespace LethalBots.AI
             {
                 ReviveCompanySetPlayerDiedAt((int)NpcController.Npc.playerClientId);
             }
+
+            // Compat with Lethal Phones
+            if (Plugin.IsModLethalPhonesLoaded)
+            {
+                CallLethalPhonesDeath((int)causeOfDeath);
+            }
         }
 
         /// <summary>
@@ -7795,6 +8135,20 @@ namespace LethalBots.AI
             {
                 OPJosMod.ReviveCompany.GeneralUtil.SetPlayerDiedAt(playerClientId);
             }
+        }
+
+        /// <summary>
+        /// Seperate method to prevent loading of Lethal Phones in case the mod isn't installed
+        /// </summary>
+        private void CallLethalPhonesDeath(int causeOfDeath)
+        {
+            PlayerPhone? ourPhone = GetOurPlayerPhone();
+            if (ourPhone == null)
+            {
+                Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to call phone death hook, but was unable to find their phone!");
+                return;
+            }
+            ourPhone.Death(causeOfDeath);
         }
 
         #endregion

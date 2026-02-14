@@ -27,7 +27,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Our inventory is full, lets go!
-            if (!ai.HasSpaceInInventory())
+            if (!ai.HasSpaceInInventory() || CanWeFulfillTheProfitQuota())
             {
                 ai.State = new SellScrapState(this);
                 return;
@@ -59,6 +59,39 @@ namespace LethalBots.AI.AIStates
         public override void TryPlayCurrentStateVoiceAudio()
         {
             return;
+        }
+
+        private bool CanWeFulfillTheProfitQuota()
+        {
+            // If we don't have a reference to the TimeOfDay, we can't check if we can fulfill the profit quota, so return false.
+            // NOTE: This should never happen, but who knows.
+            TimeOfDay timeOfDay = TimeOfDay.Instance;
+            if (timeOfDay == null)
+            {
+                return false;
+            }
+
+            // Check if we can fulfill the profit quota with the scrap we have already sold and the scrap we have in our inventory.
+            int fulfilledQuota = timeOfDay.quotaFulfilled + LethalBotManager.GetValueOfItemsOnDesk();
+            int valueOfInventory = 0;
+            foreach (var item in npcController.Npc.ItemSlots)
+            {
+                // We have to check if the item is null
+                // because the bot might have empty inventory slots.
+                if (item != null)
+                {
+                    valueOfInventory += item.scrapValue;
+                }
+            }
+
+            // If the value of the scrap we have already sold and the scrap we have in our inventory is
+            // greater than or equal to the profit quota, then we can fulfill the profit quota!
+            if (fulfilledQuota + valueOfInventory >= timeOfDay.profitQuota)
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }
