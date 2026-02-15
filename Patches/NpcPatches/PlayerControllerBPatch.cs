@@ -44,6 +44,7 @@ namespace LethalBots.Patches.NpcPatches
                                   ref bool ___disabledJetpackControlsThisFrame,
                                   ref bool ___startedJetpackControls,
                                   ref float ___upperBodyAnimationsWeight,
+                                  ref bool ___throwingObject,
                                   ref float ___timeSinceSwitchingSlots,
                                   ref float ___timeSinceTakingGravityDamage,
                                   ref bool ___teleportingThisFrame,
@@ -73,7 +74,8 @@ namespace LethalBots.Patches.NpcPatches
                 npcController.DisabledJetpackControlsThisFrame = ___disabledJetpackControlsThisFrame;
                 npcController.StartedJetpackControls = ___startedJetpackControls;
                 npcController.UpperBodyAnimationsWeight = ___upperBodyAnimationsWeight;
-                npcController.TimeSinceSwitchingSlots = ___timeSinceSwitchingSlots;
+                npcController.ThrowingObject.Apply(___throwingObject); // NOTE: ThrowingObject is updated in an RPC which is not during the standard update call
+                npcController.TimeSinceSwitchingSlots.Apply(___timeSinceSwitchingSlots); // NOTE: TimeSinceSwitchingSlots can be updated in an RPC which is not during the standard update call
                 npcController.TimeSinceTakingGravityDamage = ___timeSinceTakingGravityDamage;
                 npcController.TeleportingThisFrame = ___teleportingThisFrame;
                 npcController.PreviousFrameDeltaTime = ___previousFrameDeltaTime;
@@ -91,6 +93,7 @@ namespace LethalBots.Patches.NpcPatches
 
                 ___startedJetpackControls = npcController.StartedJetpackControls;
                 ___upperBodyAnimationsWeight = npcController.UpperBodyAnimationsWeight;
+                ___throwingObject = npcController.ThrowingObject;
                 ___timeSinceSwitchingSlots = npcController.TimeSinceSwitchingSlots;
                 ___timeSinceTakingGravityDamage = npcController.TimeSinceTakingGravityDamage;
                 ___teleportingThisFrame = npcController.TeleportingThisFrame;
@@ -306,26 +309,6 @@ namespace LethalBots.Patches.NpcPatches
                 LethalBotAI.DictJustDroppedItems[deadBody] = Time.realtimeSinceStartup;
             }*/
 
-            return true;
-        }
-
-        /// <summary>
-        /// Patch to call our DisablePlayerModel method!
-        /// </summary>
-        /// <param name="__instance"></param>
-        /// <param name="playerObject"></param>
-        /// <param name="enable"></param>
-        /// <param name="disableLocalArms"></param>
-        /// <returns></returns>
-        [HarmonyPatch("DisablePlayerModel")]
-        [HarmonyPrefix]
-        static bool DisablePlayerModel_Prefix(PlayerControllerB __instance, GameObject playerObject, bool enable = false, bool disableLocalArms = false)
-        {
-            if (LethalBotManager.Instance.IsPlayerLethalBot(__instance))
-            {
-                LethalBotManager.Instance.DisableLethalBotControllerModel(playerObject, __instance, enable, disableLocalArms);
-                return false;
-            }
             return true;
         }
 

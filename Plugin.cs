@@ -19,7 +19,6 @@ using LethalBots.Patches.ModPatches.LethalProgression;
 using LethalBots.Patches.ModPatches.ModelRplcmntAPI;
 using LethalBots.Patches.ModPatches.MoreEmotes;
 using LethalBots.Patches.ModPatches.Peepers;
-using LethalBots.Patches.ModPatches.ReservedItemSlotCore;
 using LethalBots.Patches.ModPatches.ReviveCompany;
 using LethalBots.Patches.ModPatches.ShowCapacity;
 using LethalBots.Patches.ModPatches.TooManyEmotes;
@@ -100,6 +99,7 @@ namespace LethalBots
         internal static bool IsModFacilityMeltdownLoaded = false;
         internal static bool IsModNavmeshInCompanyLoaded = false;
         internal static bool IsModReservedItemSlotCoreLoaded = false;
+        internal static bool IsModLethalPhonesLoaded = false;
         private readonly Harmony _harmony = new(ModGUID);
 
         private void Awake()
@@ -268,10 +268,10 @@ namespace LethalBots
             IsModFacilityMeltdownLoaded = IsModLoaded(Const.FACILITYMELTDOWN_GUID);
             IsModNavmeshInCompanyLoaded = IsModLoaded(Const.NAVMESHINCOMPANY_GUID);
             IsModReservedItemSlotCoreLoaded = IsModLoaded(Const.RESERVEDITEMSLOTCORE_GUID);
+            IsModLethalPhonesLoaded = IsModLoaded(Const.LETHALPHONES_GUID);
 
             bool isModMoreEmotesLoaded = IsModLoaded(Const.MOREEMOTES_GUID);
             bool isModBetterEmotesLoaded = IsModLoaded(Const.BETTEREMOTES_GUID);
-            bool isModLethalPhonesLoaded = IsModLoaded(Const.LETHALPHONES_GUID);
             bool isModShowCapacityLoaded = IsModLoaded(Const.SHOWCAPACITY_GUID);
             bool isModLethalProgressionLoaded = IsModLoaded(Const.LETHALPROGRESSION_GUID);
             bool isModLCAlwaysHearWalkieModLoaded = IsModLoaded(Const.LCALWAYSHEARWALKIEMOD_GUID);
@@ -323,11 +323,13 @@ namespace LethalBots
                 _harmony.PatchAll(typeof(ModelReplacementAPIPatch));
                 //_harmony.PatchAll(typeof(ManagerBasePatch)); // This gives me an error, commenting out for now
             }
-            if (isModLethalPhonesLoaded)
+            if (IsModLethalPhonesLoaded)
             {
-                _harmony.PatchAll(typeof(PlayerPhonePatchPatch));
+                _harmony.PatchAll(typeof(AudioSourceStoragePatch));
                 _harmony.PatchAll(typeof(PhoneBehaviorPatch));
-                _harmony.PatchAll(typeof(PlayerPhonePatchLI));
+                _harmony.PatchAll(typeof(PlayerPhonePatch));
+                _harmony.PatchAll(typeof(PlayerPhonePatchPatch));
+                PhoneBehaviorPatch.SetupReflectionFields();
             }
             if (isModAdditionalNetworkingLoaded)
             {
@@ -338,8 +340,8 @@ namespace LethalBots
             }
             if (isModShowCapacityLoaded)
             {
-                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("ShowCapacity.Patches.PlayerControllerBPatch"), "Update_PreFix"),
-                               new HarmonyMethod(typeof(ShowCapacityPatch), nameof(ShowCapacityPatch.Update_PreFix_Prefix)));
+                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("ShowCapacity.Patches.PlayerControllerBPatch"), "Update_PostFix"),
+                               new HarmonyMethod(typeof(ShowCapacityPatch), nameof(ShowCapacityPatch.Update_PostFix_Prefix)));
             }
             if (IsModReviveCompanyLoaded)
             {
@@ -358,13 +360,6 @@ namespace LethalBots
                 _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("Zaprillator.Behaviors.RevivablePlayer"), "IShockableWithGun.StopShockingWithGun"),
                                new HarmonyMethod(typeof(RevivablePlayerPatch), nameof(RevivablePlayerPatch.StopShockingWithGun_Prefix)));
             }
-            /*if (isModReservedItemSlotCoreLoaded)
-            {
-                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("ReservedItemSlotCore.Patches.PlayerPatcher"), "InitializePlayerControllerLate"),
-                               new HarmonyMethod(typeof(PlayerPatcherPatch), nameof(PlayerPatcherPatch.InitializePlayerControllerLate_Prefix)));
-                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("ReservedItemSlotCore.Patches.PlayerPatcher"), "CheckForChangedInventorySize"),
-                               new HarmonyMethod(typeof(PlayerPatcherPatch), nameof(PlayerPatcherPatch.CheckForChangedInventorySize_Prefix)));
-            }*/
             if (isModLethalProgressionLoaded)
             {
                 _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LethalProgression.Skills.HPRegen"), "HPRegenUpdate"),
@@ -386,11 +381,11 @@ namespace LethalBots
                                null,
                                new HarmonyMethod(typeof(LCAlwaysHearActiveWalkiePatch), nameof(LCAlwaysHearActiveWalkiePatch.alwaysHearWalkieTalkiesPatch_Transpiler)));
             }*/
-            if (isModButteryFixesLoaded)
+            /*if (isModButteryFixesLoaded)
             {
                 _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("ButteryFixes.Patches.Player.BodyPatches"), "DeadBodyInfoPostStart"),
                                new HarmonyMethod(typeof(BodyPatchesPatch), nameof(BodyPatchesPatch.DeadBodyInfoPostStart_Prefix)));
-            }
+            }*/
             if (isModPeepersLoaded)
             {
                 _harmony.PatchAll(typeof(PeeperAttachHitboxPatch));

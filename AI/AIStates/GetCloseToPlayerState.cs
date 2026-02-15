@@ -126,6 +126,9 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // Select and use items based on our current situation, if needed
+            SelectBestItemFromInventory();
+
             // Target is in awarness range
             float sqrHorizontalDistanceWithTarget = Vector3.Scale((ai.targetPlayer.transform.position - npcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
             float sqrVerticalDistanceWithTarget = Vector3.Scale((ai.targetPlayer.transform.position - npcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;

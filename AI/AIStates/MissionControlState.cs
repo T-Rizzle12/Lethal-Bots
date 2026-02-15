@@ -3,8 +3,12 @@ using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.NpcPatches;
 using LethalLib.Modules;
+using Scoops.gameobjects;
+using Scoops.misc;
+using Scoops.service;
 using Steamworks;
 using System;
 using System.Collections;
@@ -12,6 +16,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Unity.Netcode;
 using UnityEngine;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
@@ -26,6 +31,8 @@ namespace LethalBots.AI.AIStates
     public class MissionControlState : AIState
     {
         private bool overrideCrouch;
+        private bool skipTerminalThink; // Used so the bot can accept calls on the switchboard
+        private bool botClosedShipDoors; // Used so the bot doesn't mess with the doors when the player touches them
         private bool playerRequestLeave; // This is used when a human player requests the bot to pull the ship lever!
         private bool playerRequestedTerminal; // This is used when a human player requests to use the terminal!
         private float waitForTerminalTime; // This is used to wait for the terminal to be free
@@ -115,6 +122,16 @@ namespace LethalBots.AI.AIStates
                 FindWeapon();
             }
             base.OnEnterState();
+        }
+
+        public override void OnExitState(AIState newState)
+        {
+            // If we are no longer the mission controller, stop being the switchboard operator!
+            if (Plugin.IsModLethalPhonesLoaded && LethalBotManager.Instance.MissionControlPlayer != npcController.Npc)
+            {
+                ai.StopBeingSwitchboardOperator();
+            }
+            base.OnExitState(newState);
         }
 
         public override void DoAI()
@@ -320,8 +337,7 @@ namespace LethalBots.AI.AIStates
                         return;
                     }
                     // If our weapon uses batteries and its low on battery, we should charge it!
-                    else if (weapon.itemProperties.requiresBattery 
-                        && (weapon.insertedBattery == null || weapon.insertedBattery.empty))
+                    else if (!LethalBotAI.IsItemPowered(weapon))
                     {
                         // We should charge our weapon if we can!
                         ai.State = new ChargeHeldItemState(this, weapon);
@@ -339,6 +355,31 @@ namespace LethalBots.AI.AIStates
                         }
                     }
                 }
+
+                // Ship door logic
+                /* TODO: Implement this code instead of this hack!
+                    DoorPanel = GameObject.Find("Environment/HangarShip/AnimatedShipDoor/HangarDoorButtonPanel").transform;
+			        Transform DoorStartButton = DoorPanel.Find("StartButton").Find("Cube (2)");
+			        Transform DoorStopButton = DoorPanel.Find("StopButton").Find("Cube (3)");
+			        if (DoorPanel == null || DoorStartButton == null || DoorStopButton == null) {
+				        Console.LogError($"StartOfRound.GetDoorPanel() could not find HangarDoorButtonPanel references");
+				        return;
+			        }
+			        DoorStartButtonTrigger = DoorStartButton.GetComponent<InteractTrigger>();
+			        DoorStopButtonTrigger = DoorStopButton.GetComponent<InteractTrigger>();
+                */
+                // FIXME: Too buggy to use right now!
+                //EnemyAI? enemyAI = CheckForInvadingEnemy(false, true);
+                //if (enemyAI != null && !StartOfRound.Instance.hangarDoorsClosed)
+                //{
+                //    LethalBotManager.Instance.SetHangarShipDoorStateServerRpc(true);
+                //    botClosedShipDoors = true;
+                //}
+                //else if (botClosedShipDoors && StartOfRound.Instance.hangarDoorsClosed)
+                //{
+                //    LethalBotManager.Instance.SetHangarShipDoorStateServerRpc(false);
+                //    botClosedShipDoors = false;
+                //}
             }
 
             // Terminal is invalid for some reason, just wait for now!
@@ -408,6 +449,20 @@ namespace LethalBots.AI.AIStates
                 // We don't need to move now!
                 ai.StopMoving();
 
+                // We are manning the ship, we handle the calls to the switchboard as well!
+                if (Plugin.IsModLethalPhonesLoaded)
+                {
+                    ai.BecomeSwitchboardOperator();
+                }
+
+                // We were told not to get on the terminal this think.
+                // Clear the flag and skip the rest of this logic!
+                if (skipTerminalThink)
+                {
+                    skipTerminalThink = false;
+                    return;
+                }
+
                 // Can't do anything without the terminal!
                 if (!npcController.Npc.inTerminalMenu)
                 {
@@ -430,7 +485,7 @@ namespace LethalBots.AI.AIStates
                     // Make sure our walkie-talkie is on!
                     if (walkieTalkie != null 
                         && !walkieTalkie.isBeingUsed 
-                        && !walkieTalkie.insertedBattery.empty)
+                        && LethalBotAI.IsItemPowered(walkieTalkie))
                     {
                         walkieTalkie.ItemInteractLeftRightOnClient(false);
                         return;
@@ -572,8 +627,24 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         private IEnumerator SwitchRadarTargetToPlayer(PlayerControllerB player)
         {
-            yield return SendCommandToTerminal($"switch {player.playerUsername}");
-            StartOfRound.Instance.mapScreen.SwitchRadarTargetAndSync((int)player.playerClientId);
+            // Ok, so I found out this can break if we have an active signal booster so uh.
+            string playerUsername = player.playerUsername.ToLower();
+            yield return SendCommandToTerminal($"switch {playerUsername}");
+            //StartOfRound.Instance.mapScreen.SwitchRadarTargetAndSync((int)player.playerClientId);
+            int playerIndex = (int)player.playerClientId; // Fallback to client id.
+            var radarTargets = StartOfRound.Instance.mapScreen.radarTargets;
+            for (int i = 0; i < radarTargets.Count; i++)
+            {
+                var radarTarget = radarTargets[i];
+                if (radarTarget != null 
+                    && !radarTarget.isNonPlayer 
+                    && radarTarget.name.ToLower() == playerUsername)
+                {
+                    playerIndex = i;
+                    break;
+                }
+            }
+            StartOfRound.Instance.mapScreen.SwitchRadarTargetAndSync(playerIndex);
         }
 
         /// <summary>
@@ -665,7 +736,8 @@ namespace LethalBots.AI.AIStates
                     DeadBodyInfo deadBodyInfo = player.deadBody;
                     if (!deadBodyInfo.isInShip
                         && !deadBodyInfo.grabBodyObject.isInShipRoom
-                        && StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position))
+                        && StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position) 
+                        && ai.IsGrabbableObjectGrabbable(deadBodyInfo.grabBodyObject))
                     {
                         //npcController.Npc.SetItemInElevator(true, true, deadBodyInfo.grabBodyObject);
                         bodyToCollect = deadBodyInfo.grabBodyObject;
@@ -1072,7 +1144,7 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         /// <param name="player">The player to check</param>
         /// <returns><see langword="true"/> if <paramref name="player"/> has a weapon; otherwise <see langword="false"/></returns>
-        private bool DoesPlayerHaveWeaponInInventory(PlayerControllerB? player)
+        private static bool DoesPlayerHaveWeaponInInventory(PlayerControllerB? player)
         {
             if (player == null)
             {
@@ -1472,7 +1544,7 @@ namespace LethalBots.AI.AIStates
             // This is a placeholder for now!
             // This is done so the bot talks on the radio to keep other players in-game sanity up!
             // NOTE: Players can use walkie-talkies while they are using the terminal!
-            if (walkieTalkie != null)
+            if (walkieTalkie != null || Plugin.IsModLethalPhonesLoaded)
             {
                 // Default states, wait for cooldown and if no one is talking close
                 ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
@@ -1573,6 +1645,66 @@ namespace LethalBots.AI.AIStates
         public override void OnSignalTranslatorMessageReceived(string message)
         {
             return;
+        }
+
+        public override void UseLethalPhones()
+        {
+            SwitchboardPhone? switchboardPhone = PhoneNetworkHandler.Instance?.switchboard;
+            if (switchboardPhone != null)
+            {
+                // Check to see if we are the switchboardOperator
+                PlayerControllerB switchboardOperator = switchboardPhone.switchboardOperator;
+                if (switchboardOperator != null && switchboardOperator == npcController.Npc)
+                {
+                    // First things first, we don't accept calls sent to our phone!
+                    PlayerPhone? ourPhone = ai.GetOurPlayerPhone();
+                    if (ourPhone != null && (ourPhone.IsBusy() || ai.IsPhoneEquipped()))
+                    {
+                        ai.HangupPhone();
+                        return;
+                    }
+
+                    // Alright, switchboard logic go!
+                    // Check if we are getting a call!
+                    NetworkVariable<short> incomingCall = PhoneBehaviorPatch.incomingCall.Invoke(switchboardPhone);
+                    if (incomingCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID)
+                    {
+                        // Found the trigger name in the source code, if we can, let the bot actually press the button.
+                        InteractTrigger? acceptCallButton = switchboardPhone.transform?.Find("GreenButtonCube")?.GetComponent<InteractTrigger>();
+                        if (acceptCallButton != null)
+                        {
+                            if (GetOffTerminal())
+                            {
+                                skipTerminalThink = true; // Make sure we don't get back on next think!
+                                return;
+                            }
+
+                            try
+                            {
+                                acceptCallButton.Interact(npcController.Npc.thisPlayerBody);
+                            }
+                            catch (Exception e)
+                            {
+                                Plugin.LogError($"Error occurred when bot {npcController.Npc.playerUsername} attempted to press accept call button on the SwitchBoard!");
+                                Plugin.LogError($"Exception: {e.Message}");
+                                switchboardPhone.CallButtonPressedServerRpc();  // If we fail, just call it directly!
+                            }
+                        }
+                        else
+                        {
+                            switchboardPhone.CallButtonPressedServerRpc();  // If we fail, just call it directly!
+                        }
+                        return;
+                    }
+
+                    // TODO: Add chat commands that allow players to request
+                    // call transfers and other player's phone numbers!
+                    return;
+                }
+            }
+
+            // Just do the base stuff, we may not have the switchboard upgrade!
+            base.UseLethalPhones();
         }
 
         /// <summary>

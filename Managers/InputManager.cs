@@ -277,9 +277,10 @@ namespace LethalBots.Managers
                 // we should swap to it in case the player wants us to drop it!
                 else if (lethalBot.HasSomethingInInventory())
                 {
-                    for (int i = 0; i < lethalBot.NpcController.Npc.ItemSlots.Length; i++)
+                    GrabbableObject?[] itemSlots = lethalBot.NpcController.Npc.ItemSlots;
+                    for (int i = 0; i < itemSlots.Length; i++)
                     {
-                        if (lethalBot.NpcController.Npc.ItemSlots[i] != null)
+                        if (itemSlots[i] != null)
                         {
                             lethalBot.SwitchItemSlotsAndSync(i);
                         }

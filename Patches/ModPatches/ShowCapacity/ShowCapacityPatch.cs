@@ -8,7 +8,7 @@ namespace LethalBots.Patches.ModPatches.ShowCapacity
     {
         private static GameObject? capacityMeter;
 
-        public static bool Update_PreFix_Prefix(bool __0, GrabbableObject __1, bool __2)
+        public static bool Update_PostFix_Prefix(bool __0, GrabbableObject __1, bool __2)
         {
             Update_ShowCapacityPatch(__0, __1, __2);
             return false;

@@ -77,6 +77,9 @@ namespace LethalBots.AI.AIStates
                 }
             }
 
+            // Select and use items based on our current situation, if needed
+            SelectBestItemFromInventory();
+
             // Else get close to item
             Vector3 targetItemPos = RoundManager.Instance.GetNavMeshPosition(this.TargetItem.transform.position, default, npcController.Npc.grabDistance);
             ai.SetDestinationToPositionLethalBotAI(targetItemPos);

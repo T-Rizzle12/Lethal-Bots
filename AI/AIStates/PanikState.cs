@@ -475,12 +475,7 @@ namespace LethalBots.AI.AIStates
 
         public override void UseHeldItem()
         {
-            // Can't use an item if our hands are empty!
-            if (ai.AreHandsFree())
-            {
-                return;
-            }
-            GrabbableObject heldItem = ai.HeldItem;
+            GrabbableObject? heldItem = ai.HeldItem;
             if (heldItem is CaveDwellerPhysicsProp caveDwellerGrabbableObject)
             {
                 // Drop the Maneater since we may flee out of the facility,

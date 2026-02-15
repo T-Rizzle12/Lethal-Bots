@@ -149,6 +149,14 @@ namespace LethalBots.AI.AIStates
                     {
                         // NOTE: ai.destination is set by ai.UseElevator internally!
                         targetEntrancePos = ai.destination;
+
+                        // If we are going to use the elevator to go up,
+                        // we must drop the baby maneater before using the elevator
+                        if (!ai.AreHandsFree()
+                            && ai.HeldItem is CaveDwellerPhysicsProp)
+                        {
+                            ai.DropItem();
+                        }
                     }
                 }
                 else
@@ -170,6 +178,9 @@ namespace LethalBots.AI.AIStates
 
                 // Find a safe path to the entrance
                 StartSafePathCoroutine();
+
+                // Select and use items based on our current situation, if needed
+                SelectBestItemFromInventory();
 
                 // If we are close enough, we should use the entrance to leave
                 float entranceDistSqr = (this.targetEntrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;

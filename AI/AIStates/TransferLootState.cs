@@ -132,6 +132,9 @@ namespace LethalBots.AI.AIStates
             // Look around for loot and potential enemies
             StartLookingAroundCoroutine();
 
+            // Select and use items based on our current situation, if needed
+            SelectBestItemFromInventory();
+
             // Move towards our target entrance via safe path
             // NOTE: Unlike other states, we rely entirely on the safe path system to avoid danger here.
             // Since we normally wait outside near the entrance, we need to be able to react to danger that may pass by.

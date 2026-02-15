@@ -1,18 +1,20 @@
-﻿using HarmonyLib;
+﻿using GameNetcodeStuff;
+using HarmonyLib;
+using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Managers;
 using LethalBots.Utils;
+using Steamworks;
+using Steamworks.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
-using Steamworks.Data;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
-using Steamworks;
-using System.Threading.Tasks;
 
 namespace LethalBots.Patches.GameEnginePatches
 {
@@ -310,6 +312,50 @@ namespace LethalBots.Patches.GameEnginePatches
                 }
             }
         }*/
+
+        /// <summary>
+        /// A postfix made to update the speaker icons for bots!
+        /// </summary>
+        [HarmonyPatch("UpdateSpectateBoxSpeakerIcons")]
+        [HarmonyPostfix]
+        public static void UpdateSpectateBoxSpeakerIcons_Postfix(HUDManager __instance, ref Dictionary<Animator, PlayerControllerB> ___spectatingPlayerBoxes)
+        {
+            for (int i = 0; i < ___spectatingPlayerBoxes.Count; i++)
+            {
+                // Base game logic.
+                var playerBox = ___spectatingPlayerBoxes.ElementAt(i);
+                PlayerControllerB value = playerBox.Value;
+                if (!value.isPlayerControlled && !value.isPlayerDead)
+                {
+                    continue;
+                }
+
+                // Only do this for bots, the base game handles human players.
+                LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(value);
+                if (lethalBotAI == null)
+                {
+                    continue;
+                }
+
+                // Sanity check, make sure our voice is valid.
+                LethalBotVoice? voice = lethalBotAI.LethalBotIdentity?.Voice;
+                if (voice == null)
+                {
+                    continue;
+                }
+
+                // Just like the base game, check if the bot is speaking loud enough.
+                bool isSpeaking = false;
+                const float minimumVoiceAmplitude = 0.005f;
+                if (voice.IsTalking() && voice.GetVoiceAmplitude() > minimumVoiceAmplitude)
+                {
+                    isSpeaking = true;
+                }
+
+                playerBox.Key.SetBool("speaking", isSpeaking);
+            }
+        }
+
         [HarmonyPatch("UseSignalTranslatorClientRpc")]
         [HarmonyPostfix]
         public static void UseSignalTranslatorClientRpc_Postfix(HUDManager __instance, string signalMessage)
