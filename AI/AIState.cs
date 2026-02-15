@@ -844,7 +844,7 @@ namespace LethalBots.AI
                         }
                         else if (flashlight.isBeingUsed)
                         {
-                            // Its bright enough in here, turn the lights on!
+                            // Its bright enough in here, turn the light off!
                             shouldToggleFlashlight = true;
                         }
 
