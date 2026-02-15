@@ -1025,7 +1025,7 @@ namespace LethalBots.AI
             }
 
             // This may be a partial path, make sure the end of the path actually reaches our target destiniation!
-            if ((path.corners[path.corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(endPosition, RoundManager.Instance.navHit, 2.7f)).sqrMagnitude > 2.25f)
+            if ((path.corners[path.corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(endPosition, RoundManager.Instance.navHit, 2.7f)).sqrMagnitude > 1.5f * 1.5f)
             {
                 return false;
             }

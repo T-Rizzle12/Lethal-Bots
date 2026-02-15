@@ -77,8 +77,7 @@ namespace LethalBots.AI
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector3? GetTargetPosition(bool current = true)
         {
-            Vector3? returnValue = current ? currentTarget?.transform.position : nextTarget?.transform.position;
-            return returnValue;
+            return current ? currentTarget?.transform.position : nextTarget?.transform.position;
         }
 
         public void ClearSearch()
@@ -94,7 +93,7 @@ namespace LethalBots.AI
             yield return null;
             while (searchCoroutine != null && ai.IsOwner && ai.NpcController != null && (!ai.isOutside || allowSearchOutside))
             {
-                if (nextTarget == null || !LethalBotAI.IsValidPathToTarget(ai.transform.position, nextTarget.transform.position, ai.agent.areaMask, ref ai.path1, false, out float _))
+                if (nextTarget == null || !ai.IsValidPathToTarget(nextTarget.transform.position, false))
                 {
                     nextTarget = null;
                     isWaitingTarget = true;
