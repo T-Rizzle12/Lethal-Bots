@@ -124,6 +124,9 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // Select and use items based on our current situation, if needed
+            SelectBestItemFromInventory();
+
             // Update target last known position
             PlayerControllerB? playerTarget = ai.CheckLOSForTarget(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (playerTarget != null)

@@ -786,7 +786,7 @@ namespace LethalBots.AI
                     if (ai.LethalBotIdentity.Voice.IsTalking())
                     {
                         canUseLethalPhones = false;
-                        if (!walkieTalkie.isBeingUsed && !walkieTalkie.insertedBattery.empty)
+                        if (!walkieTalkie.isBeingUsed && LethalBotAI.IsItemPowered(walkieTalkie))
                         {
                             walkieTalkie.ItemInteractLeftRightOnClient(false);
                         }
@@ -828,7 +828,7 @@ namespace LethalBots.AI
                 else if (heldItem is FlashlightItem flashlight)
                 {
                     // Kinda hard to use the flashlight if it has no juice!
-                    if (!flashlight.insertedBattery.empty 
+                    if (LethalBotAI.IsItemPowered(flashlight)
                         && !ai.CheckProximityForEyelessDogs())
                     {
                         // Now do we need to turn it on or off?
@@ -907,6 +907,114 @@ namespace LethalBots.AI
             {
                 UseLethalPhones();
             }
+        }
+
+        /// <summary>
+        /// Helper function that checks if we have an item in our inventory that we would like to use and switch to it if we do!<br/>
+        /// </summary>
+        /// <remarks>
+        /// This function uses <see cref="SelectBestItemFromInventoryFilter(GrabbableObject)"/> and <see cref="SelectBetterItemFromInventory(GrabbableObject, GrabbableObject)"/> to find the best item in the inventory, 
+        /// so it can be easily customized by states that want to use specific items in the inventory!<br/>
+        /// </remarks>
+        public void SelectBestItemFromInventory()
+        {
+            // If we have an item we would like to use in our inventory, we should switch to it!
+            if (ai.CanSwitchItemSlot() 
+                && ai.TryFindItemInInventory(SelectBestItemFromInventoryFilter, SelectBetterItemFromInventory, out int bestItem) 
+                && bestItem != Const.INVALID_ITEM_SLOT)
+            {
+                GrabbableObject item = npcController.Npc.ItemSlots[bestItem];
+                if (npcController.Npc.currentItemSlot != bestItem || ai.HeldItem != item)
+                {
+                    ai.SwitchItemSlotsAndSync(bestItem);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Simple function that checks if the give <paramref name="item"/> is null or not<br/>
+        /// This was designed to be overridden by states that want to drop specific items only!
+        /// </summary>
+        /// <remarks>
+        /// This was designed for use in <see cref="LethalBotAI.HasGrabbableObjectInInventory(System.Func{GrabbableObject, bool}, out int)"/> calls.
+        /// </remarks>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        protected virtual bool SelectBestItemFromInventoryFilter(GrabbableObject item)
+        {
+            // If this item uses batteries, make sure it has a charge before we try to use it!
+            if (!LethalBotAI.IsItemPowered(item))
+            {
+                return false;
+            }
+
+            // If we have a walkie-talkie in our inventory, we should use it!
+            if (item is WalkieTalkie)
+            {
+                if (ai.LethalBotIdentity.Voice.IsTalking())
+                {
+                    return true;
+                }
+            }
+            else if (item is ShotgunItem shotgun)
+            {
+                // If we have a shotgun and we need to reload or the safety is off, we should use it!
+                if ((!shotgun.safetyOn || shotgun.shellsLoaded < 2) && ai.HasAmmoForWeapon(shotgun, true))
+                {
+                    return true;
+                }
+            }
+            else if (item is FlashlightItem && !ai.CheckProximityForEyelessDogs())
+            {
+                // If we have a flashlight and its dark enough to need it, we should use it!
+                float lightLevel = ai.GetLightLevelAroundBot();
+                if (lightLevel < 1f)
+                {
+                    return true;
+                }
+                else if (lightLevel >= 1f && item.isBeingUsed)
+                {
+                    // Its bright enough, we should put the flashlight away if we have it out!
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Helper function to check if the <paramref name="candidate"/> is better than our <paramref name="currentBest"/>!
+        /// </summary>
+        /// <remarks>
+        /// This was designed for use in <see cref="LethalBotAI.TryFindItemInInventory(System.Func{GrabbableObject, bool}, System.Func{GrabbableObject, GrabbableObject, bool}, out int)"/> calls.
+        /// </remarks>
+        /// <param name="currentBest">The current best grabbable object selected by the bot.</param>
+        /// <param name="candidate">The candidate grabbable object to compare against the current best.</param>
+        /// <returns>true if the candidate object is considered a better choice than the current best; otherwise, false.</returns>
+        protected virtual bool SelectBetterItemFromInventory(GrabbableObject currentBest, GrabbableObject candidate)
+        {
+            // Alright, we were given two items to compare, let's see which one is better!
+            // The filter function should have already filtered out any items we don't want to use, so we can assume both items are usable!
+            return GetItemPriority(candidate) > GetItemPriority(currentBest);
+        }
+
+        /// <summary>
+        /// Returns an integer priority for the given item, higher means more important!<br/>
+        /// </summary>
+        /// <remarks>
+        /// This function is designed to be overridden by states that want to assign specific priorities to items!<br/>
+        /// This is used in <see cref="AIState.SelectBetterItemFromInventory(GrabbableObject, GrabbableObject)"/>
+        /// </remarks>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        protected virtual int GetItemPriority(GrabbableObject item)
+        {
+            // If we have a walkie-talkie in our inventory, we should use it!
+            if (item is WalkieTalkie) return 3;
+            // If we have a shotgun and we need to reload or the safety is off, we should use it!
+            else if (item is ShotgunItem) return 2;
+            // If we have a flashlight and its dark enough to need it, we should use it!
+            else if (item is FlashlightItem) return 1;
+            return 0;
         }
 
         /// <summary>
@@ -1427,15 +1535,15 @@ namespace LethalBots.AI
         }
 
         /// <summary>
-        /// Helper function to check if the <paramref name="canidate"/> is better than our <paramref name="currentBest"/>!
+        /// Helper function to check if the <paramref name="candidate"/> is better than our <paramref name="currentBest"/>!
         /// </summary>
         /// <remarks>
         /// This was designed for use in <see cref="LethalBotAI.TryFindItemInInventory(System.Func{GrabbableObject, bool}, System.Func{GrabbableObject, GrabbableObject, bool}, out int)"/> calls.
         /// </remarks>
         /// <param name="currentBest">The current best grabbable object selected by the bot.</param>
-        /// <param name="canidate">The candidate grabbable object to compare against the current best. Can be null.</param>
+        /// <param name="candidate">The candidate grabbable object to compare against the current best.</param>
         /// <returns>true if the candidate object is considered a better choice than the current best; otherwise, false.</returns>
-        protected virtual bool FindBetterObject(GrabbableObject currentBest, GrabbableObject canidate)
+        protected virtual bool FindBetterObject(GrabbableObject currentBest, GrabbableObject candidate)
         {
             return false; // By default we don't care about better objects!
         }

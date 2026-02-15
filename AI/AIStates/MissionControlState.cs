@@ -337,8 +337,7 @@ namespace LethalBots.AI.AIStates
                         return;
                     }
                     // If our weapon uses batteries and its low on battery, we should charge it!
-                    else if (weapon.itemProperties.requiresBattery 
-                        && (weapon.insertedBattery == null || weapon.insertedBattery.empty))
+                    else if (!LethalBotAI.IsItemPowered(weapon))
                     {
                         // We should charge our weapon if we can!
                         ai.State = new ChargeHeldItemState(this, weapon);
@@ -486,7 +485,7 @@ namespace LethalBots.AI.AIStates
                     // Make sure our walkie-talkie is on!
                     if (walkieTalkie != null 
                         && !walkieTalkie.isBeingUsed 
-                        && !walkieTalkie.insertedBattery.empty)
+                        && LethalBotAI.IsItemPowered(walkieTalkie))
                     {
                         walkieTalkie.ItemInteractLeftRightOnClient(false);
                         return;

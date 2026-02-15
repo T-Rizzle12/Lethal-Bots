@@ -650,6 +650,9 @@ namespace LethalBots.AI.AIStates
                 // Find a safe path to our fallback spot
                 StartSafePathCoroutine();
 
+                // Select and use items based on our current situation, if needed
+                SelectBestItemFromInventory();
+
                 float sqrMagDistanceToSafePos = (this.safePathPos - npcController.Npc.transform.position).sqrMagnitude;
                 if (sqrMagDistanceToSafePos >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                 {
@@ -814,6 +817,9 @@ namespace LethalBots.AI.AIStates
                 // Find a safe path to our fallback spot
                 StartSafePathCoroutine();
 
+                // Select and use items based on our current situation, if needed
+                SelectBestItemFromInventory();
+
                 float sqrMagDistanceToSafePos = (this.safePathPos - npcController.Npc.transform.position).sqrMagnitude;
                 if (sqrMagDistanceToSafePos >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                 {
@@ -884,6 +890,9 @@ namespace LethalBots.AI.AIStates
             {
                 // Alright lets go outside!
                 ai.SetDestinationToPositionLethalBotAI(bunkbedPos);
+
+                // Select and use items based on our current situation, if needed
+                SelectBestItemFromInventory();
 
                 // Sprint if far enough
                 if (!npcController.WaitForFullStamina && sqrDistToBunkbed > Const.DISTANCE_START_RUNNING * Const.DISTANCE_START_RUNNING)
@@ -998,7 +1007,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         private static bool FindZapGun(GrabbableObject item)
         {
-            return item is PatcherTool zapGun && !zapGun.insertedBattery.empty; // For anyone wondering PatcherTool is the internal class name for the Zap Gun!
+            return item is PatcherTool zapGun && LethalBotAI.IsItemPowered(zapGun); // For anyone wondering PatcherTool is the internal class name for the Zap Gun!
         }
 
         private void StopReviveCoroutine()

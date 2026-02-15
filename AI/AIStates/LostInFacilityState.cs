@@ -88,6 +88,9 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // Select and use items based on our current situation, if needed
+            SelectBestItemFromInventory();
+
             ai.SetDestinationToPositionLethalBotAI(ai.destination);
             ai.OrderMoveToDestination();
 

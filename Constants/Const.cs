@@ -85,6 +85,7 @@ namespace LethalBots.Constants
         // NpcController
         public const int PLAYER_MASK = 8;
         public const float MAX_CHAT_RANGE = 25f;
+        public const int INVALID_ITEM_SLOT = -1;
         public const string PLAYER_ANIMATION_WEIGHT_HOLDINGITEMSRIGHTHAND = "HoldingItemsRightHand";
         public const string PLAYER_ANIMATION_WEIGHT_HOLDINGITEMSBOTHHANDS = "HoldingItemsBothHands";
         public const string PLAYER_ANIMATION_WEIGHT_SPECIALANIMATIONS = "SpecialAnimations";

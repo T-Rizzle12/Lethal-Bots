@@ -171,6 +171,9 @@ namespace LethalBots.AI.AIStates
                 // Find a safe path to the entrance
                 StartSafePathCoroutine();
 
+                // Select and use items based on our current situation, if needed
+                SelectBestItemFromInventory();
+
                 // If we are close enough, we should use the entrance to leave
                 float entranceDistSqr = (this.targetEntrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
                 if (entranceDistSqr >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)

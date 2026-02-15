@@ -137,6 +137,9 @@ namespace LethalBots.AI.AIStates
             // Or a new target player if target player is null
             CheckLOSForTargetOrClosestPlayer();
 
+            // Select and use items based on our current situation, if needed
+            SelectBestItemFromInventory();
+
             // Go to the last known position
             bool usingElevator = false;
             bool isPositionNearEntrance = ai.IsPositionNearElevatorEntrance(targetLastKnownPosition.Value);

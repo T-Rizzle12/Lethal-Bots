@@ -3615,6 +3615,32 @@ namespace LethalBots.AI
         }
 
         /// <summary>
+        /// Helper function to check if an item has a charge or not, 
+        /// this is used for the bots to know if they can use an item or not!
+        /// </summary>
+        /// <param name="item">The item to check</param>
+        /// <returns>true: the item has a charge or doesn't use batteries; otherwise false</returns>
+        public static bool IsItemPowered([NotNullWhen(true)] GrabbableObject? item)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+            
+            if (!item.itemProperties.requiresBattery)
+            {
+                return true; // Battery is not required, so it has a "charge"
+            }
+
+            if (item.insertedBattery == null || item.insertedBattery.empty)
+            {
+                return false; // No battery or battery is empty, so it has no charge
+            }
+
+            return true; // Item requires a battery and has a non-empty battery, so it has charge
+        }
+
+        /// <summary>
         /// Checks if the current weapon has ammo.
         /// </summary>
         /// <remarks>
@@ -3630,8 +3656,7 @@ namespace LethalBots.AI
             }
 
             // This weapon uses batteries!
-            if (weapon.itemProperties.requiresBattery
-                && (weapon.insertedBattery == null || weapon.insertedBattery.empty))
+            if (!IsItemPowered(weapon))
             {
                 return false;
             }
@@ -3673,11 +3698,11 @@ namespace LethalBots.AI
         /// Check if the lethalBot has the given object in its inventory.
         /// </summary>
         /// <param name="grabbableObject">The object to check if the bot has in its inventory</param>
-        /// <param name="objectSlot">The slot of where the object was found at! Is set to -1 if item was not found!</param>
+        /// <param name="objectSlot">The slot of where the object was found at! Is set to <see cref="Const.INVALID_ITEM_SLOT"/> if item was not found!</param>
         /// <returns>true: the bot has the object in its inventory, false: the bot doesn't have the given object in its inventory</returns>
         public bool HasGrabbableObjectInInventory([NotNullWhen(true)] GrabbableObject? grabbableObject, out int objectSlot)
         {
-            objectSlot = -1;
+            objectSlot = Const.INVALID_ITEM_SLOT;
             if (grabbableObject == null)
             {
                 return false;
@@ -3711,12 +3736,12 @@ namespace LethalBots.AI
         /// WARNING: Its not recommened to use this function, you are better off using <see cref="HasGrabbableObjectInInventory(GrabbableObject?, out int)"/>
         /// </remarks>
         /// <param name="typeOfObject">The type of the object in the inventory!</param>
-        /// <param name="objectSlot">The slot of where the object was found at! Is set to -1 if item was not found!</param>
+        /// <param name="objectSlot">The slot of where the object was found at! Is set to <see cref="Const.INVALID_ITEM_SLOT"/> if item was not found!</param>
         /// <returns>true: the bot has the object in its inventory, false: the bot doesn't have the given object in its inventory</returns>
         public bool HasGrabbableObjectInInventory(Type typeOfObject, out int objectSlot)
         {
             // Check if the lethalBot is holding the object
-            objectSlot = -1;
+            objectSlot = Const.INVALID_ITEM_SLOT;
             if (typeOfObject.IsInstanceOfType(HeldItem))
             {
                 objectSlot = NpcController.Npc.currentItemSlot;
@@ -3744,12 +3769,12 @@ namespace LethalBots.AI
         /// NOTE: If you are comparing object references, you are better off using <see cref="HasGrabbableObjectInInventory(GrabbableObject?, out int)"/>
         /// </remarks>
         /// <param name="objectPredicate">The function to inspect the object in the inventory!</param>
-        /// <param name="objectSlot">The slot of where the object was found at! Is set to -1 if item was not found!</param>
+        /// <param name="objectSlot">The slot of where the object was found at! Is set to <see cref="Const.INVALID_ITEM_SLOT"/> if item was not found!</param>
         /// <returns>true: the bot has the object in its inventory, false: the bot doesn't have the given object in its inventory</returns>
         public bool HasGrabbableObjectInInventory(Func<GrabbableObject, bool> objectPredicate, out int objectSlot)
         {
             // Check if the lethalBot is holding the object
-            objectSlot = -1;
+            objectSlot = Const.INVALID_ITEM_SLOT;
             if (!AreHandsFree() && objectPredicate(HeldItem))
             {
                 objectSlot = NpcController.Npc.currentItemSlot;
@@ -3779,12 +3804,12 @@ namespace LethalBots.AI
         /// </remarks>
         /// <param name="filter">The function to inspect the object in the inventory!</param>
         /// <param name="isBetter">The function to determine if the found object is better than the current best one! First parameter is the current best item, second parameter is the new candidate item!</param>
-        /// <param name="objectSlot">The slot of where the object was found at! Is set to -1 if item was not found!</param>
+        /// <param name="objectSlot">The slot of where the object was found at! Is set to <see cref="Const.INVALID_ITEM_SLOT"/> if item was not found!</param>
         /// <returns></returns>
         public bool TryFindItemInInventory(Func<GrabbableObject, bool> filter, Func<GrabbableObject, GrabbableObject, bool> isBetter, out int objectSlot)
         {
             // Unlike HasGrabbableObjectInInventory, we can't early out if the bot's held item matches the filter
-            objectSlot = -1;
+            objectSlot = Const.INVALID_ITEM_SLOT;
             GrabbableObject? bestItem = null;
 
             // Assess all items in inventory
@@ -3892,12 +3917,12 @@ namespace LethalBots.AI
         /// Check if the lethalBot has duplicate loadout items in its inventory.
         /// </summary>
         /// <param name="grabbableObject">The object to check if the bot has duplicates of in its inventory</param>
-        /// <param name="objectSlot">The slot of where the duplicate object was found at! Is set to -1 if item was not found!</param>
+        /// <param name="objectSlot">The slot of where the duplicate object was found at! Is set to <see cref="Const.INVALID_ITEM_SLOT"/> if item was not found!</param>
         /// <returns>true: the bot has a duplicate loadout object in its inventory, false: the bot doesn't have a duplicate loadout object in its inventory</returns>
         public bool HasDuplicateLoadoutItems(GrabbableObject grabbableObject, out int objectSlot)
         {
             // Make sure this item is in our loadout!
-            objectSlot = -1;
+            objectSlot = Const.INVALID_ITEM_SLOT;
             if (!IsGrabbableObjectInLoadout(grabbableObject))
             {
                 return false;
@@ -6060,7 +6085,7 @@ namespace LethalBots.AI
             PlayerControllerB lethalBotController = NpcController.Npc;
             Plugin.LogDebug($"{lethalBotController.playerUsername} try to grab item {grabbableObject} on client #{NetworkManager.LocalClientId}");
             int itemSlot = FirstEmptyItemSlot(grabbableObject);
-            if (itemSlot == -1)
+            if (itemSlot == Const.INVALID_ITEM_SLOT)
             {
                 Plugin.LogDebug($"{lethalBotController.playerUsername} failed to grab item on client #{NetworkManager.LocalClientId}, no free slots!");
                 return;
@@ -6121,13 +6146,13 @@ namespace LethalBots.AI
 
         /// <summary>
         /// Returns the first empty slot the bot has
-        /// Returns -1 if no slot is avilable!
+        /// Returns <see cref="Const.INVALID_ITEM_SLOT"/> if no slot is avilable!
         /// </summary>
         /// <param name="grabbableObject">The object the bot is grabbing!</param>
-        /// <returns>Returns the open slot <c>int</c> or -1 </returns>
+        /// <returns>Returns the open slot <c>int</c> or <see cref="Const.INVALID_ITEM_SLOT"/> </returns>
         private int FirstEmptyItemSlot(GrabbableObject? grabbableObject = null)
         {
-            int result = -1;
+            int result = Const.INVALID_ITEM_SLOT;
             GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
             if (itemSlots[NpcController.Npc.currentItemSlot] == null)
             {
@@ -6158,7 +6183,7 @@ namespace LethalBots.AI
         /// Helper function that checks if the bot has an open reserved item slot for this item!
         /// </summary>
         /// <param name="grabbableObject">The object the bot is grabbing!</param>
-        /// <returns>Returns the open slot <c>int</c> or -1</returns>
+        /// <returns>Returns the open slot <c>int</c> or <see cref="Const.INVALID_ITEM_SLOT"/></returns>
         private int GetFirstEmptyReservedItemSlot(int foundIndex, GrabbableObject? grabbableObject = null)
         {
             if (PlayerPatcher.reservedHotbarSize <= 0 || !HUDPatcher.hasReservedItemSlotsAndEnabled)
@@ -6187,7 +6212,7 @@ namespace LethalBots.AI
 
             if (playerData.IsReservedItemSlot(foundIndex))
             {
-                foundIndex = -1;
+                foundIndex = Const.INVALID_ITEM_SLOT;
                 GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
                 for (int i = 0; i < itemSlots.Length; i++)
                 {
@@ -6280,7 +6305,7 @@ namespace LethalBots.AI
         /// <summary>
         /// Copied from <c>PlayerControllerB</c>, checks if the bot can swap to another slot
         /// </summary>
-        private bool CanSwitchItemSlot()
+        public bool CanSwitchItemSlot()
         {
             PlayerControllerB thisBot = NpcController.Npc;
             if (thisBot.isGrabbingObjectAnimation 

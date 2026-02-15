@@ -150,6 +150,8 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            SelectBestItemFromInventory();
+
             // If we are outside, we need to move inside first!
             if (ai.isOutside)
             {
