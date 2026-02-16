@@ -16,6 +16,11 @@ namespace LethalBots.Enums
         Lost,
         LostAndFound,
         RunningFromMonster,
-        SteppedOnTrap
+        SteppedOnTrap,
+        Sinking,
+        AttackingWithGun,
+        AttackingWithMelee,
+        OrderedToStay,
+        OrderedToFollow
     }
 }

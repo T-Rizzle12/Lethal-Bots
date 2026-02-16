@@ -216,6 +216,20 @@ namespace LethalBots.Managers
                         return;
                     }
 
+                    // Audio
+                    lethalBot.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
+                    {
+                        VoiceState = EnumVoicesState.OrderedToFollow,
+                        CanTalkIfOtherLethalBotTalk = true,
+                        WaitForCooldown = false,
+                        CutCurrentVoiceStateToTalk = true,
+                        CanRepeatVoiceState = false,
+
+                        ShouldSync = true,
+                        IsLethalBotInside = player.isInsideFactory,
+                        AllowSwearing = Plugin.Config.AllowSwearing.Value
+                    });
+
                     lethalBot.SyncAssignTargetAndSetMovingTo(localPlayer);
 
                     if (Plugin.Config.ChangeSuitAutoBehaviour.Value)

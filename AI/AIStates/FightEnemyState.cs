@@ -248,7 +248,24 @@ namespace LethalBots.AI.AIStates
 
         public override void TryPlayCurrentStateVoiceAudio()
         {
-            return;
+            // Wait for cooldown and that we are holding a weapon.
+            if (ai.AreHandsFree() || !ai.IsHoldingCombatWeapon())
+            {
+                return;
+            }
+
+            ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
+            {
+                VoiceState = ai.IsHoldingRangedWeapon() ? EnumVoicesState.AttackingWithGun : EnumVoicesState.AttackingWithMelee,
+                CanTalkIfOtherLethalBotTalk = true,
+                WaitForCooldown = true,
+                CutCurrentVoiceStateToTalk = true,
+                CanRepeatVoiceState = true,
+
+                ShouldSync = true,
+                IsLethalBotInside = npcController.Npc.isInsideFactory,
+                AllowSwearing = Plugin.Config.AllowSwearing.Value
+            });
         }
 
         // We are fighting right now, these messages should be queued!
@@ -524,11 +541,26 @@ namespace LethalBots.AI.AIStates
             {
                 return 2f; // Assume its the shovel!
             }
-            if (LethalBotAI.IsItemRangedWeapon(weapon))
+
+            // We don't use GetWeaponAttackInfo as its max range is may be diffrent due to how its raycast checks are done.
+            if (weapon is ShotgunItem)
             {
-                return 5f;
+                return 5f; // Based off of the ray postion and range
             }
-            return 2f;
+            else if (weapon is PatcherTool)
+            {
+                return 5f; // Found in source code!
+            }
+            else if (weapon is KnifeItem)
+            {
+                return 1f; // Found in source code!
+            }
+            else if (LethalBotAI.IsItemRangedWeapon(weapon))
+            {
+                return 5f; // Assume shotgun range
+            }
+
+            return 2f; // Assume its the shovel
         }
 
         /// <summary>
