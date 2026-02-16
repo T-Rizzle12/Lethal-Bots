@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using LethalBots.Constants;
 using UnityEngine;
+using UnityEngine.AI;
 using Vector3 = UnityEngine.Vector3;
 
 namespace LethalBots.AI
@@ -12,9 +13,9 @@ namespace LethalBots.AI
     {
         private LethalBotAI ai = ai;
         private List<GameObject?> unsearchedNodes { get; set; } = new List<GameObject?>();
-        private Coroutine? visitNodesCoroutine;
         private Coroutine? searchCoroutine;
         private Coroutine? selectTargetCoroutine;
+        private Coroutine? visitNodesCoroutine;
         private bool isWaitingTarget;
         private bool isSelectingTarget;
         private GameObject? currentTarget;
@@ -25,7 +26,6 @@ namespace LethalBots.AI
 
         public bool searchInProgress;
         public bool searchCenterFollowsAI = true;
-        public bool allowSearchOutside = false;
         public Vector3 searchCenter;
         public float searchRadius = float.MaxValue;
         public float proximityThreshold = 5f;
@@ -36,13 +36,6 @@ namespace LethalBots.AI
 
         public void StartSearch(bool visitOnly = false)
         {
-            // Nodes closer than proximityThreshold are going to be invalidated by VisitCoroutine() anyways so we can ignore them
-            minimumPathDistance = Mathf.Max(proximityThreshold, minimumPathDistance);
-            if (!unsearchedNodes.Any(x => x != null))
-            {
-                ClearSearch();
-                PopulateNodes();
-            }
             if (!searchInProgress && !visitOnly)
             {
                 searchCoroutine = ai.StartCoroutine(SearchCoroutine());
@@ -56,22 +49,23 @@ namespace LethalBots.AI
         public void StopSearch(bool clearVisited = false, bool clearTarget = true)
         {
             if (searchCoroutine != null) ai.StopCoroutine(searchCoroutine);
-            if (visitNodesCoroutine != null) ai.StopCoroutine(visitNodesCoroutine);
             if (selectTargetCoroutine != null) ai.StopCoroutine(selectTargetCoroutine);
-            if (clearVisited)
-            {
-                ClearSearch();
-            }
+            if (visitNodesCoroutine != null) ai.StopCoroutine(visitNodesCoroutine);
+            searchInProgress = false;
+            isWaitingTarget = false;
+            isSelectingTarget = false;
+            targetCheckIndex = 0;
+            // TODO: if clearTarget is false, nextTarget will not be used when search is resumed, for now it isn't used
             if (clearTarget)
             {
                 currentTarget = null;
                 nextTarget = null;
             }
-            searchInProgress = false;
-            isWaitingTarget = false;
-            isSelectingTarget = false;
-            targetCheckIndex = 0;
             visitInProgress = false;
+            if (clearVisited)
+            {
+                unsearchedNodes.Clear();
+            }
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -80,25 +74,21 @@ namespace LethalBots.AI
             return current ? currentTarget?.transform.position : nextTarget?.transform.position;
         }
 
-        public void ClearSearch()
-        {
-            unsearchedNodes.Clear();
-            unsearchedNodesHasNullRef = false;
-            visitCheckIndex = 0;
-        }
-
         private IEnumerator SearchCoroutine()
         {
             searchInProgress = true;
             yield return null;
-            while (searchCoroutine != null && ai.IsOwner && ai.NpcController != null && (!ai.isOutside || allowSearchOutside))
+            while (searchCoroutine != null && ai.IsOwner && ai.NpcController != null)
             {
-                if (nextTarget == null || !ai.IsValidPathToTarget(nextTarget.transform.position, false))
+                if (nextTarget == null || !ai.IsValidPathToTarget(nextTarget.transform.position))
                 {
                     nextTarget = null;
                     isWaitingTarget = true;
                     yield return UpdateSearchCenter();
-                    SelectNextTarget();
+                    if (!isSelectingTarget)
+                    {
+                        selectTargetCoroutine = ai.StartCoroutine(SelectTargetCoroutine());
+                    }
                     while (isSelectingTarget)
                     {
                         yield return null;
@@ -111,41 +101,38 @@ namespace LethalBots.AI
                 }
                 if (currentTarget == null)
                 {
-                    // TODO: Remove only the reachable nodes so we can still remember the already visited nodes from other entrances
-                    ClearSearch();
+                    // TODO: Remove only reachable nodes so we can still remember the already visited nodes still reachable from other entrances
+                    // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: populated in if (currentTarget == null)");
                     PopulateNodes();
                     continue;
                 }
                 isWaitingTarget = false;
                 yield return UpdateSearchCenter();
-                SelectNextTarget();
+                selectTargetCoroutine = ai.StartCoroutine(SelectTargetCoroutine());
                 float proximitySqr = proximityThreshold * proximityThreshold;
                 float nextValidCheck = Time.timeSinceLevelLoad + 0.2f;
                 float lowestPathDistance = float.MaxValue;
                 int stuckChecks = 0;
-                while (searchCoroutine != null && ai.IsOwner && ai.NpcController != null && (!ai.isOutside || allowSearchOutside) && currentTarget != null)
+                while (searchCoroutine != null && ai.IsOwner && ai.NpcController != null && currentTarget != null)
                 {
                     if (ai.agent.isOnNavMesh)
                     {
-                        if (ai.agent.remainingDistance == 0)
+                        if (ai.agent.remainingDistance == 0 && (ai.transform.position - currentTarget.transform.position).sqrMagnitude < proximitySqr)
                         {
-                            if ((ai.transform.position - currentTarget.transform.position).sqrMagnitude < proximitySqr)
+                            int currentTargetIndex = unsearchedNodes.FindIndex(x => x == currentTarget);
+                            if (currentTargetIndex != -1)
                             {
-                                int currentTargetIndex = unsearchedNodes.FindIndex(x => x == currentTarget);
-                                if (currentTargetIndex != -1)
-                                {
-                                    unsearchedNodes[currentTargetIndex] = null;
-                                    unsearchedNodesHasNullRef = true;
-                                }
-                                break;
+                                unsearchedNodes[currentTargetIndex] = null;
+                                unsearchedNodesHasNullRef = true;
                             }
+                            break;
                         }
                         if (Time.timeSinceLevelLoad > nextValidCheck)
                         {
-                            if (LethalBotAI.IsValidPathToTarget(ai.transform.position, currentTarget.transform.position, ai.agent.areaMask, ref ai.path1, true, out float pathDistance) && pathDistance < lowestPathDistance)
+                            if (ai.IsValidPathToTarget(currentTarget.transform.position, true) && ai.pathDistance < lowestPathDistance)
                             {
                                 stuckChecks = 0;
-                                lowestPathDistance = pathDistance - 0.5f;
+                                lowestPathDistance = ai.pathDistance - 0.5f;
                             }
                             else
                             {
@@ -162,7 +149,12 @@ namespace LethalBots.AI
                             }
                             nextValidCheck += 0.2f;
                         }
-                        yield return null;
+                        if (nextTarget == null && !isSelectingTarget)
+                        {
+                            // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: populated in if (nextTarget == null && !isSelectingTarget)");
+                            PopulateNodes();
+                            selectTargetCoroutine = ai.StartCoroutine(SelectTargetCoroutine());
+                        }
                     }
                     yield return null;
                 }
@@ -172,50 +164,52 @@ namespace LethalBots.AI
 
         private void PopulateNodes()
         {
+            // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: populating nodes, nodes count: {unsearchedNodes.Count}");
             unsearchedNodes = ai.allAINodes.ToList();
             if (nodeChance < 1f || minimumPathDistance > 0f)
             {
-                // The currentSearch.NodeChance random checks favours the deepest nodes in the list
-                // When there is a minimum distance and there are no nodes farther away from minimum distance, we accept a random node closer than minimum distance as fallback
-                // The shuffle solves the two problems above
+                // The currentSearch.NodeChance random checks favours the deepest nodes in the list, the shuffle below improves the random node selection
                 // TODO: Make unsearchedNodes a List with (GameObject node, float weight) tuple, the weight in the tuples are based on how far nodes are from each other, cache node weights in LethalBotManager so weights are processed only once, this should balance random node selection to select a node based on the density of nodes in an area
                 int n = unsearchedNodes.Count;
                 while (n > 1)
                 {
                     n--;
-                    int k = UnityEngine.Random.Range(0,n+1);;
+                    int k = UnityEngine.Random.Range(0,n+1);
                     (unsearchedNodes[k], unsearchedNodes[n]) = (unsearchedNodes[n], unsearchedNodes[k]);
                 }
             }
+            // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: populated nodes, nodes count: {unsearchedNodes.Count}");
+            targetCheckIndex = 0;
+            if (isSelectingTarget)
+            {
+                ai.StopCoroutine(selectTargetCoroutine);
+                selectTargetCoroutine = ai.StartCoroutine(SelectTargetCoroutine());
+            }
+            visitCheckIndex = unsearchedNodes.Count - 1;
+            unsearchedNodesHasNullRef = false;
         }
 
         private IEnumerator UpdateSearchCenter()
         {
-            // We are unable to find nodes if we search for nodes using a position outside navmesh
-            while (!ai.agent.isOnNavMesh)
+            // If our next searchCenter use is guaranteed to be on navmesh or reachable, we can still use it to check for reachability even if we are outside navmesh
+            if (currentTarget == null || !searchCenterFollowsAI)
             {
-                yield return null;
+                while (!ai.agent.isOnNavMesh)
+                {
+                    yield return null;
+                }
             }
             Vector3 newSearchCenter = currentTarget?.transform.position ?? ai.transform.position;
             // The IsValidPathToTarget check here is because if we can't reach searchCenter, we can't reach the nodes reachable from it, so searchCenter becomes our current position
-            if (searchCenter != newSearchCenter && (searchCenterFollowsAI || !LethalBotAI.IsValidPathToTarget(ai.transform.position, searchCenter, ai.agent.areaMask, ref ai.path1, true, out float _)))
+            if (searchCenter != newSearchCenter && (searchCenterFollowsAI || !ai.IsValidPathToTarget(searchCenter)))
             {
                 searchCenter = newSearchCenter;
-                // We changed our searchCenter, we stop selectTargetCoroutine and use our new searchCenter in the next selectTargetCoroutine
+                // We stop selectTargetCoroutine so we can use the new searchCenter in the next selectTargetCoroutine
                 if (isSelectingTarget)
                 {
                     ai.StopCoroutine(selectTargetCoroutine);
                     isSelectingTarget = false;
                 }
-            }
-        }
-
-        private void SelectNextTarget()
-        {
-            // We only find a new target if aren't finding one already
-            if (!isSelectingTarget)
-            {
-                selectTargetCoroutine = ai.StartCoroutine(SelectTargetCoroutine());
             }
         }
 
@@ -229,7 +223,7 @@ namespace LethalBots.AI
                 float closestDistSqr = searchRadius * searchRadius;
                 GameObject? selectedNode = null;
                 int iterAmount = 1;
-                for (targetCheckIndex = 0; targetCheckIndex < unsearchedNodes.Count; targetCheckIndex++)
+                for (targetCheckIndex = unsearchedNodes.Count - 1;targetCheckIndex >= 0;targetCheckIndex--)
                 {
                     GameObject? node = unsearchedNodes[targetCheckIndex];
                     if (node == null)
@@ -248,26 +242,21 @@ namespace LethalBots.AI
                         float sqrDistToNode = (searchCenter - node.transform.position).sqrMagnitude;
                         if (sqrDistToNode < closestDistSqr && LethalBotAI.IsValidPathToTarget(searchCenter, node.transform.position, ai.agent.areaMask, ref ai.path1, true, out float pathDistance) && pathDistance < closestDist) // || !ai.State.IsNodeValidForTarget(node)), uncomment and add null checks when it gets used
                         {
-                            // If framerate is low, bots will wait for the next destination, adding a minimum distance will make the bot walk for more time, so there is more time for the bot to find next destination while walking to the already designed destination, the problem is that bot is less likely to try to go for nodes that are in the end of corridors/rooms.
+                            // TODO: Dynamic minimumPathDistance increase when client is at low framerate
                             if (pathDistance >= minimumPathDistance)
                             {
+                                // Node is in proximityThreshold range and is visible to searchCenter
+                                if (pathDistance <= proximityThreshold && NavMesh.Raycast(searchCenter, node.transform.position, out _, ai.agent.areaMask))
+                                {
+                                    continue;
+                                }
                                 selectedNode = node;
                                 closestDist = pathDistance;
                                 closestDistSqr = pathDistance * pathDistance;
                             }
-                            // We use this node if there are no nodes over minimumPathDistance 
-                            else
-                            {
-                                selectedNode ??= node;
-                            }
-
-                            // TODO: Simple random node choice? The minimum path distance and this could be useful for bot personalities/identities or plugin config, but not important for now
-                            // Simple random node choice isn't used because it favours travelling around nodes in the center of the map even when they are already visited, the bot will only try for end of room/corridor nodes very late in the game
-                            // chosenNode = node;
-                            // break;
                         }
                     }
-                    // yield return null is better in the bottom because we check the for condition after this
+                    // yield return null is better in the bottom because we check the for condition just after
                     if (iterAmount % 10 == 0)
                     {
                         yield return null;
@@ -278,12 +267,12 @@ namespace LethalBots.AI
                 {
                     continue;
                 }
-                // We don't have a target
+                // We don't have a target yet
                 if (isWaitingTarget)
                 {
                     currentTarget = selectedNode;
                 }
-                // This will be our next target after we reach our currentTarget
+                // This will be our target after we reach currentTarget
                 else
                 {
                     nextTarget = selectedNode;
@@ -291,7 +280,6 @@ namespace LethalBots.AI
                 break;
             }
             isSelectingTarget = false;
-            targetCheckIndex = 0;
         }
 
         // This Coroutine is used to remove nodes we are passing by from unsearchedNodes
@@ -301,11 +289,13 @@ namespace LethalBots.AI
             yield return null;
             Vector3 lastVisitCheckPos = ai.transform.position;
             float proximitySqr = proximityThreshold * proximityThreshold;
-            float checkDist = proximityThreshold / 2;
+            float checkDist = proximityThreshold / 2f;
             while (visitNodesCoroutine != null)
             {
                 // We check nodes with the amount based on how much we moved and the amount of unsearchedNodes we have
-                int checkAmount = (int)Mathf.Ceil(Mathf.Lerp(0f, unsearchedNodes.Count, Mathf.Min((ai.transform.position - lastVisitCheckPos).magnitude / checkDist, 1.0f)));
+                int checkAmount = ai.agent.isOnNavMesh ? (int)Mathf.Ceil(Mathf.Lerp(0f, unsearchedNodes.Count, Mathf.Min((ai.transform.position - lastVisitCheckPos).magnitude / checkDist, 1.0f))) : 0;
+                // if (checkAmount > 0)
+                // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: iterated through {checkAmount} nodes in a single frame");
                 for (int i = 0;i < checkAmount;i++)
                 {
                     GameObject? node = unsearchedNodes[visitCheckIndex];
@@ -321,7 +311,7 @@ namespace LethalBots.AI
                             if (nextTarget == node)
                             {
                                 nextTarget = null;
-                                SelectNextTarget();
+                                selectTargetCoroutine = ai.StartCoroutine(SelectTargetCoroutine());
                             }
                         }
                     }
@@ -329,46 +319,52 @@ namespace LethalBots.AI
                     {
                         unsearchedNodesHasNullRef = true;
                     }
-                    visitCheckIndex++;
-                    if (visitCheckIndex >= unsearchedNodes.Count)
+                    visitCheckIndex--;
+                    if (visitCheckIndex < 0)
                     {
-                        visitCheckIndex = 0;
+                        visitCheckIndex = unsearchedNodes.Count - 1;
                     }
                 }
                 TrimVisitedNodes();
+                if (unsearchedNodes.Count == 0)
+                {
+                    // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: populated in if (unsearchedNodes.Count == 0)");
+                    PopulateNodes();
+                }
                 lastVisitCheckPos = ai.transform.position;
                 yield return null;
             }
             visitInProgress = false;
+        }
 
-            void TrimVisitedNodes()
+        private void TrimVisitedNodes()
+        {
+            if (unsearchedNodesHasNullRef)
             {
-                if (unsearchedNodesHasNullRef)
+                // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: trimming nodes, nodes count: {unsearchedNodes.Count}");
+                // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: check indexes before: T: {targetCheckIndex}, V: {visitCheckIndex}");
+                // We move iterator indexes backwards, this way we can continue iterating through nodes without skipping them or iterating through nodes twice before a full cycle
+                for (int i = Mathf.Max(visitCheckIndex, targetCheckIndex) - 1;i >= 0;i--)
                 {
-                    // We move iterator indexes backwards, this way we can continue iterating through nodes without skipping them or iterating through nodes twice before a full cycle
-                    for (int i = Mathf.Max(visitCheckIndex, targetCheckIndex) - 1;i >= 0;i--)
+                    if (unsearchedNodes[i] == null)
                     {
-                        if (unsearchedNodes[i] == null)
+                        if (targetCheckIndex > i)
                         {
-                            if (targetCheckIndex > i)
-                            {
-                                targetCheckIndex--;
-                            }
-                            if (visitCheckIndex > i)
-                            {
-                                visitCheckIndex--;
-                            }
+                            targetCheckIndex--;
+                        }
+                        if (visitCheckIndex > i)
+                        {
+                            visitCheckIndex--;
                         }
                     }
-                    unsearchedNodes.RemoveAll(x => x == null);
-                    unsearchedNodes.TrimExcess();
-                    unsearchedNodesHasNullRef = false;
-                    // When visitCheckIndex was null and the last element of unsearchedNodes before calling RemoveAll
-                    if (visitCheckIndex >= unsearchedNodes.Count)
-                    {
-                        visitCheckIndex = 0;
-                    }
                 }
+                // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: check indexes now: T: {targetCheckIndex}, V: {visitCheckIndex}");
+                // int remAmount =
+                unsearchedNodes.RemoveAll(x => x == null);
+                // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: nodes removed: {remAmount}");
+                // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: nodes count: {unsearchedNodes.Count}");
+                unsearchedNodes.TrimExcess();
+                unsearchedNodesHasNullRef = false;
             }
         }
     }

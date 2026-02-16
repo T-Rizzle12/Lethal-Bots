@@ -297,7 +297,8 @@ namespace LethalBots.AI.AIStates
 
                 // Now that we are inside, lets go find some loot
                 // If we need to go down an elevator we should do so!
-                if (LethalBotAI.ElevatorScript != null && ai.IsInElevatorStartRoom)
+                MineshaftElevatorController? elevator = LethalBotAI.ElevatorScript;
+                if (elevator != null && (ai.IsInElevatorStartRoom || !elevator.elevatorFinishedMoving && ai.IsInsideElevator))
                 {
                     if (ai.searchForScrap.searchInProgress)
                     {
@@ -450,7 +451,7 @@ namespace LethalBots.AI.AIStates
         /// Coroutine for when searching, alternate between sprinting and walking
         /// </summary>
         /// <remarks>
-        /// The other coroutine <see cref="EnemyAI.StartSearch"><c>EnemyAI.StartSearch</c></see>, already take care of choosing node to walk to.
+        /// The other coroutine <see cref="LethalBotSearchRoutine.StartSearch"><c>LethalBotSearchRoutine.StartSearch</c></see>, already take care of choosing node to walk to.
         /// </remarks>
         /// <returns></returns>
         private IEnumerator SearchingWander()

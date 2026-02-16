@@ -30,7 +30,6 @@ namespace LethalBots.AI.AIStates
             CurrentState = EnumAIStates.SearchingForPlayer;
             searchForPlayers = new LethalBotSearchRoutine(ai);
             searchForPlayers.searchCenterFollowsAI = false;
-            searchForPlayers.allowSearchOutside = true;
         }
         /// <summary>
         /// <inheritdoc cref="AIState(LethalBotAI)"/>
@@ -40,7 +39,6 @@ namespace LethalBots.AI.AIStates
             CurrentState = EnumAIStates.SearchingForPlayer;
             searchForPlayers = new LethalBotSearchRoutine(ai);
             searchForPlayers.searchCenterFollowsAI = false;
-            searchForPlayers.allowSearchOutside = true;
         }
 
         /// <summary>
@@ -210,7 +208,7 @@ namespace LethalBots.AI.AIStates
         /// Coroutine for when searching, alternate between sprinting and walking
         /// </summary>
         /// <remarks>
-        /// The other coroutine <see cref="EnemyAI.StartSearch"><c>EnemyAI.StartSearch</c></see>, already take care of choosing node to walk to.
+        /// The other coroutine <see cref="LethalBotSearchRoutine.StartSearch"><c>LethalBotSearchRoutine.StartSearch</c></see>, already take care of choosing node to walk to.
         /// </remarks>
         /// <returns></returns>
         private IEnumerator SearchingWander()
