@@ -298,7 +298,7 @@ namespace LethalBots.AI.AIStates
                 // Now that we are inside, lets go find some loot
                 // If we need to go down an elevator we should do so!
                 MineshaftElevatorController? elevator = LethalBotAI.ElevatorScript;
-                if (elevator != null && (ai.IsInElevatorStartRoom || !elevator.elevatorFinishedMoving && ai.IsInsideElevator))
+                if (elevator != null && (ai.IsInElevatorStartRoom || (!elevator.elevatorFinishedMoving || !elevator.elevatorDoorOpen) && ai.IsInsideElevator))
                 {
                     if (ai.searchForScrap.searchInProgress)
                     {
