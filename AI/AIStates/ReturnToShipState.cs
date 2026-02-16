@@ -88,7 +88,7 @@ namespace LethalBots.AI.AIStates
                 }
                 if (!ai.searchForScrap.visitInProgress && !ai.isOutside)
                 {
-                    ai.searchForScrap.StartSearch(true);
+                    ai.searchForScrap.StartVisit();
                 }
             }
             else if (ai.searchForScrap.visitInProgress)

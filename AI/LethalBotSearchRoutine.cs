@@ -34,12 +34,17 @@ namespace LethalBots.AI
         public bool visitInProgress;
 
 
-        public void StartSearch(bool visitOnly = false)
+        public void StartSearch()
         {
-            if (!searchInProgress && !visitOnly)
+            if (!searchInProgress)
             {
                 searchCoroutine = ai.StartCoroutine(SearchCoroutine());
             }
+            StartVisit();
+        }
+
+        public void StartVisit()
+        {
             if (proximityThreshold > 0f && !visitInProgress)
             {
                 visitNodesCoroutine = ai.StartCoroutine(VisitCoroutine());
@@ -55,7 +60,7 @@ namespace LethalBots.AI
             isWaitingTarget = false;
             isSelectingTarget = false;
             targetCheckIndex = 0;
-            // TODO: if clearTarget is false, nextTarget will not be used when search is resumed, for now it isn't used
+            // TODO: if clearTarget is false, nextTarget will not be used when search is resumed, for now clearTarget isn't used anywhere
             if (clearTarget)
             {
                 currentTarget = null;
@@ -222,9 +227,14 @@ namespace LethalBots.AI
                 float closestDist = searchRadius;
                 float closestDistSqr = searchRadius * searchRadius;
                 GameObject? selectedNode = null;
-                int iterAmount = 1;
+                int iterAmount = 0;
                 for (targetCheckIndex = unsearchedNodes.Count - 1;targetCheckIndex >= 0;targetCheckIndex--)
                 {
+                    if (iterAmount >= 10)
+                    {
+                        iterAmount = 0;
+                        yield return null;
+                    }
                     GameObject? node = unsearchedNodes[targetCheckIndex];
                     if (node == null)
                     {
@@ -255,11 +265,6 @@ namespace LethalBots.AI
                                 closestDistSqr = pathDistance * pathDistance;
                             }
                         }
-                    }
-                    // yield return null is better in the bottom because we check the for condition just after
-                    if (iterAmount % 10 == 0)
-                    {
-                        yield return null;
                     }
                 }
                 // We try again because selectedNode has been visited while nodes were being processed
@@ -303,8 +308,7 @@ namespace LethalBots.AI
                     // TODO: Having a high proximityThreshold means that bots will not search the end or corner of corridors/rooms, they can miss loot inside drawers or loot behind interior objects, logic should check if the node has no loot next or visible to it before marking it as visited
                     if (node != null)
                     {
-                        // NEEDTOVALIDATE: Is using NavMeshAgent.Raycast is better than Physics.Linecast?, Physics.Linecast can hit the floor when a node is under the floor, with NavMeshAgent.Raycast the problem is that the bot can mark nodes behind walkable slopes as visited
-                        if ((ai.transform.position - node.transform.position).sqrMagnitude < proximitySqr && Vector3.Angle(ai.eye.forward, node.transform.position - ai.eye.transform.position) < Const.LETHAL_BOT_FOV && !ai.agent.Raycast(node.transform.position, out _))
+                        if ((ai.transform.position - node.transform.position).sqrMagnitude < proximitySqr && Vector3.Angle(ai.eye.forward, node.transform.position - ai.eye.transform.position) < Const.LETHAL_BOT_FOV && Physics.Linecast(ai.eye.transform.position, node.transform.position + Vector3.up * 0.2f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                         {
                             unsearchedNodes[visitCheckIndex] = null;
                             unsearchedNodesHasNullRef = true;
