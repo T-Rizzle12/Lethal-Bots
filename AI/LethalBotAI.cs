@@ -306,6 +306,7 @@ namespace LethalBots.AI
             // Bot voice
             InitLethalBotVoiceComponent();
             UpdateLethalBotVoiceEffects();
+            StartOfRound.Instance.RefreshPlayerVoicePlaybackObjects();
 
             // Line renderer used for debugging stuff
             LineRendererUtil = new LineRendererUtil(6, this.transform);
@@ -5231,6 +5232,7 @@ namespace LethalBots.AI
                 }
             }
         }
+
 
         [ServerRpc(RequireOwnership = false)]
         public void PlayAudioServerRpc(string smallPathAudioClip, int enumTalkativeness)

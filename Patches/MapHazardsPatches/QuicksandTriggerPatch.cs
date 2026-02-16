@@ -46,7 +46,7 @@ namespace LethalBots.Patches.MapHazardsPatches
                     // Audio
                     lethalBotAI.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
                     {
-                        VoiceState = EnumVoicesState.SteppedOnTrap,
+                        VoiceState = EnumVoicesState.Sinking,
                         CanTalkIfOtherLethalBotTalk = true,
                         WaitForCooldown = false,
                         CutCurrentVoiceStateToTalk = true,

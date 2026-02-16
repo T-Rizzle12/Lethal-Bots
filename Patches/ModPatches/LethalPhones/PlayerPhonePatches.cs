@@ -18,31 +18,6 @@ namespace LethalBots.Patches.ModPatches.LethalPhones
     {
         #region Prefixes
 
-        [HarmonyPatch("UpdatePhoneSanity")]
-        [HarmonyPrefix]
-        static bool UpdatePhoneSanity_PreFix(PlayerControllerB playerController)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerController);
-            if (lethalBotAI != null)
-            {
-                return false;
-            }
-
-            Transform? phoneTransform = playerController.transform.Find("PhonePrefab(Clone)");
-            if (phoneTransform == null)
-            {
-                return false;
-            }
-
-            PlayerPhone? playerPhone = phoneTransform.GetComponent<PlayerPhone>();
-            if (playerPhone == null)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
         /// <summary>
         /// Prefix to stop the phone from managing inputs for lethal bots, 
         /// as they will be managed by the AI instead.
