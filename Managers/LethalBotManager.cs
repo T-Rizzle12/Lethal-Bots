@@ -443,6 +443,11 @@ namespace LethalBots.Managers
                         lightsToIgnore.Add(flashlight.flashlightBulb);
                         lightsToIgnore.Add(flashlight.flashlightBulbGlow);
                     }
+                    // While we have the walkie talkie object, add its light objects to the ignore list!
+                    else if (grabbableObject is WalkieTalkie walkieTalkie)
+                    {
+                        lightsToIgnore.Add(walkieTalkie.walkieTalkieLight);
+                    }
                 }
             }
 

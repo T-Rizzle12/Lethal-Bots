@@ -7784,72 +7784,73 @@ namespace LethalBots.AI
                                   bool fallDamage = false,
                                   Vector3 force = default(Vector3))
         {
-            Plugin.LogDebug(@$"DamageLethalBot for LOCAL client #{NetworkManager.LocalClientId}, lethalBot object: Bot #{this.BotId} {NpcController.Npc.playerUsername},
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            Plugin.LogDebug(@$"DamageLethalBot for LOCAL client #{NetworkManager.LocalClientId}, lethalBot object: Bot #{this.BotId} {lethalBotController.playerUsername},
                             damageNumber {damageNumber}, causeOfDeath {causeOfDeath}, deathAnimation {deathAnimation}, fallDamage {fallDamage}, force {force}");
             if (!base.IsOwner
-                || NpcController.Npc.isPlayerDead
-                || !NpcController.Npc.AllowPlayerDeath())
+                || lethalBotController.isPlayerDead
+                || !lethalBotController.AllowPlayerDeath())
             {
                 return;
             }
 
             // Apply damage, if not killed, set the minimum health to 5
-            if (NpcController.Npc.health - damageNumber <= 0
-                && !NpcController.Npc.criticallyInjured
+            if (lethalBotController.health - damageNumber <= 0
+                && !lethalBotController.criticallyInjured
                 && damageNumber < MaxHealthPercent(50)
                 && MaxHealthPercent(10) != MaxHealthPercent(20))
             {
-                NpcController.Npc.health = MaxHealthPercent(5);
+                lethalBotController.health = MaxHealthPercent(5);
             }
             else
             {
-                NpcController.Npc.health = Mathf.Clamp(NpcController.Npc.health - damageNumber, 0, MaxHealth);
+                lethalBotController.health = Mathf.Clamp(lethalBotController.health - damageNumber, 0, MaxHealth);
             }
 
             // Kill lethalBot if necessary
-            if (NpcController.Npc.health <= 0)
+            if (lethalBotController.health <= 0)
             {
                 // Kill and network death to other players!
                 bool spawnBody = deathAnimation != -1;
-                NpcController.Npc.KillPlayer(force, spawnBody: spawnBody, causeOfDeath, deathAnimation, positionOffset: default);
+                lethalBotController.KillPlayer(force, spawnBody: spawnBody, causeOfDeath, deathAnimation, positionOffset: default);
             }
             else
             {
                 // Critically injured
-                if ((NpcController.Npc.health < MaxHealthPercent(10) || NpcController.Npc.health == MaxHealthPercent(5))
-                    && !NpcController.Npc.criticallyInjured)
+                if ((lethalBotController.health < MaxHealthPercent(10) || lethalBotController.health == MaxHealthPercent(5))
+                    && !lethalBotController.criticallyInjured)
                 {
                     // Client side only, since we are already in an rpc send to all clients
-                    NpcController.Npc.MakeCriticallyInjured(true);
+                    lethalBotController.MakeCriticallyInjured(true);
                 }
                 else
                 {
                     // Limit sprinting when close to death
                     if (damageNumber >= MaxHealthPercent(10))
                     {
-                        NpcController.Npc.sprintMeter = Mathf.Clamp(NpcController.Npc.sprintMeter + (float)damageNumber / 125f, 0f, 1f);
+                        lethalBotController.sprintMeter = Mathf.Clamp(lethalBotController.sprintMeter + (float)damageNumber / 125f, 0f, 1f);
                     }
                     if (callRPC)
                     {
                         if (base.IsServer)
                         {
-                            NpcController.Npc.DamagePlayerClientRpc(damageNumber, NpcController.Npc.health);
+                            lethalBotController.DamagePlayerClientRpc(damageNumber, lethalBotController.health);
                         }
                         else
                         {
-                            NpcController.Npc.DamagePlayerServerRpc(damageNumber, NpcController.Npc.health);
+                            lethalBotController.DamagePlayerServerRpc(damageNumber, lethalBotController.health);
                         }
                     }
                 }
                 if (fallDamage)
                 {
-                    NpcController.Npc.movementAudio.PlayOneShot(StartOfRound.Instance.fallDamageSFX, 1f);
-                    WalkieTalkie.TransmitOneShotAudio(NpcController.Npc.movementAudio, StartOfRound.Instance.fallDamageSFX);
-                    NpcController.Npc.BreakLegsSFXClientRpc();
+                    lethalBotController.movementAudio.PlayOneShot(StartOfRound.Instance.fallDamageSFX, 1f);
+                    WalkieTalkie.TransmitOneShotAudio(lethalBotController.movementAudio, StartOfRound.Instance.fallDamageSFX);
+                    lethalBotController.BreakLegsSFXClientRpc();
                 }
                 else if (hasDamageSFX)
                 {
-                    NpcController.Npc.movementAudio.PlayOneShot(StartOfRound.Instance.damageSFX, 1f);
+                    lethalBotController.movementAudio.PlayOneShot(StartOfRound.Instance.damageSFX, 1f);
                 }
 
                 // Audio, we sync since we are not in an RPC
@@ -7862,18 +7863,18 @@ namespace LethalBots.AI
                     CanRepeatVoiceState = true,
 
                     ShouldSync = true,
-                    IsLethalBotInside = NpcController.Npc.isInsideFactory,
+                    IsLethalBotInside = lethalBotController.isInsideFactory,
                     AllowSwearing = Plugin.Config.AllowSwearing.Value
                 });
             }
 
-            NpcController.Npc.takingFallDamage = false;
-            if (!NpcController.Npc.inSpecialInteractAnimation && !NpcController.Npc.twoHandedAnimation)
+            lethalBotController.takingFallDamage = false;
+            if (!lethalBotController.inSpecialInteractAnimation && !lethalBotController.twoHandedAnimation)
             {
-                NpcController.Npc.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_DAMAGE);
+                lethalBotController.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_DAMAGE);
             }
-            NpcController.Npc.specialAnimationWeight = 1f;
-            NpcController.Npc.PlayQuickSpecialAnimation(0.7f);
+            lethalBotController.specialAnimationWeight = 1f;
+            lethalBotController.PlayQuickSpecialAnimation(0.7f);
         }
 
         public void HealthRegen()
@@ -7882,22 +7883,24 @@ namespace LethalBots.AI
             {
                 NpcController.LimpMultiplier -= Time.deltaTime / 1.8f;
             }
-            if (NpcController.Npc.health < MaxHealthPercent(20)
-                || NpcController.Npc.health == MaxHealthPercent(5))
+
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            if (lethalBotController.health < MaxHealthPercent(20)
+                || lethalBotController.health == MaxHealthPercent(5))
             {
-                if (NpcController.Npc.healthRegenerateTimer <= 0f)
+                if (lethalBotController.healthRegenerateTimer <= 0f)
                 {
-                    NpcController.Npc.healthRegenerateTimer = healthRegenerateTimerMax;
-                    NpcController.Npc.health = NpcController.Npc.health + 1 > MaxHealth ? MaxHealth : NpcController.Npc.health + 1;
-                    if (IsOwner && NpcController.Npc.criticallyInjured &&
-                        (NpcController.Npc.health >= MaxHealthPercent(20) || MaxHealth == 1))
+                    lethalBotController.healthRegenerateTimer = healthRegenerateTimerMax;
+                    lethalBotController.health = lethalBotController.health + 1 > MaxHealth ? MaxHealth : lethalBotController.health + 1;
+                    if (IsOwner && lethalBotController.criticallyInjured &&
+                        (lethalBotController.health >= MaxHealthPercent(20) || MaxHealth == 1))
                     {
-                        NpcController.Npc.MakeCriticallyInjured(false);
+                        lethalBotController.MakeCriticallyInjured(false);
                     }
                 }
                 else
                 {
-                    NpcController.Npc.healthRegenerateTimer -= Time.deltaTime;
+                    lethalBotController.healthRegenerateTimer -= Time.deltaTime;
                 }
             }
         }
@@ -8036,72 +8039,73 @@ namespace LethalBots.AI
                                 int deathAnimation,
                                 Vector3 positionOffset)
         {
-            Plugin.LogDebug(@$"KillLethalBot for LOCAL client #{NetworkManager.LocalClientId}, lethalBot object: Bot #{this.BotId} {NpcController.Npc.playerUsername}
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            Plugin.LogDebug(@$"KillLethalBot for LOCAL client #{NetworkManager.LocalClientId}, lethalBot object: Bot #{this.BotId} {lethalBotController.playerUsername}
                             bodyVelocity {bodyVelocity}, spawnBody {spawnBody}, causeOfDeath {causeOfDeath}, deathAnimation {deathAnimation}, positionOffset {positionOffset}");
-            if (NpcController.Npc.isPlayerDead)
+            if (lethalBotController.isPlayerDead)
             {
                 return;
             }
-            if (!NpcController.Npc.AllowPlayerDeath())
+            if (!lethalBotController.AllowPlayerDeath())
             {
                 return;
             }
 
             // Mark the bot as dead to the Round Manager
             StartOfRound.Instance.gameStats.deaths++;
-            NpcController.Npc.playersManager.livingPlayers--;
-            if (NpcController.Npc.playersManager.livingPlayers == 0)
+            lethalBotController.playersManager.livingPlayers--;
+            if (lethalBotController.playersManager.livingPlayers == 0)
             {
-                NpcController.Npc.playersManager.allPlayersDead = true;
-                NpcController.Npc.playersManager.ShipLeaveAutomatically();
+                lethalBotController.playersManager.allPlayersDead = true;
+                lethalBotController.playersManager.ShipLeaveAutomatically();
             }
 
             // Reset body
-            NpcController.Npc.isPlayerDead = true;
-            NpcController.Npc.isPlayerControlled = false;
-            NpcController.Npc.thisPlayerModelArms.enabled = false;
-            NpcController.Npc.localVisor.position = NpcController.Npc.playersManager.notSpawnedPosition.position;
-            NpcController.Npc.DisablePlayerModel(NpcController.Npc.gameObject, enable: false, disableLocalArms: false);
-            NpcController.Npc.isInsideFactory = false;
-            NpcController.Npc.IsInspectingItem = false;
-            if (NpcController.Npc.inTerminalMenu)
+            lethalBotController.isPlayerDead = true;
+            lethalBotController.isPlayerControlled = false;
+            lethalBotController.thisPlayerModelArms.enabled = false;
+            lethalBotController.localVisor.position = lethalBotController.playersManager.notSpawnedPosition.position;
+            lethalBotController.DisablePlayerModel(lethalBotController.gameObject, enable: false, disableLocalArms: false);
+            lethalBotController.isInsideFactory = false;
+            lethalBotController.IsInspectingItem = false;
+            if (lethalBotController.inTerminalMenu)
             {
                 // If we were using the terminal, we should "leave" it so other players can use it!
                 LeaveTerminal();
             }
-            NpcController.Npc.inTerminalMenu = false;
-            NpcController.Npc.twoHanded = false;
-            NpcController.Npc.isHoldingObject = false;
-            NpcController.Npc.currentlyHeldObjectServer = null;
-            NpcController.Npc.carryWeight = 1f;
-            NpcController.Npc.fallValue = 0f;
-            NpcController.Npc.fallValueUncapped = 0f;
-            NpcController.Npc.takingFallDamage = false;
+            lethalBotController.inTerminalMenu = false;
+            lethalBotController.twoHanded = false;
+            lethalBotController.isHoldingObject = false;
+            lethalBotController.currentlyHeldObjectServer = null;
+            lethalBotController.carryWeight = 1f;
+            lethalBotController.fallValue = 0f;
+            lethalBotController.fallValueUncapped = 0f;
+            lethalBotController.takingFallDamage = false;
             StopSinkingState();
-            NpcController.Npc.sinkingValue = 0f;
-            NpcController.Npc.hinderedMultiplier = 1f;
-            NpcController.Npc.isMovementHindered = 0;
-            NpcController.Npc.inAnimationWithEnemy = null;
-            NpcController.Npc.bleedingHeavily = false;
-            NpcController.Npc.setPositionOfDeadPlayer = true;
-            NpcController.Npc.snapToServerPosition = false;
-            NpcController.Npc.causeOfDeath = causeOfDeath;
-            AccessTools.Field(typeof(PlayerControllerB), "positionOfDeath").SetValue(NpcController.Npc, NpcController.Npc.transform.position);
+            lethalBotController.sinkingValue = 0f;
+            lethalBotController.hinderedMultiplier = 1f;
+            lethalBotController.isMovementHindered = 0;
+            lethalBotController.inAnimationWithEnemy = null;
+            lethalBotController.bleedingHeavily = false;
+            lethalBotController.setPositionOfDeadPlayer = true;
+            lethalBotController.snapToServerPosition = false;
+            lethalBotController.causeOfDeath = causeOfDeath;
+            AccessTools.Field(typeof(PlayerControllerB), "positionOfDeath").SetValue(lethalBotController, lethalBotController.transform.position);
             if (spawnBody)
             {
-                NpcController.Npc.SpawnDeadBody((int)NpcController.Npc.playerClientId, bodyVelocity, (int)causeOfDeath, NpcController.Npc, deathAnimation, null, positionOffset);
+                lethalBotController.SpawnDeadBody((int)lethalBotController.playerClientId, bodyVelocity, (int)causeOfDeath, lethalBotController, deathAnimation, null, positionOffset);
                 
                 // Sigh, if the death animation is set to 9 the body has a chance to be null!
-                if (NpcController.Npc.deadBody != null)
+                if (lethalBotController.deadBody != null)
                 {
-                    ResizeRagdoll(NpcController.Npc.deadBody.transform);
+                    ResizeRagdoll(lethalBotController.deadBody.transform);
                     // Replace body position or else disappear with shotgun or knife (don't know why)
-                    NpcController.Npc.deadBody.transform.position = NpcController.Npc.transform.position + Vector3.up + positionOffset;
+                    lethalBotController.deadBody.transform.position = lethalBotController.transform.position + Vector3.up + positionOffset;
                     // Need to be set to true (don't know why) (so many mysteries unsolved tonight)
-                    NpcController.Npc.deadBody.canBeGrabbedBackByPlayers = true;
-                    this.LethalBotIdentity.DeadBody = NpcController.Npc.deadBody;
+                    lethalBotController.deadBody.canBeGrabbedBackByPlayers = true;
+                    this.LethalBotIdentity.DeadBody = lethalBotController.deadBody;
                     // Lets make sure the bots don't attempt to grab dead bodies as soon as a player is killed!
-                    GrabbableObject? deadBody = NpcController.Npc.deadBody?.grabBodyObject;
+                    GrabbableObject? deadBody = lethalBotController.deadBody?.grabBodyObject;
                     if (deadBody != null)
                     {
                         DictJustDroppedItems[deadBody] = Time.realtimeSinceStartup;
@@ -8109,24 +8113,24 @@ namespace LethalBots.AI
                 }
                 else
                 {
-                    Plugin.LogWarning($"Bot {NpcController.Npc.playerUsername} dead body was not spawned. This is probably a bug with another mod or the base game itself!");
+                    Plugin.LogWarning($"Bot {lethalBotController.playerUsername} dead body was not spawned. This is probably a bug with another mod or the base game itself!");
                 }
             }
-            NpcController.Npc.physicsParent = null;
-            NpcController.Npc.overridePhysicsParent = null;
-            NpcController.Npc.lastSyncedPhysicsParent = null;
+            lethalBotController.physicsParent = null;
+            lethalBotController.overridePhysicsParent = null;
+            lethalBotController.lastSyncedPhysicsParent = null;
             NpcController.CurrentLethalBotPhysicsRegions.Clear();
-            this.ReParentLethalBot(NpcController.Npc.playersManager.playersContainer);
-            SoundManager.Instance.playerVoicePitchTargets[NpcController.Npc.playerClientId] = 1f;
-            SoundManager.Instance.playerVoicePitchLerpSpeed[NpcController.Npc.playerClientId] = 3f;
-            NpcController.Npc.DropAllHeldItems(spawnBody);
+            this.ReParentLethalBot(lethalBotController.playersManager.playersContainer);
+            SoundManager.Instance.playerVoicePitchTargets[lethalBotController.playerClientId] = 1f;
+            SoundManager.Instance.playerVoicePitchLerpSpeed[lethalBotController.playerClientId] = 3f;
+            lethalBotController.DropAllHeldItems(spawnBody);
             if (this.State?.TargetItem != null)
             {
                 // If the bot died trying to pickup an item, we need to make sure no other bot tries to pick it up!
                 // As it may be too dangerous around the item
                 DictJustDroppedItems[this.State.TargetItem] = Time.realtimeSinceStartup;
             }
-            NpcController.Npc.DisableJetpackControlsLocally();
+            lethalBotController.DisableJetpackControlsLocally();
             NpcController.IsControllerInCruiser = false;
             if (GameNetworkManager.Instance.localPlayerController.isPlayerDead)
             {
@@ -8137,12 +8141,12 @@ namespace LethalBots.AI
             SetAgent(enabled: false);
             this.LethalBotIdentity.Voice.StopAudioFadeOut();
             this.State = new BrainDeadState(this);
-            Plugin.LogDebug($"Ran kill lethalBot function for LOCAL client #{NetworkManager.LocalClientId}, lethalBot object: Bot #{this.BotId} {NpcController.Npc.playerUsername}");
+            Plugin.LogDebug($"Ran kill lethalBot function for LOCAL client #{NetworkManager.LocalClientId}, lethalBot object: Bot #{this.BotId} {lethalBotController.playerUsername}");
 
             // Compat with revive company mod
             if (Plugin.IsModReviveCompanyLoaded)
             {
-                ReviveCompanySetPlayerDiedAt((int)NpcController.Npc.playerClientId);
+                ReviveCompanySetPlayerDiedAt((int)lethalBotController.playerClientId);
             }
 
             // Compat with Lethal Phones
