@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 ## 2.2.0 - 2026-2-17
 Its that time again, another update! It was voted upon in the mod's discord for what I should work on next and creating a custom search routine was selected. This update also includes some improvements to the bot's AI in regards to some of the base game items as well as fixing some of the issues found since the last update. Ok, onto the change log!
