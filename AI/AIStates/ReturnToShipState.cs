@@ -86,6 +86,14 @@ namespace LethalBots.AI.AIStates
                     ai.State = new FetchingObjectState(this, grabbableObject);
                     return;
                 }
+                if (!ai.searchForScrap.visitInProgress && !ai.isOutside)
+                {
+                    ai.searchForScrap.StartVisit();
+                }
+            }
+            else if (ai.searchForScrap.visitInProgress)
+            {
+                ai.searchForScrap.StopSearch();
             }
 
             // If we are inside, we need to move outside first!

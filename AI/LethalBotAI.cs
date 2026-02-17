@@ -43,7 +43,6 @@ using UnityEngine.UI;
 using Component = UnityEngine.Component;
 using Object = UnityEngine.Object;
 using Quaternion = UnityEngine.Quaternion;
-using Random = System.Random;
 using Vector2 = UnityEngine.Vector2;
 using Vector3 = UnityEngine.Vector3;
 
@@ -167,7 +166,8 @@ namespace LethalBots.AI
             }
         }
         private Dictionary<Collider, BridgeTrigger> dictColliderToBridge = null!;
-
+        
+        public LethalBotSearchRoutine searchForScrap = null!;
         private Coroutine grabObjectCoroutine = null!;
         private Coroutine? spawnAnimationCoroutine = null;
         public Coroutine? useLadderCoroutine = null;
@@ -294,6 +294,9 @@ namespace LethalBots.AI
             this.isEnemyDead = false;
             this.enabled = true;
             addPlayerVelocityToDestination = 3f;
+            
+            // Search coroutines
+            searchForScrap = new LethalBotSearchRoutine(this);
 
             // Body collider
             LethalBotBodyCollider = NpcController.Npc.GetComponentInChildren<Collider>();
@@ -422,11 +425,6 @@ namespace LethalBots.AI
             // Not owner no AI
             if (!IsOwner && NpcController != null)
             {
-                if (currentSearch.inProgress)
-                {
-                    StopSearch(currentSearch, false);
-                }
-
                 SetAgent(enabled: false);
 
                 if (State == null
@@ -1028,7 +1026,7 @@ namespace LethalBots.AI
             }
 
             // This may be a partial path, make sure the end of the path actually reaches our target destiniation!
-            if (Vector3.Distance(path.corners[path.corners.Length - 1], RoundManager.Instance.GetNavMeshPosition(endPosition, RoundManager.Instance.navHit, 2.7f)) > 1.5f)
+            if ((path.corners[path.corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(endPosition, RoundManager.Instance.navHit, 2.7f)).sqrMagnitude > 1.5f * 1.5f)
             {
                 return false;
             }
@@ -1086,7 +1084,7 @@ namespace LethalBots.AI
                 return false;
             }
 
-            if (Vector3.Distance(path.corners[path.corners.Length - 1], RoundManager.Instance.GetNavMeshPosition(targetPos, RoundManager.Instance.navHit, nearestNavAreaRange)) > maxRangeToEnd)
+            if ((path.corners[path.corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(targetPos, RoundManager.Instance.navHit, nearestNavAreaRange)).sqrMagnitude > maxRangeToEnd * maxRangeToEnd)
             {
                 Plugin.LogDebug($"IsValidPathToTarget: Path is not complete; final waypoint of path was too far from target position: {targetPos}");
                 return false;
@@ -5539,7 +5537,7 @@ namespace LethalBots.AI
 
         /// <summary>
         /// Sets if the enemy is outside, used to change <see cref="EnemyAI.allAINodes"/> to inside
-        /// or outside nodes for <see cref="AISearchRoutine"/>s and for safe pathfinding checks!
+        /// or outside nodes for <see cref="LethalBotSearchRoutine"/>s and for safe pathfinding checks!
         /// </summary>
         /// <remarks>
         /// This version has an edit to include the nodes inside the ship!
@@ -5572,6 +5570,10 @@ namespace LethalBots.AI
             }
 
             this.allAINodes = nodeList.ToArray();
+            if (outside && searchForScrap != null && (searchForScrap.searchInProgress || searchForScrap.visitInProgress))
+            {
+                searchForScrap.StopSearch();
+            }
 
             #if DEBUG
             for (int i = 0; i < this.allAINodes.Length; i++)

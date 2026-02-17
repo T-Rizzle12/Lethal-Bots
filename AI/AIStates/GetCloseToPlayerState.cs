@@ -108,11 +108,19 @@ namespace LethalBots.AI.AIStates
                     ai.State = new FetchingObjectState(this, grabbableObject);
                     return;
                 }
+                if (!ai.searchForScrap.visitInProgress && !ai.isOutside)
+                {
+                    ai.searchForScrap.StartVisit();
+                }
+            }
+            else if (ai.searchForScrap.visitInProgress)
+            {
+                ai.searchForScrap.StopSearch();
             }
 
-            // If we are at the company building and have some scrap, we should sell it!
+            // If we are at the company building and have sellable items, we should sell it!
             if (LethalBotManager.AreWeAtTheCompanyBuilding() 
-                && ai.HasScrapInInventory())
+                && ai.HasSellableItemInInventory())
             {
                 ai.State = new SellScrapState(this);
                 return;

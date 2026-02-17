@@ -45,8 +45,6 @@ namespace LethalBots.AI
         /// <c>NpcController</c> from the <c>LethalBotAI</c>
         /// </summary>
         protected NpcController npcController;
-        protected AISearchRoutine searchForPlayers;
-        protected AISearchRoutine searchForScrap;
 
         protected Vector3? targetLastKnownPosition;
         public GrabbableObject? TargetItem
@@ -81,8 +79,6 @@ namespace LethalBots.AI
             this.panikCoroutine = oldState.panikCoroutine;
             this.currentEnemy = oldState.currentEnemy;
 
-            this.searchForPlayers = oldState.searchForPlayers;
-            this.searchForScrap = oldState.searchForScrap;
         }
 
         /// <summary>
@@ -105,17 +101,6 @@ namespace LethalBots.AI
             // Mark our current position as "safe"
             // We will adjust our safe pos later as required
             this.safePathPos = this.npcController.Npc.transform.position;
-
-            if (this.searchForPlayers == null)
-            {
-                this.searchForPlayers = new AISearchRoutine();
-                this.searchForPlayers.randomized = true;
-            }
-            if (this.searchForScrap == null)
-            {
-                this.searchForScrap = new AISearchRoutine();
-                this.searchForScrap.randomized = true;
-            }
         }
 
         // Create a destructor here to destory the token incase we somehow get removed or something
@@ -1047,13 +1032,9 @@ namespace LethalBots.AI
         /// </summary>
         public virtual void StopAllCoroutines()
         {
-            if (searchForPlayers.inProgress)
+            if (ai.searchForScrap.searchInProgress)
             {
-                ai.StopSearch(searchForPlayers, true);
-            }
-            if (searchForScrap.inProgress)
-            {
-                ai.StopSearch(searchForScrap, false);
+                ai.searchForScrap.StopSearch();
             }
             StopSafePathCoroutine();
             StopLookingAroundCoroutine();
@@ -1385,6 +1366,20 @@ namespace LethalBots.AI
                 pathfindCancellationToken = null;
             }
         }
+
+        /// <summary>
+        /// This decides if <paramref name="node"/> is valid or not when finding a valid node<br/>
+        /// </summary>
+        /// <remarks>
+        /// This was designed for use in <see cref="LethalBotSearchRoutine.ChooseTargetCoroutine()"/> calls.
+        /// </remarks>
+        /// <param name="node"></param>
+        /// <returns>true if the candidate node is considered valid</returns>
+        // Uncomment here and in LethalBotSearchRoutine when a State needs it
+        // public virtual bool IsNodeValidForTarget(GameObject node)
+        // {
+        //     return true;
+        // }
 
         /// <summary>
         /// Coroutine for making bot turn his body to look around him

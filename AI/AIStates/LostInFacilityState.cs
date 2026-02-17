@@ -13,14 +13,18 @@ namespace LethalBots.AI.AIStates
     {
         private Coroutine searchingWanderCoroutine = null!;
         private float findEntranceTimer;
+        private LethalBotSearchRoutine searchForExit = null!;
+
         public LostInFacilityState(AIState oldState) : base(oldState)
         {
             CurrentState = EnumAIStates.LostInFacility;
+            searchForExit = new LethalBotSearchRoutine(ai);
         }
 
         public LostInFacilityState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.LostInFacility;
+            searchForExit = new LethalBotSearchRoutine(ai);
         }
 
         public override void DoAI()
@@ -44,6 +48,8 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // TODO: If bot finds a key, bot should drop least valuable item in inventory and pick the key up
+            Vector3? destination;
             // Check for object to grab
             if (ai.HasSpaceInInventory())
             {
@@ -52,6 +58,29 @@ namespace LethalBots.AI.AIStates
                 {
                     ai.State = new FetchingObjectState(this, grabbableObject);
                     return;
+                }
+                // We still can still grab loot we use ai.searchForScrap
+                destination = ai.searchForScrap.GetTargetPosition();
+                if (searchForExit.searchInProgress)
+                {
+                    searchForExit.StopSearch();
+                }
+                if (!ai.searchForScrap.searchInProgress)
+                {
+                    ai.searchForScrap.StartSearch();
+                }
+            }
+            else
+            {
+                // Because the bot's inventory is full, the bot will ignore any loot it is passing by, when the bot frees space in inventory the bot should be able to revisit those areas again for loot, that's why we use stuckSearch instead of ai.searchForScrap
+                destination = searchForExit.GetTargetPosition();
+                if (ai.searchForScrap.searchInProgress)
+                {
+                    ai.searchForScrap.StopSearch();
+                }
+                if (searchForExit.searchInProgress)
+                {
+                    searchForExit.StartSearch();
                 }
             }
 
@@ -91,19 +120,17 @@ namespace LethalBots.AI.AIStates
             // Select and use items based on our current situation, if needed
             SelectBestItemFromInventory();
 
-            ai.SetDestinationToPositionLethalBotAI(ai.destination);
-            ai.OrderMoveToDestination();
-
-            if (!searchForPlayers.inProgress)
+            if (destination != null)
             {
-                // Start the coroutine from base game to search for players
-                ai.StartSearch(ai.NpcController.Npc.transform.position, searchForPlayers);
+                ai.SetDestinationToPositionLethalBotAI(destination.Value);
+                ai.OrderMoveToDestination();
             }
         }
 
         public override void StopAllCoroutines()
         {
             base.StopAllCoroutines();
+            searchForExit.StopSearch();
             StopSearchingWanderCoroutine();
         }
 
@@ -137,7 +164,7 @@ namespace LethalBots.AI.AIStates
         /// Coroutine for when searching, alternate between sprinting and walking
         /// </summary>
         /// <remarks>
-        /// The other coroutine <see cref="EnemyAI.StartSearch"><c>EnemyAI.StartSearch</c></see>, already take care of choosing node to walk to.
+        /// The other coroutine <see cref="LethalBotSearchRoutine.StartSearch"><c>LethalBotSearchRoutine.StartSearch</c></see>, already take care of choosing node to walk to.
         /// </remarks>
         /// <returns></returns>
         private IEnumerator SearchingWander()

@@ -19,6 +19,8 @@ namespace LethalBots.AI.AIStates
     {
         private float lookForPlayerTimer;
         private Coroutine searchingWanderCoroutine = null!;
+        private bool foundSearchCenter;
+        private LethalBotSearchRoutine searchForPlayers = null!;
 
         /// <summary>
         /// <inheritdoc cref="AIState(AIState)"/>
@@ -26,6 +28,8 @@ namespace LethalBots.AI.AIStates
         public SearchingForPlayerState(AIState oldState) : base(oldState)
         {
             CurrentState = EnumAIStates.SearchingForPlayer;
+            searchForPlayers = new LethalBotSearchRoutine(ai);
+            searchForPlayers.searchCenterFollowsAI = false;
         }
         /// <summary>
         /// <inheritdoc cref="AIState(LethalBotAI)"/>
@@ -33,6 +37,8 @@ namespace LethalBots.AI.AIStates
         public SearchingForPlayerState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.SearchingForPlayer;
+            searchForPlayers = new LethalBotSearchRoutine(ai);
+            searchForPlayers.searchCenterFollowsAI = false;
         }
 
         /// <summary>
@@ -75,6 +81,14 @@ namespace LethalBots.AI.AIStates
                     ai.State = new FetchingObjectState(this, grabbableObject);
                     return;
                 }
+                if (!ai.searchForScrap.visitInProgress && !ai.isOutside)
+                {
+                    ai.searchForScrap.StartVisit();
+                }
+            }
+            else if (ai.searchForScrap.visitInProgress)
+            {
+                ai.searchForScrap.StopSearch();
             }
 
             // If we lose the player outside when returing just head back to the ship
@@ -123,19 +137,28 @@ namespace LethalBots.AI.AIStates
                 lookForPlayerTimer += ai.AIIntervalTime;
             }
 
-            ai.SetDestinationToPositionLethalBotAI(ai.destination);
-            ai.OrderMoveToDestination();
-
-            if (!searchForPlayers.inProgress)
+            Vector3? destination = searchForPlayers.GetTargetPosition();
+            if (destination != null)
             {
-                // Start the coroutine from base game to search for players
-                ai.StartSearch(ai.NpcController.Npc.transform.position, searchForPlayers);
+                ai.SetDestinationToPositionLethalBotAI(destination.Value);
+                ai.OrderMoveToDestination();
+            }
+            if (!foundSearchCenter && ai.agent.isOnNavMesh)
+            {
+                searchForPlayers.searchCenter = ai.transform.position;
+                foundSearchCenter = true;
+            }
+            else if (!searchForPlayers.searchInProgress)
+            {
+                // Start the coroutine to search for players
+                searchForPlayers.StartSearch();
             }
         }
 
         public override void StopAllCoroutines()
         {
             base.StopAllCoroutines();
+            searchForPlayers.StopSearch();
             StopSearchingWanderCoroutine();
         }
 
@@ -185,7 +208,7 @@ namespace LethalBots.AI.AIStates
         /// Coroutine for when searching, alternate between sprinting and walking
         /// </summary>
         /// <remarks>
-        /// The other coroutine <see cref="EnemyAI.StartSearch"><c>EnemyAI.StartSearch</c></see>, already take care of choosing node to walk to.
+        /// The other coroutine <see cref="LethalBotSearchRoutine.StartSearch"><c>LethalBotSearchRoutine.StartSearch</c></see>, already take care of choosing node to walk to.
         /// </remarks>
         /// <returns></returns>
         private IEnumerator SearchingWander()
