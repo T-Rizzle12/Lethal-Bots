@@ -1,5 +1,80 @@
 # Changelog
 
+## 2.2.0 - 2026-2-17
+Its that time again, another update! It was voted upon in the mod's discord for what I should work on next and creating a custom search routine was selected. This update also includes some improvements to the bot's AI in regards to some of the base game items as well as fixing some of the issues found since the last update. Ok, onto the change log!
+
+## New Features
+### Dynamic Item Usage
+- Bots can now intelligently swap between items depending on the situation instead of only using the currently held item.
+
+### Improved LookAtTarget System
+- Bots can now track targets using ``NetworkObjectReference``s
+- Bots now use dot-product based “sighted in” logic for more accurate aiming.
+
+### Light Detection System
+- Bots can now check the light level of the area around them
+- Bots have learned how to use flashlights and will turn them on and off based on the bot's perceived light level
+
+## New Config Options
+### Kill Everything Config
+- Added ``ShouldKillEverything`` config option to allow bots to attack all enemies regardless of normal killability. Closes #44 
+
+### Allow Talking While Dead
+- New config option ``AllowTalkingWhileDead`` lets bots play random voice lines when dead. Closes #43 
+- Do note that they will play Chilling for now. A dedicated dead voice state will be added later.
+
+## Lethal Phones Support
+Yeah, you heard correctly, bots now support Lethal Phones! They can pickup and accept calls from players and even enemies. Currently, bots will **NOT** call other player, but the code to do so does exist. So, this can be improved upon later. This closes #45 
+- My mod will handle ownership, initialization, and cleanup for bots.
+- Bots can answer calls
+- Mission Controller bots will become the switchboard operator automatically
+
+## AI Improvements
+### Major Search Routine refactor
+Credit goes to https://github.com/Gummar for this new system! Fixes #16 
+- Overhauled Search Logic: Bots no longer rely on the vanilla ``EnemyAI.AISearchRoutine`` or its related functions. Search logic is now handled within the custom ``LethalBotSearchRoutine``, which is optimized for better performance.
+- Much Better Persistent Search Memory: Bots can now pause and resume searches without forgetting explored areas. This prevents them from revisiting the same locations repeatedly.
+- Dynamic Search Center: Search paths are now calculated based on the bot's current position or destination, rather than a fixed point chosen when the search began.
+  - Note: If a bot loses sight of a player, it will use the player's last known position as the search center.
+- Unrestricted Searching: Removed distance limitations on search behavior.
+
+### Combat improvements
+Combat is in a pretty good place right now, but there were a few things that needed to change and be fixed.
+- Bots are much better at picking fallback and attack distances based on weapon type.
+- Bots should hopefully be better at checking where they are aiming before attacking.
+
+### State logic fixes and improvements
+- More improvements to bot's elevator usage
+- Improved RescueAndReviveState's aiming logic
+- Bots will no longer sell dead bodies if there are better scrap items that could be sold at the moment
+- Improved bot fear ranges for the Giant Sapsucker.
+
+## Voice & Audio
+- Added additional voice lines from Lethal Internship. Closes #49 
+- Fixed voice transmission over Lethal Phones.
+- Fixed footstep volume syncing across clients.
+
+## Bug Fixes
+And now the part you have been waiting for, the bug fixes!
+- Fixed bots failing to swap items in certain situations.
+- Fixed bots sometimes getting stuck in loops with elevators or terminals.
+- Fixed revived bots always having full health.
+- Fixed ship parenting issues when bots join or revive.
+- Fixed ownership RPC error in HealthRegen.
+- Fixed NullReferenceExceptions in door logic. Fixes #50 
+- Fixed multiple logic errors in pathing and AI states.
+- Fixed bots incorrectly updating last known player position while using elevators.
+- Fixed the "request teleport" command targeting wrong player if there is an active signal booster.
+- Fixed various AI state edge cases.
+- Tentative fix for ShowCapacity creating issues with bots. Fixes #41
+
+## Performance, Optimizations, & Cleanup
+- Reduced index calls in some functions
+- Replaced some Lists with HashSets
+- Removed obsolete damage sync code, we let the base game handle that now.
+- Removed redundant patches and unused logic
+- Many other logic simplification and cleanup
+
 ## 2.1.0 - 2026-1-28
 It was brought to my attention that multiplayer use with the bots had some issues. I have been working with the community on the both GitHub and Discord to find and fix these desync issues that were happening. I have also added some requested configuration options and much needed AI adjustments. Anyway, on to patch notes!
 
