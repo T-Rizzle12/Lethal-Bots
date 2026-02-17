@@ -85,6 +85,7 @@ namespace LethalBots.Constants
         // NpcController
         public const int PLAYER_MASK = 8;
         public const float MAX_CHAT_RANGE = 25f;
+        public const int INVALID_ITEM_SLOT = -1;
         public const string PLAYER_ANIMATION_WEIGHT_HOLDINGITEMSRIGHTHAND = "HoldingItemsRightHand";
         public const string PLAYER_ANIMATION_WEIGHT_HOLDINGITEMSBOTHHANDS = "HoldingItemsBothHands";
         public const string PLAYER_ANIMATION_WEIGHT_SPECIALANIMATIONS = "SpecialAnimations";
@@ -228,6 +229,11 @@ namespace LethalBots.Constants
         public const float DISTANCE_TO_ELEVATOR_BOTTOM = 10f;
         public const float DISTANCE_TO_ELEVATOR_TOP = 20f;
         public const float LETHAL_BOT_DROWN_TIME = 10f; // Makes it easier to update how long a bot has until it drowns!
+
+        // Mod specific
+        public const short LETHAL_PHONES_NO_CALLER_ID = -1; // Lethal Phones uses this to indicate that there is no caller.
+        public const float LETHAL_PHONES_CLOSED_PHONE = 0f;
+        public const float LETHAL_PHONES_OPEN_PHONE = 1f;
 
         // Tips
         public const string TOOLTIP_DROP_ITEM = "Drop your item : [{0}]";

@@ -234,6 +234,7 @@ These bots are to be more player like and this includes advantages such as count
 ## Credits
 - [**Szumi57**](https://github.com/Szumi57) - Original idea and coding of the original mod, Lethal Intership.
 - [**T-Rizzle**](https://github.com/T-Rizzle12) - Major code refactor, bug fixes, and new features.
+- [**Gummar**](https://github.com/Gummar) - Created the new search algorithm for the bots.
 - **Mathew Kelly** - Voice acting for the bots, over 700 voice lines!
 
 ## Things to add

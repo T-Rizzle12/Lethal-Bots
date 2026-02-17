@@ -71,6 +71,16 @@ namespace LethalBots.AI.AIStates
             base.OnEnterState();
         }
 
+        public override void OnExitState(AIState newState)
+        {
+            // If we got interupted while using the Zap Gun, break the beam!
+            if (ai.HeldItem is PatcherTool patcherTool && patcherTool.isShocking)
+            {
+                patcherTool.UseItemOnClient(true);
+            }
+            base.OnExitState(newState);
+        }
+
         public override void DoAI()
         {
             // Enemy is either dead or invaild!
@@ -118,6 +128,12 @@ namespace LethalBots.AI.AIStates
                 Plugin.LogWarning($"Bot {npcController.Npc.playerUsername} didn't have a weapon despite HasCombatWeapon telling us we did!");
                 ChangeBackToPreviousState();
                 return;
+            }
+
+            // We don't have time to be in a phone call right now!
+            if (Plugin.IsModLethalPhonesLoaded)
+            {
+                ai.HangupPhone();
             }
 
             // Switch to our weapon!
@@ -232,7 +248,24 @@ namespace LethalBots.AI.AIStates
 
         public override void TryPlayCurrentStateVoiceAudio()
         {
-            return;
+            // Wait for cooldown and that we are holding a weapon.
+            if (ai.AreHandsFree() || !ai.IsHoldingCombatWeapon())
+            {
+                return;
+            }
+
+            ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
+            {
+                VoiceState = ai.IsHoldingRangedWeapon() ? EnumVoicesState.AttackingWithGun : EnumVoicesState.AttackingWithMelee,
+                CanTalkIfOtherLethalBotTalk = true,
+                WaitForCooldown = true,
+                CutCurrentVoiceStateToTalk = true,
+                CanRepeatVoiceState = true,
+
+                ShouldSync = true,
+                IsLethalBotInside = npcController.Npc.isInsideFactory,
+                AllowSwearing = Plugin.Config.AllowSwearing.Value
+            });
         }
 
         // We are fighting right now, these messages should be queued!
@@ -508,11 +541,26 @@ namespace LethalBots.AI.AIStates
             {
                 return 2f; // Assume its the shovel!
             }
-            if (LethalBotAI.IsItemRangedWeapon(weapon))
+
+            // We don't use GetWeaponAttackInfo as its max range is may be diffrent due to how its raycast checks are done.
+            if (weapon is ShotgunItem)
             {
-                return 5f;
+                return 5f; // Based off of the ray postion and range
             }
-            return 2f;
+            else if (weapon is PatcherTool)
+            {
+                return 5f; // Found in source code!
+            }
+            else if (weapon is KnifeItem)
+            {
+                return 1f; // Found in source code!
+            }
+            else if (LethalBotAI.IsItemRangedWeapon(weapon))
+            {
+                return 5f; // Assume shotgun range
+            }
+
+            return 2f; // Assume its the shovel
         }
 
         /// <summary>

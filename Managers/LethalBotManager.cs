@@ -8,6 +8,11 @@ using LethalBots.NetworkSerializers;
 using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.NpcPatches;
+using Scoops.customization;
+using Scoops.gameobjects;
+using Scoops.misc;
+using Scoops.patch;
+using Scoops.service;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -241,6 +246,9 @@ namespace LethalBots.Managers
         private List<EnemyAI> ListEnemyAINonNoiseListeners = new List<EnemyAI>();
         private static Dictionary<Type, LethalBotThreat> DictionaryLethalBotThreats = new Dictionary<Type, LethalBotThreat>();
         public static List<GameObject> grabbableObjectsInMap = new List<GameObject>();
+        private float timerUpdateLightsOnMap;
+        private static HashSet<Light> lightsOnMap = new HashSet<Light>();
+        public static IReadOnlyCollection<Light> LightsOnMap => lightsOnMap;
         public Dictionary<string, int> DictTagSurfaceIndex = new Dictionary<string, int>();
 
         private float timerSetLethalBotInElevator;
@@ -300,6 +308,14 @@ namespace LethalBots.Managers
         private void FixedUpdate()
         {
             RegisterAINoiseListener(Time.fixedDeltaTime);
+
+            timerUpdateLightsOnMap += Time.fixedDeltaTime;
+            if (timerUpdateLightsOnMap >= 5f
+                && registerItemsCoroutine == null)
+            {
+                timerUpdateLightsOnMap = 0f;
+                RegisterItems(false); // Update items and lights!
+            }
         }
 
         private void RegisterAINoiseListener(float deltaTime)
@@ -337,6 +353,8 @@ namespace LethalBots.Managers
             }
         }
 
+        #region Items and Lights management
+
         /// <summary>
         /// Coppied from <see cref="GrabbableObject.Start"><c>GrabbableObject.Start</c></see>
         /// </summary>
@@ -366,48 +384,167 @@ namespace LethalBots.Managers
             grabbableObjectsInMap.Add(newItem.gameObject);
         }
 
-        public void RegisterItems()
+        public void RegisterItems(bool updateShipState = true)
         {
             if (registerItemsCoroutine == null)
             {
-                registerItemsCoroutine = StartCoroutine(RegisterItemsCoroutine());
+                registerItemsCoroutine = StartCoroutine(RegisterItemsCoroutine(updateShipState));
             }
         }
 
-        private IEnumerator RegisterItemsCoroutine()
+        private IEnumerator RegisterItemsCoroutine(bool updateShipState = true)
         {
-            grabbableObjectsInMap.Clear();
+            HashSet<Light> lightsOnMap = new HashSet<Light>();
+            List<GameObject> grabbableObjectsInMap = new List<GameObject>();
             yield return null;
 
+            Light[] lights = Object.FindObjectsOfType<Light>();
+            HashSet<Light> lightsToIgnore = new HashSet<Light>();
             GrabbableObject[] array = Object.FindObjectsOfType<GrabbableObject>();
-            Plugin.LogDebug($"Bot register grabbable object, found : {array.Length}");
-            foreach (var grabbableObject in array)
+            Plugin.LogDebug($"Bot register grabbable objects, found: {array.Length}");
+            Plugin.LogDebug($"Bot register lights, found: {lights.Length}");
+            for (int i = 0; i < array.Length; i++)
             {
                 // Now you may be asking, why I do this, and that because of a base game desync issue.
                 // Items are not set as in the ship for other clients by default.
+                var grabbableObject = array[i];
+                if (i % 20 == 0)
+                {
+                    yield return null;
+                }
+
                 if (grabbableObject != null)
                 {
-                    Vector3 floorPosition;
-                    floorPosition = grabbableObject.GetItemFloorPosition(default(Vector3));
-                    if (StartOfRound.Instance.shipStrictInnerRoomBounds.bounds.Contains(floorPosition))
+                    if (updateShipState)
                     {
-                        grabbableObject.isInElevator = true;
-                        grabbableObject.isInShipRoom = true;
+                        Vector3 floorPosition;
+                        floorPosition = grabbableObject.GetItemFloorPosition(default(Vector3));
+                        if (StartOfRound.Instance.shipStrictInnerRoomBounds.bounds.Contains(floorPosition))
+                        {
+                            grabbableObject.isInElevator = true;
+                            grabbableObject.isInShipRoom = true;
+                        }
+                        else if (StartOfRound.Instance.shipBounds.bounds.Contains(floorPosition))
+                        {
+                            grabbableObject.isInElevator = true;
+                        }
+                        //GameNetworkManager.Instance.localPlayerController.SetItemInElevator(inElevator, inShipRoom, grabbableObject);
                     }
-                    else if (StartOfRound.Instance.shipBounds.bounds.Contains(floorPosition))
-                    {
-                        grabbableObject.isInElevator = true;
-                    }
-                    //GameNetworkManager.Instance.localPlayerController.SetItemInElevator(inElevator, inShipRoom, grabbableObject);
 
-                    grabbableObjectsInMap.Add(grabbableObject.gameObject);
+                    // Don't add it again!
+                    if (!grabbableObjectsInMap.Contains(grabbableObject.gameObject))
+                    { 
+                        grabbableObjectsInMap.Add(grabbableObject.gameObject); 
+                    }
+
+                    // While we have the flashlight object, add its light objects to the ignore list!
+                    if (grabbableObject is FlashlightItem flashlight)
+                    {
+                        lightsToIgnore.Add(flashlight.flashlightBulb);
+                        lightsToIgnore.Add(flashlight.flashlightBulbGlow);
+                    }
+                    // While we have the walkie talkie object, add its light objects to the ignore list!
+                    else if (grabbableObject is WalkieTalkie walkieTalkie)
+                    {
+                        lightsToIgnore.Add(walkieTalkie.walkieTalkieLight);
+                    }
                 }
-                yield return null;
             }
 
+            // Alright, lets get the rest of those lights sorted!
+            for (int i = 0; i < lights.Length; i++)
+            {
+                // Check each light and register them.
+                // We yield every 20 iterations to avoid doing this all in one frame and causing a hitch,
+                // since there can be a lot of lights in the scene!
+                var light = lights[i];
+                if (i % 20 == 0)
+                {
+                    yield return null;
+                }
+
+                // Make sure the light is valid, or that we didn't mark it to be ignored already!
+                TryRegisterLight(light, lightsOnMap, lightsToIgnore);
+            }
+
+            LethalBotManager.lightsOnMap = lightsOnMap;
+            LethalBotManager.grabbableObjectsInMap = grabbableObjectsInMap;
+            timerUpdateLightsOnMap = 0f;
             registerItemsCoroutine = null!;
             yield break;
         }
+
+        /// <summary>
+        /// Attempts to register the specified light in the map, unless it is already present, is a suit light, or is
+        /// included in the ignore list.
+        /// </summary>
+        /// <param name="light">The light to register. Cannot be null. If the light is a suit light or is already registered, it will not
+        /// be added.</param>
+        /// <param name="ignoreList">An optional list of lights to exclude from registration. If provided and contains the specified light, the
+        /// light will not be registered.</param>
+        public static void TryRegisterLight(Light light, HashSet<Light>? targetSet = null, HashSet<Light>? ignoreList = null)
+        {
+            // Make sure the light is valid
+            targetSet ??= lightsOnMap;
+            if (light == null)
+            {
+                return;
+            }
+
+            // This is only used by default in the RegisterItemsCoroutine,
+            // You can also use it to ignore specific lights you don't want the bots to interact with, like suit lights for example!
+            if (ignoreList != null && ignoreList.Contains(light))
+            {
+                return;
+            }
+
+            // Suit lights are not the same light components as the ones on the flashlights.
+            // We have to check if the light is a suit light, since we want to ignore flashlights for light level checks.
+            if (IsPlayerLight(light))
+            {
+                return;
+            }
+
+            // HashSets already make sure there are no duplicates.
+            targetSet.Add(light);
+        }
+
+        /// <summary>
+        /// Removes the specified light from the collection of registered lights if it is present.
+        /// </summary>
+        /// <param name="light">The light to remove from the registered collection. If the light is not found, no action is taken.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void TryRemoveRegisteredLight(Light light)
+        {
+            lightsOnMap.Remove(light);
+        }
+
+        /// <summary>
+        /// Determines whether the specified light instance is associated with any player as a personal or helmet light.
+        /// </summary>
+        /// <remarks>
+        /// This checks all player controllers check if the
+        /// provided light when a flashlight is pocketed.
+        /// </remarks>
+        /// <param name="light">The light instance to check for association with a player. Cannot be null.</param>
+        /// <returns>true if the light is linked to a player's night vision, night vision radar, helmet light, or is included in
+        /// the player's helmet lights collection; otherwise, false.</returns>
+        private static bool IsPlayerLight(Light light)
+        {
+            foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
+            {
+                if (player.nightVision == light
+                    || player.nightVisionRadar == light
+                    || player.helmetLight == light
+                    || player.allHelmetLights.Contains(light))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        #endregion
 
         private void Start()
         {
@@ -527,6 +664,7 @@ namespace LethalBots.Managers
 
         public void ResetIdentities()
         {
+            // FIXME: Bots lose levels and experience when this is called. We need to cache and reapply them here!
             IdentityManager.Instance.InitIdentities(Plugin.Config.ConfigIdentities.configIdentities);
         }
 
@@ -822,11 +960,26 @@ namespace LethalBots.Managers
             );
 
             // TODO: Improve this as I study the AI!
+            float? GiantKiwiPanikFunc(LethalBotFearQuery fearQuery)
+            {
+                int stateIndex = fearQuery.EnemyAI.currentBehaviourStateIndex;
+                if (stateIndex == 1)
+                {
+                    return 15f; // Not attacking, but getting close will cause the Giant Sapsucker to retaliate!
+                }
+                else if (stateIndex == 2)
+                { 
+                    return 30f; // Attacking, get the hell out of there!
+                }
+
+                return 5f; // Giant Sapsucker is idle, only a threat if we get too close
+            }
+
             // Giant Sapsucker
             RegisterThreat(typeof(GiantKiwiAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
+                GiantKiwiPanikFunc,
                 _ => null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : 15f
+                fq => fq.EnemyAI.currentBehaviourStateIndex > 1 ? 30f : 15f
             );
 
             // Girl behavior (currently commented out for fixing bugs)
@@ -1072,14 +1225,19 @@ namespace LethalBots.Managers
             PlayerControllerB lethalBotController = instance.allPlayerScripts[spawnParamsNetworkSerializable.IndexNextPlayerObject.Value];
             lethalBotController.playerUsername = lethalBotIdentity.Name;
             lethalBotController.isPlayerDead = false;
+            lethalBotController.disconnectedMidGame = false;
             lethalBotController.isPlayerControlled = true;
             lethalBotController.transform.localScale = Vector3.one;
             lethalBotController.playerSteamId = 0ul; // Set SteamId to 0 since the game code considers that invalid
             lethalBotController.playerClientId = (ulong)spawnParamsNetworkSerializable.IndexNextPlayerObject;
             lethalBotController.actualClientId = lethalBotController.playerClientId + Const.LETHAL_BOT_ACTUAL_ID_OFFSET;
+            lethalBotController.isInElevator = true;
+            lethalBotController.isInHangarShipRoom = true;
+            lethalBotAI.isInsidePlayerShip = true;
+            lethalBotController.parentedToElevatorLastFrame = false; // Force update!
             lethalBotController.playerActions = new PlayerActions();
-            lethalBotController.health = 100;
-            DisableLethalBotControllerModel(objectParent, lethalBotController, enable: true, disableLocalArms: true);
+            lethalBotController.health = spawnParamsNetworkSerializable.Hp == 0 ? 100 : spawnParamsNetworkSerializable.Hp;
+            lethalBotController.DisablePlayerModel(objectParent, enable: true, disableLocalArms: true);
             lethalBotController.isInsideFactory = !spawnParamsNetworkSerializable.IsOutside;
             lethalBotController.isMovementHindered = 0;
             lethalBotController.hinderedMultiplier = 1f;
@@ -1171,6 +1329,12 @@ namespace LethalBots.Managers
                 lethalBotAI.HideShowModelReplacement(show: true);
             }
 
+            // Setup Lethal Phones
+            if (Plugin.IsModLethalPhonesLoaded)
+            {
+                SetupLethalPhoneForBot(lethalBotController);
+            }
+
             // Add the bot to the quick menu
             // NOTE: Funnily enough, this doesn't actually add an entry to the list, but rather just updated the slot for that player index!
             // This means we don't have to worry about duplicates or anything!
@@ -1246,6 +1410,98 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
+        /// Initializes the phone for a bot player, assigning default customization settings.
+        /// </summary>
+        /// <remarks>
+        /// The bot's phone is assigned default skin, charm, and ringtone settings, as
+        /// customization is not currently supported for bots.
+        /// </remarks>
+        /// <param name="lethalBotController">The controller representing the bot player whose phone will be set up.</param>
+        private void SetupLethalPhoneForBot(PlayerControllerB lethalBotController)
+        {
+            // TODO: Allow players to customize the bot's phone like they can with their own in the customization menu! For now, we just give them the default phone!
+            // Related Code: CustomizationManager.SelectedSkin, CustomizationManager.SelectedCharm, CustomizationManager.SelectedRingtone
+            // HACKHACK: ConnectClientToPlayerObject is only called on the owning client, we recreate that so only the owning client initializes the phone,
+            // preventing issues with multiple clients trying to initialize the same phone and overwriting each other's changes!
+            if (!lethalBotController.IsOwner)
+            {
+                return;
+            }
+            PlayerPhonePatch.PhoneManager = PhoneNetworkHandler.Instance;
+            PhoneBehavior phone = lethalBotController.transform.Find("PhonePrefab(Clone)").GetComponent<PhoneBehavior>();
+            if (PhoneNetworkHandler.allPhoneBehaviors.Contains(phone))
+            {
+                return; // Phone is already initialized, no need to do it again! This happens if the bot was revived mid-round.
+            }
+
+            PlayerPhonePatch.PhoneManager.CreateNewPhone(phone.NetworkObjectId, CustomizationManager.DEFAULT_SKIN, CustomizationManager.DEFAULT_CHARM, CustomizationManager.DEFAULT_RINGTONE);
+
+            if (GameNetworkManager.Instance.localPlayerController == lethalBotController)
+            {
+                phone.playPos = lethalBotController.playerGlobalHead;
+                phone.recordPos = lethalBotController.localArmsTransform.Find("shoulder.L/arm.L_upper/arm.L_lower/hand.L/LocalPhoneModel(Clone)");
+            }
+            else
+            {
+                phone.playPos = lethalBotController.lowerSpine.Find("spine.002/spine.003/shoulder.L/arm.L_upper/arm.L_lower/hand.L/ServerPhoneModel(Clone)");
+                phone.recordPos = lethalBotController.lowerSpine.Find("spine.002/spine.003/shoulder.L/arm.L_upper/arm.L_lower/hand.L/ServerPhoneModel(Clone)");
+            }
+
+            // For some reason the phone starts active, we need to disable it for bots
+            // NOTE: This is both a null check and a type check in one!
+            if (phone is PlayerPhone playerPhone)
+            {
+                StartCoroutine(togglePhoneModelAfterSpawn(playerPhone, lethalBotController.playerUsername));
+            }
+        }
+
+        /// <summary>
+        /// Helper coroutine that waits until the end of the frame after spawning the phone to toggle the phone model for bots
+        /// </summary>
+        /// <param name="playerPhone"></param>
+        /// <returns></returns>
+        private IEnumerator togglePhoneModelAfterSpawn(PlayerPhone playerPhone, string botName)
+        {
+            float startTime = Time.realtimeSinceStartup;
+            yield return null;
+            yield return new WaitUntil(() => playerPhone == null || playerPhone.IsSpawned || (Time.realtimeSinceStartup - startTime) > 5f);
+
+            // If the phone didn't spawn after waiting, just give up!
+            if (playerPhone != null && playerPhone.IsSpawned)
+            { 
+                playerPhone.ToggleServerPhoneModelServerRpc(false); 
+            }
+            else
+            {
+                Plugin.LogWarning($"Phone for bot {botName} failed to spawn after waiting, it may be desynced with the server!");
+            }
+        }
+
+        /// <summary>
+        /// Removes the phone associated with the specified bot controller from the networked game environment.
+        /// </summary>
+        /// <param name="lethalBotControllerId">The unique identifier of the bot controller whose phone should be deleted.</param>
+        private void CleanupLethalPhoneForBot(int lethalBotControllerId)
+        {
+            // Only host or server can delete network objects, so only do this on those instances!
+            if (!IsHost || !IsServer)
+            {
+                return;
+            }
+            PhoneNetworkHandler.Instance.DeletePlayerPhone(lethalBotControllerId);
+        }
+
+        /// <summary>
+        /// Helper method that calls <see cref="CleanupLethalPhoneForBot(int)"/> if given a <see cref="PlayerControllerB"/> instead of an ID
+        /// </summary>
+        /// <param name="lethalBotController">The controller to cleanup the phone for.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void CleanupLethalPhoneForBot(PlayerControllerB lethalBotController)
+        {
+            CleanupLethalPhoneForBot((int)lethalBotController.playerClientId);
+        }
+
+        /// <summary>
         /// Fired when a lethal bot is kicked
         /// </summary>
         /// <param name="lethalBotAI">The lethal bot being kicked</param>
@@ -1312,7 +1568,7 @@ namespace LethalBots.Managers
 
                 lethalBotController.TeleportPlayer(lethalBotController.playersManager.notSpawnedPosition.position);
                 lethalBotController.localVisor.position = lethalBotController.playersManager.notSpawnedPosition.position;
-                DisableLethalBotControllerModel(lethalBotController.gameObject, lethalBotController, enable: true, disableLocalArms: true);
+                lethalBotController.DisablePlayerModel(lethalBotController.gameObject, enable: true, disableLocalArms: true);
 
                 // Reset the animator state
                 Animator lethalBotAnimator = lethalBotController.playerBodyAnimator;
@@ -1349,11 +1605,19 @@ namespace LethalBots.Managers
                 instanceSOR.connectedPlayersAmount--; // Connected bot was kicked, decrement connected player count
 
                 lethalBotController.isPlayerControlled = false;
+                lethalBotController.disconnectedMidGame = true;
                 lethalBotController.isPlayerDead = false;
                 if (instanceSOR.livingPlayers == 0)
                 {
                     instanceSOR.allPlayersDead = true;
                     instanceSOR.ShipLeaveAutomatically();
+                }
+
+                // Mod support!!!!
+                if (Plugin.IsModLethalPhonesLoaded)
+                {
+                    lethalBotAI.StopBeingSwitchboardOperator();
+                    CleanupLethalPhoneForBot(lethalBotController);
                 }
 
                 // Mimic suit switch to default suit on kick
@@ -1414,22 +1678,6 @@ namespace LethalBots.Managers
             if (lethalBotAI != null)
             {
                 HandleLethalBotKicked(lethalBotAI);
-            }
-        }
-
-        /// <summary>
-        /// Manual DisablePlayerModel, for compatibility with mod LethalPhones, does not trigger patch of DisablePlayerModel in LethalPhones
-        /// </summary>
-        public void DisableLethalBotControllerModel(GameObject lethalBotObject, PlayerControllerB lethalBotController, bool enable = false, bool disableLocalArms = false)
-        {
-            SkinnedMeshRenderer[] componentsInChildren = lethalBotObject.GetComponentsInChildren<SkinnedMeshRenderer>();
-            foreach (var component in componentsInChildren)
-            {
-                component.enabled = enable;
-            }
-            if (disableLocalArms)
-            {
-                lethalBotController.thisPlayerModelArms.enabled = false;
             }
         }
 
@@ -1496,27 +1744,54 @@ namespace LethalBots.Managers
                     }
                     return;
                 }
-                //else if (message.Contains("light level"))
+                //else if (message.Contains("time info"))
                 //{
-                //    Light[] lights = Object.FindObjectsOfType<Light>();
-                //    Vector3 pos = playerWhoSentMessage.transform.position;
-                //    float lightLevel = 0f;
-                //    foreach (var light in lights)
-                //    {
-                //        if (!light.enabled || light.intensity <= 0)
-                //            continue;
-
-                //        float dist = Vector3.Distance(pos, light.transform.position);
-                //        if (dist > light.range)
-                //            continue;
-
-                //        float atten = 1f - (dist / light.range);
-
-                //        lightLevel += light.intensity * atten;
-                //    }
-                //    HUDManager.Instance.AddTextToChatOnServer($"Light level is {lightLevel}");
+                //    TimeOfDay timeOfDay = TimeOfDay.Instance;
+                //    HUDManager.Instance.AddTextToChatOnServer($"numberOfHours: {timeOfDay.numberOfHours} \n lengthOfHours: {timeOfDay.lengthOfHours}");
+                //    HUDManager.Instance.AddTextToChatOnServer($"currentDayTime: {timeOfDay.currentDayTime} \n totalTime {timeOfDay.totalTime}");
                 //    return;
                 //}
+                else if (message.Contains("light level"))
+                {
+                    //Light[] lights = Object.FindObjectsOfType<Light>();
+                    Vector3 ourPos = playerWhoSentMessage.gameplayCamera.transform.position;
+                    float lightLevel = 0f;
+                    int numLightsConsidered = 0;
+                    foreach (var light in LightsOnMap)
+                    {
+                        // Make sure we want to consider this light source
+                        if (LethalBotAI.ShouldIgnoreLightSource(light))
+                            continue;
+
+                        // Check the light direction (if applicable)
+                        Vector3 toBot = ourPos - light.transform.position;
+                        float coneFactor = 1f;
+                        if (light.type == LightType.Spot)
+                        {
+                            float angle = Vector3.Angle(light.transform.forward, toBot.normalized);
+                            float halfAngle = light.spotAngle * 0.5f;
+                            if (angle > halfAngle)
+                            {
+                                continue;
+                            }
+                            coneFactor = Mathf.Clamp01(coneFactor - (angle / halfAngle));
+                        }
+
+                        // Have to be in range of the light to consider it
+                        float dist = toBot.magnitude; // NOTE: We don't use sqr distance since we need to use the exact range later.
+                        if (dist > light.range)
+                            continue;
+
+                        // Adjust the light strength based on its distance from the bot and its intensity
+                        float atten = 1f - Mathf.Clamp01(dist / light.range);
+                        atten *= atten;
+                        float occlusion = LethalBotAI.GetLightOcclusionFactor(light.transform.position, ourPos);
+                        lightLevel += light.intensity * atten * coneFactor * occlusion;
+                        numLightsConsidered++;
+                    }
+                    HUDManager.Instance.AddTextToChatOnServer($"Light level is {lightLevel / (numLightsConsidered > 0 ? numLightsConsidered : 1)}"); // Average light level, avoid divide by 0
+                    return;
+                }
             }
 
             foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
@@ -1543,6 +1818,10 @@ namespace LethalBots.Managers
                 }
 
                 bool flag = botController.holdingWalkieTalkie && playerWhoSentMessage.holdingWalkieTalkie;
+                if (!flag && Plugin.IsModLethalPhonesLoaded)
+                {
+                    flag = LethalPhonesCanBotsHearPlayer(botController, playerWhoSentMessage);
+                }
                 if (flag || (botController.transform.position - playerWhoSentMessage.transform.position).sqrMagnitude <= Const.MAX_CHAT_RANGE * Const.MAX_CHAT_RANGE)
                 {
                     Plugin.LogDebug($"Bot {botController.playerUsername} saw message {message} from {playerWhoSentMessage.playerUsername}!");
@@ -1595,6 +1874,10 @@ namespace LethalBots.Managers
                 // Just like text chat, there is a limited range, although, I need to find the actual voice range.
                 // Until then, its the same as using text chat!
                 bool flag = botController.holdingWalkieTalkie && playerWhoSaidMessage.speakingToWalkieTalkie; // We have to check if the player is speakingToWalkieTalkie not holdingWalkieTalkie
+                if (!flag && Plugin.IsModLethalPhonesLoaded)
+                {
+                    flag = LethalPhonesCanBotsHearPlayer(botController, playerWhoSaidMessage);
+                }
                 if (flag || (botController.transform.position - playerWhoSaidMessage.transform.position).sqrMagnitude <= Const.MAX_CHAT_RANGE * Const.MAX_CHAT_RANGE)
                 {
                     Plugin.LogDebug($"Bot {botController.playerUsername} heard message {message} from {playerWhoSaidMessage.playerUsername}!");
@@ -1650,6 +1933,38 @@ namespace LethalBots.Managers
                 return;
             }
             LethalBotsRespondToVoiceChat(message, playerWhoSaidMessage);
+        }
+
+        /// <summary>
+        /// This is the same logic used in <see cref="StartOfRoundPhonePatch"/>, 
+        /// we just need to reuse it here to check if bots can hear players through phones!
+        /// </summary>
+        /// <param name="botController"></param>
+        /// <param name="player"></param>
+        /// <returns></returns>
+        private static bool LethalPhonesCanBotsHearPlayer(PlayerControllerB botController, PlayerControllerB player)
+        {
+            PhoneBehavior? otherPhone = player.transform.Find("PhonePrefab(Clone)")?.GetComponent<PhoneBehavior>();
+            PhoneBehavior? botPhone = botController.transform.Find("PhonePrefab(Clone)")?.GetComponent<PhoneBehavior>();
+            if (otherPhone == null || botPhone == null)
+            {
+                return false;
+            }
+
+            SwitchboardPhone? switchboard = otherPhone.GetCallerPhone() as SwitchboardPhone;
+            if (switchboard == null)
+            {
+                switchboard = botPhone.GetCallerPhone() as SwitchboardPhone;
+            }
+
+            if (botPhone.GetCallerPhone() == otherPhone
+                || (switchboard != null && ((switchboard.switchboardOperator == player && botPhone.GetCallerPhone() == switchboard)
+                    || (switchboard.switchboardOperator == botController && otherPhone.GetCallerPhone() == switchboard))))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         #endregion
@@ -1749,6 +2064,76 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
+        /// Helper function that returns the value of all scrap on the ship.
+        /// </summary>
+        /// <param name="lethalBotAI">The <see cref="LethalBotAI"/> used to assess object grabbability of.</param>
+        /// <param name="shipOnly">true: only count items on the ship, false: count everything on the map</param>
+        /// <returns>The combined value of everything on the ship.</returns>
+        public static int GetValueOfAllScrapOnShip(LethalBotAI lethalBotAI, bool shipOnly = false)
+        {
+            int totalScrapValue = 0;
+            for (int i = 0; i < grabbableObjectsInMap.Count; i++)
+            {
+                GameObject gameObject = grabbableObjectsInMap[i];
+                if (gameObject == null)
+                {
+                    grabbableObjectsInMap.TrimExcess();
+                    continue;
+                }
+
+                // Get grabbable object infos
+                GrabbableObject? grabbableObject = gameObject.GetComponent<GrabbableObject>();
+                if (grabbableObject == null 
+                    || grabbableObject is RagdollGrabbableObject)
+                {
+                    continue;
+                }
+
+                // Only check what is on the ship
+                if (shipOnly
+                    && !grabbableObject.isInElevator
+                    && !grabbableObject.isInShipRoom)
+                {
+                    continue;
+                }
+
+                // Black listed ? 
+                if (lethalBotAI.IsGrabbableObjectBlackListed(grabbableObject, EnumGrabbableObjectCall.Selling))
+                {
+                    continue;
+                }
+
+                // Object in a container mod of some sort ?
+                if (Plugin.IsModCustomItemBehaviourLibraryLoaded)
+                {
+                    if (LethalBotAI.IsGrabbableObjectInContainerMod(grabbableObject))
+                    {
+                        continue;
+                    }
+                }
+
+                // Is a pickmin (LethalMin mod) holding the object ?
+                if (Plugin.IsModLethalMinLoaded)
+                {
+                    if (LethalBotAI.IsGrabbableObjectHeldByPikminMod(grabbableObject))
+                    {
+                        continue;
+                    }
+                }
+
+                // Grabbable object ?
+                // NOTE: We ignore if the object is held since other players may be already moving it to sell!
+                if (!lethalBotAI.IsGrabbableObjectSellable(grabbableObject, true))
+                {
+                    continue;
+                }
+
+                totalScrapValue += grabbableObject.scrapValue;
+            }
+            return totalScrapValue;
+        }
+
+        /// <summary>
         /// Helper function that checks if we have fulfilled the profit quota.
         /// </summary>
         /// <remarks>
@@ -1762,7 +2147,7 @@ namespace LethalBots.Managers
             if (Plugin.Config.SellAllScrapOnShip.Value)
             {
                 // We never technically fulfill the profit quota, so the bots will never stop selling scrap
-                Plugin.LogDebug("HaveWeFulfilledTheProfitQuota: SellAllScrapOnShip is enabled, returning false.");
+                //Plugin.LogDebug("HaveWeFulfilledTheProfitQuota: SellAllScrapOnShip is enabled, returning false.");
                 return false;
             }
 
@@ -2229,6 +2614,7 @@ namespace LethalBots.Managers
                 }
                 playerControllerB.isInElevator = false;
                 playerControllerB.isInHangarShipRoom = false;
+                lethalBotAI.isInsidePlayerShip = false;
                 playerControllerB.isInsideFactory = true;
                 playerControllerB.averageVelocity = 0f;
                 playerControllerB.velocityLastFrame = Vector3.zero;
@@ -2993,7 +3379,7 @@ namespace LethalBots.Managers
                 lethalBotController.isPlayerControlled = false;
                 lethalBotController.TeleportPlayer(lethalBotController.playersManager.notSpawnedPosition.position);
                 lethalBotController.localVisor.position = lethalBotController.playersManager.notSpawnedPosition.position;
-                DisableLethalBotControllerModel(lethalBotController.gameObject, lethalBotController, enable: true, disableLocalArms: true);
+                lethalBotController.DisablePlayerModel(lethalBotController.gameObject, enable: true, disableLocalArms: true);
 
                 // HACKHACK: ModelReplacementAPI recreates the body replacement even on disabled player controllers,
                 // we have to mimic what the base game does and switch back to the default suit here!
@@ -3096,6 +3482,7 @@ namespace LethalBots.Managers
                             {
                                 lethalBotController.isInElevator = true;
                                 lethalBotController.isInHangarShipRoom = true;
+                                lethalBotAI.isInsidePlayerShip = true;
                                 Vector3 shipPos = StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, (int)lethalBotController.playerClientId, false);
                                 lethalBotController.thisController.enabled = false;
                                 lethalBotController.TeleportPlayer(shipPos);
@@ -3146,6 +3533,13 @@ namespace LethalBots.Managers
                 {
                     // If the bot was not in the BrainDead state, we set it to it so it doesn't do anything after this!
                     lethalBotAI.State = new BrainDeadState(lethalBotAI);
+                }
+
+                // Mod support!!!!
+                if (Plugin.IsModLethalPhonesLoaded)
+                {
+                    lethalBotAI.StopBeingSwitchboardOperator();
+                    CleanupLethalPhoneForBot(lethalBotController);
                 }
 
                 // Cache the lethal bot stats for the end of game stats.
@@ -3320,11 +3714,10 @@ namespace LethalBots.Managers
             {
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
-                    || lethalBotAI.isEnemyDead
                     || lethalBotAI.NpcController == null
-                    || lethalBotAI.NpcController.Npc.isPlayerDead
-                    || !lethalBotAI.NpcController.Npc.isPlayerControlled
-                    || lethalBotAI.creatureVoice == null)
+                    || lethalBotAI.creatureVoice == null
+                    || (!lethalBotAI.NpcController.Npc.isPlayerDead
+                        && !lethalBotAI.NpcController.Npc.isPlayerControlled))
                 {
                     continue;
                 }
@@ -3341,10 +3734,9 @@ namespace LethalBots.Managers
             {
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
-                    || lethalBotAI.isEnemyDead
                     || lethalBotAI.NpcController == null
-                    || lethalBotAI.NpcController.Npc.isPlayerDead
-                    || !lethalBotAI.NpcController.Npc.isPlayerControlled)
+                    || (!lethalBotAI.NpcController.Npc.isPlayerDead
+                        && !lethalBotAI.NpcController.Npc.isPlayerControlled))
                 {
                     continue;
                 }

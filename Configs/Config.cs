@@ -41,6 +41,7 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> TeleportWhenUsingLadders;
         [SyncedEntryField] public SyncedEntry<bool> SellAllScrapOnShip;
         [SyncedEntryField] public SyncedEntry<bool> DropHeldEquipmentAtShip;
+        [SyncedEntryField] public SyncedEntry<bool> ShouldKillEverything;
         [SyncedEntryField] public SyncedEntry<bool> GrabItemsNearEntrances;
         [SyncedEntryField] public SyncedEntry<bool> GrabBeesNest;
         [SyncedEntryField] public SyncedEntry<bool> GrabDeadBodies;
@@ -60,6 +61,7 @@ namespace LethalBots.Configs
         // Voices
         public ConfigEntry<int> Talkativeness;
         public ConfigEntry<bool> AllowSwearing;
+        [SyncedEntryField] public SyncedEntry<bool> AllowTalkingWhileDead;
 
         // Debug
         public ConfigEntry<bool> EnableDebugLog;
@@ -143,6 +145,11 @@ namespace LethalBots.Configs
                                                defaultVal: false,
                                                "Should the bot drop all equipment its holding when at the ship? If false, bots will hold onto equipment, such as shovels! (NOTE: This doesn't affect bot loadouts or if it returns to the ship on its own!)");
 
+            ShouldKillEverything = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                                "Should bots attempt to kill everything",
+                                                defaultVal: false,
+                                                "Should bots attempt to kill every enemy in the game, even if they can't be killed normally?");
+
             GrabItemsNearEntrances = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Grab items near entrances",
                                                defaultVal: true,
@@ -213,6 +220,11 @@ namespace LethalBots.Configs
                                      "Swear words (Client only)",
                                      defaultValue: false,
                                      "Allow the use of swear words in bots voice lines ?");
+
+            AllowTalkingWhileDead = cfg.BindSyncedEntry(ConfigConst.ConfigSectionVoices,
+                                                        "Allow bots to talk while dead",
+                                                        defaultVal: true,
+                                                        "Are bots that are dead allowed to talk? (NOTE: Only other dead players can hear them!)");
 
             // Debug
             EnableDebugLog = cfg.Bind(ConfigConst.ConfigSectionDebug,

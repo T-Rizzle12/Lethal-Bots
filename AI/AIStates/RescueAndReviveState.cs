@@ -426,7 +426,8 @@ namespace LethalBots.AI.AIStates
             // FIXME: This relies on Elucian Distance rather than travel distance, this should be fixed!
             fallbackPos = null;
             var nodes = ai.allAINodes.OrderBy(node => (node.transform.position - npcController.Npc.transform.position).sqrMagnitude)
-                                             .ToArray();
+                                             .ToList();
+            nodes.Insert(0, npcController.Npc.gameObject); // We want to consider the bot's current position as well, in case they are already in a safe spot
             Turret[] turrets = UnityEngine.Object.FindObjectsOfType<Turret>();
             SpikeRoofTrap[] spikeRoofTraps = UnityEngine.Object.FindObjectsOfType<SpikeRoofTrap>();
             yield return null;
@@ -434,7 +435,7 @@ namespace LethalBots.AI.AIStates
             // NEEDTOVALIDATE: Should this be the local vector instead of just the height?
             bool ourWeOutside = ai.isOutside;
             float headOffset = npcController.Npc.gameplayCamera.transform.position.y - npcController.Npc.transform.position.y;
-            for (var i = 0; i < nodes.Length; i++)
+            for (var i = 0; i < nodes.Count; i++)
             {
                 // Give the main thread a chance to do something else
                 var node = nodes[i];
@@ -589,7 +590,7 @@ namespace LethalBots.AI.AIStates
 
             // Alright, look at the body first
             npcController.OrderToLookAtPosition(playerBody.transform.position, EnumLookAtPriority.HIGH_PRIORITY);
-            yield return null;
+            yield return new WaitUntil(npcController.LookAtTarget.IsHeadAimingOnTarget);
 
             // Now we fake the revive time
             yield return new WaitForSeconds(ConfigVariables.reviveTime);
@@ -648,6 +649,9 @@ namespace LethalBots.AI.AIStates
             {
                 // Find a safe path to our fallback spot
                 StartSafePathCoroutine();
+
+                // Select and use items based on our current situation, if needed
+                SelectBestItemFromInventory();
 
                 float sqrMagDistanceToSafePos = (this.safePathPos - npcController.Npc.transform.position).sqrMagnitude;
                 if (sqrMagDistanceToSafePos >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
@@ -813,6 +817,9 @@ namespace LethalBots.AI.AIStates
                 // Find a safe path to our fallback spot
                 StartSafePathCoroutine();
 
+                // Select and use items based on our current situation, if needed
+                SelectBestItemFromInventory();
+
                 float sqrMagDistanceToSafePos = (this.safePathPos - npcController.Npc.transform.position).sqrMagnitude;
                 if (sqrMagDistanceToSafePos >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                 {
@@ -883,6 +890,9 @@ namespace LethalBots.AI.AIStates
             {
                 // Alright lets go outside!
                 ai.SetDestinationToPositionLethalBotAI(bunkbedPos);
+
+                // Select and use items based on our current situation, if needed
+                SelectBestItemFromInventory();
 
                 // Sprint if far enough
                 if (!npcController.WaitForFullStamina && sqrDistToBunkbed > Const.DISTANCE_START_RUNNING * Const.DISTANCE_START_RUNNING)
@@ -997,7 +1007,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         private static bool FindZapGun(GrabbableObject item)
         {
-            return item is PatcherTool zapGun && !zapGun.insertedBattery.empty; // For anyone wondering PatcherTool is the internal class name for the Zap Gun!
+            return item is PatcherTool zapGun && LethalBotAI.IsItemPowered(zapGun); // For anyone wondering PatcherTool is the internal class name for the Zap Gun!
         }
 
         private void StopReviveCoroutine()

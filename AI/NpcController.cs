@@ -50,7 +50,11 @@ namespace LethalBots.AI
         public bool StartedJetpackControls;
         public float UpperBodyAnimationsWeight;
         public Vector3 RightArmProceduralTargetBasePosition;
-        public float TimeSinceSwitchingSlots;
+
+        // HACKHACK: OverrideThrowingObject only exists since ThrowingObject can be changed in RPCs which are called
+        // after update is run and will get overriden next PlayerControllerB updated.
+        public Overrideable<bool> ThrowingObject = new Overrideable<bool>(false);
+        public Overrideable<float> TimeSinceSwitchingSlots = new Overrideable<float>(0f);
         public float TimeSinceTakingGravityDamage;
         public bool TeleportingThisFrame;
         public float PreviousFrameDeltaTime;
@@ -285,7 +289,7 @@ namespace LethalBots.AI
                 UpdateLethalBotAnimationsLocalForNotOwner(animationHashLayers);
             }
 
-            this.TimeSinceSwitchingSlots += Time.deltaTime;
+            this.TimeSinceSwitchingSlots.Apply(this.TimeSinceSwitchingSlots + Time.deltaTime);
             Npc.timeSincePlayerMoving += Time.deltaTime;
             Npc.timeSinceMakingLoudNoise += Time.deltaTime;
             Npc.timeSinceFearLevelUp += Time.deltaTime;
@@ -1475,15 +1479,16 @@ namespace LethalBots.AI
             }
             Npc.movementAudio.pitch = Random.Range(0.93f, 1.07f);
 
+            bool flag = LethalBotAIController.IsOwner ? Npc.isSprinting : Npc.playerBodyAnimator.GetCurrentAnimatorStateInfo(0).IsTag(Const.PLAYER_ANIMATION_BOOL_SPRINTING);
             float volumeScale = 0.9f;
-            if (!Npc.isSprinting)
+            if (!flag)
             {
                 volumeScale = 0.6f;
             }
 
             Npc.movementAudio.PlayOneShot(currentFootstepAudioClips[currentFootstepAudioClip], volumeScale);
             this.previousFootstepClip = currentFootstepAudioClip;
-            //WalkieTalkie.TransmitOneShotAudio(this.movementAudio, StartOfRound.Instance.footstepSurfaces[this.currentFootstepSurfaceIndex].clips[num], num2);
+            WalkieTalkie.TransmitOneShotAudio(Npc.movementAudio, StartOfRound.Instance.footstepSurfaces[Npc.currentFootstepSurfaceIndex].clips[currentFootstepAudioClip], volumeScale);
         }
 
         #endregion
@@ -2063,7 +2068,7 @@ namespace LethalBots.AI
             if (this.UpdatePlayerLookInterval > 0.25f)
             {
                 this.UpdatePlayerLookInterval = 0f;
-                LethalBotAIController.SyncUpdateLethalBotRotationAndLook(LethalBotAIController.State.GetBillboardStateIndicator(),
+                LethalBotAIController.SyncUpdateLethalBotRotationAndLook(LethalBotAIController.State?.GetBillboardStateIndicator() ?? "",
                                                                    LookAtTarget);
                 this.oldLookAtTarget = this.LookAtTarget.Clone();
             }
@@ -2492,6 +2497,59 @@ namespace LethalBots.AI
             return new Vector3(lastPosition.x,
                                (modelBounds.center.y - Npc.transform.position.y) + modelBounds.extents.y, // + 0.65f
                                lastPosition.z);
+        }
+
+        /// <summary>
+        /// Simple class used by <see cref="NpcController"/> so I can have variables that can ignore updates
+        /// </summary>
+        public sealed class Overrideable<T>
+        {
+            private T _value;
+
+            /// <summary>
+            /// When true, incoming updates should not overwrite the value.
+            /// Automatically cleared after Apply().
+            /// </summary>
+            public bool IsOverridden { get; private set; }
+
+            /// <summary>
+            /// Returns the value, or sets it directly which also sets <see cref="IsOverridden"/> to true to prevent the next update from overwriting it.
+            /// </summary>
+            public T Value
+            {
+                get => _value;
+                set
+                {
+                    _value = value;
+                    IsOverridden = true;
+                }
+            }
+
+            internal Overrideable(T initialValue)
+            {
+                _value = initialValue;
+                IsOverridden = false;
+            }
+
+            /// <summary>
+            /// Apply an external update unless the value was overridden.
+            /// </summary>
+            /// <remarks>
+            /// This is called by <see cref="PlayerControllerBPatch.Update_PreFix(PlayerControllerB, ref bool, bool, bool, ref float, ref bool, ref float, ref bool, ref bool, ref float, ref bool, ref float, ref float, ref bool, ref float, ref float, ref float, ref float)"/>
+            /// </remarks>
+            public void Apply(T newValue)
+            {
+                if (!IsOverridden)
+                {
+                    _value = newValue;
+                }
+                IsOverridden = false;
+            }
+
+            public static implicit operator T(Overrideable<T> overrideable)
+            {
+                return overrideable._value;
+            }
         }
 
         public class TimedGetBounds

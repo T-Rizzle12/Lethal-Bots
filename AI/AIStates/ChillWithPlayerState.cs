@@ -88,7 +88,8 @@ namespace LethalBots.AI.AIStates
                 if (heldItem != null && FindObject(heldItem))
                 {
                     canInverseTeleport = false;
-                    ai.DropItem();
+                    if (!ai.TurnOffHeldItem())
+                        ai.DropItem();
                 }
                 // If we still have stuff in our inventory,
                 // we should swap to it and drop it!
@@ -106,6 +107,14 @@ namespace LethalBots.AI.AIStates
                     ai.State = new FetchingObjectState(this, grabbableObject);
                     return;
                 }
+                if (!ai.searchForScrap.visitInProgress && !ai.isOutside)
+                {
+                    ai.searchForScrap.StartVisit();
+                }
+            }
+            else if (ai.searchForScrap.visitInProgress)
+            {
+                ai.searchForScrap.StopSearch();
             }
 
             VehicleController? vehicleController = ai.GetVehicleCruiserTargetPlayerIsIn();
@@ -122,6 +131,9 @@ namespace LethalBots.AI.AIStates
                 ai.State = new RescueAndReviveState(this, playerController);
                 return;
             }
+
+            // Select and use items based on our current situation, if needed
+            SelectBestItemFromInventory();
 
             // Update target last known position
             PlayerControllerB? playerTarget = ai.CheckLOSForTarget(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
@@ -231,7 +243,6 @@ namespace LethalBots.AI.AIStates
             RaycastHit[] raycastHits = Physics.RaycastAll(interactRay);
             if (raycastHits.Length == 0)
             {
-                npcController.SetTurnBodyTowardsDirection(ai.targetPlayer.gameplayCamera.transform.forward);
                 npcController.OrderToLookForward();
             }
             else
@@ -244,7 +255,6 @@ namespace LethalBots.AI.AIStates
                         && player.playerClientId != StartOfRound.Instance.localPlayerController.playerClientId)
                     {
                         npcController.OrderToLookAtPosition(hit.point, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
-                        npcController.SetTurnBodyTowardsDirectionWithPosition(hit.point);
                         return;
                     }
                 }
@@ -254,7 +264,6 @@ namespace LethalBots.AI.AIStates
                 {
                     if (hit.distance < 0.1f)
                     {
-                        npcController.SetTurnBodyTowardsDirection(ai.targetPlayer.gameplayCamera.transform.forward);
                         npcController.OrderToLookForward();
                         return;
                     }
@@ -267,7 +276,6 @@ namespace LethalBots.AI.AIStates
 
                     // Look at position
                     npcController.OrderToLookAtPosition(hit.point, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
-                    npcController.SetTurnBodyTowardsDirectionWithPosition(hit.point);
                     break;
                 }
             }

@@ -75,6 +75,14 @@ namespace LethalBots.AI.AIStates
                     ai.State = new FetchingObjectState(this, grabbableObject);
                     return;
                 }
+                if (!ai.searchForScrap.visitInProgress && !ai.isOutside)
+                {
+                    ai.searchForScrap.StartVisit();
+                }
+            }
+            else if (ai.searchForScrap.visitInProgress)
+            {
+                ai.searchForScrap.StopSearch();
             }
 
             // Try to reach target last known position
@@ -110,10 +118,23 @@ namespace LethalBots.AI.AIStates
                     else
                     {
                         // Start looking around
-                        if (lookingAroundTimer == 0f)
+                        if (lookingAroundTimer <= 0f)
                         {
-                            lookingAroundTimer += ai.AIIntervalTime;
+                            lookingAroundTimer = ai.AIIntervalTime;
                         }
+
+                        ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
+                        {
+                            VoiceState = EnumVoicesState.LosingPlayer,
+                            CanTalkIfOtherLethalBotTalk = true,
+                            WaitForCooldown = false,
+                            CutCurrentVoiceStateToTalk = true,
+                            CanRepeatVoiceState = false,
+
+                            ShouldSync = true,
+                            IsLethalBotInside = npcController.Npc.isInsideFactory,
+                            AllowSwearing = Plugin.Config.AllowSwearing.Value
+                        });
 
                         return;
                     }
@@ -123,6 +144,9 @@ namespace LethalBots.AI.AIStates
             // Check if we see the target player
             // Or a new target player if target player is null
             CheckLOSForTargetOrClosestPlayer();
+
+            // Select and use items based on our current situation, if needed
+            SelectBestItemFromInventory();
 
             // Go to the last known position
             bool usingElevator = false;
@@ -161,7 +185,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Destination after path checking might be not the same now
-            targetLastKnownPosition = ai.destination;
+            targetLastKnownPosition = usingElevator || ai.IsInsideElevator ? targetLastKnownPosition : ai.destination;
             if (!usingElevator && !ai.IsValidPathToTarget(targetLastKnownPosition.Value))
             {
                 targetLastKnownPosition = null;
@@ -174,8 +198,8 @@ namespace LethalBots.AI.AIStates
             {
                 VoiceState = EnumVoicesState.LosingPlayer,
                 CanTalkIfOtherLethalBotTalk = true,
-                WaitForCooldown = false,
-                CutCurrentVoiceStateToTalk = true,
+                WaitForCooldown = true,
+                CutCurrentVoiceStateToTalk = false,
                 CanRepeatVoiceState = false,
 
                 ShouldSync = true,
@@ -225,18 +249,22 @@ namespace LethalBots.AI.AIStates
                 StopLookingAroundCoroutine();
                 targetLastKnownPosition = target.transform.position;
 
-                // Voice
-                ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
+                // Only say lost and found lines if we reached their last known position
+                if (lookingAroundTimer > 0f)
                 {
-                    VoiceState = EnumVoicesState.LostAndFound,
-                    CanTalkIfOtherLethalBotTalk = false,
-                    WaitForCooldown = false,
-                    CutCurrentVoiceStateToTalk = true,
+                    // Voice
+                    ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
+                    {
+                        VoiceState = EnumVoicesState.LostAndFound,
+                        CanTalkIfOtherLethalBotTalk = false,
+                        WaitForCooldown = false,
+                        CutCurrentVoiceStateToTalk = true,
 
-                    ShouldSync = true,
-                    IsLethalBotInside = npcController.Npc.isInsideFactory,
-                    AllowSwearing = Plugin.Config.AllowSwearing.Value
-                });
+                        ShouldSync = true,
+                        IsLethalBotInside = npcController.Npc.isInsideFactory,
+                        AllowSwearing = Plugin.Config.AllowSwearing.Value
+                    });
+                }
 
                 ai.State = new GetCloseToPlayerState(this);
                 return;

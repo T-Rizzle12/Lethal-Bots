@@ -106,6 +106,8 @@ namespace LethalBots.AI.AIStates
                 // Wait for the lockpicker to be finished!
                 if (placedLockpicker && targetDoor != null && targetDoor.isPickingLock)
                 {
+                    // Select and use items based on our current situation, if needed
+                    SelectBestItemFromInventory();
                     StartLookingAroundCoroutine();
                     return;
                 }
@@ -242,6 +244,9 @@ namespace LethalBots.AI.AIStates
                     return;
                 }
             }
+
+            // Select and use items based on our current situation, if needed
+            SelectBestItemFromInventory();
 
             // Else get close to door
             ai.SetDestinationToPositionLethalBotAI(doorPos.Value);

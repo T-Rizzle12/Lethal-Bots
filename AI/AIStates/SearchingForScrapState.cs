@@ -150,6 +150,8 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            SelectBestItemFromInventory();
+
             // If we are outside, we need to move inside first!
             if (ai.isOutside)
             {
@@ -295,12 +297,13 @@ namespace LethalBots.AI.AIStates
 
                 // Now that we are inside, lets go find some loot
                 // If we need to go down an elevator we should do so!
-                if (LethalBotAI.ElevatorScript != null && ai.IsInElevatorStartRoom)
+                MineshaftElevatorController? elevator = LethalBotAI.ElevatorScript;
+                if (elevator != null && (ai.IsInElevatorStartRoom || (!elevator.elevatorFinishedMoving || !elevator.elevatorDoorOpen) && ai.IsInsideElevator))
                 {
-                    if (searchForScrap.inProgress)
+                    if (ai.searchForScrap.searchInProgress)
                     {
                         // Stop the coroutine while we use the elevator
-                        ai.StopSearch(searchForScrap, false);
+                        ai.searchForScrap.StopSearch();
                     }
                     ai.UseElevator(false);
                 }
@@ -329,13 +332,17 @@ namespace LethalBots.AI.AIStates
                     }
 
                     // Lets get ourselves some loot
-                    ai.SetDestinationToPositionLethalBotAI(ai.destination);
-                    ai.OrderMoveToDestination();
-
-                    if (!searchForScrap.inProgress)
+                    Vector3? destination = ai.searchForScrap.GetTargetPosition();
+                    if (destination != null)
                     {
-                        // Start the coroutine from base game to search for loot
-                        ai.StartSearch(npcController.Npc.transform.position, searchForScrap);
+                        ai.SetDestinationToPositionLethalBotAI(destination.Value);
+                        ai.OrderMoveToDestination();
+                    }
+
+                    if (!ai.searchForScrap.searchInProgress)
+                    {
+                        // Start the coroutine to search for loot
+                        ai.searchForScrap.StartSearch();
                     }
                 }
             }
@@ -444,7 +451,7 @@ namespace LethalBots.AI.AIStates
         /// Coroutine for when searching, alternate between sprinting and walking
         /// </summary>
         /// <remarks>
-        /// The other coroutine <see cref="EnemyAI.StartSearch"><c>EnemyAI.StartSearch</c></see>, already take care of choosing node to walk to.
+        /// The other coroutine <see cref="LethalBotSearchRoutine.StartSearch"><c>LethalBotSearchRoutine.StartSearch</c></see>, already take care of choosing node to walk to.
         /// </remarks>
         /// <returns></returns>
         private IEnumerator SearchingWander()
