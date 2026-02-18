@@ -405,6 +405,8 @@ namespace LethalBots
 
         #region Voice Commands
 
+        private static readonly FieldInfo bestMatchField = AccessTools.Field(typeof(Speech), "bestMatch");
+
         private void RegisterVoiceCommands()
         {
             // TODO: Revamp the chat command system to be more modular and easier to add new commands
@@ -427,7 +429,6 @@ namespace LethalBots
             Speech.RegisterPhrases(ValidCommands);
 
             // Create a handler for recognized speech events
-            FieldInfo bestMatchField = AccessTools.Field(typeof(Speech), "bestMatch");
             void handler(object speechInstance, SpeechEventArgs text)
             {
                 // Don't do this if the local client has disabled voice recognition

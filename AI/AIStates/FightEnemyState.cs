@@ -18,10 +18,10 @@ namespace LethalBots.AI.AIStates
     /// </summary>
     public class FightEnemyState : AIState
     {
-        private static readonly FieldInfo knifeMask = AccessTools.Field(typeof(KnifeItem), "knifeMask");
-        private static readonly FieldInfo shovelMask = AccessTools.Field(typeof(Shovel), "shovelMask");
-        private static readonly FieldInfo isScanning = AccessTools.Field(typeof(PatcherTool), "isScanning");
-        private static readonly FieldInfo anomalyMask = AccessTools.Field(typeof(PatcherTool), "anomalyMask");
+        private static readonly AccessTools.FieldRef<KnifeItem, int> knifeMask = AccessTools.FieldRefAccess<int>(typeof(KnifeItem), "knifeMask");
+        private static readonly AccessTools.FieldRef<Shovel, int> shovelMask = AccessTools.FieldRefAccess<int>(typeof(Shovel), "shovelMask");
+        private static readonly AccessTools.FieldRef<PatcherTool, bool> isScanning = AccessTools.FieldRefAccess<bool>(typeof(PatcherTool), "isScanning");
+        private static readonly AccessTools.FieldRef<PatcherTool, int> anomalyMask = AccessTools.FieldRefAccess<int>(typeof(PatcherTool), "anomalyMask");
         private float attackFOV;
         private RaycastHit[]? enemyColliders;
         private Coroutine? currentAttackRoutine;
@@ -456,7 +456,7 @@ namespace LethalBots.AI.AIStates
                         }
                     }
                     // We should already be on target, aim and FIRE
-                    else if (!(bool)isScanning.GetValue(patcherTool))
+                    else if (!isScanning.Invoke(patcherTool))
                     {
                         heldItem.UseItemOnClient(true);
                     }
@@ -634,7 +634,7 @@ namespace LethalBots.AI.AIStates
                 maxFOV = 60f; // Found in source code!
                 radius = 5f;
                 maxRange = 5f;
-                hitMask = (int)anomalyMask.GetValue(patcherTool);
+                hitMask = anomalyMask.Invoke(patcherTool);
             }
             else if (weapon is KnifeItem knife)
             {
@@ -642,7 +642,7 @@ namespace LethalBots.AI.AIStates
                 maxFOV = 45f;
                 radius = 0.3f;
                 maxRange = 0.75f;
-                hitMask = (int)knifeMask.GetValue(knife);
+                hitMask = knifeMask.Invoke(knife);
             }
             else if (weapon is Shovel shovel)
             {
@@ -650,7 +650,7 @@ namespace LethalBots.AI.AIStates
                 maxFOV = 75f;
                 radius = 0.8f;
                 maxRange = 1.5f;
-                hitMask = (int)shovelMask.GetValue(shovel);
+                hitMask = shovelMask.Invoke(shovel);
             }
         }
 

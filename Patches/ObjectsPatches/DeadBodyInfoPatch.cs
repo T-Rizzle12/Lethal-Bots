@@ -4,6 +4,7 @@ using LethalBots.AI;
 using LethalBots.Managers;
 using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Utils;
+using LethalBots.Utils.Helpers;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
