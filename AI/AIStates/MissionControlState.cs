@@ -1666,7 +1666,7 @@ namespace LethalBots.AI.AIStates
 
                     // Alright, switchboard logic go!
                     // Check if we are getting a call!
-                    NetworkVariable<short> incomingCall = PhoneBehaviorPatch.incomingCall.Invoke(switchboardPhone);
+                    NetworkVariable<short> incomingCall = (NetworkVariable<short>)PhoneBehaviorPatch.incomingCall.GetValue(switchboardPhone);
                     if (incomingCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID)
                     {
                         // Found the trigger name in the source code, if we can, let the bot actually press the button.
