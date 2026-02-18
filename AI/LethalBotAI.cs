@@ -1,7 +1,4 @@
-﻿using DunGen;
-using FacilityMeltdown;
-using FacilityMeltdown.MeltdownSequence.Behaviours;
-using GameNetcodeStuff;
+﻿using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.AI.AIStates;
 using LethalBots.Constants;
@@ -12,12 +9,8 @@ using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.LethalPhones;
-using LethalBots.Patches.ModPatches.ModelRplcmntAPI;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
-using LethalInternship.AI;
-using LethalLib.Modules;
-using Newtonsoft.Json.Linq;
 using ReservedItemSlotCore;
 using ReservedItemSlotCore.Data;
 using ReservedItemSlotCore.Patches;
@@ -27,9 +20,7 @@ using Scoops.service;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -39,8 +30,6 @@ using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
-using UnityEngine.UI;
-using Component = UnityEngine.Component;
 using Object = UnityEngine.Object;
 using Quaternion = UnityEngine.Quaternion;
 using Vector2 = UnityEngine.Vector2;
@@ -7236,9 +7225,9 @@ namespace LethalBots.AI
                 return;
             }
 
-            NetworkVariable<short> incomingCall = PhoneBehaviorPatch.incomingCall.Invoke(ourPhone);
-            NetworkVariable<short> activeCall = PhoneBehaviorPatch.activeCall.Invoke(ourPhone);
-            NetworkVariable<short> outgoingCall = PhoneBehaviorPatch.outgoingCall.Invoke(ourPhone);
+            NetworkVariable<short> incomingCall = (NetworkVariable<short>)PhoneBehaviorPatch.incomingCall.GetValue(ourPhone);
+            NetworkVariable<short> activeCall = (NetworkVariable<short>)PhoneBehaviorPatch.activeCall.GetValue(ourPhone);
+            NetworkVariable<short> outgoingCall = (NetworkVariable<short>)PhoneBehaviorPatch.outgoingCall.GetValue(ourPhone);
             if (incomingCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID)
             {
                 PhoneNetworkHandler.Instance.HangUpCallServerRpc(incomingCall.Value, ourPhone.NetworkObjectId);
@@ -7300,7 +7289,7 @@ namespace LethalBots.AI
                 Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to check for incoming call, but was unable to find their phone!");
                 return false;
             }
-            NetworkVariable<short> incomingCall = PhoneBehaviorPatch.incomingCall.Invoke(ourPhone);
+            NetworkVariable<short> incomingCall = (NetworkVariable<short>)PhoneBehaviorPatch.incomingCall.GetValue(ourPhone);
             return incomingCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID;
         }
 
@@ -7316,7 +7305,7 @@ namespace LethalBots.AI
                 Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to check if calling player, but was unable to find their phone!");
                 return false;
             }
-            NetworkVariable<short> outgoingCall = PhoneBehaviorPatch.outgoingCall.Invoke(ourPhone);
+            NetworkVariable<short> outgoingCall = (NetworkVariable<short>)PhoneBehaviorPatch.outgoingCall.GetValue(ourPhone);
             return outgoingCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID;
         }
 
@@ -7335,69 +7324,99 @@ namespace LethalBots.AI
             return ourPhone.IsBusy();
         }
 
-        private IEnumerator callPlayerCoroutine(PlayerPhone ourPhone, PlayerPhone targetPhone)
+        private IEnumerator callPlayerCoroutine(NetworkBehaviour ourPhoneNetworkBehavior, NetworkBehaviour targetPhoneNetworkBehavior)
         {
+            // Sigh, to keep Lethal Phones as a soft dependency.
+            // The coroutine parameters must not use any of the classes from Lethal Phones.
             yield return null;
-            if (PhoneBehaviorPatch.serverLeftArmRig.Invoke(ourPhone).weight < Const.LETHAL_PHONES_OPEN_PHONE)
-            { 
-                ourPhone.ToggleServerPhoneModelServerRpc(true); 
-            }
+            PhoneBehaviorPatch.TryWithPhone(ourPhoneNetworkBehavior, ourPhoneComponent =>
+            {
+                PlayerPhone ourPhone = (PlayerPhone)ourPhoneComponent;
+                if (PhoneBehaviorPatch.GetServerLeftArmRig(ourPhone).weight < Const.LETHAL_PHONES_OPEN_PHONE)
+                {
+                    ourPhone.ToggleServerPhoneModelServerRpc(true);
+                }
+            });
             HangupPhone();
 
             // Alright, we need to fake dialing in the number
-            short phoneNumber = targetPhone.phoneNumber;
+            short phoneNumber = 0;
+            PhoneBehaviorPatch.TryWithPhone(targetPhoneNetworkBehavior, targetPhone =>
+            {
+                phoneNumber = ((PlayerPhone)targetPhone).phoneNumber;
+            });
 
             // Wait a second, just to make sure the phone is pulled out.
             yield return null;
-            yield return new WaitUntil(() => PhoneBehaviorPatch.serverLeftArmRig.Invoke(ourPhone).weight >= Const.LETHAL_PHONES_OPEN_PHONE);
+            yield return new WaitUntil(() =>
+            {
+                float armWeight = 0f;
+                PhoneBehaviorPatch.TryWithPhone(ourPhoneNetworkBehavior, ourPhone => armWeight = PhoneBehaviorPatch.GetServerLeftArmRig(ourPhone).weight);
+                return armWeight >= Const.LETHAL_PHONES_OPEN_PHONE;
+            });
 
             // So we have the entire number, 1234 for example, but we to dial it one by one.
             string phoneNumberString = phoneNumber.ToString("D4");
             foreach (char digit in phoneNumberString)
             {
-                ourPhone.DialNumber((short)char.GetNumericValue(digit));
+                PhoneBehaviorPatch.TryWithPhone(ourPhoneNetworkBehavior, ourPhone => ((PlayerPhone)ourPhone).DialNumber((short)char.GetNumericValue(digit)));
                 yield return new WaitForSeconds(UnityEngine.Random.Range(0.1f, 0.3f)); // Wait a bit between dialing each digit, again this is a band-aid solution
             }
 
             // Finally, we "press" the call button!
-            ourPhone.CallDialedNumber();
+            PhoneBehaviorPatch.TryWithPhone(ourPhoneNetworkBehavior, ourPhone => ((PlayerPhone)ourPhone).CallDialedNumber());
             StopLethalPhonesCoroutine();
         }
 
-        private IEnumerator pickupCallCoroutine(PlayerPhone ourPhone)
+        private IEnumerator pickupCallCoroutine(NetworkBehaviour ourPhoneNetworkBehavior)
         {
+            // Sigh, to keep Lethal Phones as a soft dependency.
+            // The coroutine parameters must not use any of the classes from Lethal Phones.
             yield return null;
-            if (PhoneBehaviorPatch.serverLeftArmRig.Invoke(ourPhone).weight < Const.LETHAL_PHONES_OPEN_PHONE)
+            PhoneBehaviorPatch.TryWithPhone(ourPhoneNetworkBehavior, ourPhoneComponent =>
             {
-                ourPhone.ToggleServerPhoneModelServerRpc(true);
-            }
+                PlayerPhone ourPhone = (PlayerPhone)ourPhoneComponent;
+                if (PhoneBehaviorPatch.GetServerLeftArmRig(ourPhone).weight < Const.LETHAL_PHONES_OPEN_PHONE)
+                {
+                    ourPhone.ToggleServerPhoneModelServerRpc(true);
+                }
+            });
 
             // Wait a second, just to make sure the phone is pulled out.
             yield return null;
-            yield return new WaitUntil(() => PhoneBehaviorPatch.serverLeftArmRig.Invoke(ourPhone).weight >= Const.LETHAL_PHONES_OPEN_PHONE);
+            yield return new WaitUntil(() =>
+            {
+                float armWeight = 0f;
+                PhoneBehaviorPatch.TryWithPhone(ourPhoneNetworkBehavior, ourPhone => armWeight = PhoneBehaviorPatch.GetServerLeftArmRig((PlayerPhone)ourPhone).weight);
+                return armWeight >= Const.LETHAL_PHONES_OPEN_PHONE;
+            });
 
             // Ok, now give the bot a fake reaction time for reading the caller ID and deciding to pick up,
             // we don't want the bot to be too fast at picking up calls!
             yield return new WaitForSeconds(UnityEngine.Random.Range(0.5f, 1.5f));
 
             // Code copied from PlayerPhone.CallButtonPressed, but adjusted to work for bots!
-            NetworkVariable<short> incomingCall = PhoneBehaviorPatch.incomingCall.Invoke(ourPhone);
-            NetworkVariable<ulong> incomingCaller = PhoneBehaviorPatch.incomingCaller.Invoke(ourPhone);
+            NetworkVariable<short> incomingCall = (NetworkVariable<short>)PhoneBehaviorPatch.incomingCall.GetValue(ourPhoneNetworkBehavior);
+            NetworkVariable<ulong> incomingCaller = (NetworkVariable<ulong>)PhoneBehaviorPatch.incomingCaller.GetValue(ourPhoneNetworkBehavior);
             if (incomingCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID)
             {
-                NetworkVariable<short> activeCall = PhoneBehaviorPatch.activeCall.Invoke(ourPhone);
-                NetworkVariable<ulong> activeCaller = PhoneBehaviorPatch.activeCaller.Invoke(ourPhone);
+                NetworkVariable<short> activeCall = (NetworkVariable<short>)PhoneBehaviorPatch.activeCall.GetValue(ourPhoneNetworkBehavior);
+                NetworkVariable<ulong> activeCaller = (NetworkVariable<ulong>)PhoneBehaviorPatch.activeCaller.GetValue(ourPhoneNetworkBehavior);
                 if (activeCall.Value != Const.LETHAL_PHONES_NO_CALLER_ID)
                 {
-                    PhoneNetworkHandler.Instance.HangUpCallServerRpc(activeCall.Value, ourPhone.NetworkObjectId);
+                    PhoneNetworkHandler.Instance.HangUpCallServerRpc(activeCall.Value, ourPhoneNetworkBehavior.NetworkObjectId);
                 }
 
                 activeCall.Value = incomingCall.Value;
                 activeCaller.Value = incomingCaller.Value;
                 incomingCall.Value = Const.LETHAL_PHONES_NO_CALLER_ID;
-                PhoneNetworkHandler.Instance.AcceptIncomingCallServerRpc(activeCall.Value, ourPhone.NetworkObjectId);
-                ourPhone.StopRingingServerRpc();
-                ourPhone.PlayPickupSoundServerRpc();
+                PhoneBehaviorPatch.TryWithPhone(ourPhoneNetworkBehavior, ourPhoneComponent =>
+                {
+                    PlayerPhone ourPhone = (PlayerPhone)ourPhoneComponent;
+                    PhoneNetworkHandler.Instance.AcceptIncomingCallServerRpc(activeCall.Value, ourPhone.NetworkObjectId);
+                    ourPhone.StopRingingServerRpc();
+                    ourPhone.PlayPickupSoundServerRpc();
+                });
             }
             StopLethalPhonesCoroutine();
         }
@@ -7436,7 +7455,7 @@ namespace LethalBots.AI
                 Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to check if phone equipped, but was unable to find their phone!");
                 return false;
             }
-            return PhoneBehaviorPatch.serverLeftArmRig.Invoke(ourPhone).weight >= Const.LETHAL_PHONES_OPEN_PHONE;
+            return PhoneBehaviorPatch.GetServerLeftArmRig(ourPhone).weight >= Const.LETHAL_PHONES_OPEN_PHONE;
         }
 
         /// <summary>

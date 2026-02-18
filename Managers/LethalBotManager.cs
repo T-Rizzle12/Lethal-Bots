@@ -7,11 +7,11 @@ using LethalBots.Enums;
 using LethalBots.NetworkSerializers;
 using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
+using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.NpcPatches;
 using Scoops.customization;
 using Scoops.gameobjects;
 using Scoops.misc;
-using Scoops.patch;
 using Scoops.service;
 using System;
 using System.Collections;
@@ -1427,14 +1427,14 @@ namespace LethalBots.Managers
             {
                 return;
             }
-            PlayerPhonePatch.PhoneManager = PhoneNetworkHandler.Instance;
+            Scoops.patch.PlayerPhonePatch.PhoneManager = PhoneNetworkHandler.Instance;
             PhoneBehavior phone = lethalBotController.transform.Find("PhonePrefab(Clone)").GetComponent<PhoneBehavior>();
             if (PhoneNetworkHandler.allPhoneBehaviors.Contains(phone))
             {
                 return; // Phone is already initialized, no need to do it again! This happens if the bot was revived mid-round.
             }
 
-            PlayerPhonePatch.PhoneManager.CreateNewPhone(phone.NetworkObjectId, CustomizationManager.DEFAULT_SKIN, CustomizationManager.DEFAULT_CHARM, CustomizationManager.DEFAULT_RINGTONE);
+            Scoops.patch.PlayerPhonePatch.PhoneManager.CreateNewPhone(phone.NetworkObjectId, CustomizationManager.DEFAULT_SKIN, CustomizationManager.DEFAULT_CHARM, CustomizationManager.DEFAULT_RINGTONE);
 
             if (GameNetworkManager.Instance.localPlayerController == lethalBotController)
             {
@@ -1460,16 +1460,18 @@ namespace LethalBots.Managers
         /// </summary>
         /// <param name="playerPhone"></param>
         /// <returns></returns>
-        private IEnumerator togglePhoneModelAfterSpawn(PlayerPhone playerPhone, string botName)
+        private IEnumerator togglePhoneModelAfterSpawn(NetworkBehaviour playerPhoneNetworkBehavior, string botName)
         {
+            // Sigh, to keep Lethal Phones as a soft dependency.
+            // The coroutine parameters must not use any of the classes from Lethal Phones.
             float startTime = Time.realtimeSinceStartup;
             yield return null;
-            yield return new WaitUntil(() => playerPhone == null || playerPhone.IsSpawned || (Time.realtimeSinceStartup - startTime) > 5f);
+            yield return new WaitUntil(() => playerPhoneNetworkBehavior == null || playerPhoneNetworkBehavior.IsSpawned || (Time.realtimeSinceStartup - startTime) > 5f);
 
             // If the phone didn't spawn after waiting, just give up!
-            if (playerPhone != null && playerPhone.IsSpawned)
+            if (playerPhoneNetworkBehavior != null && playerPhoneNetworkBehavior.IsSpawned)
             { 
-                playerPhone.ToggleServerPhoneModelServerRpc(false); 
+                PhoneBehaviorPatch.TryWithPhone(playerPhoneNetworkBehavior, playerPhone => ((PlayerPhone)playerPhone).ToggleServerPhoneModelServerRpc(false)); 
             }
             else
             {
