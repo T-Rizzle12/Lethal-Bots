@@ -2632,6 +2632,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="fearQuery">Fear query to check</param>
         /// <returns>The minimal distance from enemy based on the given fear query, null if nothing to worry about</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float? GetFearRangeForEnemies(LethalBotFearQuery fearQuery)
         {
             //Plugin.LogDebug($"enemy \"{enemy.enemyType.enemyName}\" {enemy.enemyType.name}");
@@ -2644,7 +2645,7 @@ namespace LethalBots.AI
         /// <remarks>
         /// Not up top like the others since this is only used by <see cref="CanEnemyBeKilled(EnemyAI)"/>
         /// </remarks>
-        private static readonly FieldInfo nutcrackerIsInspecting = AccessTools.Field(typeof(NutcrackerEnemyAI), "isInspecting");
+        private static readonly AccessTools.FieldRef<NutcrackerEnemyAI, bool> nutcrackerIsInspecting = AccessTools.FieldRefAccess<bool>(typeof(NutcrackerEnemyAI), "isInspecting");
 
         /// <summary>
         /// Returns true if the given EnemyAI can be killed!
@@ -2687,7 +2688,7 @@ namespace LethalBots.AI
                     if ((hasRangedWeapon || isHumanPlayer || isEnemyStunned)
                         && (enemy.currentBehaviourStateIndex == 2
                             || (enemy is NutcrackerEnemyAI nutcracker
-                                && (bool)nutcrackerIsInspecting.GetValue(nutcracker))))
+                                && nutcrackerIsInspecting.Invoke(nutcracker))))
                     {
                         return true;
                     }
@@ -4885,7 +4886,7 @@ namespace LethalBots.AI
         /// <remarks>
         /// Not up top like the others since this is only used by <see cref="IsGrabbableObjectBlackListed(GrabbableObject, EnumGrabbableObjectCall)"/>
         /// </remarks>
-        private static readonly FieldInfo extensionLadderItemLadderActivated = AccessTools.Field(typeof(ExtensionLadderItem), "ladderActivated");
+        private static readonly AccessTools.FieldRef<ExtensionLadderItem, bool> extensionLadderItemLadderActivated = AccessTools.FieldRefAccess<bool>(typeof(ExtensionLadderItem), "ladderActivated");
 
         /// <summary>
         /// Checks if the given object is blacklisted
@@ -5000,7 +5001,7 @@ namespace LethalBots.AI
             }
 
             // Don't pickup extended extention ladders
-            if (grabbableObjectToEvaluate is ExtensionLadderItem extensionLadder && (!shouldReturnToShip || (bool)extensionLadderItemLadderActivated.GetValue(extensionLadder)))
+            if (grabbableObjectToEvaluate is ExtensionLadderItem extensionLadder && (!shouldReturnToShip || extensionLadderItemLadderActivated.Invoke(extensionLadder)))
             {
                 return true;
             }

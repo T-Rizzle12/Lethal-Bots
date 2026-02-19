@@ -71,6 +71,15 @@ namespace LethalBots.AI.AIStates
                 return false;
             }
 
+            // Check if the host wants the bots to fulfill the profit quota
+            // or sell everything on entire ship
+            if (Plugin.Config.SellAllScrapOnShip.Value)
+            {
+                // We never technically fulfill the profit quota, so the bots will never stop selling scrap
+                //Plugin.LogDebug("CanWeFulfillTheProfitQuota: SellAllScrapOnShip is enabled, returning false.");
+                return false;
+            }
+
             // Check if we can fulfill the profit quota with the scrap we have already sold and the scrap we have in our inventory.
             int fulfilledQuota = timeOfDay.quotaFulfilled + LethalBotManager.GetValueOfItemsOnDesk();
             int valueOfInventory = 0;

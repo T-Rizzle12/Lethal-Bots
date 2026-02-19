@@ -122,7 +122,7 @@ namespace LethalBots.AI
                 {
                     if (ai.agent.isOnNavMesh)
                     {
-                        if (ai.agent.remainingDistance == 0 && (ai.transform.position - currentTarget.transform.position).sqrMagnitude < proximitySqr)
+                        if (ai.agent.remainingDistance <= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION && (ai.transform.position - currentTarget.transform.position).sqrMagnitude < proximitySqr)
                         {
                             int currentTargetIndex = unsearchedNodes.FindIndex(x => x == currentTarget);
                             if (currentTargetIndex != -1)

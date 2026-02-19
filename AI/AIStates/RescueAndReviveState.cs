@@ -24,7 +24,7 @@ namespace LethalBots.AI.AIStates
     {
         private static Func<RagdollGrabbableObject, bool>? ReviveCompanyCanReviveDelegate = null;
         private static Action<int>? BunkbedReviveRPCDelegate = null;
-        private static readonly FieldInfo isScanning = AccessTools.Field(typeof(PatcherTool), "isScanning");
+        private static readonly AccessTools.FieldRef<PatcherTool, bool> isScanning = AccessTools.FieldRefAccess<bool>(typeof(PatcherTool), "isScanning");
 
         private PlayerControllerB playerToRevive;
         private ReviveMethod reviveMethod = ReviveMethod.None;
@@ -723,7 +723,9 @@ namespace LethalBots.AI.AIStates
             }
 
             // If we are somehow holding a two handed item, drop it first!
-            if (!ai.AreHandsFree() && ai.HeldItem.itemProperties.twoHanded)
+            if (!ai.AreHandsFree() 
+                && ai.HeldItem is not PatcherTool 
+                && ai.HeldItem.itemProperties.twoHanded)
             {
                 ai.DropItem();
                 yield return null;
@@ -746,7 +748,7 @@ namespace LethalBots.AI.AIStates
             // Revive them now!
             heldItem.UseItemOnClient(true);
             yield return null;
-            yield return new WaitUntil(() => patcherTool == null || (bool)isScanning.GetValue(patcherTool) == false); // Wait a bit!
+            yield return new WaitUntil(() => patcherTool == null || isScanning.Invoke(patcherTool) == false); // Wait a bit!
 
             // Did we hit em?
             if (!patcherTool.isShocking)

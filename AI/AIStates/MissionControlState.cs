@@ -51,8 +51,8 @@ namespace LethalBots.AI.AIStates
         private static Dictionary<SpikeRoofTrap, TerminalAccessibleObject> spikeRoofTraps = new Dictionary<SpikeRoofTrap, TerminalAccessibleObject>();
         private Dictionary<string, float> calledOutEnemies = new Dictionary<string, float>(); // Should this be an enemy name rather than the AI itself?
         private PriorityMessageQueue messageQueue = new PriorityMessageQueue();
-        private static readonly FieldInfo isDoorOpen = AccessTools.Field(typeof(TerminalAccessibleObject), "isDoorOpen");
-        private static readonly FieldInfo inCooldown = AccessTools.Field(typeof(TerminalAccessibleObject), "inCooldown");
+        private static readonly AccessTools.FieldRef<TerminalAccessibleObject, bool> isDoorOpen = AccessTools.FieldRefAccess<bool>(typeof(TerminalAccessibleObject), "isDoorOpen");
+        private static readonly AccessTools.FieldRef<TerminalAccessibleObject, bool> inCooldown = AccessTools.FieldRefAccess<bool>(typeof(TerminalAccessibleObject), "inCooldown");
         private static ShipTeleporter? _shipTeleporter;
         private static ShipTeleporter? ShipTeleporter
         {
@@ -375,7 +375,7 @@ namespace LethalBots.AI.AIStates
                 //    LethalBotManager.Instance.SetHangarShipDoorStateServerRpc(true);
                 //    botClosedShipDoors = true;
                 //}
-                //else if (botClosedShipDoors && StartOfRound.Instance.hangarDoorsClosed)
+                //else if (enemyAI == null && botClosedShipDoors && StartOfRound.Instance.hangarDoorsClosed)
                 //{
                 //    LethalBotManager.Instance.SetHangarShipDoorStateServerRpc(false);
                 //    botClosedShipDoors = false;
@@ -1199,7 +1199,7 @@ namespace LethalBots.AI.AIStates
                         || (turret.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                     {
                         TerminalAccessibleObject accessibleObject = turretInfo.Value;
-                        if (accessibleObject != null && !(bool)inCooldown.GetValue(accessibleObject))
+                        if (accessibleObject != null && !inCooldown.Invoke(accessibleObject))
                         { 
                             objectsToUse.Add(accessibleObject); 
                         }
@@ -1218,7 +1218,7 @@ namespace LethalBots.AI.AIStates
                     if ((landmine.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                     {
                         TerminalAccessibleObject accessibleObject = landmineInfo.Value;
-                        if (accessibleObject != null && !(bool)inCooldown.GetValue(accessibleObject))
+                        if (accessibleObject != null && !inCooldown.Invoke(accessibleObject))
                         {
                             objectsToUse.Add(accessibleObject);
                         }
@@ -1237,7 +1237,7 @@ namespace LethalBots.AI.AIStates
                     if ((spikeRoofTrap.spikeTrapAudio.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                     {
                         TerminalAccessibleObject accessibleObject = spikeRoofTrapInfo.Value;
-                        if (accessibleObject != null && !(bool)inCooldown.GetValue(accessibleObject))
+                        if (accessibleObject != null && !inCooldown.Invoke(accessibleObject))
                         {
                             objectsToUse.Add(accessibleObject);
                         }
@@ -1257,8 +1257,8 @@ namespace LethalBots.AI.AIStates
                 if (accessibleObject != null 
                     && accessibleObject.isBigDoor 
                     && !objectsToUse.Contains(accessibleObject)
-                    && !(bool)inCooldown.GetValue(accessibleObject)
-                    && !(bool)isDoorOpen.GetValue(accessibleObject))
+                    && !inCooldown.Invoke(accessibleObject)
+                    && !isDoorOpen.Invoke(accessibleObject))
                 {
                     objectsToUse.Add(accessibleObject);
                 }
