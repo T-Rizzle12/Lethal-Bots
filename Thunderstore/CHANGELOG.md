@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.0 - 2026-2-18
+Just a simple bug fix update along with some code refactoring.
+- Moved some repeated code into helper classes
+- Fixed bots only selling to quota when the config is set to sell everything on the ship
+- Fixed a logic error in a sanity check for reviveUsingZaprillator
+- The new search routine system is a bit more lax on how close the bot must be before it can consider a node checked
+
 ## 2.2.1 - 2026-2-18
 Emergency Patch!
 
