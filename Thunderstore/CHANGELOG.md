@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3.1 - 2026-2-18
+Sigh, this might be one of the buggiest updates I have ever released........
+- Fixed a logic error in LostInFacilityState that caused searchForExit to never start
+
 ## 2.3.0 - 2026-2-18
 Just a simple bug fix update along with some code refactoring.
 - Moved some repeated code into helper classes

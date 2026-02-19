@@ -78,7 +78,7 @@ namespace LethalBots.AI.AIStates
                 {
                     ai.searchForScrap.StopSearch();
                 }
-                if (searchForExit.searchInProgress)
+                if (!searchForExit.searchInProgress)
                 {
                     searchForExit.StartSearch();
                 }
