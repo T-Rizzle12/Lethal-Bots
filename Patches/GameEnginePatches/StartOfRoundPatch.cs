@@ -657,8 +657,11 @@ namespace LethalBots.Patches.GameEnginePatches
         [HarmonyPostfix]
         static void FirePlayersAfterDeadlineClientRpc_PostFix()
         {
-            // Reset after fired
-            LethalBotManager.Instance.ResetIdentities();
+            if (Plugin.Config.ResetIdentitiesWhenFired.Value)
+            {   
+                // Reset after fired
+                LethalBotManager.Instance.ResetIdentities();
+            }
         }
     }
 }

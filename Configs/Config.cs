@@ -29,6 +29,8 @@ namespace LethalBots.Configs
 
         // Identity  
         [SyncedEntryField] public SyncedEntry<bool> SpawnIdentitiesRandomly;
+        [SyncedEntryField] public SyncedEntry<bool> ResetIdentitiesWhenFired;
+        public ConfigEntry<bool> ResetIdentities;
 
         // Behaviour       
         [SyncedEntryField] public SyncedEntry<bool> FollowCrouchWithPlayer;
@@ -92,6 +94,16 @@ namespace LethalBots.Configs
                                               "Randomness of identities",
                                               defaultVal: false,
                                               "Spawn the bot with random identities from the file rather than in order?");
+
+            ResetIdentitiesWhenFired = cfg.BindSyncedEntry(ConfigConst.ConfigSectionIdentities,
+                                                "Reset identities when fired",
+                                                defaultVal: false,
+                                                "Should the LethalBotManager reset all identities after the game over fired screen? (NOTE: This will make bots lose all progress and levels in that identity!)");
+
+            ResetIdentities = cfg.Bind(ConfigConst.ConfigSectionIdentities,
+                                                "Reset identities (Host only)",
+                                                defaultValue: false,
+                                                "Should the SaveManager reset all identities next time you start a save file? (NOTE: This will automatically set itself to false when after it deletes the bot's save file. This will make bots lose all progress and levels in all identities!)");
 
             // Behavior
             FollowCrouchWithPlayer = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,

@@ -3008,6 +3008,8 @@ namespace LethalBots.AI
             return null;
         }
 
+        private static readonly AccessTools.FieldRef<DoorLock, bool> isDoorOpenedField = AccessTools.FieldRefAccess<bool>(typeof(DoorLock), "isDoorOpened");
+
         /// <summary>
         /// Check the doors after some interval of ms to see if lethalBot can open one to unstuck himself.
         /// </summary>
@@ -3019,14 +3021,10 @@ namespace LethalBots.AI
                 timerCheckDoor = 0f;
 
                 DoorLock? door = GetDoorIfWantsToOpen();
-                if (door != null)
+                if (door != null && !isDoorOpenedField.Invoke(door))
                 {
-                    // Prevent stuck behind open door
-                    Physics.IgnoreCollision(this.NpcController.Npc.playerCollider, door.GetComponent<Collider>());
-
                     // Open door
                     door.OpenOrCloseDoor(NpcController.Npc);
-                    door.OpenDoorAsEnemyServerRpc();
                     return true;
                 }
             }

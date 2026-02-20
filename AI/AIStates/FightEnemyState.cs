@@ -254,11 +254,13 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // Play attack voice line based on weapon type!
+            EnumVoicesState voiceState = ai.IsHoldingRangedWeapon() ? EnumVoicesState.AttackingWithGun : EnumVoicesState.AttackingWithMelee;
             ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
             {
-                VoiceState = ai.IsHoldingRangedWeapon() ? EnumVoicesState.AttackingWithGun : EnumVoicesState.AttackingWithMelee,
+                VoiceState = voiceState,
                 CanTalkIfOtherLethalBotTalk = true,
-                WaitForCooldown = true,
+                WaitForCooldown = ai.LethalBotIdentity.Voice.LastVoiceState == voiceState, // Only wait for cooldown if we are trying to repeat the same voice state, otherwise we can interrupt ourselves!
                 CutCurrentVoiceStateToTalk = true,
                 CanRepeatVoiceState = true,
 

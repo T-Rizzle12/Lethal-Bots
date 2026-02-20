@@ -664,8 +664,15 @@ namespace LethalBots.Managers
 
         public void ResetIdentities()
         {
-            // FIXME: Bots lose levels and experience when this is called. We need to cache and reapply them here!
+            if (!base.IsServer && !base.IsHost)
+            {
+                // We need to ask the server to resend the identities json to us,
+                // since we lost them when we reset the identities in the manager,
+                // and we need them to reinitialize the identities of the bots on our client!
+                return;
+            }
             IdentityManager.Instance.InitIdentities(Plugin.Config.ConfigIdentities.configIdentities);
+            SyncLoadedJsonIdentitiesToAllClientsServerRpc(); // Send the new json to all clients so they can update the identities of the bots on their end as well!
         }
 
         // TODO: Do we even need this since the bots use the player slots?
@@ -3647,6 +3654,22 @@ namespace LethalBots.Managers
                 ClientRpcParams);
         }
 
+        [ServerRpc(RequireOwnership = false)]
+        public void SyncLoadedJsonIdentitiesToAllClientsServerRpc()
+        {
+            Plugin.LogDebug($"Server/Host {NetworkManager.LocalClientId} is syncing loaded json identities to all clients");
+            ClientRpcParams.Send = new ClientRpcSendParams()
+            {
+                TargetClientIds = NetworkManager.ConnectedClientsIds.Where(x => x != NetworkManager.LocalClientId).ToArray()
+            };
+            SyncLoadedJsonIdentitiesClientRpc(
+                new ConfigIdentitiesNetworkSerializable()
+                {
+                    ConfigIdentities = Plugin.Config.ConfigIdentities.configIdentities
+                },
+                ClientRpcParams);
+        }
+
         [ClientRpc]
         private void SyncLoadedJsonIdentitiesClientRpc(ConfigIdentitiesNetworkSerializable configIdentityNetworkSerializable,
                                                        ClientRpcParams clientRpcParams = default)
@@ -3664,7 +3687,7 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogDebug($"Recreate identities for {configIdentityNetworkSerializable.ConfigIdentities.Length} bots");
-            Plugin.Config.ConfigIdentities.configIdentities = configIdentityNetworkSerializable.ConfigIdentities;
+            //Plugin.Config.ConfigIdentities.configIdentities = configIdentityNetworkSerializable.ConfigIdentities;
             IdentityManager.Instance.InitIdentities(configIdentityNetworkSerializable.ConfigIdentities);
         }
 
@@ -3702,7 +3725,7 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogDebug($"Recreate loadouts for {configLoadoutNetworkSerializable.ConfigLoadouts.Length} bots");
-            Plugin.Config.ConfigLoadouts.configLoadouts = configLoadoutNetworkSerializable.ConfigLoadouts;
+            //Plugin.Config.ConfigLoadouts.configLoadouts = configLoadoutNetworkSerializable.ConfigLoadouts;
             LoadoutManager.Instance.InitLoadouts(configLoadoutNetworkSerializable.ConfigLoadouts);
         }
 
