@@ -885,7 +885,7 @@ namespace LethalBots.Managers
             // Coil Head
             RegisterThreat(typeof(SpringManAI),
                 fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 10f : null,
+                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 && fq.PlayerToCheck is PlayerControllerB playerToCheck && playerToCheck.isPlayerAlone ? 10f : null,
                 fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null
             );
 
@@ -922,7 +922,7 @@ namespace LethalBots.Managers
             RegisterThreat(typeof(SandSpiderAI),
                 fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 5f, // Sigh, i may or may not of added this after a particular experience where bots got stuck in a loop of running away and coming back despite the spider not actually chasing them!
                 fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
-                _ => 20f // Always 20 for pathfinding
+                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 10f // Based on what the spider is doing!
             );
 
             // Register threat is compatable with functions!

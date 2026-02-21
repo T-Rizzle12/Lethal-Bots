@@ -19,6 +19,17 @@ namespace LethalBots.Utils
         public static readonly FieldInfo FieldInfoTargetPlayer = AccessTools.Field(typeof(BushWolfEnemy), "targetPlayer");
         public static readonly FieldInfo FieldInfoDraggingPlayer = AccessTools.Field(typeof(BushWolfEnemy), "draggingPlayer");
 
+        #region AccessTools FieldRefs
+
+        public static readonly AccessTools.FieldRef<Terminal, bool> usedTerminalThisSessionField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "usedTerminalThisSession");
+        public static readonly AccessTools.FieldRef<Terminal, bool> syncedTerminalValuesField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "syncedTerminalValues");
+        public static readonly AccessTools.FieldRef<Terminal, int> totalCostOfItemsField = AccessTools.FieldRefAccess<int>(typeof(Terminal), "totalCostOfItems");
+        public static readonly AccessTools.FieldRef<Terminal, bool> broadcastedCodeThisFrameField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "broadcastedCodeThisFrame");
+        public static readonly AccessTools.FieldRef<Terminal, bool> hasGottenNounField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "hasGottenNoun");
+        public static readonly AccessTools.FieldRef<Terminal, bool> hasGottenVerbField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "hasGottenVerb");
+
+        #endregion
+
         public static readonly MethodInfo AllEntitiesCountMethod = SymbolExtensions.GetMethodInfo(() => AllEntitiesCount());
         public static readonly MethodInfo AllRealPlayersCountMethod = SymbolExtensions.GetMethodInfo(() => AllRealPlayersCount());
         public static readonly MethodInfo IsPlayerLocalOrLethalBotOwnerLocalMethod = SymbolExtensions.GetMethodInfo(() => IsPlayerLocalOrLethalBotOwnerLocal(new PlayerControllerB()));

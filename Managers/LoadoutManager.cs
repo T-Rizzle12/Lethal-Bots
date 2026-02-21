@@ -85,10 +85,10 @@ namespace LethalBots.Managers
 
         public LethalBotLoadout GetLethalBotLoadoutWithName(string name)
         {
-            name = name.ToLower().Trim();
+            name = name.Trim().ToLower();
             foreach (var loadout in LethalBotLoadouts)
             {
-                string loadoutName = loadout.Name.ToLower().Trim();
+                string loadoutName = loadout.Name.Trim().ToLower();
                 if (loadoutName == name)
                 {
                     return loadout;

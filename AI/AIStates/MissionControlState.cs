@@ -66,7 +66,7 @@ namespace LethalBots.AI.AIStates
             }
         }
         private static SignalTranslator? _signalTranslator;
-        private static SignalTranslator? SignalTranslator
+        internal static SignalTranslator? SignalTranslator
         {
             get
             {
@@ -179,7 +179,10 @@ namespace LethalBots.AI.AIStates
                     playerRequestedTerminal = false;
                     waitForTerminalTime = 0f;
                 }
-                waitForTerminalTime += ai.AIIntervalTime;
+                else
+                {
+                    waitForTerminalTime += ai.AIIntervalTime;
+                }
                 return;
             }
             else
@@ -552,7 +555,7 @@ namespace LethalBots.AI.AIStates
                     {
                         yield return SendCommandToTerminal($"transmit {messageToSend}");
                         //SignalTranslator.timeLastUsingSignalTranslator = Time.realtimeSinceStartup;
-                        HUDManager.Instance.UseSignalTranslatorServerRpc(messageToSend.Substring(0, Mathf.Min(messageToSend.Length, 10)));
+                        //HUDManager.Instance.UseSignalTranslatorServerRpc(messageToSend.Substring(0, Mathf.Min(messageToSend.Length, 10)));
                     }
                 }
 
@@ -603,7 +606,7 @@ namespace LethalBots.AI.AIStates
                     yield return HandlePlayerMonitorLogic(targetedPlayer);
                 }
 
-                yield return SwitchToNextRadarTarget();
+                yield return SwitchRadarTargetToPlayer();
             }
 
             // Clear the monitor crew coroutine!
@@ -611,40 +614,30 @@ namespace LethalBots.AI.AIStates
         }
 
         /// <summary>
-        /// Switches the ship monitor's targeted player up one index
-        /// </summary>
-        /// <returns></returns>
-        private IEnumerator SwitchToNextRadarTarget()
-        {
-            yield return SendCommandToTerminal("switch");
-            StartOfRound.Instance.mapScreen.SwitchRadarTargetForward(true);
-        }
-
-        /// <summary>
         /// Switches the ship monitor's targeted player to the player given
         /// </summary>
         /// <param name="player"></param>
         /// <returns></returns>
-        private IEnumerator SwitchRadarTargetToPlayer(PlayerControllerB player)
+        private IEnumerator SwitchRadarTargetToPlayer(PlayerControllerB? player = null)
         {
             // Ok, so I found out this can break if we have an active signal booster so uh.
-            string playerUsername = player.playerUsername.ToLower();
+            string playerUsername = player?.playerUsername.ToLower() ?? "";
             yield return SendCommandToTerminal($"switch {playerUsername}");
             //StartOfRound.Instance.mapScreen.SwitchRadarTargetAndSync((int)player.playerClientId);
-            int playerIndex = (int)player.playerClientId; // Fallback to client id.
-            var radarTargets = StartOfRound.Instance.mapScreen.radarTargets;
-            for (int i = 0; i < radarTargets.Count; i++)
-            {
-                var radarTarget = radarTargets[i];
-                if (radarTarget != null 
-                    && !radarTarget.isNonPlayer 
-                    && radarTarget.name.ToLower() == playerUsername)
-                {
-                    playerIndex = i;
-                    break;
-                }
-            }
-            StartOfRound.Instance.mapScreen.SwitchRadarTargetAndSync(playerIndex);
+            //int playerIndex = (int)player.playerClientId; // Fallback to client id.
+            //var radarTargets = StartOfRound.Instance.mapScreen.radarTargets;
+            //for (int i = 0; i < radarTargets.Count; i++)
+            //{
+            //    var radarTarget = radarTargets[i];
+            //    if (radarTarget != null 
+            //        && !radarTarget.isNonPlayer 
+            //        && radarTarget.name.ToLower() == playerUsername)
+            //    {
+            //        playerIndex = i;
+            //        break;
+            //    }
+            //}
+            //StartOfRound.Instance.mapScreen.SwitchRadarTargetAndSync(playerIndex);
         }
 
         /// <summary>
@@ -663,12 +656,12 @@ namespace LethalBots.AI.AIStates
             foreach (TerminalAccessibleObject terminalAccessible in objectsToUse)
             {
                 yield return SendCommandToTerminal(terminalAccessible.objectCode);
-                if (ourTerminal != null)
-                {
-                    ourTerminal.codeBroadcastAnimator.SetTrigger("display");
-                    ourTerminal.terminalAudio.PlayOneShot(ourTerminal.codeBroadcastSFX, 1f);
-                }
-                terminalAccessible.CallFunctionFromTerminal();
+                //if (ourTerminal != null)
+                //{
+                //    ourTerminal.codeBroadcastAnimator.SetTrigger("display");
+                //    ourTerminal.terminalAudio.PlayOneShot(ourTerminal.codeBroadcastSFX, 1f);
+                //}
+                //terminalAccessible.CallFunctionFromTerminal();
                 yield return null;
             }
         }
@@ -760,18 +753,18 @@ namespace LethalBots.AI.AIStates
         /// <summary>
         /// Helper function to make the bot have to type out a message!
         /// </summary>
-        /// <param name="message"></param>
+        /// <param name="command"></param>
         /// <returns></returns>
-        private IEnumerator SendCommandToTerminal(string message)
+        private IEnumerator SendCommandToTerminal(string command)
         {
-            if (string.IsNullOrWhiteSpace(message))
+            if (string.IsNullOrWhiteSpace(command))
             {
                 yield break;
             }
 
             // Use the terminal to play keyboard sound effects!
             Terminal ourTerminal = TerminalManager.Instance.GetTerminal();
-            for (int i = 0; i < message.Length; i++)
+            for (int i = 0; i < command.Length; i++)
             {
                 if (ourTerminal != null)
                 {
@@ -781,6 +774,9 @@ namespace LethalBots.AI.AIStates
                 // Wait for a random time between 0.05 and 0.3 seconds before typing the next character
                 yield return new WaitForSeconds(Random.Range(0.05f, 0.3f));
             }
+
+            // Update the terminal using the given command!
+            TerminalManager.Instance.OnSubmit(command, ourTerminal);
 
             // Update the terminal if possible
             // FIXME: We going to need some patches to do this!

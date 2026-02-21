@@ -7612,6 +7612,16 @@ namespace LethalBots.AI
             {
                 localPlayerController.overridePhysicsParent = terminalTrigger.overridePlayerParent;
             }
+            ourTerminal.LoadNewNode(ourTerminal.terminalNodes.specialNodes[TerminalConst.INDEX_DEFAULT_TERMINALNODE]);
+            ref bool usedTerminalThisSession = ref PatchesUtil.usedTerminalThisSessionField.Invoke(ourTerminal);
+            if (!usedTerminalThisSession)
+            {
+                usedTerminalThisSession = true;
+                if (!PatchesUtil.syncedTerminalValuesField.Invoke(ourTerminal))
+                {
+                    ourTerminal.SyncTerminalValuesServerRpc();
+                }
+            }
             ourTerminal.SetTerminalInUseLocalClient(true);
             terminalTrigger.interactable = false; // Don't let other player use the terminal!
             ourTerminal.terminalAudio.PlayOneShot(ourTerminal.enterTerminalSFX);
