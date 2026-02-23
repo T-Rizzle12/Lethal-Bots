@@ -39,6 +39,7 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> AllowMissionControlTeleport;
         [SyncedEntryField] public SyncedEntry<bool> StartShipChatCommandProtection;
         [SyncedEntryField] public SyncedEntry<bool> AutoMissionControl;
+        [SyncedEntryField] public SyncedEntry<int> RestockEcoLimit;
         [SyncedEntryField] public SyncedEntry<float> ReturnToShipTime;
         [SyncedEntryField] public SyncedEntry<bool> TeleportWhenUsingLadders;
         [SyncedEntryField] public SyncedEntry<bool> SellAllScrapOnShip;
@@ -68,6 +69,7 @@ namespace LethalBots.Configs
         // Config identities
         public ConfigIdentities ConfigIdentities;
         public ConfigLoadouts ConfigLoadouts;
+        public ConfigStockRequirements ConfigStockRequirements;
 
         public Config(ConfigFile cfg) : base(MyPluginInfo.PLUGIN_GUID)
         {
@@ -132,6 +134,12 @@ namespace LethalBots.Configs
                                                 "Allow automatic mission control assignment",
                                                 defaultVal: true,
                                                 "Should bots that are chilling at the ship automatically assume the mission control state if the current mission controller is not set or dead?");
+
+            RestockEcoLimit = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                                "Bot restock spending limit",
+                                                defaultValue: 0,
+                                                new ConfigDescription("How much money should the bot leave in reserve when restocking the ship. This is useful if you want the bot to keep some spare cash on hand.", 
+                                                    new AcceptableValueRange<int>(0, int.MaxValue)));
 
             ReturnToShipTime = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                 "Return to ship time",
@@ -246,6 +254,10 @@ namespace LethalBots.Configs
             CopyDefaultConfigLoadoutsJson();
             ReadAndLoadConfigLoadoutsFromUser();
 
+            // Config stock requirements
+            CopyDefaultConfigStockRequirementsJson();
+            ReadAndLoadConfigStockRequirementsFromUser();
+
             ConfigManager.Register(this);
         }
 
@@ -302,6 +314,25 @@ namespace LethalBots.Configs
             catch (Exception ex)
             {
                 Plugin.Logger.LogError($"Error while CopyDefaultConfigLoadoutsJson ! {ex}");
+            }
+        }
+
+        private void CopyDefaultConfigStockRequirementsJson()
+        {
+            try
+            {
+                string directoryPath = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID);
+                Directory.CreateDirectory(directoryPath);
+
+                string json = ReadJsonResource("LethalBots.Configs.ConfigStockRequirements.json");
+                using (StreamWriter outputFile = new StreamWriter(Utility.CombinePaths(directoryPath, ConfigConst.FILE_NAME_CONFIG_IDENTITIES_DEFAULT)))
+                {
+                    outputFile.WriteLine(json);
+                }
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogError($"Error while CopyDefaultConfigStockRequirementsJson ! {ex}");
             }
         }
 
@@ -441,7 +472,7 @@ namespace LethalBots.Configs
                 {
                     // Now we merge the two files together
                     List<ConfigLoadout> loadouts = new List<ConfigLoadout>();
-                    List<string> takenNames = new List<string>();
+                    HashSet<string> takenNames = new HashSet<string>();
                     foreach (var loadout in userLoadouts.configLoadouts)
                     {
                         // User defined loadouts take priority
@@ -485,6 +516,58 @@ namespace LethalBots.Configs
                 foreach (ConfigLoadout configIdentity in ConfigLoadouts.configLoadouts)
                 {
                     LogDebugInConfig($"{configIdentity.ToString()}");
+                }
+            }
+        }
+
+        private void ReadAndLoadConfigStockRequirementsFromUser()
+        {
+            string json;
+            string path = "No path yet";
+
+            try
+            {
+                path = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID, ConfigConst.FILE_NAME_CONFIG_STOCK_REQUIREMENT_USER);
+                // Try to read user config file
+                if (File.Exists(path))
+                {
+                    Plugin.Logger.LogInfo("User stock requirements file found ! Reading...");
+                    using (StreamReader r = new StreamReader(path))
+                    {
+                        json = r.ReadToEnd();
+                    }
+
+                    ConfigStockRequirements = JsonUtility.FromJson<ConfigStockRequirements>(json);
+                    if (ConfigStockRequirements.configStockRequirements == null)
+                    {
+                        Plugin.Logger.LogWarning($"Unknown to read stock requirements from file at {path}");
+                    }
+                }
+                else
+                {
+                    Plugin.Logger.LogInfo("No user stock requirements file found. Reading default stock requirements...");
+                    path = "LethalBots.Configs.ConfigStockRequirements.json";
+                    json = ReadJsonResource(path);
+                    ConfigStockRequirements = JsonUtility.FromJson<ConfigStockRequirements>(json);
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger.LogError($"Error while ReadAndLoadConfigStockRequirementsFromUser ! {e}");
+                json = "No json, see exception above.";
+            }
+
+            if (ConfigStockRequirements.configStockRequirements == null)
+            {
+                Plugin.Logger.LogWarning($"A problem occured while retrieving stock requirements from config file ! continuing with no stock requirements... json used : \n{json}");
+                ConfigStockRequirements = new ConfigStockRequirements() { configStockRequirements = new ConfigStockRequirement[0] };
+            }
+            else
+            {
+                Plugin.Logger.LogInfo($"Loaded {ConfigStockRequirements.configStockRequirements.Length} stock requirements from file : {path}");
+                foreach (ConfigStockRequirement configStockRequirement in ConfigStockRequirements.configStockRequirements)
+                {
+                    LogDebugInConfig($"{configStockRequirement.ToString()}");
                 }
             }
         }

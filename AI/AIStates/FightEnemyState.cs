@@ -27,14 +27,16 @@ namespace LethalBots.AI.AIStates
         private Coroutine? currentAttackRoutine;
         private Collider? _enemyCollision;
         private EnemyAI? _lastEnemy;
+        private float lastColliderUpdateTimer;
         private Collider? EnemyCollision
         {
             get
             {
-                if (_lastEnemy != currentEnemy)
+                if (_lastEnemy != currentEnemy || (Time.timeSinceLevelLoad - lastColliderUpdateTimer) > 2f)
                 {
-                    _enemyCollision = FindEnemyCollider(currentEnemy);
+                    _enemyCollision = FindEnemyCollider(currentEnemy, npcController.Npc.transform.position);
                     _lastEnemy = currentEnemy;
+                    lastColliderUpdateTimer = Time.timeSinceLevelLoad;
                     Plugin.LogDebug($"Enemy: {currentEnemy} Enemy Collider: {_enemyCollision}");
                 }
                 return _enemyCollision;
@@ -332,22 +334,28 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         /// <param name="currentEnemy">the enemy to find the collider for</param>
         /// <returns>the found collider or null</returns>
-        private static Collider? FindEnemyCollider(EnemyAI? currentEnemy)
+        private static Collider? FindEnemyCollider(EnemyAI? currentEnemy, Vector3 ourPos)
         {
             Collider? result = null;
+            float resultDistSqr = float.MaxValue;
             if (currentEnemy != null)
             {
-                Collider[] colliders;
                 Plugin.LogDebug($"Attempt 1 to get the enemy collider!");
-                colliders = currentEnemy.gameObject.GetComponents<Collider>();
+                Collider[] colliders = currentEnemy.gameObject.GetComponents<Collider>();
                 foreach (Collider collider in colliders)
                 {
                     // Scan nodes are not the enemy's collider!
                     ScanNodeProperties? component = collider?.transform.gameObject.GetComponent<ScanNodeProperties>();
                     if (collider != null && component == null)
                     {
-                        result = collider;
-                        break; // For now stop at the first valid instance!
+                        Vector3 closestPoint = collider.ClosestPoint(ourPos);
+                        float colliderDistSqr = (closestPoint - ourPos).sqrMagnitude;
+                        if (result == null || colliderDistSqr < resultDistSqr)
+                        { 
+                            result = collider; 
+                            resultDistSqr = colliderDistSqr;
+                        }
+                        //break; // For now stop at the first valid instance!
                     }
                 }
 
@@ -363,8 +371,14 @@ namespace LethalBots.AI.AIStates
                         ScanNodeProperties? component = childCollider?.transform.gameObject.GetComponent<ScanNodeProperties>();
                         if (childCollider != null && component == null)
                         {
-                            result = childCollider;
-                            break; // For now stop at the first valid instance!
+                            Vector3 closestPoint = childCollider.ClosestPoint(ourPos);
+                            float childColliderDistSqr = (closestPoint - ourPos).sqrMagnitude;
+                            if (result == null || childColliderDistSqr < resultDistSqr)
+                            {
+                                result = childCollider;
+                                resultDistSqr = childColliderDistSqr;
+                            }
+                            //break; // For now stop at the first valid instance!
                         }
                     }
 

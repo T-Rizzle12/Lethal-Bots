@@ -28,6 +28,8 @@ namespace LethalBots.Utils
         public static readonly AccessTools.FieldRef<Terminal, bool> hasGottenNounField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "hasGottenNoun");
         public static readonly AccessTools.FieldRef<Terminal, bool> hasGottenVerbField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "hasGottenVerb");
 
+        public static readonly AccessTools.FieldRef<ItemDropship, List<int>> itemsToDeliverField = AccessTools.FieldRefAccess<List<int>>(typeof(ItemDropship), "itemsToDeliver");
+
         #endregion
 
         public static readonly MethodInfo AllEntitiesCountMethod = SymbolExtensions.GetMethodInfo(() => AllEntitiesCount());

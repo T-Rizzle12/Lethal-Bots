@@ -1,0 +1,37 @@
+﻿{
+  "__commentExample": [
+    {
+      "__comment_itemName": "The name of the item the bot should check the stock of, 'THIS IS CASE SENSITIVE!' (This should be the exact name as shown on the terminal store page!)",
+      "__comment_desiredStock": "The amount of the item that the bot will try to keep in the crew's possession",
+      "__comment_requiredItemName": "The following item must be in the crew's possession before the bot will consider restocking this. 'THIS IS CASE SENSITIVE!' (This should be the exact name as shown on the terminal store page!)",
+      "__comment_comment": "Some examples have been provided, just create a custom config to change them as desired!"
+    }
+  ],
+  "configStockRequirements": [
+    {
+      "name": "Shovel",
+      "desiredStock": 0,
+      "requiredItemName": "None"
+    },
+    {
+      "name": "Shotgun",
+      "desiredStock": 0,
+      "requiredItemName": "None"
+    },
+    {
+      "name": "Zap gun",
+      "desiredStock": 0,
+      "requiredItemName": "None"
+    },
+    {
+      "name": "Pro-flashlight",
+      "desiredStock": 0,
+      "requiredItemName": "None"
+    },
+    {
+      "name": "Walkie-talkie",
+      "desiredStock": 0,
+      "requiredItemName": "None"
+    }
+  ]
+}

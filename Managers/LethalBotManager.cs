@@ -551,6 +551,7 @@ namespace LethalBots.Managers
             // Identities
             LoadoutManager.Instance.InitLoadouts(Plugin.Config.ConfigLoadouts.configLoadouts);
             IdentityManager.Instance.InitIdentities(Plugin.Config.ConfigIdentities.configIdentities);
+            RestockManager.Instance.InitStockRequirements(Plugin.Config.ConfigStockRequirements.configStockRequirements);
 
             // DEBUG: List all available items and their ids
             Plugin.LogInfo("Listing all items in the game!");
@@ -3684,7 +3685,6 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogDebug($"Recreate identities for {configIdentityNetworkSerializable.ConfigIdentities.Length} bots");
-            //Plugin.Config.ConfigIdentities.configIdentities = configIdentityNetworkSerializable.ConfigIdentities;
             IdentityManager.Instance.InitIdentities(configIdentityNetworkSerializable.ConfigIdentities);
         }
 
@@ -3722,8 +3722,44 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogDebug($"Recreate loadouts for {configLoadoutNetworkSerializable.ConfigLoadouts.Length} bots");
-            //Plugin.Config.ConfigLoadouts.configLoadouts = configLoadoutNetworkSerializable.ConfigLoadouts;
             LoadoutManager.Instance.InitLoadouts(configLoadoutNetworkSerializable.ConfigLoadouts);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void SyncLoadedJsonStockRequirementsServerRpc(ulong clientId)
+        {
+            Plugin.LogDebug($"Client {clientId} ask server/host {NetworkManager.LocalClientId} to SyncLoadedJsonStockRequirements");
+            ClientRpcParams.Send = new ClientRpcSendParams()
+            {
+                TargetClientIds = new ulong[] { clientId }
+            };
+
+            SyncLoadedJsonStockRequirementsClientRpc(
+                new ConfigStockRequirementNetworkSerializable()
+                {
+                    ConfigStockRequirements = Plugin.Config.ConfigStockRequirements.configStockRequirements
+                },
+                ClientRpcParams);
+        }
+
+        [ClientRpc]
+        private void SyncLoadedJsonStockRequirementsClientRpc(ConfigStockRequirementNetworkSerializable configLoadoutNetworkSerializable,
+                                                       ClientRpcParams clientRpcParams = default)
+        {
+            if (IsOwner)
+            {
+                return;
+            }
+
+            Plugin.LogInfo($"Client {NetworkManager.LocalClientId} : sync json bots stock requirements");
+            Plugin.LogDebug($"Loaded {configLoadoutNetworkSerializable.ConfigStockRequirements.Length} stock requirements from server");
+            foreach (ConfigStockRequirement configStockRequirement in configLoadoutNetworkSerializable.ConfigStockRequirements)
+            {
+                Plugin.LogDebug($"{configStockRequirement.ToString()}");
+            }
+
+            Plugin.LogDebug($"Recreate stock requirements for {configLoadoutNetworkSerializable.ConfigStockRequirements.Length} bots");
+            RestockManager.Instance.InitStockRequirements(configLoadoutNetworkSerializable.ConfigStockRequirements);
         }
 
         #endregion

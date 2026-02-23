@@ -52,7 +52,10 @@ namespace LethalBots.Constants
         public const string FILE_NAME_CONFIG_IDENTITIES_USER = "ConfigIdentitiesUser.json";
         public const string FILE_NAME_CONFIG_LOADOUTS_DEFAULT = "ConfigLoadoutsDefault.json";
         public const string FILE_NAME_CONFIG_LOADOUTS_USER = "ConfigLoadoutsUser.json";
+        public const string FILE_NAME_CONFIG_STOCK_REQUIREMENT_DEFAULT = "ConfigStockRequirementsDefault.json";
+        public const string FILE_NAME_CONFIG_STOCK_REQUIREMENT_USER = "ConfigStockRequirementsUser.json";
         public static readonly ConfigIdentity DEFAULT_CONFIG_IDENTITY = new ConfigIdentity();
         public static readonly ConfigLoadout DEFAULT_CONFIG_LOADOUT = new ConfigLoadout();
+        public static readonly ConfigStockRequirement DEFAULT_CONFIG_STOCK_REQUIREMENT = new ConfigStockRequirement();
     }
 }

@@ -27,6 +27,8 @@ namespace LethalBots.Managers
 
         private static readonly MethodInfo attemptLoadCreatureFileNodeMethod = AccessTools.Method(typeof(Terminal), "AttemptLoadCreatureFileNode");
 
+        private static readonly MethodInfo attemptLoadStoryLogFileNodeMethod = AccessTools.Method(typeof(Terminal), "AttemptLoadStoryLogFileNode");
+
         private static readonly MethodInfo parseWordOverrideOptionsMethod = AccessTools.Method(typeof(Terminal), "ParseWordOverrideOptions");
 
         private static readonly MethodInfo checkForPlayerNameCommandMethod = AccessTools.Method(typeof(Terminal), "CheckForPlayerNameCommand");
@@ -141,7 +143,7 @@ namespace LethalBots.Managers
                     }
                     else if (terminalNode.storyLogFileID != -1)
                     {
-                        attemptLoadCreatureFileNodeMethod.Invoke(ourTerminal, new object[] { terminalNode });
+                        attemptLoadStoryLogFileNodeMethod.Invoke(ourTerminal, new object[] { terminalNode });
                     }
                     else
                     {
