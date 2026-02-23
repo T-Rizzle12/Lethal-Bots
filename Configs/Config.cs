@@ -325,7 +325,7 @@ namespace LethalBots.Configs
                 Directory.CreateDirectory(directoryPath);
 
                 string json = ReadJsonResource("LethalBots.Configs.ConfigStockRequirements.json");
-                using (StreamWriter outputFile = new StreamWriter(Utility.CombinePaths(directoryPath, ConfigConst.FILE_NAME_CONFIG_IDENTITIES_DEFAULT)))
+                using (StreamWriter outputFile = new StreamWriter(Utility.CombinePaths(directoryPath, ConfigConst.FILE_NAME_CONFIG_STOCK_REQUIREMENT_DEFAULT)))
                 {
                     outputFile.WriteLine(json);
                 }
