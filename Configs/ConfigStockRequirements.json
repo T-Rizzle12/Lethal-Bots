@@ -9,27 +9,27 @@
   ],
   "configStockRequirements": [
     {
-      "name": "Shovel",
+      "itemName": "Shovel",
       "desiredStock": 0,
       "requiredItemName": "None"
     },
     {
-      "name": "Shotgun",
+      "itemName": "Shotgun",
       "desiredStock": 0,
       "requiredItemName": "None"
     },
     {
-      "name": "Zap gun",
+      "itemName": "Zap gun",
       "desiredStock": 0,
       "requiredItemName": "None"
     },
     {
-      "name": "Pro-flashlight",
+      "itemName": "Pro-flashlight",
       "desiredStock": 0,
       "requiredItemName": "None"
     },
     {
-      "name": "Walkie-talkie",
+      "itemName": "Walkie-talkie",
       "desiredStock": 0,
       "requiredItemName": "None"
     }

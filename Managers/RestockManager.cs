@@ -89,6 +89,12 @@ namespace LethalBots.Managers
                 }
             }
 
+            // If we didn't find the required item, mark it as null!
+            if (foundRequiredItem == null)
+            {
+                requiredName = string.Empty;
+            }
+
             if (foundItem == null)
             {
                 Plugin.LogWarning($"Failed to find item with name {name}! Is the name misspelled or has the wrong letter case?");
