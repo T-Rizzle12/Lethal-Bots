@@ -27,6 +27,7 @@
         LostInFacility,
         TransferLoot,
         RescueAndRevive,
-        GrabLoadout
+        GrabLoadout,
+        CollectPurchasedItems
     }
 }

@@ -74,14 +74,22 @@ namespace LethalBots.Patches.EnemiesPatches
                     return;
                 }
 
+                const float footstepDamageRange = 12f;
+                Vector3 oldBirdPos = __instance.transform.position - __instance.transform.forward * 5f;
+                float localPlayerDistSqr = (oldBirdPos - GameNetworkManager.Instance.localPlayerController.transform.position).sqrMagnitude;
+                if (localPlayerDistSqr < footstepDamageRange * footstepDamageRange)
+                {
+                    return; // Base game already did this code, no need to do it here!
+                }
+
                 LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
                 foreach (LethalBotAI lethalBotAI in lethalBotAIs)
                 {
                     PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
                     if (lethalBotController != null)
                     {
-                        float num = Vector3.Distance(__instance.transform.position - __instance.transform.forward * 5f, lethalBotController.transform.position);
-                        if (num < 12f)
+                        float num = (oldBirdPos - lethalBotController.transform.position).sqrMagnitude;
+                        if (num < footstepDamageRange * footstepDamageRange)
                         {
                             Landmine.SpawnExplosion(__instance.transform.position + Vector3.up * 0.2f, spawnExplosionEffect: false, 2f, 5f, 30, 45f);
                             break; // Only do this once!

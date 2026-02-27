@@ -185,8 +185,9 @@ namespace LethalBots.AI.AIStates
             }
 
             // Destination after path checking might be not the same now
-            targetLastKnownPosition = usingElevator || ai.IsInsideElevator ? targetLastKnownPosition : ai.destination;
-            if (!usingElevator && !ai.IsValidPathToTarget(targetLastKnownPosition.Value))
+            bool updateTargetLastKnownPosition = !usingElevator && !ai.IsInsideElevator;
+            targetLastKnownPosition = !updateTargetLastKnownPosition ? targetLastKnownPosition : ai.destination;
+            if (updateTargetLastKnownPosition && !ai.IsValidPathToTarget(targetLastKnownPosition.Value))
             {
                 targetLastKnownPosition = null;
             }

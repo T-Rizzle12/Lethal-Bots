@@ -1,8 +1,12 @@
-﻿using HarmonyLib;
+﻿using GameNetcodeStuff;
+using HarmonyLib;
+using LethalBots.AI;
+using LethalBots.Managers;
 using LethalBots.Utils;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using UnityEngine;
 
 namespace LethalBots.Patches.EnemiesPatches
 {
@@ -46,6 +50,32 @@ namespace LethalBots.Patches.EnemiesPatches
             }
 
             return codes.AsEnumerable();
+        }
+
+        [HarmonyPatch("DoSpringAnimation")]
+        [HarmonyPostfix]
+        public static void DoSpringAnimation_Postfix(SpringManAI __instance, bool springPopUp = false)
+        {
+            LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
+            foreach (LethalBotAI? lethalBotAI in lethalBotAIs)
+            {
+                PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
+                if (lethalBotController != null)
+                {
+                    if (lethalBotController.HasLineOfSightToPosition(__instance.transform.position + Vector3.up * 0.6f, 70f, 25))
+                    {
+                        float num = Vector3.Distance(__instance.transform.position, lethalBotController.transform.position);
+                        if (num < 4f)
+                        {
+                            lethalBotController.JumpToFearLevel(0.9f);
+                        }
+                        else if (num < 9f)
+                        {
+                            lethalBotController.JumpToFearLevel(0.4f);
+                        }
+                    }
+                }
+            }
         }
     }
 }

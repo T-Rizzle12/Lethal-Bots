@@ -551,12 +551,23 @@ namespace LethalBots.Managers
             // Identities
             LoadoutManager.Instance.InitLoadouts(Plugin.Config.ConfigLoadouts.configLoadouts);
             IdentityManager.Instance.InitIdentities(Plugin.Config.ConfigIdentities.configIdentities);
+            RestockManager.Instance.InitStockRequirements(Plugin.Config.ConfigStockRequirements.configStockRequirements);
 
             // DEBUG: List all available items and their ids
-            Plugin.LogDebug("Listing all items in the game!");
+            Plugin.LogInfo("Listing all items in the game!");
             foreach (Item item in StartOfRound.Instance.allItemsList.itemsList)
             {
-                Plugin.LogDebug($"Name: {item.itemName} with ID: {item.itemId}");
+                Plugin.LogInfo($"Name: {item.itemName} with ID: {item.itemId}");
+            }
+
+            // DEBUG: List all available unlockables and their ids
+            Plugin.LogInfo("Listing all unlockable items in the game!");
+            List<UnlockableItem> unlockableItems = StartOfRound.Instance.unlockablesList.unlockables;
+            for (int i = 0; i < unlockableItems.Count; i++)
+            {
+                UnlockableItem item = unlockableItems[i];
+                if (item != null)
+                    Plugin.LogInfo($"Name: {item.unlockableName} with ID: {i}");
             }
 
             // Bot objects
@@ -664,8 +675,15 @@ namespace LethalBots.Managers
 
         public void ResetIdentities()
         {
-            // FIXME: Bots lose levels and experience when this is called. We need to cache and reapply them here!
+            if (!base.IsServer && !base.IsHost)
+            {
+                // We need to ask the server to resend the identities json to us,
+                // since we lost them when we reset the identities in the manager,
+                // and we need them to reinitialize the identities of the bots on our client!
+                return;
+            }
             IdentityManager.Instance.InitIdentities(Plugin.Config.ConfigIdentities.configIdentities);
+            SyncLoadedJsonIdentitiesToAllClientsServerRpc(); // Send the new json to all clients so they can update the identities of the bots on their end as well!
         }
 
         // TODO: Do we even need this since the bots use the player slots?
@@ -875,10 +893,23 @@ namespace LethalBots.Managers
                       (fq.EnemyAI is CentipedeAI c && c.clingingToPlayer != null) ? 15f : 1f
             );
 
+            float? CoilHeadMissionFunc(LethalBotFearQuery fearQuery)
+            {
+                if (fearQuery.EnemyAI.currentBehaviourStateIndex > 0 && fearQuery.PlayerToCheck is PlayerControllerB playerToCheck)
+                {
+                    const float trappedTeleportTimer = 10f;
+                    if (playerToCheck.timeSincePlayerMoving > trappedTeleportTimer)
+                    {
+                        return 10f;
+                    }
+                }
+                return null;
+            }
+
             // Coil Head
             RegisterThreat(typeof(SpringManAI),
                 fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 10f : null,
+                CoilHeadMissionFunc,
                 fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null
             );
 
@@ -915,7 +946,7 @@ namespace LethalBots.Managers
             RegisterThreat(typeof(SandSpiderAI),
                 fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 5f, // Sigh, i may or may not of added this after a particular experience where bots got stuck in a loop of running away and coming back despite the spider not actually chasing them!
                 fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
-                _ => 20f // Always 20 for pathfinding
+                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 10f // Based on what the spider is doing!
             );
 
             // Register threat is compatable with functions!
@@ -990,7 +1021,12 @@ namespace LethalBots.Managers
             // );
 
             // Girl aka Ghost Girl is always ignored (for now), so skip or:
-            RegisterThreat(typeof(DressGirlAI), (float?)null, (float?)null, (float?)null);
+            //RegisterThreat(typeof(DressGirlAI), (float?)null, (float?)null, (float?)null);
+            RegisterThreat(typeof(DressGirlAI), 
+                fq => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && ghostGirl.currentBehaviourStateIndex > 0 ? 40f : null,
+                _ => null,  // No value for mission control
+                fq => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && ghostGirl.staringInHaunt ? 60f : null   // We don't want to go near her.....
+            );
         }
 
         /// <summary>
@@ -1752,6 +1788,14 @@ namespace LethalBots.Managers
                 //    HUDManager.Instance.AddTextToChatOnServer($"numberOfHours: {timeOfDay.numberOfHours} \n lengthOfHours: {timeOfDay.lengthOfHours}");
                 //    HUDManager.Instance.AddTextToChatOnServer($"currentDayTime: {timeOfDay.currentDayTime} \n totalTime {timeOfDay.totalTime}");
                 //    return;
+                //}
+                //else if (message.Contains("itemdropship"))
+                //{
+                //    ItemDropship? itemDropship = CollectPurchasedItemsState.ItemDropship;
+                //    if (itemDropship != null)
+                //    {
+                //        HUDManager.Instance.AddTextToChatOnServer($"Distance to dropship: {Vector3.Distance(itemDropship.transform.parent.gameObject.transform.position, playerWhoSentMessage.transform.position)}");
+                //    }
                 //}
                 else if (message.Contains("light level"))
                 {
@@ -2547,7 +2591,8 @@ namespace LethalBots.Managers
             Vector3 teleportPos = default(Vector3);
             Vector3 nodePos;
             AudioReverbPresets audioReverbPresets = Object.FindObjectOfType<AudioReverbPresets>();
-            foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
+            LethalBotAI[] lethalBotAIs = GetLethalBotsAIOwnedByLocal();
+            foreach (LethalBotAI lethalBotAI in lethalBotAIs)
             {
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
@@ -2604,27 +2649,13 @@ namespace LethalBots.Managers
                 // Teleport bot
                 PlayerControllerB playerControllerB = lethalBotAI.NpcController.Npc;
                 ShipTeleporterPatch.SetPlayerTeleporterId_ReversePatch(teleporter, playerControllerB, 2);
-                ShipTeleporterPatch.SpikeTrapsReactToInverseTeleport_ReversePatch(teleporter);
-                ShipTeleporterPatch.SetCaveReverb_ReversePatch(teleporter, playerControllerB);
-                if (Plugin.Config.TeleportedBotDropItems)
-                { 
-                    playerControllerB.DropAllHeldItems(); 
-                }
-                if ((bool)audioReverbPresets)
+                if (playerControllerB.deadBody != null)
                 {
-                    audioReverbPresets.audioPresets[2].ChangeAudioReverbForPlayer(playerControllerB);
+                    teleporter.TeleportPlayerBodyOutServerRpc((int)playerControllerB.playerClientId, teleportPos);
+                    continue;
                 }
-                playerControllerB.isInElevator = false;
-                playerControllerB.isInHangarShipRoom = false;
-                lethalBotAI.isInsidePlayerShip = false;
-                playerControllerB.isInsideFactory = true;
-                playerControllerB.averageVelocity = 0f;
-                playerControllerB.velocityLastFrame = Vector3.zero;
-                lethalBotAI.InitStateToSearchingNoTarget(true);
-                lethalBotAI.TeleportLethalBot(teleportPos, setOutside: false, targetEntrance: null);
-                lethalBotAI.NpcController.Npc.beamOutParticle.Play();
-                teleporter.shipTeleporterAudio.PlayOneShot(teleporter.teleporterBeamUpSFX);
-                ShipTeleporterPatch.SetPlayerTeleporterId_ReversePatch(teleporter, playerControllerB, -1);
+                ShipTeleporterPatch.TeleportPlayerOutWithInverseTeleporter_ReversePatch(teleporter, (int)playerControllerB.playerClientId, teleportPos);
+                teleporter.TeleportPlayerOutServerRpc((int)playerControllerB.playerClientId, teleportPos);
             }
             IsInverseTeleporterActive = false;
         }
@@ -3647,6 +3678,22 @@ namespace LethalBots.Managers
                 ClientRpcParams);
         }
 
+        [ServerRpc(RequireOwnership = false)]
+        public void SyncLoadedJsonIdentitiesToAllClientsServerRpc()
+        {
+            Plugin.LogDebug($"Server/Host {NetworkManager.LocalClientId} is syncing loaded json identities to all clients");
+            ClientRpcParams.Send = new ClientRpcSendParams()
+            {
+                TargetClientIds = NetworkManager.ConnectedClientsIds.Where(x => x != NetworkManager.LocalClientId).ToArray()
+            };
+            SyncLoadedJsonIdentitiesClientRpc(
+                new ConfigIdentitiesNetworkSerializable()
+                {
+                    ConfigIdentities = Plugin.Config.ConfigIdentities.configIdentities
+                },
+                ClientRpcParams);
+        }
+
         [ClientRpc]
         private void SyncLoadedJsonIdentitiesClientRpc(ConfigIdentitiesNetworkSerializable configIdentityNetworkSerializable,
                                                        ClientRpcParams clientRpcParams = default)
@@ -3664,7 +3711,6 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogDebug($"Recreate identities for {configIdentityNetworkSerializable.ConfigIdentities.Length} bots");
-            Plugin.Config.ConfigIdentities.configIdentities = configIdentityNetworkSerializable.ConfigIdentities;
             IdentityManager.Instance.InitIdentities(configIdentityNetworkSerializable.ConfigIdentities);
         }
 
@@ -3702,8 +3748,44 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogDebug($"Recreate loadouts for {configLoadoutNetworkSerializable.ConfigLoadouts.Length} bots");
-            Plugin.Config.ConfigLoadouts.configLoadouts = configLoadoutNetworkSerializable.ConfigLoadouts;
             LoadoutManager.Instance.InitLoadouts(configLoadoutNetworkSerializable.ConfigLoadouts);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void SyncLoadedJsonStockRequirementsServerRpc(ulong clientId)
+        {
+            Plugin.LogDebug($"Client {clientId} ask server/host {NetworkManager.LocalClientId} to SyncLoadedJsonStockRequirements");
+            ClientRpcParams.Send = new ClientRpcSendParams()
+            {
+                TargetClientIds = new ulong[] { clientId }
+            };
+
+            SyncLoadedJsonStockRequirementsClientRpc(
+                new ConfigStockRequirementNetworkSerializable()
+                {
+                    ConfigStockRequirements = Plugin.Config.ConfigStockRequirements.configStockRequirements
+                },
+                ClientRpcParams);
+        }
+
+        [ClientRpc]
+        private void SyncLoadedJsonStockRequirementsClientRpc(ConfigStockRequirementNetworkSerializable configLoadoutNetworkSerializable,
+                                                       ClientRpcParams clientRpcParams = default)
+        {
+            if (IsOwner)
+            {
+                return;
+            }
+
+            Plugin.LogInfo($"Client {NetworkManager.LocalClientId} : sync json bots stock requirements");
+            Plugin.LogDebug($"Loaded {configLoadoutNetworkSerializable.ConfigStockRequirements.Length} stock requirements from server");
+            foreach (ConfigStockRequirement configStockRequirement in configLoadoutNetworkSerializable.ConfigStockRequirements)
+            {
+                Plugin.LogDebug($"{configStockRequirement.ToString()}");
+            }
+
+            Plugin.LogDebug($"Recreate stock requirements for {configLoadoutNetworkSerializable.ConfigStockRequirements.Length} bots");
+            RestockManager.Instance.InitStockRequirements(configLoadoutNetworkSerializable.ConfigStockRequirements);
         }
 
         #endregion
@@ -3971,6 +4053,7 @@ namespace LethalBots.Managers
         /// <param name="timeOfDay">The new time of day</param>
         public void SetLastReportedTimeOfDayAndSync(DayMode timeOfDay)
         {
+            SetLastReportedTimeOfDay(timeOfDay);
             if (base.IsServer)
             {
                 SetLastReportedTimeOfDayClientRpc(timeOfDay);
@@ -3997,6 +4080,7 @@ namespace LethalBots.Managers
         /// Sets the <see cref="lastReportedTimeOfDay"/> for this client
         /// </summary>
         /// <param name="timeOfDay"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetLastReportedTimeOfDay(DayMode timeOfDay)
         {
             lastReportedTimeOfDay = timeOfDay;

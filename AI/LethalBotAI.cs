@@ -160,7 +160,7 @@ namespace LethalBots.AI
         private Coroutine grabObjectCoroutine = null!;
         private Coroutine? spawnAnimationCoroutine = null;
         public Coroutine? useLadderCoroutine = null;
-        private Coroutine? waitUntilEndOfOffMeshLinkCoroutine = null;
+        private Coroutine? offMeshLinkCoroutine = null;
         internal Coroutine? useInteractTriggerCoroutine = null;
         private Coroutine? lethalPhonesCoroutine = null;
 
@@ -3008,6 +3008,8 @@ namespace LethalBots.AI
             return null;
         }
 
+        private static readonly AccessTools.FieldRef<DoorLock, bool> isDoorOpenedField = AccessTools.FieldRefAccess<bool>(typeof(DoorLock), "isDoorOpened");
+
         /// <summary>
         /// Check the doors after some interval of ms to see if lethalBot can open one to unstuck himself.
         /// </summary>
@@ -3019,14 +3021,10 @@ namespace LethalBots.AI
                 timerCheckDoor = 0f;
 
                 DoorLock? door = GetDoorIfWantsToOpen();
-                if (door != null)
+                if (door != null && !isDoorOpenedField.Invoke(door))
                 {
-                    // Prevent stuck behind open door
-                    Physics.IgnoreCollision(this.NpcController.Npc.playerCollider, door.GetComponent<Collider>());
-
                     // Open door
                     door.OpenOrCloseDoor(NpcController.Npc);
-                    door.OpenDoorAsEnemyServerRpc();
                     return true;
                 }
             }
@@ -3378,9 +3376,9 @@ namespace LethalBots.AI
             if (ladder == null)
             {
                 // If this is a gap, do the default logic instead!
-                if (agent.isOnOffMeshLink && waitUntilEndOfOffMeshLinkCoroutine == null)
+                if (agent.isOnOffMeshLink && offMeshLinkCoroutine == null)
                 {
-                    waitUntilEndOfOffMeshLinkCoroutine = StartCoroutine(autoTraverseOffMeshLink());
+                    offMeshLinkCoroutine = StartCoroutine(autoTraverseOffMeshLink());
                 }
                 return false;
             }
@@ -3418,7 +3416,78 @@ namespace LethalBots.AI
             yield return null;
             yield return new WaitUntil(() => !agent.isOnOffMeshLink);
             agent.autoTraverseOffMeshLink = false;
-            waitUntilEndOfOffMeshLinkCoroutine = null;
+            offMeshLinkCoroutine = null;
+        }
+
+        /// <summary>
+        /// Moves the bot across an off the mesh link using a parabola
+        /// </summary>
+        /// <remarks>
+        /// This is almost a perfect recreation from the Unity Documentation!
+        /// </remarks>
+        /// <param name="agent"></param>
+        /// <param name="height"></param>
+        /// <returns></returns>
+        private IEnumerator OffMeshLinkParabola(NavMeshAgent agent, float height)
+        {
+            OffMeshLinkData data = agent.currentOffMeshLinkData;
+            Vector3 startPos = this.transform.position;
+            Vector3 endPos = data.endPos + Vector3.up * agent.baseOffset;
+            float normalizedTime = 0f;
+
+            // Calculate duration from speed
+            Vector3 flatStart = Vector3.ProjectOnPlane(startPos, Vector3.up);
+            Vector3 flatEnd = Vector3.ProjectOnPlane(endPos, Vector3.up);
+
+            float horizontalDistance = Vector3.Distance(flatStart, flatEnd);
+            float duration = horizontalDistance / agent.speed;
+
+            Plugin.LogDebug($"Beginning off mesh link movement. {data.valid}; {data.activated}; {base.IsOwner}");
+            while (normalizedTime < 1f && data.valid && data.activated && base.IsOwner)
+            {
+                float num = height * 4f * (normalizedTime - normalizedTime * normalizedTime);
+                Plugin.LogDebug($"Moving on off mesh link; time: {normalizedTime}; y: {num}");
+                this.transform.position = Vector3.Lerp(startPos, endPos, normalizedTime) + num * Vector3.up;
+                agent.transform.position = this.transform.position;
+                normalizedTime += Time.deltaTime / duration;
+                yield return null;
+            }
+            TeleportAgentAIAndBody(endPos);
+            agent.CompleteOffMeshLink();
+            Plugin.LogDebug($"Completed off mesh link without interruption, position: {base.transform.position}");
+            offMeshLinkCoroutine = null;
+        }
+
+        private void StopOffMeshLinkMovement(bool warpToEnd = true)
+        {
+            if (offMeshLinkCoroutine == null)
+            {
+                return;
+            }
+            StopCoroutine(offMeshLinkCoroutine);
+            offMeshLinkCoroutine = null;
+            OffMeshLinkData currentOffMeshLinkData = agent.currentOffMeshLinkData;
+            agent.CompleteOffMeshLink();
+            if (currentOffMeshLinkData.valid)
+            {
+                Plugin.LogDebug($"Completed off mesh EARLY link due to an interruption; position: {base.transform.position}");
+                if (Vector3.Distance(base.transform.position, currentOffMeshLinkData.startPos) < Vector3.Distance(base.transform.position, currentOffMeshLinkData.endPos))
+                {
+                    Plugin.LogDebug($"Warping agent to start position at {currentOffMeshLinkData.startPos}");
+                    if (warpToEnd)
+                        TeleportAgentAIAndBody(currentOffMeshLinkData.startPos);
+                }
+                else
+                {
+                    Plugin.LogDebug($"Warping agent to end position at {currentOffMeshLinkData.endPos}");
+                    if (warpToEnd)
+                        TeleportAgentAIAndBody(currentOffMeshLinkData.endPos);
+                }
+            }
+            else
+            {
+                Plugin.LogDebug("Off mesh link data invalid; agent completing off mesh link anyway");
+            }
         }
 
         #region Inventory and Weapon Helpers
@@ -3836,6 +3905,21 @@ namespace LethalBots.AI
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Does the lethalBot have room for another item?
+        /// </summary>
+        /// <remarks>
+        /// This considers <see cref="Plugin.IsModReservedItemSlotCoreLoaded"/>.<br/>
+        /// This checks if the bot has space for the given item in their inventory.<br/>
+        /// Which is slightly different from <see cref="HasSpaceInInventory()"/>
+        /// </remarks>
+        /// <param name="grabbableObject">The object to assess, can be null!</param>
+        /// <returns>I mean come on</returns>
+        public bool HasSpaceInInventory(GrabbableObject? grabbableObject)
+        {
+            return FirstEmptyItemSlot(grabbableObject) != Const.INVALID_ITEM_SLOT;
         }
 
         /// <summary>
@@ -4908,7 +4992,6 @@ namespace LethalBots.AI
             }
 
             // Dead bodies
-            // TODO: Probably should add a desperation mechanic where they only sell if we won't make the quota
             if (!Plugin.Config.GrabDeadBodies.Value
                 && enumGrabbable != EnumGrabbableObjectCall.Selling
                 && enumGrabbable != EnumGrabbableObjectCall.Reviving
@@ -6144,7 +6227,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="grabbableObject">The object the bot is grabbing!</param>
         /// <returns>Returns the open slot <c>int</c> or <see cref="Const.INVALID_ITEM_SLOT"/> </returns>
-        private int FirstEmptyItemSlot(GrabbableObject? grabbableObject = null)
+        public int FirstEmptyItemSlot(GrabbableObject? grabbableObject = null)
         {
             int result = Const.INVALID_ITEM_SLOT;
             GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
@@ -7613,6 +7696,16 @@ namespace LethalBots.AI
             if ((bool)terminalTrigger.overridePlayerParent)
             {
                 localPlayerController.overridePhysicsParent = terminalTrigger.overridePlayerParent;
+            }
+            ourTerminal.LoadNewNode(ourTerminal.terminalNodes.specialNodes[TerminalConst.INDEX_DEFAULT_TERMINALNODE]);
+            ref bool usedTerminalThisSession = ref PatchesUtil.usedTerminalThisSessionField.Invoke(ourTerminal);
+            if (!usedTerminalThisSession)
+            {
+                usedTerminalThisSession = true;
+                if (!PatchesUtil.syncedTerminalValuesField.Invoke(ourTerminal))
+                {
+                    ourTerminal.SyncTerminalValuesServerRpc();
+                }
             }
             ourTerminal.SetTerminalInUseLocalClient(true);
             terminalTrigger.interactable = false; // Don't let other player use the terminal!

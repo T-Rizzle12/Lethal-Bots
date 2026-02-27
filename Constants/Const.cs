@@ -209,6 +209,11 @@ namespace LethalBots.Constants
         public const float DISTANCE_TO_COMPANY_DESK = 3f;
         public const float DISTANCE_TO_WAIT_AT_DESK = 10f;
 
+        // Collect Purchased Items State
+        public const float DISTANCE_TO_WAIT_FOR_DROPSHIP = 10f;
+        public const float DISTANCE_FALLBACK_FROM_DROPSHIP = 8f;
+        public const float DISTANCE_ITEM_TO_COLLECT = 10f;
+
         // Fetching Object State
         public const int MAX_GRAB_OBJECT_ATTEMPTS = 3;
 

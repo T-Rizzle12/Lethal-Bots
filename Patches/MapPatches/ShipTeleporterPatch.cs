@@ -4,6 +4,7 @@ using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Managers;
 using System;
+using UnityEngine;
 using Random = System.Random;
 
 namespace LethalBots.Patches.MapPatches
@@ -44,19 +45,27 @@ namespace LethalBots.Patches.MapPatches
             LethalBotManager.Instance.TeleportOutLethalBots(__instance, ___shipTeleporterSeed);
         }
 
+        [HarmonyPatch("TeleportPlayerOutWithInverseTeleporter")]
+        [HarmonyPostfix]
+        static void TeleportPlayerOutWithInverseTeleporter_PostFix(ShipTeleporter __instance, int playerObj)
+        {
+            // Bots that were inverse teleported should swap to the Searching for Scrap state.
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAIIfLocalIsOwner(playerObj);
+            if (lethalBotAI != null)
+            {
+                lethalBotAI.InitStateToSearchingNoTarget(true);
+            }
+        }
+
         [HarmonyPatch("SetPlayerTeleporterId")]
         [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
         [HarmonyPriority(Priority.Last)]
         public static void SetPlayerTeleporterId_ReversePatch(object instance, PlayerControllerB playerScript, int teleporterId) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.ShipTeleporterPatch.SetPlayerTeleporterId_ReversePatch");
 
-        [HarmonyPatch("SpikeTrapsReactToInverseTeleport")]
+        [HarmonyPatch("TeleportPlayerOutWithInverseTeleporter")]
         [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
         [HarmonyPriority(Priority.Last)]
-        public static void SpikeTrapsReactToInverseTeleport_ReversePatch(object instance) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.ShipTeleporterPatch.SpikeTrapsReactToInverseTeleport_ReversePatch");
+        public static void TeleportPlayerOutWithInverseTeleporter_ReversePatch(object instance, int playerObj, Vector3 teleportPos) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.ShipTeleporterPatch.TeleportPlayerOutWithInverseTeleporter_ReversePatch");
 
-        [HarmonyPatch("SetCaveReverb")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static void SetCaveReverb_ReversePatch(object instance, PlayerControllerB playerScript) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.ShipTeleporterPatch.SetCaveReverb_ReversePatch");
     }
 }

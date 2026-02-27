@@ -29,6 +29,8 @@ namespace LethalBots.Configs
 
         // Identity  
         [SyncedEntryField] public SyncedEntry<bool> SpawnIdentitiesRandomly;
+        [SyncedEntryField] public SyncedEntry<bool> ResetIdentitiesWhenFired;
+        public ConfigEntry<bool> ResetIdentities;
 
         // Behaviour       
         [SyncedEntryField] public SyncedEntry<bool> FollowCrouchWithPlayer;
@@ -37,6 +39,7 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> AllowMissionControlTeleport;
         [SyncedEntryField] public SyncedEntry<bool> StartShipChatCommandProtection;
         [SyncedEntryField] public SyncedEntry<bool> AutoMissionControl;
+        [SyncedEntryField] public SyncedEntry<int> RestockEcoLimit;
         [SyncedEntryField] public SyncedEntry<float> ReturnToShipTime;
         [SyncedEntryField] public SyncedEntry<bool> TeleportWhenUsingLadders;
         [SyncedEntryField] public SyncedEntry<bool> SellAllScrapOnShip;
@@ -50,9 +53,6 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> AdvancedManeaterBabyAI;
         [SyncedEntryField] public SyncedEntry<bool> GrabWheelbarrow;
         [SyncedEntryField] public SyncedEntry<bool> GrabShoppingCart;
-
-        // Teleporters
-        [SyncedEntryField] public SyncedEntry<bool> TeleportedBotDropItems;
 
         // Voice Recognition
         public ConfigEntry<bool> AllowVoiceRecognition;
@@ -69,6 +69,7 @@ namespace LethalBots.Configs
         // Config identities
         public ConfigIdentities ConfigIdentities;
         public ConfigLoadouts ConfigLoadouts;
+        public ConfigStockRequirements ConfigStockRequirements;
 
         public Config(ConfigFile cfg) : base(MyPluginInfo.PLUGIN_GUID)
         {
@@ -92,6 +93,16 @@ namespace LethalBots.Configs
                                               "Randomness of identities",
                                               defaultVal: false,
                                               "Spawn the bot with random identities from the file rather than in order?");
+
+            ResetIdentitiesWhenFired = cfg.BindSyncedEntry(ConfigConst.ConfigSectionIdentities,
+                                                "Reset identities when fired",
+                                                defaultVal: false,
+                                                "Should the LethalBotManager reset all identities after the game over fired screen? (NOTE: This will make bots lose all progress and levels in that identity!)");
+
+            ResetIdentities = cfg.Bind(ConfigConst.ConfigSectionIdentities,
+                                                "Reset identities (Host only)",
+                                                defaultValue: false,
+                                                "Should the SaveManager reset all identities next time you start a save file? (NOTE: This will automatically set itself to false when after it deletes the bot's save file. This will make bots lose all progress and levels in all identities!)");
 
             // Behavior
             FollowCrouchWithPlayer = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
@@ -123,6 +134,12 @@ namespace LethalBots.Configs
                                                 "Allow automatic mission control assignment",
                                                 defaultVal: true,
                                                 "Should bots that are chilling at the ship automatically assume the mission control state if the current mission controller is not set or dead?");
+
+            RestockEcoLimit = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                                "Bot restock spending limit",
+                                                defaultValue: 0,
+                                                new ConfigDescription("How much money should the bot leave in reserve when restocking the ship. This is useful if you want the bot to keep some spare cash on hand.", 
+                                                    new AcceptableValueRange<int>(0, int.MaxValue)));
 
             ReturnToShipTime = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                 "Return to ship time",
@@ -190,12 +207,6 @@ namespace LethalBots.Configs
                                       defaultVal: false,
                                       "Should the bot try to grab the shopping cart (mod)?");
 
-            // Teleporters
-            TeleportedBotDropItems = cfg.BindSyncedEntry(ConfigConst.ConfigSectionTeleporters,
-                                                            "Inverse Teleported bots drop items when teleporting",
-                                                            defaultVal: true,
-                                                            "Should the bot drop their items when inverse teleporting?");
-
             // Voice Recognition
             AllowVoiceRecognition = cfg.Bind(ConfigConst.ConfigSectionVoiceRecognition,
                                             "Enable bot Voice Recognition (Client only)",
@@ -236,12 +247,14 @@ namespace LethalBots.Configs
             cfg.SaveOnConfigSet = true;
 
             // Config identities
-            CopyDefaultConfigIdentitiesJson();
-            ReadAndLoadConfigIdentitiesFromUser();
+            ReadAndLoadConfigIdentities();
 
             // Config loadouts
             CopyDefaultConfigLoadoutsJson();
             ReadAndLoadConfigLoadoutsFromUser();
+
+            // Config stock requirements
+            ReadAndLoadConfigStockRequirements();
 
             ConfigManager.Register(this);
         }
@@ -272,7 +285,7 @@ namespace LethalBots.Configs
                 Directory.CreateDirectory(directoryPath);
 
                 string json = ReadJsonResource("LethalBots.Configs.ConfigIdentities.json");
-                using (StreamWriter outputFile = new StreamWriter(Utility.CombinePaths(directoryPath, ConfigConst.FILE_NAME_CONFIG_IDENTITIES_DEFAULT)))
+                using (StreamWriter outputFile = new StreamWriter(Utility.CombinePaths(directoryPath, ConfigConst.FILE_NAME_CONFIG_IDENTITIES)))
                 {
                     outputFile.WriteLine(json);
                 }
@@ -302,6 +315,25 @@ namespace LethalBots.Configs
             }
         }
 
+        private void CopyDefaultConfigStockRequirementsJson()
+        {
+            try
+            {
+                string directoryPath = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID);
+                Directory.CreateDirectory(directoryPath);
+
+                string json = ReadJsonResource("LethalBots.Configs.ConfigStockRequirements.json");
+                using (StreamWriter outputFile = new StreamWriter(Utility.CombinePaths(directoryPath, ConfigConst.FILE_NAME_CONFIG_STOCK_REQUIREMENTS)))
+                {
+                    outputFile.WriteLine(json);
+                }
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogError($"Error while CopyDefaultConfigStockRequirementsJson ! {ex}");
+            }
+        }
+
         private string ReadJsonResource(string resourceName)
         {
             var assembly = Assembly.GetExecutingAssembly();
@@ -315,14 +347,14 @@ namespace LethalBots.Configs
             }
         }
 
-        private void ReadAndLoadConfigIdentitiesFromUser()
+        private void ReadAndLoadConfigIdentities()
         {
             string json;
             string path = "No path yet";
 
             try
             {
-                path = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID, ConfigConst.FILE_NAME_CONFIG_IDENTITIES_USER);
+                path = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID, ConfigConst.FILE_NAME_CONFIG_IDENTITIES);
                 // Try to read user config file
                 if (File.Exists(path))
                 {
@@ -340,7 +372,8 @@ namespace LethalBots.Configs
                 }
                 else
                 {
-                    Plugin.Logger.LogInfo("No user identities file found. Reading default identities...");
+                    Plugin.Logger.LogInfo("No identities file found. Creating new file with default identities...");
+                    CopyDefaultConfigIdentitiesJson();
                     path = "LethalBots.Configs.ConfigIdentities.json";
                     json = ReadJsonResource(path);
                     ConfigIdentities = JsonUtility.FromJson<ConfigIdentities>(json);
@@ -438,7 +471,7 @@ namespace LethalBots.Configs
                 {
                     // Now we merge the two files together
                     List<ConfigLoadout> loadouts = new List<ConfigLoadout>();
-                    List<string> takenNames = new List<string>();
+                    HashSet<string> takenNames = new HashSet<string>();
                     foreach (var loadout in userLoadouts.configLoadouts)
                     {
                         // User defined loadouts take priority
@@ -482,6 +515,59 @@ namespace LethalBots.Configs
                 foreach (ConfigLoadout configIdentity in ConfigLoadouts.configLoadouts)
                 {
                     LogDebugInConfig($"{configIdentity.ToString()}");
+                }
+            }
+        }
+
+        private void ReadAndLoadConfigStockRequirements()
+        {
+            string json;
+            string path = "No path yet";
+
+            try
+            {
+                path = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID, ConfigConst.FILE_NAME_CONFIG_STOCK_REQUIREMENTS);
+                // Try to read user config file
+                if (File.Exists(path))
+                {
+                    Plugin.Logger.LogInfo("User stock requirements file found ! Reading...");
+                    using (StreamReader r = new StreamReader(path))
+                    {
+                        json = r.ReadToEnd();
+                    }
+
+                    ConfigStockRequirements = JsonUtility.FromJson<ConfigStockRequirements>(json);
+                    if (ConfigStockRequirements.configStockRequirements == null)
+                    {
+                        Plugin.Logger.LogWarning($"Unknown to read stock requirements from file at {path}");
+                    }
+                }
+                else
+                {
+                    Plugin.Logger.LogInfo("No stock requirements file found. Creating new file with default stock requirements...");
+                    CopyDefaultConfigStockRequirementsJson();
+                    path = "LethalBots.Configs.ConfigStockRequirements.json";
+                    json = ReadJsonResource(path);
+                    ConfigStockRequirements = JsonUtility.FromJson<ConfigStockRequirements>(json);
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger.LogError($"Error while ReadAndLoadConfigStockRequirementsFromUser ! {e}");
+                json = "No json, see exception above.";
+            }
+
+            if (ConfigStockRequirements.configStockRequirements == null)
+            {
+                Plugin.Logger.LogWarning($"A problem occured while retrieving stock requirements from config file ! continuing with no stock requirements... json used : \n{json}");
+                ConfigStockRequirements = new ConfigStockRequirements() { configStockRequirements = new ConfigStockRequirement[0] };
+            }
+            else
+            {
+                Plugin.Logger.LogInfo($"Loaded {ConfigStockRequirements.configStockRequirements.Length} stock requirements from file : {path}");
+                foreach (ConfigStockRequirement configStockRequirement in ConfigStockRequirements.configStockRequirements)
+                {
+                    LogDebugInConfig($"{configStockRequirement.ToString()}");
                 }
             }
         }

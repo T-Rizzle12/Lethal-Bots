@@ -846,44 +846,59 @@ namespace LethalBots.Patches.NpcPatches
 
         #region Transpilers
 
-        /* [HarmonyPatch("ConnectClientToPlayerObject")]
-         [HarmonyTranspiler]
-         public static IEnumerable<CodeInstruction> ConnectClientToPlayerObject_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
-         {
-             var startIndex = -1;
-             var codes = new List<CodeInstruction>(instructions);
+        [HarmonyPatch("Crouch")]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> Crouch_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var patched = false;
+            var timesPatched = 0;
+            var codes = new List<CodeInstruction>(instructions);
 
-             // ----------------------------------------------------------------------
-             for (var i = 0; i < codes.Count - 3; i++)
-             {
-                 if (codes[i].ToString().StartsWith("ldarg.0 NULL")
-                     && codes[i + 1].ToString() == "ldfld StartOfRound GameNetcodeStuff.PlayerControllerB::playersManager"
-                     && codes[i + 2].ToString() == "ldfld UnityEngine.GameObject[] StartOfRound::allPlayerObjects"
-                     && codes[i + 3].ToString() == "ldlen NULL")
-                 {
-                     startIndex = i;
-                     break;
-                 }
-             }
-             if (startIndex > -1)
-             {
-                 codes[startIndex].opcode = OpCodes.Nop;
-                 codes[startIndex].operand = null;
-                 codes[startIndex + 1].opcode = OpCodes.Nop;
-                 codes[startIndex + 1].operand = null;
-                 codes[startIndex + 2].opcode = OpCodes.Nop;
-                 codes[startIndex + 2].operand = null;
-                 codes[startIndex + 3].opcode = OpCodes.Call;
-                 codes[startIndex + 3].operand = PatchesUtil.IndexBeginOfInternsMethod;
-                 startIndex = -1;
-             }
-             else
-             {
-                 Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.ConnectClientToPlayerObject_Transpiler could not limit teleport to only not interns.");
-             }
+            MethodInfo getStartOfRoundInstance = AccessTools.PropertyGetter(typeof(StartOfRound), "Instance");
+            FieldInfo timeAtMakingLastPersonalMovementField = AccessTools.Field(typeof(StartOfRound), "timeAtMakingLastPersonalMovement");
+            MethodInfo realtimeSinceStartupField = AccessTools.PropertyGetter(typeof(Time), "realtimeSinceStartup");
 
-             return codes.AsEnumerable();
-         }*/
+            // ----------------------------------------------------------------------
+            // We need to fix the game setting timeAtMakingLastPersonalMovement when a bot calls this method
+            for (var i = 0; i < codes.Count - 2; i++)
+            {
+                if (codes[i].Calls(getStartOfRoundInstance)
+                    && codes[i + 1].Calls(realtimeSinceStartupField)
+                    && codes[i + 2].StoresField(timeAtMakingLastPersonalMovementField))
+                {
+                    // Prep our label to jump to
+                    var skipLabel = generator.DefineLabel();
+
+                    // Prep our new if statement
+                    List<CodeInstruction> codesToReplace = new List<CodeInstruction>
+                    {
+                        new CodeInstruction(OpCodes.Ldarg_0), // Load `this`, PlayerControllerB
+                        new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLocalMethod), // Compare this == localPlayerController
+                        new CodeInstruction(OpCodes.Brfalse, skipLabel) // Skip the timeAtMakingLastPersonalMovement if we are not the local player
+                    };
+
+                    // Add our new label!
+                    codes[i + 3].labels.Add(skipLabel);
+
+                    // Insert the new instruction to call the replacement method.
+                    codes.InsertRange(i, codesToReplace);
+                    i += codesToReplace.Count; // Move our index past the newly added codes!
+                    patched = true;
+                    timesPatched++;
+                }
+            }
+
+            if (!patched)
+            {
+                Plugin.LogError($"LethalBots.Patches.NpcPatches.PlayerControllerBPatch.Crouch_Transpiler could not check if player local for Crouch");
+            }
+            else
+            {
+                Plugin.LogDebug($"Patched out timeAtMakingLastPersonalMovement for bots in Crouch {timesPatched} times!");
+            }
+
+            return codes.AsEnumerable();
+        }
 
         #endregion
 

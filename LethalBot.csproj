@@ -6,7 +6,7 @@
     <AssemblyName>LethalBots</AssemblyName>
     <Product>LethalBots</Product>
     <!-- Change to whatever version you're currently on. This will be used by tcli when building our Thunderstore package. -->
-    <Version>2.3.1</Version>
+    <Version>3.0.0</Version>
   </PropertyGroup>
 
   <!-- Project Properties -->
@@ -72,6 +72,7 @@
     <None Remove="Assets\Images\Lethal-Bots-temp-logo.png" />
     <None Remove="Configs\ConfigIdentities.json" />
     <None Remove="Configs\ConfigLoadouts.json" />
+	<None Remove="Configs\ConfigStockRequirements.json" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Assets\Audio\Voices\DefaultVoices.zip" />
@@ -82,6 +83,7 @@
     <EmbeddedResource Include="Assets\Images\Lethal-Bots-temp-logo.png" />
     <EmbeddedResource Include="Configs\ConfigIdentities.json" />
 	<EmbeddedResource Include="Configs\ConfigLoadouts.json" />
+	<EmbeddedResource Include="Configs\ConfigStockRequirements.json" />
   </ItemGroup>
 
   <ItemGroup>

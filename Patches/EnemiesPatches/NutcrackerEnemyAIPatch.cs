@@ -132,7 +132,6 @@ namespace LethalBots.Patches.EnemiesPatches
                                 __instance.lastPlayerSeenMoving = (int)lethalBotController.playerClientId;
                                 __instance.SeeMovingThreatServerRpc((int)lethalBotController.playerClientId);
                             }
-                            break;
                         }
                     }
                     break;

@@ -1,5 +1,60 @@
 # Changelog
 
+## 3.0.0 - 2026-2-27
+Alright, its time for the next update. This time improving how bots use the terminal and allowing them to buy stuff on it. There is a config file that allows you to specify what items to buy and how much to keep stocked on the ship. The config system **HAS BEEN CHANGED**, instead of keeping track of two files Default and User. A general Identity and Stock config file will be created. This allows you to make edits directly without my mod overriding it anymore. If you want to reset said config files, its a simple as deleting them. My mod will recreate them automatically. This doesn't apply to the Loadout system since it loads both Default and User config files and the Default loadouts can be overridden in the User config file as desired. Now, onto the patch notes!
+
+## Bot Level Persistency
+After you get fired, all bot identities would be reset back to default. This ends up causing bots to loose their levels. They will no longer do this by default. Config options have been added to you to reenable this or choose when to reset all identities.
+- Added new config option ResetIdentitiesWhenFired, when set to true, the save's identity files will be reset for all clients after you get fired by the company. By default, this is false.
+- Added a new config option ResetIdentities, when set to true, this is force reset the save's identity files upon loading a save file. After force resetting the save's identity files, it will automatically set itself back to false. By default, this is false.  
+
+## Bot Terminal rework
+The entire system for how the bots use terminals has been rewritten. Bots can now actually go through the terminal node trees when on the terminal.
+- TerminalManager now actually has a purpose other than caching the terminal instance. It holds all of my modified versions of the terminal code.
+- Mission Control State has been updated to reflect this new system!
+- Improved LethalBotAI.EnterTerminal
+  
+## Inverse Teleport Improvements
+Bots now use more base game code when being inverse teleported. This should make mods to selectively drop items when being teleported work with them now.
+- TeleportedBotDropItems config option has been removed since the base game and other mods will handle that now
+  
+## Bot Restock System
+As stated earlier, you can configure bots on what gear to buy and how much to keep in stock on the ship! Bots also consider sale prices as well.
+- Added new config option RestockEcoLimit, How much money should the bot leave in reserve when restocking the ship. This is useful if you want the bot to keep some spare cash on hand.
+- Added CollectPurchasedItemsState, this makes the bot wait nearby the drop ship landing zone until it arrives, which then the bot will open it and transfer the purchased items back to the ship. For now, bots will only do this at the company building.
+- The Mission Controller bot and bots chilling at the ship will automatically swap to the CollectPurchasedItemsState as needed
+ 
+## Ghost Girl Support
+You may have not known, but Ghost Girl would break with bots. She wouldn't run any of her logic due to the way she was programmed. This has been fixed and she now properly stalks and attacks bots.
+- Finally fixed Ghost Girl breaking if targeting a bot
+- Bots being haunted by Ghost Girl can now see her when being chased or watched
+ 
+## General Improvements
+- Rewrote the config system to only use one file for each type, rather than pairs of two.
+- Bots that are grabbing their loadout now consider reserved item slots
+- Bots in the FetchingObjectSlot now consider reserved item slots when checking if they still have inventory space
+- Made some minor adjustments to JustLostPlayerState
+- Bots in the MissionControlState will now grab their loadout
+- Made some adjustments to MissionControlState in general. Bot's logic when monitoring players has been slightly improved.
+- Added a new overload to LethalBotAI.HasSpaceInInventory that considers if the bot has space for the given GrabbableObject
+- My mod will now list all items and unlockables in the game along with their id in the console. This makes it easier to find custom item names and suit ids!
+- Improved how FightEnemyState detects enemy colliders
+- Improved PanikState by adding a new function CounterEnemy, which will make it easier to make bots counter certain enemies.
+- Updated Constraints files
+- Made some minor optimizations
+  
+## Bug fixes
+- Fixed a logic error where clients' custom loadouts and bot identities could be overridden by other players if you joined their game. The issue would fix itself if you restart the game.
+- LethalBotManager.BeamOutLethalBots is called on all clients, but ran its code on all bots. This could create some strange logic issues. Its code will now only run on bots owned by the local player. Which should fix duplicated logic calls.
+- Changed how bots open doors to be more consistent with how the base game does it for players.
+- Fixed a logic error in FightEnemyState.TryPlayCurrentStateVoiceAudio where bots would rarely say combat voice lines.
+- Fixed some potential infinite loops with the Loot Transfer system
+- Bots will only teleport players being threatened by Coil Heads if said player has not moved for over 10 seconds.
+- Fixed a bug where Nutcrackers would hate some bots more than others........        
+- Fixed Old Birds dealing double footstep damage......with this mod installed.......
+- Fixed bots not gaining fear if a Coil Head stops moving near them.
+- Fixed bot crouching and uncrouching, causing Nutcrackers to agro onto the local player...........
+
 ## 2.3.1 - 2026-2-18
 Sigh, this might be one of the buggiest updates I have ever released........
 - Fixed a logic error in LostInFacilityState that caused searchForExit to never start

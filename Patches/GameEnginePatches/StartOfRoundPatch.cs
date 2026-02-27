@@ -46,6 +46,9 @@ namespace LethalBots.Patches.GameEnginePatches
             objectManager = new GameObject("LoadoutManager");
             objectManager.AddComponent<LoadoutManager>();
 
+            objectManager = new GameObject("RestockManager");
+            objectManager.AddComponent<RestockManager>();
+
             // NetworkBehaviours
             objectManager = Object.Instantiate(PluginManager.Instance.TerminalManagerPrefab);
             if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
@@ -599,6 +602,7 @@ namespace LethalBots.Patches.GameEnginePatches
             {
                 LethalBotManager.Instance.SyncLoadedJsonLoadoutsServerRpc(clientId);
                 LethalBotManager.Instance.SyncLoadedJsonIdentitiesServerRpc(clientId);
+                LethalBotManager.Instance.SyncLoadedJsonStockRequirementsServerRpc(clientId);
                 SaveManager.Instance.SyncCurrentValuesServerRpc(clientId);
             }
         }
@@ -657,8 +661,11 @@ namespace LethalBots.Patches.GameEnginePatches
         [HarmonyPostfix]
         static void FirePlayersAfterDeadlineClientRpc_PostFix()
         {
-            // Reset after fired
-            LethalBotManager.Instance.ResetIdentities();
+            if (Plugin.Config.ResetIdentitiesWhenFired.Value)
+            {   
+                // Reset after fired
+                LethalBotManager.Instance.ResetIdentities();
+            }
         }
     }
 }

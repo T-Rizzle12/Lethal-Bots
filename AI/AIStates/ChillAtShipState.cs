@@ -111,10 +111,18 @@ namespace LethalBots.AI.AIStates
             // HACKHACK: Piggyback off of canInverseTeleport before we can look for players to revive!
             if (canInverseTeleport)
             {
+                // Does someone need to be saved?
                 PlayerControllerB? playerController = ai.LookingForPlayerToRevive(true, true);
                 if (playerController != null)
                 {
                     ai.State = new RescueAndReviveState(this, playerController);
+                    return;
+                }
+
+                // Were there items recently purchased?
+                if (CollectPurchasedItemsState.IsPossible())
+                {
+                    ai.State = new CollectPurchasedItemsState(this);
                     return;
                 }
             }

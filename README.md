@@ -59,8 +59,8 @@ Lots of settings for the bot's AI can be configured, so go check them !</br>
 Mod is compatible with InputUtils so you can change your inputs !</br>
 There's also a config file for the identities of the bots (a name, preferred suit, a voice)</br>
 ![folder_config](https://github.com/T-Rizzle12/Lethal-Bots/blob/master/Assets/Images/folder_configs.png?raw=true)</br>
-Identities can be found in a new config file at Your_profile_folder\BepInEx\config\LethalBots\ConfigIdentitiesDefault.json</br>
-If you want to make your own file, name it 'ConfigIdentitiesUser.json' and the default one will be ignored. Details can be found in the default json.</br>
+All config files can be found at Your_profile_folder\BepInEx\config\LethalBots\ </br>
+If you want to make your own custom loadouts file, rename 'ConfigLoadoutsDefault.json' to 'ConfigLoadoutsUser.json' and the default one will be ignored. Details can be found in the default json.</br>
 ![folder_config](https://github.com/T-Rizzle12/Lethal-Bots/blob/master/Assets/Images/folder_config_user.png?raw=true)</br>
 To link the voice folder to the bot, simply change the "VoiceFolder" property in the identity you want.
 

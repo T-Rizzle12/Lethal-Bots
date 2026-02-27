@@ -66,6 +66,13 @@ namespace LethalBots.Managers
 
             try
             {
+                if (Plugin.Config.ResetIdentities.Value)
+                {
+                    Plugin.Config.ResetIdentities.Value = false; // Reset config value so this is only applied once the save file is opened.
+                    Save = new SaveFile(); // Clear save data by creating new one, as the config is set to reset identities at the start of the round
+                    return;
+                }
+
                 string json = (string)ES3.Load(key: SAVE_DATA_KEY, defaultValue: null, filePath: saveFile);
                 if (json != null)
                 {

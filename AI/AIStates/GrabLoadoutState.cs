@@ -9,7 +9,7 @@ namespace LethalBots.AI.AIStates
 {
     public class GrabLoadoutState : AIState
     {
-        List<string> itemsToGrab = new List<string>();
+        private List<string> itemsToGrab = new List<string>();
 
         public GrabLoadoutState(AIState oldState, AIState? changeToOnEnd = null) : base(oldState, changeToOnEnd)
         {
@@ -40,7 +40,7 @@ namespace LethalBots.AI.AIStates
         {
             // We got everything we needed.
             // Lets do this!
-            if (itemsToGrab.Count <= 0 || !ai.HasSpaceInInventory())
+            if (itemsToGrab.Count <= 0)
             {
                 ChangeBackToPreviousState();
                 return;
@@ -64,7 +64,8 @@ namespace LethalBots.AI.AIStates
             string itemToGrab = itemsToGrab[0]; // Lets grab our gear!
             itemsToGrab.RemoveAt(0); // Remove from list, even if we don't find it.
             GrabbableObject? grabbableObject = FindItemWithName(itemToGrab);
-            if (grabbableObject != null)
+            if (grabbableObject != null 
+                && ai.HasSpaceInInventory(grabbableObject))
             {
                 ai.State = new FetchingObjectState(this, grabbableObject);
                 return;

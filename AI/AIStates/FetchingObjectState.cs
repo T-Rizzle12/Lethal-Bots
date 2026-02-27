@@ -37,7 +37,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Target item invalid to grab
-            if (!ai.HasSpaceInInventory()
+            if (!ai.HasSpaceInInventory(this.TargetItem)
                 || this.TargetItem == null 
                 || !IsObjectGrabbable() 
                 || grabAttempts > Const.MAX_GRAB_OBJECT_ATTEMPTS)

@@ -5,6 +5,7 @@ using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.NpcPatches;
+using LethalBots.Utils;
 using LethalLib.Modules;
 using Scoops.gameobjects;
 using Scoops.misc;
@@ -14,10 +15,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Unity.Netcode;
 using UnityEngine;
+using static Unity.Audio.Handle;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 
@@ -32,6 +35,8 @@ namespace LethalBots.AI.AIStates
     {
         private bool overrideCrouch;
         private bool skipTerminalThink; // Used so the bot can accept calls on the switchboard
+        private bool canCollectPurchasedItems; // Used to keep the bot from heading over to collect what is purchased when we are in the middle of ordering stuff.
+        private bool grabbedLoadout; // Used to make the bot grab its loadout before heading on the terminal
         private bool botClosedShipDoors; // Used so the bot doesn't mess with the doors when the player touches them
         private bool playerRequestLeave; // This is used when a human player requests the bot to pull the ship lever!
         private bool playerRequestedTerminal; // This is used when a human player requests to use the terminal!
@@ -45,6 +50,7 @@ namespace LethalBots.AI.AIStates
         private Queue<PlayerControllerB> playersRequstedTeleport = new Queue<PlayerControllerB>();
         private Coroutine? monitorCrew;
         private Coroutine? useSignalTranslator;
+        private Coroutine? restockShip;
         private float leavePlanetTimer;
         private static Dictionary<Turret, TerminalAccessibleObject> turrets = new Dictionary<Turret, TerminalAccessibleObject>();
         private static Dictionary<Landmine, TerminalAccessibleObject> landmines = new Dictionary<Landmine, TerminalAccessibleObject>();
@@ -66,7 +72,7 @@ namespace LethalBots.AI.AIStates
             }
         }
         private static SignalTranslator? _signalTranslator;
-        private static SignalTranslator? SignalTranslator
+        internal static SignalTranslator? SignalTranslator
         {
             get
             {
@@ -120,6 +126,7 @@ namespace LethalBots.AI.AIStates
                 SetupTerminalAccessibleObjects();
                 FindWalkieTalkie();
                 FindWeapon();
+                grabbedLoadout = false;
             }
             base.OnEnterState();
         }
@@ -162,6 +169,14 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // Make sure to grab our loadout before we get on the terminal
+            if (!grabbedLoadout)
+            {
+                grabbedLoadout = true;
+                ai.State = new GrabLoadoutState(this);
+                return;
+            }
+
             // A human player requested to use the terminal,
             // we should get off and let them use it!
             if (playerRequestedTerminal)
@@ -179,7 +194,10 @@ namespace LethalBots.AI.AIStates
                     playerRequestedTerminal = false;
                     waitForTerminalTime = 0f;
                 }
-                waitForTerminalTime += ai.AIIntervalTime;
+                else
+                {
+                    waitForTerminalTime += ai.AIIntervalTime;
+                }
                 return;
             }
             else
@@ -233,6 +251,13 @@ namespace LethalBots.AI.AIStates
                 bodyToCollect = null;
                 LethalBotAI.DictJustDroppedItems.Remove(body); // HACKHACK: Skip the dropped item cooldown so bot can grab the body immediately
                 ai.State = new FetchingObjectState(this, body);
+                return;
+            }
+
+            // Do we have purchased items to collect?
+            if (canCollectPurchasedItems && CollectPurchasedItemsState.IsPossible(true))
+            {
+                ai.State = new CollectPurchasedItemsState(this);
                 return;
             }
 
@@ -327,14 +352,18 @@ namespace LethalBots.AI.AIStates
                     // If we don't have our weapon, we should pick it up!
                     if (!ai.HasGrabbableObjectInInventory(weapon, out _))
                     {
-                        if (!weapon.isInShipRoom || weapon.isHeld)
+                        int openSlot = ai.FirstEmptyItemSlot(weapon);
+                        if (openSlot != Const.INVALID_ITEM_SLOT)
                         {
-                            FindWeapon();
+                            if (!weapon.isInShipRoom || weapon.isHeld)
+                            {
+                                FindWeapon();
+                                return;
+                            }
+                            LethalBotAI.DictJustDroppedItems.Remove(weapon);
+                            ai.State = new FetchingObjectState(this, weapon);
                             return;
                         }
-                        LethalBotAI.DictJustDroppedItems.Remove(weapon);
-                        ai.State = new FetchingObjectState(this, weapon);
-                        return;
                     }
                     // If our weapon uses batteries and its low on battery, we should charge it!
                     else if (!LethalBotAI.IsItemPowered(weapon))
@@ -394,15 +423,19 @@ namespace LethalBots.AI.AIStates
             {
                 // We don't have the walkie-talkie, so we should pick it up!
                 if (!ai.HasGrabbableObjectInInventory(walkieTalkie, out int walkieSlot))
-                { 
-                    if (!walkieTalkie.isInShipRoom || walkieTalkie.isHeld)
+                {
+                    int openSlot = ai.FirstEmptyItemSlot(walkieTalkie);
+                    if (openSlot != Const.INVALID_ITEM_SLOT)
                     {
-                        FindWalkieTalkie();
+                        if (!walkieTalkie.isInShipRoom || walkieTalkie.isHeld)
+                        {
+                            FindWalkieTalkie();
+                            return;
+                        }
+                        LethalBotAI.DictJustDroppedItems.Remove(walkieTalkie); // HACKHACK: Since the walkie-talkie is on the ship, we clear the just dropped item timer!
+                        ai.State = new FetchingObjectState(this, walkieTalkie);
                         return;
                     }
-                    LethalBotAI.DictJustDroppedItems.Remove(walkieTalkie); // HACKHACK: Since the walkie-talkie is on the ship, we clear the just dropped item timer!
-                    ai.State = new FetchingObjectState(this, walkieTalkie);
-                    return;
                 }
                 // If our walkie-talkie is low on battery, we should charge it!
                 else if (walkieTalkie.insertedBattery.empty
@@ -496,6 +529,18 @@ namespace LethalBots.AI.AIStates
                 }
                 else
                 {
+                    // At the company building, we have different logic!
+                    if (LethalBotManager.AreWeAtTheCompanyBuilding())
+                    {
+                        // FIXME: This blocks out some of the chat commands.
+                        // It may be a good idea to have some kind of flag to allow the default stuff when needed.
+                        if (restockShip == null)
+                        {
+                            restockShip = ai.StartCoroutine(RestockTheShip());
+                        }
+                        return;
+                    }
+
                     // TODO: Implement AI for monitoring players, opening and closing blast doors, teleporting players,
                     // using the signal translator, buying a walkie-talkie to distract eyeless dogs, using the ship horn,
                     // and more I can't think of at the time.....
@@ -527,6 +572,7 @@ namespace LethalBots.AI.AIStates
             base.StopAllCoroutines();
             StopMonitoringCrew();
             StopUsingSignalTranslator();
+            StopRestockingTheShip();
         }
 
         private IEnumerator MissionSurveillanceRoutine()
@@ -542,8 +588,8 @@ namespace LethalBots.AI.AIStates
                 targetPlayerUpdated = true;
 
                 // Get the next queued message!
-                if (SignalTranslator != null 
-                    && HasMessageToSend() 
+                if (HasMessageToSend() 
+                    && SignalTranslator != null 
                     && Time.realtimeSinceStartup - SignalTranslator.timeLastUsingSignalTranslator >= 8f)
                 {
                     // Make sure the message is vaild
@@ -551,8 +597,6 @@ namespace LethalBots.AI.AIStates
                     if (!string.IsNullOrWhiteSpace(messageToSend))
                     {
                         yield return SendCommandToTerminal($"transmit {messageToSend}");
-                        //SignalTranslator.timeLastUsingSignalTranslator = Time.realtimeSinceStartup;
-                        HUDManager.Instance.UseSignalTranslatorServerRpc(messageToSend.Substring(0, Mathf.Min(messageToSend.Length, 10)));
                     }
                 }
 
@@ -570,7 +614,7 @@ namespace LethalBots.AI.AIStates
                     if (playerControllerB != targetedPlayer)
                     {
                         // Switch to the requested player first
-                        yield return SwitchRadarTargetToPlayer(playerControllerB);
+                        yield return SwitchRadarTarget(playerControllerB);
 
                         // Wait until the teleport target is updated
                         startTime = Time.timeSinceLevelLoad; // Reuse start time variable, just in case we fail to update the target somehow.
@@ -587,7 +631,7 @@ namespace LethalBots.AI.AIStates
                 {
                     if (targetedPlayer != monitoredPlayer)
                     {
-                        yield return SwitchRadarTargetToPlayer(monitoredPlayer);
+                        yield return SwitchRadarTarget(monitoredPlayer);
                     }
                     else
                     {
@@ -603,7 +647,7 @@ namespace LethalBots.AI.AIStates
                     yield return HandlePlayerMonitorLogic(targetedPlayer);
                 }
 
-                yield return SwitchToNextRadarTarget();
+                yield return SwitchRadarTarget();
             }
 
             // Clear the monitor crew coroutine!
@@ -611,65 +655,34 @@ namespace LethalBots.AI.AIStates
         }
 
         /// <summary>
-        /// Switches the ship monitor's targeted player up one index
-        /// </summary>
-        /// <returns></returns>
-        private IEnumerator SwitchToNextRadarTarget()
-        {
-            yield return SendCommandToTerminal("switch");
-            StartOfRound.Instance.mapScreen.SwitchRadarTargetForward(true);
-        }
-
-        /// <summary>
         /// Switches the ship monitor's targeted player to the player given
         /// </summary>
         /// <param name="player"></param>
         /// <returns></returns>
-        private IEnumerator SwitchRadarTargetToPlayer(PlayerControllerB player)
+        private IEnumerator SwitchRadarTarget(PlayerControllerB? player = null)
         {
-            // Ok, so I found out this can break if we have an active signal booster so uh.
-            string playerUsername = player.playerUsername.ToLower();
-            yield return SendCommandToTerminal($"switch {playerUsername}");
-            //StartOfRound.Instance.mapScreen.SwitchRadarTargetAndSync((int)player.playerClientId);
-            int playerIndex = (int)player.playerClientId; // Fallback to client id.
-            var radarTargets = StartOfRound.Instance.mapScreen.radarTargets;
-            for (int i = 0; i < radarTargets.Count; i++)
+            if (player != null)
             {
-                var radarTarget = radarTargets[i];
-                if (radarTarget != null 
-                    && !radarTarget.isNonPlayer 
-                    && radarTarget.name.ToLower() == playerUsername)
-                {
-                    playerIndex = i;
-                    break;
-                }
+                string playerUsername = player.playerUsername.ToLower();
+                yield return SendCommandToTerminal($"switch {playerUsername}");
             }
-            StartOfRound.Instance.mapScreen.SwitchRadarTargetAndSync(playerIndex);
+            else
+            {
+                yield return SendCommandToTerminal("switch");
+            }
         }
 
         /// <summary>
         /// Makes the bot disable traps nearby the given player!
         /// </summary>
-        /// <remarks>
-        /// FIXME: This is a bit different compared to how the base game does it,
-        /// we should be doing every object with the same code rather than only the object we want to use.
-        /// </remarks>
         /// <param name="player"></param>
         /// <returns></returns>
         private IEnumerator UseTerminalAccessibleObjects(PlayerControllerB player)
         {
             TerminalAccessibleObject[] objectsToUse = FindTerminalAccessibleObjectsToUse(player);
-            Terminal ourTerminal = TerminalManager.Instance.GetTerminal();
             foreach (TerminalAccessibleObject terminalAccessible in objectsToUse)
             {
                 yield return SendCommandToTerminal(terminalAccessible.objectCode);
-                if (ourTerminal != null)
-                {
-                    ourTerminal.codeBroadcastAnimator.SetTrigger("display");
-                    ourTerminal.terminalAudio.PlayOneShot(ourTerminal.codeBroadcastSFX, 1f);
-                }
-                terminalAccessible.CallFunctionFromTerminal();
-                yield return null;
             }
         }
 
@@ -719,59 +732,71 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         private IEnumerator HandlePlayerMonitorLogic(PlayerControllerB player)
         {
-            // Ok, now we check some things!
-            // Check for objects that need to be disabled nearby the player
-            yield return UseTerminalAccessibleObjects(player);
-
-            if (player.isPlayerDead)
+            // Watch over them for a second or two.
+            float startTime = Time.timeSinceLevelLoad;
+            const float cycleToNextPlayerTime = 1f;
+            while ((Time.timeSinceLevelLoad - startTime) < cycleToNextPlayerTime)
             {
-                // The bot teleports the dead body back to the ship!
-                if (ShouldTeleportDeadBody(player))
+                // Ok, now we check some things!
+                // Check for objects that need to be disabled nearby the player
+                yield return UseTerminalAccessibleObjects(player);
+
+                if (player.isPlayerDead)
                 {
-                    yield return TryTeleportPlayer(true);
-                }
-                // HACKHACK: Make the bot "pick-up" the dead body so they get marked as collected!
-                else if (player.deadBody != null)
-                {
-                    DeadBodyInfo deadBodyInfo = player.deadBody;
-                    if (!deadBodyInfo.isInShip
-                        && !deadBodyInfo.grabBodyObject.isInShipRoom
-                        && StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position) 
-                        && ai.IsGrabbableObjectGrabbable(deadBodyInfo.grabBodyObject))
+                    // The bot teleports the dead body back to the ship!
+                    if (ShouldTeleportDeadBody(player))
                     {
-                        //npcController.Npc.SetItemInElevator(true, true, deadBodyInfo.grabBodyObject);
-                        bodyToCollect = deadBodyInfo.grabBodyObject;
+                        yield return TryTeleportPlayer(true);
+                    }
+                    // Pickup and collect the dead body!
+                    else if (player.deadBody != null)
+                    {
+                        DeadBodyInfo deadBodyInfo = player.deadBody;
+                        if (!deadBodyInfo.isInShip
+                            && !deadBodyInfo.grabBodyObject.isInShipRoom
+                            && StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position)
+                            && ai.IsGrabbableObjectGrabbable(deadBodyInfo.grabBodyObject))
+                        {
+                            bodyToCollect = deadBodyInfo.grabBodyObject;
+                        }
+                    }
+
+                    // Move onto the next player!
+                    break;
+                }
+                else if (!player.isInElevator && !player.isInHangarShipRoom)
+                {
+                    // So the player is alive and controlled, time to do some logic!
+                    // TODO: Add more logic!
+                    if (IsPlayerInGraveDanger(player))
+                    {
+                        yield return TryTeleportPlayer();
                     }
                 }
-            }
-            else if (!player.isInElevator && !player.isInHangarShipRoom)
-            {
-                // So the player is alive and controlled, time to do some logic!
-                // TODO: Add more logic!
-                yield return new WaitForSeconds(1f);
-                if (IsPlayerInGraveDanger(player))
+                else
                 {
-                    yield return TryTeleportPlayer();
-                    //yield return new WaitForSeconds(3f); // Should we wait?
+                    break; // Player is in ship, on to the next player!
                 }
+                yield return new WaitForSeconds(0.2f); // Chill out for a little bit
             }
         }
 
         /// <summary>
         /// Helper function to make the bot have to type out a message!
         /// </summary>
-        /// <param name="message"></param>
+        /// <param name="command"></param>
         /// <returns></returns>
-        private IEnumerator SendCommandToTerminal(string message)
+        private IEnumerator SendCommandToTerminal(string command)
         {
-            if (string.IsNullOrWhiteSpace(message))
+            command = command.Trim();
+            if (string.IsNullOrWhiteSpace(command))
             {
                 yield break;
             }
 
             // Use the terminal to play keyboard sound effects!
             Terminal ourTerminal = TerminalManager.Instance.GetTerminal();
-            for (int i = 0; i < message.Length; i++)
+            for (int i = 0; i < command.Length + 1; i++) // +1 for pressing the enter key!
             {
                 if (ourTerminal != null)
                 {
@@ -781,6 +806,9 @@ namespace LethalBots.AI.AIStates
                 // Wait for a random time between 0.05 and 0.3 seconds before typing the next character
                 yield return new WaitForSeconds(Random.Range(0.05f, 0.3f));
             }
+
+            // Update the terminal using the given command!
+            TerminalManager.Instance.OnSubmit(command, ourTerminal);
 
             // Update the terminal if possible
             // FIXME: We going to need some patches to do this!
@@ -902,6 +930,273 @@ namespace LethalBots.AI.AIStates
                 return true;
             }
             return messageQueue.Count > 0;
+        }
+
+        /// <summary>
+        /// The mission controller checks a certain criteria and determines if the bot should purchase an item!
+        /// </summary>
+        /// <returns></returns>
+        private IEnumerator RestockTheShip()
+        {
+            yield return null;
+            while (ai.State != null
+                && ai.State == this
+                && npcController.Npc.inTerminalMenu
+                && LethalBotManager.AreWeAtTheCompanyBuilding())
+            {
+                canCollectPurchasedItems = true; // Allow during the cooldown period
+                yield return new WaitForSeconds(1f); // One second cooldown on this!
+                canCollectPurchasedItems = false; // We are using the terminal, don't do it now!
+
+                // Now lets check what we need to stock!
+                Terminal ourTerminal = TerminalManager.Instance.GetTerminal();
+
+                // To the store page!
+                //if (ourTerminal.currentNode != ourTerminal.terminalNodes.specialNodes[TerminalConst.INDEX_DEFAULT_TERMINALNODE])
+                //{
+                //    // Ok, so we are not on the start page. Lets head over there now!
+                //    if (ourTerminal.currentNode.isConfirmationNode)
+                //    {
+                //        yield return SendCommandToTerminal(TerminalConst.STRING_CANCEL_COMMAND); // Just decline whatever is presented!
+                //    }
+                //    yield return SendCommandToTerminal(TerminalConst.STRING_HELP);
+                //}
+
+                //// Alright, to the store page
+                //yield return SendCommandToTerminal(TerminalConst.STRING_STORE);
+
+                // Lets see what we need
+                foreach (LethalBotStockRequirement? stockRequirement in RestockManager.Instance.LethalBotStockRequirements)
+                {
+                    yield return null; // Wait a frame!
+
+                    // Sanity check
+                    if (stockRequirement == null 
+                        || stockRequirement.Item == null)
+                    {
+                        continue;
+                    }
+
+                    // Alright, now how much do we need.
+                    Item item = stockRequirement.Item;
+                    int requiredStock = stockRequirement.RequiredStock;
+                    if (requiredStock <= 0)
+                    {
+                        continue;
+                    }
+
+                    // Check how much is already ordered.
+                    int totalOwned = GetPendingOrderCount(item, ourTerminal, CollectPurchasedItemsState.ItemDropship) + GetNumberOfItemAlreadyOwned(item);
+
+                    // Make the purchase as needed.
+                    int numToPurchase = requiredStock - totalOwned;
+                    if (numToPurchase > 0)
+                    {
+                        // Check, do we have the required item?
+                        if (string.IsNullOrWhiteSpace(stockRequirement.RequiredItemName) 
+                            || FindItemWithName(stockRequirement.RequiredItemName))
+                        {
+                            yield return PurchaseItem(item, numToPurchase); // Make the purchase
+                        }
+                    }
+                }
+            }
+            StopRestockingTheShip();
+        }
+
+        /// <summary>
+        /// Makes the bot purchase the given number of <paramref name="numToPurchase"/> for the following <paramref name="item"/>
+        /// on the terminal
+        /// </summary>
+        /// <param name="item"></param>
+        /// <param name="numToPurchase"></param>
+        /// <returns></returns>
+        private IEnumerator PurchaseItem(Item item, int numToPurchase = 1)
+        {
+            // Should never happen, but you never know.....
+            Terminal terminal = TerminalManager.Instance.GetTerminal();
+            if (terminal == null || numToPurchase <= 0)
+            {
+                yield break;
+            }
+
+            // Make sure we can actually purchase said item
+            int itemIndex = Array.FindIndex(
+                terminal.buyableItemsList, 
+                x => x != null && x.itemName == item.itemName
+            );
+
+            // Item cannot be purchased
+            if (itemIndex < 0)
+            {
+                yield break;
+            }
+
+            // Lets check if there is space on the drop ship......
+            const int dropshipMaxmimumSpace = 12;
+            int spaceLeft = dropshipMaxmimumSpace - terminal.numberOfItemsInDropship;
+            if (spaceLeft <= 0)
+            {
+                yield break; // Yeah, its out of space.....
+            }
+
+            // Only buy to max capacity
+            numToPurchase = Mathf.Min(numToPurchase, spaceLeft);
+
+            // Make sure we have the money
+            // Check if we have the money to make the purchase
+            int unitCost = (int)((float)terminal.buyableItemsList[itemIndex].creditsWorth * ((float)terminal.itemSalesPercentages[itemIndex] / 100f));
+            int itemCost = unitCost * numToPurchase;
+            if (itemCost > 0)
+            {
+                int groupCredits = terminal.groupCredits;
+                int availableCredits = groupCredits - Plugin.Config.RestockEcoLimit.Value;
+                if (availableCredits <= 0)
+                {
+                    yield break; // We don't have the money!
+                }
+
+                // Max we can afford
+                int maxAffordable = availableCredits / unitCost;
+
+                // Clamp purchase amount
+                numToPurchase = Math.Min(numToPurchase, maxAffordable);
+
+                if (numToPurchase <= 0)
+                {
+                    yield break; // We don't have the money!
+                }
+            }
+
+            // Alright, lets make a purchase
+            if (terminal.currentNode != terminal.terminalNodes.specialNodes[TerminalConst.INDEX_DEFAULT_TERMINALNODE])
+            {
+                // Ok, so we are not on the start page. Lets head over there now!
+                if (terminal.currentNode.isConfirmationNode)
+                {
+                    yield return SendCommandToTerminal(TerminalConst.STRING_CANCEL_COMMAND); // Just decline whatever is presented!
+                }
+                yield return SendCommandToTerminal(TerminalConst.STRING_HELP);
+            }
+
+            // Alright, to the store page
+            yield return SendCommandToTerminal(TerminalConst.STRING_STORE);
+
+            // And now we make the purchase
+            yield return SendCommandToTerminal(string.Format(TerminalConst.STRING_BUY_COMMAND, item.itemName, numToPurchase));
+
+            // Accept at the confirmation page
+            if (!terminal.currentNode.isConfirmationNode)
+            {
+                Plugin.LogWarning($"Bot {npcController.Npc.playerUsername} attempted to buy {item.itemName}, but it failed?");
+                yield break; // Huh, how did this happen?!
+            }
+            yield return SendCommandToTerminal(TerminalConst.STRING_CONFIRM_COMMAND);
+        }
+
+        /// <summary>
+        /// Checks how many of the given <paramref name="item"/> was already ordered
+        /// </summary>
+        /// <param name="item"></param>
+        /// <param name="ourTerminal"></param>
+        /// <param name="itemDropship"></param>
+        /// <returns></returns>
+        private int GetPendingOrderCount(Item item, Terminal? ourTerminal = null, ItemDropship? itemDropship = null)
+        {
+            ourTerminal ??= TerminalManager.Instance.GetTerminal();
+            if (ourTerminal == null)
+            {
+                return 0;
+            }
+
+            // Check if the item was ordered.
+            int numOrdered = 0;
+            int itemIndex = Array.FindIndex(
+                ourTerminal.buyableItemsList,
+                i => i != null && i.itemName == item.itemName
+            );
+
+            // Item is not purchasable!
+            if (itemIndex < 0)
+            {
+                return int.MaxValue;
+            }
+
+            // Count how many times it appears in ordered list
+            foreach (int index in ourTerminal.orderedItemsFromTerminal)
+            {
+                if (index == itemIndex)
+                    numOrdered++;
+            }
+
+            // Consider what is currently in the dropship as well
+            if (itemDropship != null)
+            {
+                foreach (int index in PatchesUtil.itemsToDeliverField.Invoke(itemDropship))
+                {
+                    if (index == itemIndex)
+                        numOrdered++;
+                }
+            }
+
+            return numOrdered;
+        }
+
+        /// <summary>
+        /// Checks how many of the given <paramref name="item"/> we already own!
+        /// </summary>
+        /// <param name="item"></param>
+        /// <param name="shipOnly"></param>
+        /// <returns></returns>
+        private int GetNumberOfItemAlreadyOwned(Item item, bool shipOnly = false)
+        {
+            string targetName = item.itemName;
+            int numOwned = 0;
+            for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
+            {
+                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
+                if (gameObject == null)
+                {
+                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
+                    continue;
+                }
+
+                GrabbableObject? itemObject = gameObject.GetComponent<GrabbableObject>();
+                if (itemObject != null
+                    && itemObject.itemProperties.itemName == targetName 
+                    && (!shipOnly || itemObject.isInShipRoom))
+                {
+                    numOwned++;
+                }
+            }
+            return numOwned;
+        }
+
+        /// <summary>
+        /// Helper function that finds the given <paramref name="name"/> 
+        /// on the ship, if one exists on the ship.
+        /// </summary>
+        /// <param name="name">The <see cref="GrabbableObject.itemProperties"/>'s <see cref="Item.itemName"/> to search for!</param>
+        /// <returns>We found an object that had the same <see cref="Item.itemName"/> as <paramref name="name"/></returns>
+        private bool FindItemWithName(string name)
+        {
+            // Do we at least have one instance of the given item?
+            for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
+            {
+                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
+                if (gameObject == null)
+                {
+                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
+                    continue;
+                }
+
+                GrabbableObject? item = gameObject.GetComponent<GrabbableObject>();
+                if (item != null && item.itemProperties.itemName == name)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>
@@ -1034,6 +1329,16 @@ namespace LethalBots.AI.AIStates
             {
                 ai.StopCoroutine(useSignalTranslator);
                 useSignalTranslator = null;
+            }
+        }
+
+        private void StopRestockingTheShip()
+        {
+            canCollectPurchasedItems = true;
+            if (restockShip != null)
+            {
+                ai.StopCoroutine(restockShip);
+                restockShip = null;
             }
         }
 

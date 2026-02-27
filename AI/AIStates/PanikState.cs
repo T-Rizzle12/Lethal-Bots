@@ -259,19 +259,10 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
-            // Look at the enemy if they are a coil head!
-            if (this.currentEnemy is SpringManAI || this.currentEnemy is FlowermanAI)
+            // Check if we are countering an enemy
+            if (CounterEnemy(this.currentEnemy))
             {
-                npcController.OrderToLookAtPosition(this.currentEnemy.eye.position, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
-                npcController.SetTurnBodyTowardsDirectionWithPosition(this.currentEnemy.eye.position);
-            }
-            // Ok, there are three state indexes for nutcrackers to date!
-            // 0. Patroling
-            // 1. Scanning
-            // 2. Hunting/Attacking
-            else if (this.currentEnemy is NutcrackerEnemyAI && this.currentEnemy.currentBehaviourStateIndex == 1)
-            {
-                ai.StopMoving(); // Stand still, if we move, the nutcracker will see us!
+                // Custom logic doesn't want the movement code to run.
                 return;
             }
 
@@ -493,6 +484,33 @@ namespace LethalBots.AI.AIStates
         public override string GetBillboardStateIndicator()
         {
             return @"/!\";
+        }
+
+        /// <summary>
+        /// Helper function that was made to make it easier for bots to counter enemies
+        /// </summary>
+        /// <remarks>
+        /// <paramref name="currentEnemy"/> only exists to allow other modders the ability to add custom logic for their enemies!
+        /// </remarks>
+        /// <param name="currentEnemy"></param>
+        /// <returns><see langword="true"/> if we should skip movement logic; otherwise <see langword="false"/></returns>
+        private bool CounterEnemy(EnemyAI currentEnemy)
+        {
+            // Look at the enemy if they are a coil head!
+            if (currentEnemy is SpringManAI || currentEnemy is FlowermanAI)
+            {
+                npcController.OrderToLookAtPosition(currentEnemy.eye.position, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
+            }
+            // Ok, there are three state indexes for nutcrackers to date!
+            // 0. Patroling
+            // 1. Scanning
+            // 2. Hunting/Attacking
+            else if (currentEnemy is NutcrackerEnemyAI && currentEnemy.currentBehaviourStateIndex == 1)
+            {
+                ai.StopMoving(); // Stand still, if we move, the nutcracker will see us!
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -835,7 +853,7 @@ namespace LethalBots.AI.AIStates
                     {
                         shouldWalkLootToShip = false;
                     }
-                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip);
+                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip, new SearchingForScrapState(this));
                     return;
                 }
             }
