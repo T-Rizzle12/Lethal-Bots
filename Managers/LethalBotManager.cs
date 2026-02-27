@@ -1021,7 +1021,12 @@ namespace LethalBots.Managers
             // );
 
             // Girl aka Ghost Girl is always ignored (for now), so skip or:
-            RegisterThreat(typeof(DressGirlAI), (float?)null, (float?)null, (float?)null);
+            //RegisterThreat(typeof(DressGirlAI), (float?)null, (float?)null, (float?)null);
+            RegisterThreat(typeof(DressGirlAI), 
+                fq => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && ghostGirl.currentBehaviourStateIndex > 0 ? 40f : null,
+                _ => null,  // No value for mission control
+                fq => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && ghostGirl.staringInHaunt ? 60f : null   // We don't want to go near her.....
+            );
         }
 
         /// <summary>

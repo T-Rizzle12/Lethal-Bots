@@ -8,6 +8,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
 using Unity.Netcode;
+using UnityEngine;
 
 namespace LethalBots.Patches.EnemiesPatches
 {
@@ -15,12 +16,23 @@ namespace LethalBots.Patches.EnemiesPatches
     /// Patches for the <c>DressGirlAI</c>
     /// </summary>
     /// <remarks>
-    /// This is a PAIN todo, there is so much that must be changed in order to get this to be
-    /// compatable with bots. For now this is not implemented!
+    /// This was a PAIN todo, there was so much that must be changed in order to get this to be
+    /// compatable with bots.
     /// </remarks>
     [HarmonyPatch(typeof(DressGirlAI))]
     public class DressGirlAIPatch
     {
+        /// <summary>
+        /// Simple patch for debugging purposes, lets me know when she spawns for testing purposes!
+        /// </summary>
+        /// <param name="__instance"></param>
+        //[HarmonyPatch("Start")]
+        //[HarmonyPostfix]
+        //public static void Start_Postfix(DressGirlAI __instance)
+        //{
+        //    HUDManager.Instance.DisplayTip("Ghost Girl has spawned!", "Check logs to make sure everything is working as expected!");
+        //}
+
         /// <summary>
         /// Patch Update to check for player and bot
         /// </summary>
@@ -48,6 +60,13 @@ namespace LethalBots.Patches.EnemiesPatches
             MethodInfo lerpMethod = AccessTools.Method(typeof(UnityEngine.Mathf), "Lerp");
             MethodInfo getSoundManagerInstance = AccessTools.PropertyGetter(typeof(SoundManager), "Instance");
             MethodInfo setDiageticMixerSnapshotMethod = AccessTools.Method(typeof(SoundManager), "SetDiageticMixerSnapshot");
+            MethodInfo setVolumeMethod = AccessTools.PropertySetter(typeof(AudioSource), "volume");
+
+            //Plugin.LogDebug("DressGirlAI listing Update IL:");
+            //foreach (var instruction in codes)
+            //{
+            //    Plugin.LogDebug(instruction.ToString());
+            //}
 
             // ------- Step 1: Fix the ghost girl spamming ownership changes when a bot is targeted -------------------------
             for (var i = 0; i < codes.Count - 4; i++)
@@ -66,6 +85,10 @@ namespace LethalBots.Patches.EnemiesPatches
             {
                 // Save the branch instruction (brfalse.s)
                 CodeInstruction branchInstruction = codes[startIndex + 5];
+                Label targetLabel = (Label)branchInstruction.operand;
+
+                // Save the label attached to GameNetworkManagerInstance
+                List<Label> labels = codes[startIndex].ExtractLabels();
 
                 // Remove old condition check (6 instructions)
                 codes.RemoveRange(startIndex, 6);
@@ -73,10 +96,10 @@ namespace LethalBots.Patches.EnemiesPatches
                 // Insert new method call for !IsPlayerLocalOrLethalBotOwnerLocal(hauntingPlayer)
                 List<CodeInstruction> codesToAdd = new List<CodeInstruction>
                 {
-                    new CodeInstruction(OpCodes.Ldarg_0), // Load DressGirlAI instance
+                    new CodeInstruction(OpCodes.Ldarg_0).WithLabels(labels), // Load DressGirlAI instance
                     new CodeInstruction(OpCodes.Ldfld, hauntingPlayerField), // Load hauntingPlayer
                     new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLocalOrLethalBotOwnerLocalMethod), // Call method
-                    branchInstruction
+                    new CodeInstruction(OpCodes.Brtrue, targetLabel)
                 };
                 codes.InsertRange(startIndex, codesToAdd);
                 startIndex = -1;
@@ -107,8 +130,28 @@ namespace LethalBots.Patches.EnemiesPatches
             if (startIndex > -1)
             {
                 // Insert a conditional branch (if hauntingPlayer != localPlayer skip calling SetDiageticMixerSnapshot)
+                int endIndex = -1;
+                for (int j = startIndex; j < codes.Count; j++)
+                {
+                    if (codes[j].Calls(setVolumeMethod))
+                    {
+                        endIndex = j;
+                        break;
+                    }
+                }
+
+                if (endIndex == -1)
+                {
+                    Plugin.LogError("Could not find heartbeat volume store!");
+                    endIndex = startIndex + 14;
+                }
+
+                // Create our label's destination....
                 Label skipSnapshot = generator.DefineLabel();
-                codes[startIndex + 14].labels.Add(skipSnapshot); // Set label to the instruction **after** the lerp call
+                var nop = new CodeInstruction(OpCodes.Nop);
+                nop.labels.Add(skipSnapshot);
+                codes.Insert(endIndex + 1, nop); // Set label to the instruction **after** the lerp call
+                //codes[endIndex + 1].labels.Add(skipSnapshot); // Set label to the instruction **after** the lerp call
 
                 // Remove old SetDiageticMixerSnapshot call
                 //codes.RemoveRange(startIndex, 4);
@@ -186,10 +229,16 @@ namespace LethalBots.Patches.EnemiesPatches
         /// <param name="__instance"></param>
         [HarmonyPatch("SetHauntStarePosition")]
         [HarmonyPostfix]
-        public static void SetHauntStarePosition_Postfix(DressGirlAI __instance)
+        public static void SetHauntStarePosition_Postfix(DressGirlAI __instance, ref bool ___enemyMeshEnabled)
         {
             if (__instance.hauntingPlayer != GameNetworkManager.Instance.localPlayerController)
             {
+                if (___enemyMeshEnabled == true)
+                {
+                    ___enemyMeshEnabled = false;
+                    __instance.EnableEnemyMesh(enable: false, overrideDoNotSet: true);
+                }
+
                 __instance.SFXVolumeLerpTo = 0f;
                 __instance.creatureSFX.volume = 0f;
                 __instance.creatureVoice.Stop();
@@ -208,12 +257,11 @@ namespace LethalBots.Patches.EnemiesPatches
             MethodInfo playMethod = AccessTools.Method(typeof(UnityEngine.AudioSource), "Play");
 
             // ------- Step 1: Fix the ghost girl playing sound effects when a bot is targeted -------------------------
-            for (var i = 0; i < codes.Count - 3; i++)
+            for (var i = 0; i < codes.Count - 2; i++)
             {
                 if (codes[i].IsLdarg(0) &&
                     codes[i + 1].opcode == OpCodes.Ldc_R4 && codes[i + 1].operand is float f && f == 1f &&
-                    codes[i + 2].IsLdarg(0) &&
-                    codes[i + 3].StoresField(SFXVolumeLerpToField)) // Branch if not local player
+                    codes[i + 2].StoresField(SFXVolumeLerpToField)) // Branch if not local player
                 {
                     startIndex = i;
                     break;
@@ -227,7 +275,7 @@ namespace LethalBots.Patches.EnemiesPatches
                 // Remove old condition check (6 instructions)
                 //codes.RemoveRange(startIndex, 6);
 
-                // Insert new method call for !IsPlayerLocalOrLethalBotOwnerLocal(hauntingPlayer)
+                // Insert new method call for !IsPlayerLocalMethod(hauntingPlayer)
                 List<CodeInstruction> codesToAdd = new List<CodeInstruction>
                 {
                     new CodeInstruction(OpCodes.Ldarg_0), // Load DressGirlAI instance
@@ -237,7 +285,11 @@ namespace LethalBots.Patches.EnemiesPatches
                 };
                 codes.InsertRange(startIndex, codesToAdd);
                 int playIndex = codes.FindIndex(startIndex, ci => ci.Calls(playMethod));
-                codes[playIndex + 1].labels.Add(skipSFX);
+
+                // Create our label's destination....
+                var nop = new CodeInstruction(OpCodes.Nop);
+                nop.labels.Add(skipSFX);
+                codes.Insert(playIndex + 1, nop); // Set label to the instruction **after** the play call
                 startIndex = -1;
             }
             else

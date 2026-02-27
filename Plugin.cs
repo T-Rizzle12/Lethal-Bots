@@ -210,6 +210,7 @@ namespace LethalBots
             _harmony.PatchAll(typeof(CaveDwellerAIPatch));
             _harmony.PatchAll(typeof(CentipedeAIPatch));
             _harmony.PatchAll(typeof(CrawlerAIPatch));
+            _harmony.PatchAll(typeof(DressGirlAIPatch));
             _harmony.PatchAll(typeof(FlowermanAIPatch));
             _harmony.PatchAll(typeof(FlowerSnakeEnemyPatch));
             _harmony.PatchAll(typeof(ForestGiantAIPatch));

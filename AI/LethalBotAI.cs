@@ -160,7 +160,7 @@ namespace LethalBots.AI
         private Coroutine grabObjectCoroutine = null!;
         private Coroutine? spawnAnimationCoroutine = null;
         public Coroutine? useLadderCoroutine = null;
-        private Coroutine? waitUntilEndOfOffMeshLinkCoroutine = null;
+        private Coroutine? offMeshLinkCoroutine = null;
         internal Coroutine? useInteractTriggerCoroutine = null;
         private Coroutine? lethalPhonesCoroutine = null;
 
@@ -3376,9 +3376,9 @@ namespace LethalBots.AI
             if (ladder == null)
             {
                 // If this is a gap, do the default logic instead!
-                if (agent.isOnOffMeshLink && waitUntilEndOfOffMeshLinkCoroutine == null)
+                if (agent.isOnOffMeshLink && offMeshLinkCoroutine == null)
                 {
-                    waitUntilEndOfOffMeshLinkCoroutine = StartCoroutine(autoTraverseOffMeshLink());
+                    offMeshLinkCoroutine = StartCoroutine(autoTraverseOffMeshLink());
                 }
                 return false;
             }
@@ -3416,7 +3416,78 @@ namespace LethalBots.AI
             yield return null;
             yield return new WaitUntil(() => !agent.isOnOffMeshLink);
             agent.autoTraverseOffMeshLink = false;
-            waitUntilEndOfOffMeshLinkCoroutine = null;
+            offMeshLinkCoroutine = null;
+        }
+
+        /// <summary>
+        /// Moves the bot across an off the mesh link using a parabola
+        /// </summary>
+        /// <remarks>
+        /// This is almost a perfect recreation from the Unity Documentation!
+        /// </remarks>
+        /// <param name="agent"></param>
+        /// <param name="height"></param>
+        /// <returns></returns>
+        private IEnumerator OffMeshLinkParabola(NavMeshAgent agent, float height)
+        {
+            OffMeshLinkData data = agent.currentOffMeshLinkData;
+            Vector3 startPos = this.transform.position;
+            Vector3 endPos = data.endPos + Vector3.up * agent.baseOffset;
+            float normalizedTime = 0f;
+
+            // Calculate duration from speed
+            Vector3 flatStart = Vector3.ProjectOnPlane(startPos, Vector3.up);
+            Vector3 flatEnd = Vector3.ProjectOnPlane(endPos, Vector3.up);
+
+            float horizontalDistance = Vector3.Distance(flatStart, flatEnd);
+            float duration = horizontalDistance / agent.speed;
+
+            Plugin.LogDebug($"Beginning off mesh link movement. {data.valid}; {data.activated}; {base.IsOwner}");
+            while (normalizedTime < 1f && data.valid && data.activated && base.IsOwner)
+            {
+                float num = height * 4f * (normalizedTime - normalizedTime * normalizedTime);
+                Plugin.LogDebug($"Moving on off mesh link; time: {normalizedTime}; y: {num}");
+                this.transform.position = Vector3.Lerp(startPos, endPos, normalizedTime) + num * Vector3.up;
+                agent.transform.position = this.transform.position;
+                normalizedTime += Time.deltaTime / duration;
+                yield return null;
+            }
+            TeleportAgentAIAndBody(endPos);
+            agent.CompleteOffMeshLink();
+            Plugin.LogDebug($"Completed off mesh link without interruption, position: {base.transform.position}");
+            offMeshLinkCoroutine = null;
+        }
+
+        private void StopOffMeshLinkMovement(bool warpToEnd = true)
+        {
+            if (offMeshLinkCoroutine == null)
+            {
+                return;
+            }
+            StopCoroutine(offMeshLinkCoroutine);
+            offMeshLinkCoroutine = null;
+            OffMeshLinkData currentOffMeshLinkData = agent.currentOffMeshLinkData;
+            agent.CompleteOffMeshLink();
+            if (currentOffMeshLinkData.valid)
+            {
+                Plugin.LogDebug($"Completed off mesh EARLY link due to an interruption; position: {base.transform.position}");
+                if (Vector3.Distance(base.transform.position, currentOffMeshLinkData.startPos) < Vector3.Distance(base.transform.position, currentOffMeshLinkData.endPos))
+                {
+                    Plugin.LogDebug($"Warping agent to start position at {currentOffMeshLinkData.startPos}");
+                    if (warpToEnd)
+                        TeleportAgentAIAndBody(currentOffMeshLinkData.startPos);
+                }
+                else
+                {
+                    Plugin.LogDebug($"Warping agent to end position at {currentOffMeshLinkData.endPos}");
+                    if (warpToEnd)
+                        TeleportAgentAIAndBody(currentOffMeshLinkData.endPos);
+                }
+            }
+            else
+            {
+                Plugin.LogDebug("Off mesh link data invalid; agent completing off mesh link anyway");
+            }
         }
 
         #region Inventory and Weapon Helpers

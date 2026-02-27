@@ -322,7 +322,7 @@ namespace LethalBots.AI.AIStates
                     {
                         shouldWalkLootToShip = false;
                     }
-                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip);
+                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip, new SearchingForScrapState(this));
                     return;
                 }
             }
