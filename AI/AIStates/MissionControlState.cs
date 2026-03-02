@@ -255,8 +255,9 @@ namespace LethalBots.AI.AIStates
             }
 
             // Do we have purchased items to collect?
-            if (canCollectPurchasedItems && CollectPurchasedItemsState.IsPossible(true))
+            if (canCollectPurchasedItems && CollectPurchasedItemsState.IsPossible())
             {
+                GetOffTerminal();
                 ai.State = new CollectPurchasedItemsState(this);
                 return;
             }

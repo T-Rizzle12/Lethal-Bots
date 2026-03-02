@@ -65,7 +65,6 @@ namespace LethalBots.AI.AIStates
             float grabDistance = npcController.Npc.grabDistance; // grabDistance determines our interact trigger distance!
             if (Mathf.Min(sqrDistToInteractTrigger, sqrDistToLandingSpot) > grabDistance * grabDistance)
             {
-                ai.SetDestinationToPositionLethalBotAI(dropshipLandingPos);
 
                 if (!npcController.WaitForFullStamina && sqrDistToLandingSpot > Const.DISTANCE_START_RUNNING * Const.DISTANCE_START_RUNNING)
                 {
@@ -76,29 +75,27 @@ namespace LethalBots.AI.AIStates
                     npcController.OrderToStopSprint();
                 }
 
-                // If need to wait nearby the desk, we should do so!
-                if (!ItemDropship.shipLanded && sqrDistToLandingSpot <= Const.DISTANCE_TO_WAIT_FOR_DROPSHIP * Const.DISTANCE_TO_WAIT_FOR_DROPSHIP)
+                // If need to wait nearby the landing spot, we should do so!
+                if ((IsDropShipLanding() || IsPurchasedItemsInbound()) && sqrDistToLandingSpot <= Const.DISTANCE_TO_WAIT_FOR_DROPSHIP * Const.DISTANCE_TO_WAIT_FOR_DROPSHIP)
                 {
                     ai.StopMoving();
 
                     // Don't get too close until it has landed!
-                    if (!ItemDropship.shipLanded)
+                    // We are WAY TOO CLOSE, FALLBACK!
+                    if (sqrDistToLandingSpot < Const.DISTANCE_FALLBACK_FROM_DROPSHIP * Const.DISTANCE_FALLBACK_FROM_DROPSHIP)
                     {
-                        // We are WAY TOO CLOSE, FALLBACK!
-                        if (sqrDistToLandingSpot < Const.DISTANCE_FALLBACK_FROM_DROPSHIP * Const.DISTANCE_FALLBACK_FROM_DROPSHIP)
-                        {
-                            Ray ray = new Ray(npcController.Npc.transform.position, npcController.Npc.transform.position + Vector3.up * 0.2f - dropshipLandingPos + Vector3.up * 0.2f);
-                            ray.direction = new Vector3(ray.direction.x, 0f, ray.direction.z);
-                            Vector3 pos = (!Physics.Raycast(ray, out RaycastHit hit, Const.DISTANCE_FALLBACK_FROM_DROPSHIP, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)) ? ray.GetPoint(Const.DISTANCE_FALLBACK_FROM_DROPSHIP) : hit.point;
+                        Ray ray = new Ray(npcController.Npc.transform.position, npcController.Npc.transform.position + Vector3.up * 0.2f - dropshipLandingPos + Vector3.up * 0.2f);
+                        ray.direction = new Vector3(ray.direction.x, 0f, ray.direction.z);
+                        Vector3 pos = (!Physics.Raycast(ray, out RaycastHit hit, Const.DISTANCE_FALLBACK_FROM_DROPSHIP, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)) ? ray.GetPoint(Const.DISTANCE_FALLBACK_FROM_DROPSHIP) : hit.point;
 
-                            // GO GO GO!
-                            ai.SetDestinationToPositionLethalBotAI(RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f));
-                            ai.OrderMoveToDestination();
-                        }
+                        // GO GO GO!
+                        ai.SetDestinationToPositionLethalBotAI(RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f));
+                        ai.OrderMoveToDestination();
                     }
                 }
                 else
                 {
+                    ai.SetDestinationToPositionLethalBotAI(dropshipLandingPos);
                     ai.OrderMoveToDestination();
                 }
             }
@@ -108,7 +105,7 @@ namespace LethalBots.AI.AIStates
                 ai.StopMoving();
 
                 // Don't get too close until it has landed!
-                if (!ItemDropship.shipLanded)
+                if (IsDropShipLanding() || IsPurchasedItemsInbound())
                 {
                     // We are WAY TOO CLOSE, FALLBACK!
                     if (sqrDistToLandingSpot < Const.DISTANCE_FALLBACK_FROM_DROPSHIP * Const.DISTANCE_FALLBACK_FROM_DROPSHIP)
@@ -125,7 +122,7 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // Collect the items!
-                if (!ItemDropship.shipDoorsOpened)
+                if (!ItemDropship.shipDoorsOpened && ItemDropship.shipLanded)
                 {
                     ItemDropship.triggerScript.Interact(npcController.Npc.thisPlayerBody);
                     CollectDeliveredItems = true;
@@ -173,7 +170,7 @@ namespace LethalBots.AI.AIStates
         /// Do we have the right conditions to start this state.
         /// </summary>
         /// <returns></returns>
-        public static bool IsPossible(bool isMissionController = false)
+        public static bool IsPossible()
         {
             // TODO: Hook into ItemDropship to set this when the doors are opened,
             // should fix some edge cases......
@@ -196,12 +193,42 @@ namespace LethalBots.AI.AIStates
                 return true; 
             }
 
-            Terminal? terminal = TerminalManager.Instance.GetTerminal();
-            if (terminal != null && !isMissionController && terminal.orderedItemsFromTerminal.Count > 0)
+            if (IsPurchasedItemsInbound())
             {
                 return true;
             }
 
+            return false;
+        }
+
+        /// <summary>
+        /// Is the <see cref="ItemDropship"/> landing?
+        /// </summary>
+        /// <returns></returns>
+        public static bool IsDropShipLanding()
+        {
+            if (ItemDropship != null
+                && !ItemDropship.shipLanded
+                && (ItemDropship.deliveringOrder 
+                    || ItemDropship.deliveringVehicle 
+                    || PatchesUtil.itemsToDeliverField.Invoke(ItemDropship).Count > 0))
+            {
+                return true;
+            }
+            return false; 
+        }
+
+        /// <summary>
+        /// Do we have items that were recently purchased on the terminal inbound?
+        /// </summary>
+        /// <returns></returns>
+        public static bool IsPurchasedItemsInbound()
+        {
+            Terminal? terminal = TerminalManager.Instance.GetTerminal();
+            if (terminal != null && terminal.orderedItemsFromTerminal.Count > 0)
+            {
+                return true;
+            }
             return false;
         }
 
