@@ -250,6 +250,7 @@ namespace LethalBots.Patches.MapPatches
 
         private static IEnumerator ladderClimbAnimation(InteractTrigger ladder, PlayerControllerB playerController)
         {
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerController);
             ladder.onInteractEarly.Invoke(null);
             playerController.UpdateSpecialAnimationValue(specialAnimation: true, (short)ladder.ladderPlayerPositionNode.eulerAngles.y, 0f, climbingLadder: true);
             playerController.enteringSpecialAnimation = true;
@@ -280,11 +281,14 @@ namespace LethalBots.Patches.MapPatches
             while (finishClimbingLadder == 0)
             {
                 yield return null;
-                if (playerController.thisPlayerBody.position.y < ladder.bottomOfLadderPosition.position.y)
+                bool? desiredEndPoint = lethalBotAI?.NpcController.goDownLadder; // true means go down, false means go up; null equals fall back to base game logic
+                if ((!desiredEndPoint.HasValue || desiredEndPoint.Value) 
+                    && playerController.thisPlayerBody.position.y < ladder.bottomOfLadderPosition.position.y)
                 {
                     finishClimbingLadder = 1;
                 }
-                else if (playerController.thisPlayerBody.position.y + 2f > ladder.topOfLadderPosition.position.y)
+                else if ((!desiredEndPoint.HasValue || desiredEndPoint.Value == false) 
+                    && playerController.thisPlayerBody.position.y + 2f > ladder.topOfLadderPosition.position.y)
                 {
                     finishClimbingLadder = 2;
                 }
@@ -331,7 +335,6 @@ namespace LethalBots.Patches.MapPatches
             playerController.inSpecialInteractAnimation = false;
             playerController.currentTriggerInAnimationWith = null; // HACKHACK: Where does the base game set this to null?
             playerController.thisController.enabled = true; // NEEDTOVALIDATE: What happens if this is true for players that are not the local player?
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerController);
             if (lethalBotAI != null && lethalBotAI.agent.isOnOffMeshLink)
             {
                 lethalBotAI.agent.CompleteOffMeshLink();
@@ -347,7 +350,6 @@ namespace LethalBots.Patches.MapPatches
             UpdateUsedByPlayerServerRpc_ReversePatch(trigger, (int)playerController.playerClientId);
             trigger.onInteractEarly.Invoke(null);
             trigger.isPlayingSpecialAnimation = true;
-            lockedPlayerField.SetValue(trigger, playerController.thisPlayerBody);
             playerScriptInSpecialAnimationField.SetValue(trigger, playerController);
             if (trigger.clampLooking)
             {
@@ -382,7 +384,7 @@ namespace LethalBots.Patches.MapPatches
             }
         }
 
-        private static void CancelLadderAnimation(InteractTrigger ladder, PlayerControllerB playerController, ref Transform ___lockedPlayer)
+        private static void CancelLadderAnimation(InteractTrigger ladder, PlayerControllerB playerController)
         {
             LethalBotAI? lethalBot = LethalBotManager.Instance.GetLethalBotAI(playerController);
             if (lethalBot == null)
@@ -403,7 +405,6 @@ namespace LethalBots.Patches.MapPatches
             playerController.gameplayCamera.transform.localEulerAngles = Vector3.zero;
             playerController.UpdateSpecialAnimationValue(specialAnimation: false, 0);
             playerController.inSpecialInteractAnimation = false;
-            ___lockedPlayer = null!;
             ladder.currentCooldownValue = ladder.cooldownTime;
             if (ladder.hidePlayerItem && playerController.currentlyHeldObjectServer != null)
             {
@@ -423,7 +424,7 @@ namespace LethalBots.Patches.MapPatches
         /// <param name="generator"></param>
         [HarmonyPatch("Interact")]
         [HarmonyPrefix]
-        public static bool Interact_Prefix(InteractTrigger __instance, Transform playerTransform, ref bool ___hasTriggered, ref Transform ___lockedPlayer)
+        public static bool Interact_Prefix(InteractTrigger __instance, Transform playerTransform, ref bool ___hasTriggered)
         {
             if (playerTransform == null || playerTransform == GameNetworkManager.Instance.localPlayerController.transform)
             {
@@ -457,7 +458,7 @@ namespace LethalBots.Patches.MapPatches
             {
                 if (lethalBot.useLadderCoroutine != null)
                 {
-                    CancelLadderAnimation(__instance, player, ref ___lockedPlayer);
+                    CancelLadderAnimation(__instance, player);
                 }
                 return false;
             }
@@ -575,7 +576,7 @@ namespace LethalBots.Patches.MapPatches
                 player.currentTriggerInAnimationWith = null;
                 if (player.isClimbingLadder)
                 {
-                    CancelLadderAnimation(__instance, player, ref ___lockedPlayer);
+                    CancelLadderAnimation(__instance, player);
                     player.isClimbingLadder = false;
                 }
                 Plugin.LogDebug("Stop special animation F");
@@ -584,7 +585,6 @@ namespace LethalBots.Patches.MapPatches
                     player.playerBodyAnimator.SetTrigger(__instance.stopAnimationString);
                 }
                 player.UpdateSpecialAnimationValue(specialAnimation: false, 0);
-                ___lockedPlayer = null!;
                 __instance.currentCooldownValue = __instance.cooldownTime;
                 __instance.onInteract.Invoke(null);
                 Plugin.LogDebug("Stop special animation G");

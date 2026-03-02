@@ -115,7 +115,7 @@ namespace LethalBots.AI
 
         public Vector2 lastMoveVector;
         private float floatSprint;
-        private bool goDownLadder;
+        internal bool goDownLadder;
 
         private int[] animationHashLayers = null!;
         private List<int> currentAnimationStateHash = null!;
@@ -951,7 +951,7 @@ namespace LethalBots.AI
             if (goDownLadder)
             {
                 direction = -Npc.thisPlayerBody.up;
-                origin = Npc.gameplayCamera.transform.position;
+                origin = Npc.transform.position;
             }
             if (!Physics.Raycast(origin, direction, 0.15f, StartOfRound.Instance.allPlayersCollideWithMask, QueryTriggerInteraction.Ignore))
             {
@@ -2337,7 +2337,7 @@ namespace LethalBots.AI
         /// <returns></returns>
         public bool CanUseLadder(InteractTrigger ladder)
         {
-            if (ladder.usingLadder)
+            if (LethalBotAIController.useLadderCoroutine != null)
             {
                 return false;
             }

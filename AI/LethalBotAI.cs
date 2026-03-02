@@ -428,7 +428,7 @@ namespace LethalBots.AI
                 {
                     // If we are using a trigger, set our position and rotation to it!
                     InteractTrigger ourTrigger = NpcController.Npc.currentTriggerInAnimationWith;
-                    if (ourTrigger != null)
+                    if (ourTrigger != null && !ourTrigger.isLadder)
                     {
                         NpcController.Npc.thisPlayerBody.localPosition = Vector3.Lerp(NpcController.Npc.thisPlayerBody.localPosition, NpcController.Npc.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
                         NpcController.Npc.thisPlayerBody.rotation = Quaternion.Lerp(NpcController.Npc.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
@@ -494,7 +494,7 @@ namespace LethalBots.AI
             {
                 // If we are using a trigger, set our position and rotation to it!
                 InteractTrigger ourTrigger = NpcController.Npc.currentTriggerInAnimationWith;
-                if (ourTrigger != null)
+                if (ourTrigger != null && !ourTrigger.isLadder)
                 {
                     NpcController.Npc.thisPlayerBody.localPosition = Vector3.Lerp(NpcController.Npc.thisPlayerBody.localPosition, NpcController.Npc.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
                     NpcController.Npc.thisPlayerBody.rotation = Quaternion.Lerp(NpcController.Npc.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
@@ -604,7 +604,7 @@ namespace LethalBots.AI
             {
                 // If we are using a trigger, set our position and rotation to it!
                 InteractTrigger ourTrigger = NpcController.Npc.currentTriggerInAnimationWith;
-                if (ourTrigger != null)
+                if (ourTrigger != null && !ourTrigger.isLadder)
                 {
                     NpcController.Npc.thisPlayerBody.localPosition = Vector3.Lerp(NpcController.Npc.thisPlayerBody.localPosition, NpcController.Npc.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
                     NpcController.Npc.thisPlayerBody.rotation = Quaternion.Lerp(NpcController.Npc.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
@@ -637,11 +637,12 @@ namespace LethalBots.AI
             }
 
             // Do stuck detection
-            if (NpcController.HasToMove || (agent.isActiveAndEnabled && !agent.isOnNavMesh && !agent.isOnOffMeshLink))
+            if (NpcController.HasToMove || (agent.isActiveAndEnabled && !agent.isOnNavMesh))
             {
                 // If we are stuck, teleport to the closest node!
                 StartOfRound instanceSOR = StartOfRound.Instance;
                 if (agent.velocity.sqrMagnitude < 0.002f
+                    && !agent.isOnOffMeshLink
                     && !IsInsideElevator
                     && instanceSOR.shipHasLanded
                     && !instanceSOR.shipIsLeaving
@@ -834,8 +835,7 @@ namespace LethalBots.AI
             {
                 return true;
             }
-            if (NpcController.Npc.currentTriggerInAnimationWith != null 
-                && !NpcController.Npc.isClimbingLadder)
+            if (NpcController.Npc.currentTriggerInAnimationWith != null)
             {
                 return true;
             }
@@ -2921,26 +2921,43 @@ namespace LethalBots.AI
                 closestLinkPos = linkEndPos;
             }
 
+            InteractTrigger? closestLadder = null;
+            float closestLadderDistSqr = Const.DISTANCE_NPCBODY_FROM_LADDER * Const.DISTANCE_NPCBODY_FROM_LADDER;
             foreach (InteractTrigger ladder in laddersInteractTrigger)
             {
+                // Setup important local variables
                 Vector3 ladderBottomPos = ladder.bottomOfLadderPosition.position;
                 Vector3 ladderTopPos = ladder.topOfLadderPosition.position;
+                float ladderDistSqrToBottom = (ladderBottomPos - closestLinkPos).sqrMagnitude;
+                float ladderDistSqrToTop = (ladderTopPos - closestLinkPos).sqrMagnitude;
 
-                float ladderDistSqr = Const.DISTANCE_NPCBODY_FROM_LADDER * Const.DISTANCE_NPCBODY_FROM_LADDER;
-                if ((ladderBottomPos - closestLinkPos).sqrMagnitude < ladderDistSqr)
+                // Find the closest part of the ladder to us!
+                Vector3 closestLadderPos;
+                float bestLadderDistSqr;
+                bool climbUp;
+                if (ladderDistSqrToBottom < ladderDistSqrToTop)
                 {
-                    Plugin.LogDebug($"{NpcController.Npc.playerUsername} Path wants to climb UP ladder");
-                    NpcController.OrderToGoUpDownLadder(hasToGoDown: false);
-                    return ladder;
+                    closestLadderPos = ladderBottomPos;
+                    bestLadderDistSqr = ladderDistSqrToBottom;
+                    climbUp = true;
                 }
-                else if ((ladderTopPos - closestLinkPos).sqrMagnitude < ladderDistSqr)
+                else
                 {
-                    Plugin.LogDebug($"{NpcController.Npc.playerUsername} Path wants to climb DOWN ladder");
-                    NpcController.OrderToGoUpDownLadder(hasToGoDown: true);
-                    return ladder;
+                    closestLadderPos = ladderTopPos;
+                    bestLadderDistSqr = ladderDistSqrToTop;
+                    climbUp = false;
+                }
+
+                // Check if this is the closest ladder
+                if (bestLadderDistSqr < closestLadderDistSqr)
+                {
+                    Plugin.LogDebug($"{NpcController.Npc.playerUsername} Path wants to climb {(climbUp ? "UP" : "DOWN")} ladder");
+                    NpcController.OrderToGoUpDownLadder(hasToGoDown: !climbUp);
+                    closestLadderDistSqr = bestLadderDistSqr;
+                    closestLadder = ladder;
                 }
             }
-            return null;
+            return closestLadder;
         }
 
         /// <summary>
@@ -3367,7 +3384,8 @@ namespace LethalBots.AI
         /// <returns>true: the lethalBot is using or is waiting to use the ladder, else false</returns>
         private bool UseLadderIfNeeded()
         {
-            if (NpcController.Npc.isClimbingLadder)
+            if (NpcController.Npc.isClimbingLadder 
+                || useLadderCoroutine != null)
             {
                 return true;
             }
@@ -3378,7 +3396,7 @@ namespace LethalBots.AI
                 // If this is a gap, do the default logic instead!
                 if (agent.isOnOffMeshLink && offMeshLinkCoroutine == null)
                 {
-                    offMeshLinkCoroutine = StartCoroutine(autoTraverseOffMeshLink());
+                    offMeshLinkCoroutine = StartCoroutine(offMeshLinkParabola(agent, NpcController.Npc.jumpForce));
                 }
                 return false;
             }
@@ -3386,8 +3404,11 @@ namespace LethalBots.AI
             // Lethal Bot wants to use ladder
             if (Plugin.Config.TeleportWhenUsingLadders.Value)
             {
-                NpcController.Npc.transform.position = this.transform.position;
-                agent.CompleteOffMeshLink();
+                if (agent.isOnOffMeshLink)
+                {
+                    TeleportLethalBot(agent.currentOffMeshLinkData.endPos, isOutside);
+                    agent.CompleteOffMeshLink();
+                }
                 return true;
             }
 
@@ -3428,7 +3449,7 @@ namespace LethalBots.AI
         /// <param name="agent"></param>
         /// <param name="height"></param>
         /// <returns></returns>
-        private IEnumerator OffMeshLinkParabola(NavMeshAgent agent, float height)
+        private IEnumerator offMeshLinkParabola(NavMeshAgent agent, float height)
         {
             OffMeshLinkData data = agent.currentOffMeshLinkData;
             Vector3 startPos = this.transform.position;

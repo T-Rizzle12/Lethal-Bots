@@ -227,7 +227,7 @@ namespace LethalBots.Constants
         public const float LETHAL_BOT_RESCUE_RANGE = 30f;
 
         // Misc
-        public const float DISTANCE_NPCBODY_FROM_LADDER = 2;
+        public const float DISTANCE_NPCBODY_FROM_LADDER = 2.5f;
         public const float DISTANCE_NPCBODY_FROM_DOOR = 2.5f;
         public const float TIMER_CHECK_DOOR = 0.9f;
         public const float TIMER_USE_ELEVATOR = 4.0f; // Should this be a config option instead?
