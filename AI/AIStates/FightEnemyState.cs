@@ -23,6 +23,7 @@ namespace LethalBots.AI.AIStates
         private static readonly AccessTools.FieldRef<PatcherTool, bool> isScanning = AccessTools.FieldRefAccess<bool>(typeof(PatcherTool), "isScanning");
         private static readonly AccessTools.FieldRef<PatcherTool, int> anomalyMask = AccessTools.FieldRefAccess<int>(typeof(PatcherTool), "anomalyMask");
         private float attackFOV;
+        private bool canHitTarget;
         private RaycastHit[]? enemyColliders;
         private Coroutine? currentAttackRoutine;
         private Collider? _enemyCollision;
@@ -68,6 +69,7 @@ namespace LethalBots.AI.AIStates
                     ChangeBackToPreviousState();
                     return;
                 }
+                canHitTarget = false;
                 StartAttackCoroutine(); // Start the attack coroutine!
             }
             base.OnEnterState();
@@ -153,6 +155,9 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // ATTACK!
+            StartAttackCoroutine();
+
             // Close enough to use item, attempt to use
             float enemySize = EnemyCollision != null ? EnemyCollision.bounds.extents.magnitude : 0.4f;
             float sqrMagDistanceEnemy = (this.currentEnemy.transform.position - npcController.Npc.transform.position).sqrMagnitude;
@@ -160,7 +165,7 @@ namespace LethalBots.AI.AIStates
             float fallBackDistance = maxEnemyDistance * 0.75f;
             float giveupRange = fearRange.Value * 2;
             Vector3 targetPos = EnemyCollision != null ? EnemyCollision.bounds.center : this.currentEnemy.eye.position;
-            if (sqrMagDistanceEnemy < maxEnemyDistance * maxEnemyDistance && !Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, targetPos, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
+            if (sqrMagDistanceEnemy < maxEnemyDistance * maxEnemyDistance && canHitTarget)
             {
                 // We are close enough to the enemy, lets attack!
                 if (!npcController.Npc.inAnimationWithEnemy)
@@ -181,9 +186,6 @@ namespace LethalBots.AI.AIStates
                     {
                         ai.StopMoving();
                     }
-
-                    // Start the attack coroutine if not already done so!
-                    StartAttackCoroutine();
                 }
             }
             // Enemy is outside our retreat range, abort!
@@ -410,15 +412,16 @@ namespace LethalBots.AI.AIStates
 
                 // Check if we are still close enough!
                 GrabbableObject heldItem = ai.HeldItem;
-                //float enemySize = EnemyCollision != null ? EnemyCollision.bounds.extents.magnitude : 0.4f;
                 Vector3 targetPos = EnemyCollision != null ? EnemyCollision.bounds.center : this.currentEnemy.eye.position;
-                //float sqrMagDistanceEnemy = (targetPos - npcController.Npc.transform.position).sqrMagnitude;
-                //float maxEnemyDistance = GetAttackRangeForWeapon(heldItem) + enemySize;
-                if (!CanHitEnemyWithHeldItem(heldItem, targetPos)) // sqrMagDistanceEnemy >= maxEnemyDistance * maxEnemyDistance
+                if (!CanHitEnemyWithHeldItem(heldItem, targetPos))
                 {
+                    canHitTarget = false;
                     yield return null;
                     continue;
                 }
+
+                // We have a shot!
+                canHitTarget = true;
 
                 // TODO: move this into a function outside of the corutine, so
                 // modders can add custom support for ranged weapons.....

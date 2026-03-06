@@ -23,6 +23,7 @@ namespace LethalBots.AI.AIStates
         private float findEntranceTimer;
         private float calmDownTimer;
         private float breakLOSTimer;
+        private const float delcareJesterCooldownTime = 30f;
         private float lastDeclaredJesterTimer;
         private bool wasFleeingJester;
         private Vector3? _retreatPos = null;
@@ -78,11 +79,18 @@ namespace LethalBots.AI.AIStates
 
                     // Find the closest entrance and mark our last pos for stuck checking!
                     targetEntrance = FindClosestEntrance();
+
+                    // Make us back away at first until the panik coroutine can find a safe path.
+                    const float fallbackDistance = 20f;
+                    Ray ray = new Ray(npcController.Npc.transform.position, npcController.Npc.transform.position + Vector3.up * 0.2f - this.currentEnemy.transform.position + Vector3.up * 0.2f);
+                    ray.direction = new Vector3(ray.direction.x, 0f, ray.direction.z);
+                    Vector3 pos = (!Physics.Raycast(ray, out RaycastHit hit, fallbackDistance, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)) ? ray.GetPoint(fallbackDistance) : hit.point;
+                    RetreatPos = pos;
                     StartPanikCoroutine(this.currentEnemy, fearRange.Value);
                     if (this.currentEnemy is JesterAI)
                     {
                         wasFleeingJester = true;
-                        if ((Time.timeSinceLevelLoad - lastDeclaredJesterTimer) > 30f)
+                        if ((Time.timeSinceLevelLoad - lastDeclaredJesterTimer) > delcareJesterCooldownTime)
                         {
                             lastDeclaredJesterTimer = Time.timeSinceLevelLoad;
                             ai.SendChatMessage("JESTER!!! RUN!!!", true);
@@ -143,7 +151,7 @@ namespace LethalBots.AI.AIStates
                     if (this.currentEnemy is JesterAI)
                     {
                         wasFleeingJester = true;
-                        if ((Time.timeSinceLevelLoad - lastDeclaredJesterTimer) > 30f)
+                        if ((Time.timeSinceLevelLoad - lastDeclaredJesterTimer) > delcareJesterCooldownTime)
                         {
                             lastDeclaredJesterTimer = Time.timeSinceLevelLoad;
                             ai.SendChatMessage("JESTER!!! RUN!!!", true);
@@ -449,7 +457,7 @@ namespace LethalBots.AI.AIStates
                 if (fearRange.HasValue)
                 {
                     RestartPanikCoroutine(this.currentEnemy, fearRange.Value);
-                    if ((Time.timeSinceLevelLoad - lastDeclaredJesterTimer) > 30f)
+                    if ((Time.timeSinceLevelLoad - lastDeclaredJesterTimer) > delcareJesterCooldownTime)
                     {
                         lastDeclaredJesterTimer = Time.timeSinceLevelLoad;
                         ai.SendChatMessage("JESTER!!! RUN!!!", true);
@@ -705,7 +713,7 @@ namespace LethalBots.AI.AIStates
             Vector3 ourPos = npcController.Npc.transform.position;
             Transform enemyTransform = enemy.transform;
             Vector3 enemyPos = enemyTransform.position;
-            Vector3 viewPos = enemy.eye?.position ?? enemyPos;
+            Vector3 viewPos = enemy.eye != null ? enemy.eye.position : enemyPos;
             viewPos += Vector3.up * 0.2f; // Slightly above eye level to avoid ground clipping issues
             float ourDistanceFromEnemy = (enemyTransform.position - ourPos).sqrMagnitude;
             float headOffset = npcController.Npc.gameplayCamera.transform.position.y - ourPos.y;

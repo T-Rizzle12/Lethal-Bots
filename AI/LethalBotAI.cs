@@ -1189,7 +1189,7 @@ namespace LethalBots.AI
                                 continue;
                             }
 
-                            Vector3 enemyViewVector = useEyePosition ? checkLOSToTarget.eye.position : checkLOSToTarget.transform.position;
+                            Vector3 enemyViewVector = useEyePosition && checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : checkLOSToTarget.transform.position;
                             if (!Physics.Linecast(previousNode + Vector3.up * headOffset, enemyViewVector + Vector3.up * 0.2f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                             {
                                 return true;
@@ -1336,7 +1336,7 @@ namespace LethalBots.AI
                                 continue;
                             }
 
-                            Vector3 enemyViewVector = useEyePosition ? checkLOSToTarget.eye.position : checkLOSToTarget.transform.position;
+                            Vector3 enemyViewVector = useEyePosition && checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : checkLOSToTarget.transform.position;
                             if (!Physics.Linecast(travelMidPoint + Vector3.up * headOffset, enemyViewVector + Vector3.up * 0.2f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                             {
                                 return true;
@@ -2381,7 +2381,7 @@ namespace LethalBots.AI
                 }
 
                 // Obstructed
-                Vector3 viewPos = spawnedEnemy.eye?.position ?? positionEnemy;
+                Vector3 viewPos = spawnedEnemy.eye != null ? spawnedEnemy.eye.position : positionEnemy;
                 if (Physics.Linecast(thisLethalBotCamera.position, viewPos, instanceSOR.collidersAndRoomMaskAndDefault))
                 {
                     continue;
@@ -2584,7 +2584,7 @@ namespace LethalBots.AI
                     if ((enemyPos - headPos).sqrMagnitude <= dangerRange * dangerRange)
                     {
                         // Do the actual traceline check
-                        Vector3 viewPos = checkLOSToTarget.eye?.position ?? enemyPos;
+                        Vector3 viewPos = checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : enemyPos;
                         if (!Physics.Linecast(viewPos + Vector3.up * 0.25f, headPos, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                         {
                             _areWeExposed = true;

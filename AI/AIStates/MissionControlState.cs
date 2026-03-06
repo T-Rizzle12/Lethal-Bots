@@ -365,6 +365,11 @@ namespace LethalBots.AI.AIStates
                             ai.State = new FetchingObjectState(this, weapon);
                             return;
                         }
+                        else
+                        {
+                            // Give up on that weapon, we have no room!
+                            weapon = null;
+                        }
                     }
                     // If our weapon uses batteries and its low on battery, we should charge it!
                     else if (!LethalBotAI.IsItemPowered(weapon))
@@ -436,6 +441,11 @@ namespace LethalBots.AI.AIStates
                         LethalBotAI.DictJustDroppedItems.Remove(walkieTalkie); // HACKHACK: Since the walkie-talkie is on the ship, we clear the just dropped item timer!
                         ai.State = new FetchingObjectState(this, walkieTalkie);
                         return;
+                    }
+                    else
+                    {
+                        // Give up on that walkie, we have no room!
+                        walkieTalkie = null;
                     }
                 }
                 // If our walkie-talkie is low on battery, we should charge it!

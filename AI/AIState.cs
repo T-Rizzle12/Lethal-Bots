@@ -1216,7 +1216,7 @@ namespace LethalBots.AI
                             if (dangerRange.HasValue && (enemyPos - nodePos).sqrMagnitude <= dangerRange * dangerRange)
                             {
                                 // Do the actual traceline check
-                                Vector3 viewPos = checkLOSToTarget.eye?.position ?? enemyPos;
+                                Vector3 viewPos = checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : enemyPos;
                                 if (!Physics.Linecast(viewPos + Vector3.up * 0.2f, simulatedHead, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                                 {
                                     isNodeSafe = false;
