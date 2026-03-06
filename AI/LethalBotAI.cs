@@ -5696,7 +5696,11 @@ namespace LethalBots.AI
         /// <param name="newTarget">New <c>PlayerControllerB to set the owner of lethalBot to.</c></param>
         public void SyncAssignTargetAndSetMovingTo(PlayerControllerB newTarget)
         {
-            if (this.OwnerClientId != newTarget.actualClientId)
+            // If we are set to follow a bot, make sure our AI is on the correct client.
+            // NEEDTOVALIDATE: Should I even do this logic for bots? Would it be better to skip the ownership check for them?
+            LethalBotAI? isPlayerBot = LethalBotManager.Instance.GetLethalBotAI(newTarget);
+            ulong targetClientId = isPlayerBot != null ? isPlayerBot.OwnerClientId : newTarget.actualClientId;
+            if (this.OwnerClientId != targetClientId)
             {
                 // Changes the ownership of the lethalBot, on server and client directly
                 ChangeOwnershipOfEnemy(newTarget.actualClientId);

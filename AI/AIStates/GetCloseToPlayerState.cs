@@ -130,14 +130,16 @@ namespace LethalBots.AI.AIStates
             SelectBestItemFromInventory();
 
             // Target is in awarness range
-            float sqrHorizontalDistanceWithTarget = Vector3.Scale((ai.targetPlayer.transform.position - npcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
-            float sqrVerticalDistanceWithTarget = Vector3.Scale((ai.targetPlayer.transform.position - npcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
+            Vector3 targetPlayerPos = ai.targetPlayer.transform.position;
+            float sqrHorizontalDistanceWithTarget = Vector3.Scale((targetPlayerPos - npcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
+            float sqrVerticalDistanceWithTarget = Vector3.Scale((targetPlayerPos - npcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
             if (sqrHorizontalDistanceWithTarget < Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR
                     && sqrVerticalDistanceWithTarget < Const.DISTANCE_AWARENESS_VER * Const.DISTANCE_AWARENESS_VER)
             {
-                targetLastKnownPosition = ai.targetPlayer.transform.position;
+                targetLastKnownPosition = targetPlayerPos;
 
                 // If we can't path to the player, this is probably a mineshaft map and they are probably on a diffrent floor than us!
+                bool usingElevator = false;
                 if (targetLastKnownPosition.HasValue && LethalBotAI.ElevatorScript != null && !ai.IsValidPathToTarget(targetLastKnownPosition.Value, false))
                 {
                     if (ai.targetPlayer.isInsideFactory)
@@ -145,7 +147,7 @@ namespace LethalBots.AI.AIStates
                         bool isPlayerNearElevatorEntrance = ai.IsPlayerNearElevatorEntrance(ai.targetPlayer);
                         if (isPlayerNearElevatorEntrance && !ai.IsInElevatorStartRoom)
                         {
-                            bool usingElevator = ai.UseElevator(true);
+                            usingElevator = ai.UseElevator(true);
 
                             // If we are going to use the elevator to go up,
                             // we must drop the baby maneater before using the elevator
@@ -158,21 +160,13 @@ namespace LethalBots.AI.AIStates
                         }
                         else if (!isPlayerNearElevatorEntrance && ai.IsInElevatorStartRoom)
                         {
-                            ai.UseElevator(false);
+                            usingElevator = ai.UseElevator(false);
                         }
-                        else
-                        {
-                            ai.SyncAssignTargetAndSetMovingTo(ai.targetPlayer);
-                            ai.OrderMoveToDestination();
-                        }
-                    }
-                    else
-                    {
-                        ai.SyncAssignTargetAndSetMovingTo(ai.targetPlayer);
-                        ai.OrderMoveToDestination();
                     }
                 }
-                else
+
+                // Don't interrupt elevator code!
+                if (!usingElevator)
                 {
                     ai.SyncAssignTargetAndSetMovingTo(ai.targetPlayer);
                     ai.OrderMoveToDestination();
@@ -191,16 +185,18 @@ namespace LethalBots.AI.AIStates
                 else
                 {
                     // Target still visible
-                    targetLastKnownPosition = ai.targetPlayer.transform.position;
+                    targetLastKnownPosition = targetPlayerPos;
+
                     // If we can't path to the player, this is probably a mineshaft map and they are probably on a diffrent floor than us!
-                    if (targetLastKnownPosition.HasValue && LethalBotAI.ElevatorScript != null && !ai.IsValidPathToTarget((Vector3)targetLastKnownPosition, false))
+                    if (targetLastKnownPosition.HasValue && LethalBotAI.ElevatorScript != null && !ai.IsValidPathToTarget(targetLastKnownPosition.Value, false))
                     {
+                        bool usingElevator = false;
                         if (ai.targetPlayer.isInsideFactory)
                         {
                             bool isPlayerNearElevatorEntrance = ai.IsPlayerNearElevatorEntrance(ai.targetPlayer);
                             if (isPlayerNearElevatorEntrance && !ai.IsInElevatorStartRoom)
                             {
-                                bool usingElevator = ai.UseElevator(true);
+                                usingElevator = ai.UseElevator(true);
 
                                 // If we are going to use the elevator to go up,
                                 // we must drop the baby maneater before using the elevator
@@ -213,15 +209,12 @@ namespace LethalBots.AI.AIStates
                             }
                             else if (!isPlayerNearElevatorEntrance && ai.IsInElevatorStartRoom)
                             {
-                                ai.UseElevator(false);
-                            }
-                            else
-                            {
-                                ai.SyncAssignTargetAndSetMovingTo(ai.targetPlayer);
-                                ai.OrderMoveToDestination();
+                                usingElevator = ai.UseElevator(false);
                             }
                         }
-                        else
+
+                        // Don't interrupt elevator code!
+                        if (!usingElevator)
                         {
                             ai.SyncAssignTargetAndSetMovingTo(ai.targetPlayer);
                             ai.OrderMoveToDestination();
