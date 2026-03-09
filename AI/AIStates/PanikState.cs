@@ -854,7 +854,7 @@ namespace LethalBots.AI.AIStates
             return base.FindClosestEntrance(entranceToAvoid, shipPos);
         }
 
-        protected override EntranceTeleport? FindClosestEntrance(Vector3? shipPos = null, List<EntranceTeleport>? entrancesToAvoid = null)
+        protected override EntranceTeleport? FindClosestEntrance(Vector3? shipPos = null, HashSet<EntranceTeleport>? entrancesToAvoid = null)
         {
             // Don't do this logic if we are outside!
             if (ai.isOutside)

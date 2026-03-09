@@ -7,28 +7,25 @@ using System.Text;
 
 namespace LethalBots.Managers
 {
-    /// <summary>
-    /// Manager that handles chat commands for the bots
-    /// </summary>
-    public static class ChatCommandsManager
+    public static class SignalTranslatorCommandsManager
     {
-        private static readonly List<ChatCommand> globalCommands = new List<ChatCommand>();
+        private static readonly List<SignalTranslatorCommand> globalCommands = new List<SignalTranslatorCommand>();
 
-        private static readonly Dictionary<Type, List<ChatCommand>> stateCommands = new Dictionary<Type, List<ChatCommand>>();
+        private static readonly Dictionary<Type, List<SignalTranslatorCommand>> stateCommands = new Dictionary<Type, List<SignalTranslatorCommand>>();
 
         private static readonly HashSet<Type> ignoreGlobalCommands = new HashSet<Type>();
 
         /// <summary>
-        /// Registers a chat command for all <see cref="AIState"/>s
+        /// Registers a signal translator command for all <see cref="AIState"/>s
         /// </summary>
         /// <param name="command"></param>
-        public static void RegisterGlobalCommand(ChatCommand command)
+        public static void RegisterGlobalCommand(SignalTranslatorCommand command)
         {
             globalCommands.Add(command);
         }
 
         /// <summary>
-        /// Registers <typeparamref name="T"/> to not call the default chat commands!
+        /// Registers <typeparamref name="T"/> to not call the default signal translator commands!
         /// </summary>
         /// <typeparam name="T"></typeparam>
         public static void RegisterIgnoreDefaultForState<T>()
@@ -38,17 +35,17 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
-        /// Registes a chat commmand or chat command override for <typeparamref name="T"/>
+        /// Registes a signal translator commmand or signal translator command override for <typeparamref name="T"/>
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="command"></param>
-        public static void RegisterCommandForState<T>(ChatCommand command)
+        public static void RegisterCommandForState<T>(SignalTranslatorCommand command)
             where T : AIState
         {
             Type type = typeof(T);
             if (!stateCommands.TryGetValue(type, out var list))
             {
-                list = new List<ChatCommand>();
+                list = new List<SignalTranslatorCommand>();
                 stateCommands[type] = list;
             }
 
@@ -56,30 +53,26 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
-        /// This removes all registered chat commands!
+        /// This removes all registered signal translator commands!
         /// </summary>
-        internal static void RemoveAllChatCommands()
+        internal static void RemoveAllSignalTranslatorCommands()
         {
-            // Chat commands
+            // Signal Translator commands
             globalCommands.Clear();
             stateCommands.Clear();
             ignoreGlobalCommands.Clear();
         }
 
         /// <summary>
-        /// Called when the bot receives a chat message. This can be from a player or bot!
-        /// You can use <see cref="Managers.LethalBotManager.IsPlayerLethalBot(PlayerControllerB)"/> to check who is a bot or not!
+        /// Called when the bot recevies a message from the signal translator! This can be from a player or bot!
         /// </summary>
         /// <remarks>
-        /// WARNING: All messages are forced into lower case!<br/>
-        /// NOTE: This is not called for messages sent by the bot itself!
+        /// WARNING: All messages are forced into lower case!
         /// </remarks>
         /// <param name="state">The AI state to respond to this message.</param>
         /// <param name="message">The message we received</param>
-        /// <param name="playerWhoSentMessage">The player who sent the message!</param>
-        /// <param name="isVoice">Was the message spoken or was typed out in the chat?</param>
-        /// <returns><see langword="true"/> if the <paramref name="state"/> responded to the chat command; otherwise <see langword="false"/></returns>
-        public static bool OnPlayerChatMessageReceived(AIState state, string message, PlayerControllerB playerWhoSentMessage, bool isVoice)
+        /// <returns><see langword="true"/> if the <paramref name="state"/> responded to the signal translator command; otherwise <see langword="false"/></returns>
+        public static bool OnSignalTranslatorMessageReceived(AIState state, string message)
         {
             Type stateType = state.GetType();
 
@@ -90,7 +83,7 @@ namespace LethalBots.Managers
                 {
                     if (message.Contains(command.Keyword))
                     {
-                        if (command.Execute(state, playerWhoSentMessage, message, isVoice))
+                        if (command.Execute(state, message))
                         {
                             return true;
                         }
@@ -109,7 +102,7 @@ namespace LethalBots.Managers
             {
                 if (message.Contains(command.Keyword))
                 {
-                    if (command.Execute(state, playerWhoSentMessage, message, isVoice))
+                    if (command.Execute(state, message))
                     {
                         return true;
                     }

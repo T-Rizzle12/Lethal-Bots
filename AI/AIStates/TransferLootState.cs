@@ -14,7 +14,7 @@ namespace LethalBots.AI.AIStates
     public class TransferLootState : AIState
     {
         private float waitTimer;
-        private List<EntranceTeleport> checkedEntrances = new List<EntranceTeleport>();
+        private HashSet<EntranceTeleport> checkedEntrances = new HashSet<EntranceTeleport>();
 
         public TransferLootState(AIState oldState) : base(oldState)
         {

@@ -1995,6 +1995,7 @@ namespace LethalBots.Managers
             // ****************************************************************
             // First things first, the default chat commands for every state!
             // ****************************************************************
+            ChatCommandsManager.RemoveAllChatCommands();
 
             // Its a good idea to use consts for your chat command names!
             // TODO: Move these into the const file!

@@ -159,7 +159,7 @@ namespace LethalBots.Patches.MapHazardsPatches
             Collider[] array = Physics.OverlapSphere(explosionPosition, damageRange, 8, QueryTriggerInteraction.Collide);
             PlayerControllerB? lethalBotController;
             LethalBotAI? lethalBotAI;
-            List<ulong> lethalBotsAlreadyExploded = new List<ulong>();
+            HashSet<ulong> lethalBotsAlreadyExploded = new HashSet<ulong>();
             for (int i = 0; i < array.Length; i++)
             {
                 var hitCollider = array[i];

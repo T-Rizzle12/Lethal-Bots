@@ -334,15 +334,15 @@ namespace LethalBots.AI
 
         /// <remarks>
         /// Helper function that only avoids a single entrance!<br/>
-        /// <inheritdoc cref="FindClosestEntrance(Vector3?, List{EntranceTeleport}?)"></inheritdoc>
+        /// <inheritdoc cref="FindClosestEntrance(Vector3?, HashSet{EntranceTeleport}?)"></inheritdoc>
         /// </remarks>
-        /// <inheritdoc cref="FindClosestEntrance(Vector3?, List{EntranceTeleport}?)"></inheritdoc>
+        /// <inheritdoc cref="FindClosestEntrance(Vector3?, HashSet{EntranceTeleport}?)"></inheritdoc>
         protected virtual EntranceTeleport? FindClosestEntrance(EntranceTeleport? entranceToAvoid, Vector3? shipPos = null)
         {
-            List<EntranceTeleport>? entrancesToAvoid;
+            HashSet<EntranceTeleport>? entrancesToAvoid;
             if (entranceToAvoid != null)
             {
-                entrancesToAvoid = new List<EntranceTeleport>() { entranceToAvoid };
+                entrancesToAvoid = new HashSet<EntranceTeleport>() { entranceToAvoid };
             }
             else
             {
@@ -359,7 +359,7 @@ namespace LethalBots.AI
         /// We also have to check if the exit position lets the bot reach the ship. Offence is a good example where the bots can't path down the fire exit!
         /// </remarks>
         /// <returns>The closest entrance or else null</returns>
-        protected virtual EntranceTeleport? FindClosestEntrance(Vector3? shipPos = null, List<EntranceTeleport>? entrancesToAvoid = null)
+        protected virtual EntranceTeleport? FindClosestEntrance(Vector3? shipPos = null, HashSet<EntranceTeleport>? entrancesToAvoid = null)
         {
             bool shouldOnlyUseFrontEntrance = ShouldOnlyUseFrontEntrance();
             bool isClosestEntranceFront = false;
