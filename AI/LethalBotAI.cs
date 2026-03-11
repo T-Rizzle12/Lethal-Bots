@@ -3251,7 +3251,7 @@ namespace LethalBots.AI
         /// <remarks>
         /// Ok, so this was ripped from the Masked AI <see cref="MaskedPlayerEnemy.UseElevator"/>, there may be bugs that need to be fixed
         /// </remarks>
-        /// <returns>true: the lethalBot is using or is waiting to use the elevator, else false</returns>
+        /// <returns><see langword="true"/>: the lethalBot is using or is waiting to use the elevator, else <see cref="false"/></returns>
         public bool UseElevator(bool goUp)
         {
             if (ElevatorScript == null || this.isOutside)
@@ -8144,7 +8144,7 @@ namespace LethalBots.AI
             lethalBotController.setPositionOfDeadPlayer = true;
             lethalBotController.snapToServerPosition = false;
             lethalBotController.causeOfDeath = causeOfDeath;
-            AccessTools.Field(typeof(PlayerControllerB), "positionOfDeath").SetValue(lethalBotController, lethalBotController.transform.position);
+            PatchesUtil.positionOfDeathField.Invoke(lethalBotController) = lethalBotController.transform.position;
             if (spawnBody)
             {
                 lethalBotController.SpawnDeadBody((int)lethalBotController.playerClientId, bodyVelocity, (int)causeOfDeath, lethalBotController, deathAnimation, null, positionOffset);

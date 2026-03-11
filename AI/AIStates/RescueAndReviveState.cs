@@ -993,7 +993,7 @@ namespace LethalBots.AI.AIStates
                                                                 IsOutside = true,
                                                                 IndexNextPlayerObject = playerClientId
                                                             });
-            LethalBotManager.Instance.UpdateReviveCountServerRpc(lethalBotIdentity.IdIdentity + Plugin.PluginIrlPlayersCount);
+            LethalBotManager.Instance.UpdateReviveCountServerRpc(playerClientId);
             // Immediately change the number of living players
             // The host will update the number of living players when the bot is spawned
             StartOfRound.Instance.livingPlayers++;

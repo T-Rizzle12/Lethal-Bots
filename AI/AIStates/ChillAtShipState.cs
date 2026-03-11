@@ -151,8 +151,6 @@ namespace LethalBots.AI.AIStates
                     else if (LethalBotManager.Instance.AreAllHumanPlayersDead()
                     && LethalBotManager.Instance.AreAllPlayersOnTheShip())
                     {
-                        // HACKHACK: We fake pulling the ship lever to leave early, we will make the bot actually
-                        // use the ship lever once I fix the interact trigger object code later
                         if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET)
                         {
                             if (npcController.Npc.playersManager.shipHasLanded
@@ -236,8 +234,6 @@ namespace LethalBots.AI.AIStates
                 else if (LethalBotManager.Instance.AreAllHumanPlayersDead()
                 && LethalBotManager.Instance.AreAllPlayersOnTheShip())
                 {
-                    // HACKHACK: We fake pulling the ship lever to leave early, we will make the bot actually
-                    // use the ship lever once I fix the interact trigger object code later
                     if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET)
                     {
                         if (npcController.Npc.playersManager.shipHasLanded

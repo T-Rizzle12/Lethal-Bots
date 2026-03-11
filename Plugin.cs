@@ -176,8 +176,6 @@ namespace LethalBots
 
             PatchOtherMods();
 
-            RegisterVoiceCommands();
-
             Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
         }
 
@@ -403,54 +401,6 @@ namespace LethalBots
                                new HarmonyMethod(typeof(LCVRPatchesPatch), nameof(LCVRPatchesPatch.AfterDamagePlayer_Prefix)));
             }
         }
-
-        #region Voice Commands
-
-        private static readonly FieldInfo bestMatchField = AccessTools.Field(typeof(Speech), "bestMatch");
-
-        private void RegisterVoiceCommands()
-        {
-            // TODO: Revamp the chat command system to be more modular and easier to add new commands
-            // Until then, we have to register all of the commands here manually
-            string[] ValidCommands = new string[]
-            {
-                "jester",
-                "start the ship",
-                "hop off the terminal",
-                "request monitoring",
-                "request teleport",
-                "clear monitoring",
-                "man the ship",
-                "transmit", // FIXME: This command doesn't work due to how speech recognition works, a fix will be made later
-                "transfer loot",
-                "gear up"
-            };
-
-            // Register valid phrases for speech recognition
-            Speech.RegisterPhrases(ValidCommands);
-
-            // Create a handler for recognized speech events
-            void handler(object speechInstance, SpeechEventArgs text)
-            {
-                // Don't do this if the local client has disabled voice recognition
-                if (!Config.AllowVoiceRecognition.Value)
-                {
-                    return;
-                }
-
-                // The local player gets to determine which model to use for their voice recognition.
-                // Our job is to broadcast that to all other players so their bots can respond accordingly.
-                PlayerControllerB? playerControllerB = GameNetworkManager.Instance?.localPlayerController;
-                if (playerControllerB != null && Speech.IsAboveThreshold(ValidCommands, Config.VoiceRecognitionSimilarityThreshold.Value))
-                {
-                    LethalBotManager.Instance?.TransmitVoiceChatAndSync((string)bestMatchField.GetValue(null), (int)playerControllerB.playerClientId);
-                }
-            }
-
-            Speech.RegisterCustomHandler(handler);
-        }
-
-        #endregion
 
         private bool IsModLoaded(string modGUID)
         {

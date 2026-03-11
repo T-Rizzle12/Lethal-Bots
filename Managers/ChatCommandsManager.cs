@@ -3,6 +3,7 @@ using LethalBots.AI;
 using LethalBots.Utils.Helpers;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace LethalBots.Managers
@@ -38,7 +39,7 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
-        /// Registes a chat commmand or chat command override for <typeparamref name="T"/>
+        /// Registers a chat command or chat command override for <typeparamref name="T"/>
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="command"></param>
@@ -53,6 +54,39 @@ namespace LethalBots.Managers
             }
 
             list.Add(command);
+        }
+
+        /// <summary>
+        /// Returns all of the registered chat commands.
+        /// </summary>
+        /// <returns>An <see cref="Array"/> with every registered chat command.</returns>
+        public static ChatCommand[] GetAllRegisteredChatCommands()
+        {
+            // Add all of the chat commands together
+            List<ChatCommand> chatCommands = new List<ChatCommand>(globalCommands);
+            foreach (var chatCommand in stateCommands)
+            {
+                chatCommands.AddRange(chatCommand.Value);
+            }
+            return chatCommands.ToArray(); // Return as a beautiful array
+        }
+
+        /// <summary>
+        /// For use in the voice recogniton register
+        /// </summary>
+        /// <remarks>
+        /// This uses a <see cref="HashSet{T}"/> to prevent duplicate keywords from appearing
+        /// </remarks>
+        /// <returns></returns>
+        public static string[] GetAllRegisteredChatCommandKeywords()
+        {
+            HashSet<string> keywords = new HashSet<string>();
+            ChatCommand[] allChatCommands = GetAllRegisteredChatCommands();
+            foreach (var chatCommand in allChatCommands)
+            {
+                keywords.Add(chatCommand.Keyword);
+            }
+            return keywords.ToArray();
         }
 
         /// <summary>

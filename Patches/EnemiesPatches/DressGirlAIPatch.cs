@@ -55,7 +55,6 @@ namespace LethalBots.Patches.EnemiesPatches
             FieldInfo localPlayerControllerField = AccessTools.Field(typeof(GameNetworkManager), "localPlayerController");
             FieldInfo hauntingPlayerField = AccessTools.Field(typeof(DressGirlAI), "hauntingPlayer");
             FieldInfo heartbeatMusicField = AccessTools.Field(typeof(DressGirlAI), "heartbeatMusic");
-            FieldInfo hauntIntervalField = AccessTools.Field(typeof(DressGirlAI), "hauntInterval");
             MethodInfo opInequalityMethod = AccessTools.Method(typeof(UnityEngine.Object), "op_Inequality");
             MethodInfo lerpMethod = AccessTools.Method(typeof(UnityEngine.Mathf), "Lerp");
             MethodInfo getSoundManagerInstance = AccessTools.PropertyGetter(typeof(SoundManager), "Instance");

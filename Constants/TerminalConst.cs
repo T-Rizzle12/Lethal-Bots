@@ -20,5 +20,6 @@ namespace LethalBots.Constants
         public const string STRING_ROUTE_COMMAND = "route {0}"; // Helper string to route to the given moon
         public const string STRING_CONFIRM_COMMAND = "confirm"; // Helper string to confirm an option
         public const string STRING_CANCEL_COMMAND = "deny"; // Helper string to deny an option
+        public const string STRING_TRANSMIT_COMMAND = "transmit {0}"; // Helper string for the transmit command
     }
 }

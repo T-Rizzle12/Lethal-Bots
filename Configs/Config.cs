@@ -25,7 +25,7 @@ namespace LethalBots.Configs
     {
         // Bot settings
         [SyncedEntryField] public SyncedEntry<int> MaxBotsAllowedToSpawn;
-        public ConfigEntry<int> MaxAnimatedBots;
+        public ConfigEntry<bool> DisableNameBillBoards;
 
         // Identity  
         [SyncedEntryField] public SyncedEntry<bool> SpawnIdentitiesRandomly;
@@ -82,11 +82,10 @@ namespace LethalBots.Configs
                                            new ConfigDescription("Be aware of possible performance problems when more than ~16 bots spawned",
                                                                  new AcceptableValueRange<int>(ConfigConst.MIN_BOTS_AVAILABLE, ConfigConst.MAX_BOTS_AVAILABLE)));
 
-            MaxAnimatedBots = cfg.Bind(ConfigConst.ConfigSectionMain,
-                                   "Max animated bots at once (Client only)",
-                                   defaultValue: ConfigConst.MAX_BOTS_AVAILABLE,
-                                   new ConfigDescription("Set the maximum of bots that can be animated at the same time (if heavy lag occurs when looking at a lot of bots) (client only)",
-                                                         new AcceptableValueRange<int>(1, ConfigConst.MAX_BOTS_AVAILABLE)));
+            DisableNameBillBoards = cfg.Bind(ConfigConst.ConfigSectionMain,
+                                            "Should bots have their name tags disabled (Client only)",
+                                            defaultValue: false,
+                                            "Although bots call the base game name billboard display code, you can manually disable their name tags here.");
 
             // Identities
             SpawnIdentitiesRandomly = cfg.BindSyncedEntry(ConfigConst.ConfigSectionIdentities,

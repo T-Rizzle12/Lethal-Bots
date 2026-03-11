@@ -30,6 +30,9 @@ namespace LethalBots.Utils
 
         public static readonly AccessTools.FieldRef<ItemDropship, List<int>> itemsToDeliverField = AccessTools.FieldRefAccess<List<int>>(typeof(ItemDropship), "itemsToDeliver");
 
+        public static readonly AccessTools.FieldRef<PlayerControllerB, Vector3> positionOfDeathField = AccessTools.FieldRefAccess<Vector3>(typeof(PlayerControllerB), "positionOfDeath");
+        public static readonly AccessTools.FieldRef<PlayerControllerB, float> timeSinceSwitchingSlotsField = AccessTools.FieldRefAccess<float>(typeof(PlayerControllerB), "timeSinceSwitchingSlots");
+
         #endregion
 
         public static readonly MethodInfo AllEntitiesCountMethod = SymbolExtensions.GetMethodInfo(() => AllEntitiesCount());

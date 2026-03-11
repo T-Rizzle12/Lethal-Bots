@@ -10,6 +10,7 @@ using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils.Helpers;
+using PySpeech;
 using Scoops.customization;
 using Scoops.gameobjects;
 using Scoops.misc;
@@ -18,6 +19,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Unity.Netcode;
 using UnityEngine;
@@ -64,6 +66,9 @@ namespace LethalBots.Managers
         /// <summary>
         /// Number of actually connected players, used for the DepositItemDeskPatch!
         /// </summary>
+        /// <remarks>
+        /// This is the number of human players on the server
+        /// </remarks>
         public int AllRealPlayersCount { private set; get; }
 
         /// <summary>
@@ -255,6 +260,7 @@ namespace LethalBots.Managers
 
         private float timerSetLethalBotInElevator;
         private float timerUpdateOwnershipOfBot;
+        private static bool registeredVoiceCommands = false;
 
         /// <summary>
         /// Initialize instance,
@@ -598,6 +604,7 @@ namespace LethalBots.Managers
             // Register chat commands
             RegisterDefaultCommands();
             RegisterCustomCommands();
+            RegisterVoiceCommands();
         }
 
         private void Update()
@@ -1661,6 +1668,10 @@ namespace LethalBots.Managers
                 if (Plugin.IsModLethalPhonesLoaded)
                 {
                     lethalBotAI.StopBeingSwitchboardOperator();
+                    if (lethalBotAI.AreWeInCall() || lethalBotAI.IsPhoneEquipped())
+                    {
+                        lethalBotAI.HangupPhone();
+                    }
                     CleanupLethalPhoneForBot(lethalBotController);
                 }
 
@@ -1985,6 +1996,60 @@ namespace LethalBots.Managers
                 return;
             }
             LethalBotsRespondToVoiceChat(message, playerWhoSaidMessage);
+        }
+
+        private static readonly FieldInfo bestMatchField = AccessTools.Field(typeof(Speech), "bestMatch");
+
+        /// <summary>
+        /// Helper function that registers voice commands
+        /// </summary>
+        private static void RegisterVoiceCommands()
+        {
+            // Only do this once!
+            if (registeredVoiceCommands)
+            {
+                return;
+            }
+            // TODO: Revamp the chat command system to be more modular and easier to add new commands
+            // Until then, we have to register all of the commands here manually
+            //string[] ValidCommands = new string[]
+            //{
+            //    "jester",
+            //    "start the ship",
+            //    "hop off the terminal",
+            //    "request monitoring",
+            //    "request teleport",
+            //    "clear monitoring",
+            //    "man the ship",
+            //    "transmit", // FIXME: This command doesn't work due to how speech recognition works, a fix will be made later
+            //    "transfer loot",
+            //    "gear up"
+            //};
+            string[] ValidCommands = ChatCommandsManager.GetAllRegisteredChatCommandKeywords();
+
+            // Register valid phrases for speech recognition
+            Speech.RegisterPhrases(ValidCommands);
+
+            // Create a handler for recognized speech events
+            void handler(object speechInstance, SpeechEventArgs text)
+            {
+                // Don't do this if the local client has disabled voice recognition
+                if (!Plugin.Config.AllowVoiceRecognition.Value)
+                {
+                    return;
+                }
+
+                // The local player gets to determine which model to use for their voice recognition.
+                // Our job is to broadcast that to all other players so their bots can respond accordingly.
+                PlayerControllerB? playerControllerB = GameNetworkManager.Instance?.localPlayerController;
+                if (playerControllerB != null && Speech.IsAboveThreshold(ValidCommands, Plugin.Config.VoiceRecognitionSimilarityThreshold.Value))
+                {
+                    LethalBotManager.Instance?.TransmitVoiceChatAndSync((string)bestMatchField.GetValue(null), (int)playerControllerB.playerClientId);
+                }
+            }
+
+            Speech.RegisterCustomHandler(handler);
+            registeredVoiceCommands = true;
         }
 
         /// <summary>
@@ -3670,6 +3735,10 @@ namespace LethalBots.Managers
                 if (Plugin.IsModLethalPhonesLoaded)
                 {
                     lethalBotAI.StopBeingSwitchboardOperator();
+                    if (lethalBotAI.AreWeInCall() || lethalBotAI.IsPhoneEquipped())
+                    {
+                        lethalBotAI.HangupPhone();
+                    }
                     CleanupLethalPhoneForBot(lethalBotController);
                 }
 

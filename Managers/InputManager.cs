@@ -5,6 +5,7 @@ using LethalBots.AI.AIStates;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Patches.NpcPatches;
+using LethalBots.Utils;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -280,7 +281,7 @@ namespace LethalBots.Managers
                 }
 
                 // To cut Discard_performed from triggering after this input
-                AccessTools.Field(typeof(PlayerControllerB), "timeSinceSwitchingSlots").SetValue(localPlayer, 0f);
+                PatchesUtil.timeSinceSwitchingSlotsField.Invoke(localPlayer) = 0f;
 
                 if (!lethalBot.AreHandsFree())
                 {

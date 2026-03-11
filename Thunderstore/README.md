@@ -66,7 +66,7 @@ To link the voice folder to the bot, simply change the "VoiceFolder" property in
 T-Rizzle: I may change the voice lines along with using TTS in the future, but since the original mod was under an MIT license, I will keep the original voice lines for now.
 </br>A big thanks to **Mathew Kelly** and his incredible voice acting, there's more than 700 (!!) voice lines for those little guys.</br>
 Chilling with you, following, founding loot, panicking, you name it, there's a voice line for every state of mind !</br>
-You may know him as **Dragon-V0942** from [FurAffinity](https://www.furaffinity.net/user/dragon-v0942), and you can find some of his voice acting works on youtube [(Voice acting example)](https://www.youtube.com/watch?v=5LGVz-ONeKE).
+You may know him as **Dragon-V0942** from [FurAffinity](https://www.furaffinity.net/user/dragon-v0942), and you can find some of his voice acting works on youtube [(Voice acting example)](https://youtu.be/SZDDcCBvyjc).
 </br>
 </br>
 

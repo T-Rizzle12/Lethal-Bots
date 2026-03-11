@@ -1003,7 +1003,10 @@ namespace LethalBots.Patches.NpcPatches
                 }
 
                 // Name billboard
-                lethalBot.NpcController.Npc.ShowNameBillboard();
+                if (!Plugin.Config.DisableNameBillBoards.Value)
+                { 
+                    lethalBot.NpcController.Npc.ShowNameBillboard(); 
+                }
 
                 // No action if in spawning animation
                 if (lethalBot.IsSpawningAnimationRunning())

@@ -401,6 +401,7 @@ namespace LethalBots.AI.AIStates
 
         private IEnumerator weaponAttackCoroutine()
         {
+            CountdownTimer attackCooldownTimer = new CountdownTimer();
             while (ai.State != null
                 && ai.State == this
                 && this.CurrentEnemy != null 
@@ -425,6 +426,11 @@ namespace LethalBots.AI.AIStates
 
                 // We have a shot!
                 canHitTarget = true;
+                if (attackCooldownTimer.HasStarted() && !attackCooldownTimer.Elapsed())
+                {
+                    yield return null;
+                    continue;
+                }
 
                 // TODO: move this into a function outside of the corutine, so
                 // modders can add custom support for ranged weapons.....
@@ -495,7 +501,8 @@ namespace LethalBots.AI.AIStates
                     }
                 }
 
-                yield return new WaitForSeconds(GetWeaponAttackInterval(heldItem));
+                // Start the cooldown timer
+                attackCooldownTimer.Start(GetWeaponAttackInterval(heldItem));
             }
 
             StopAttackCoroutine();

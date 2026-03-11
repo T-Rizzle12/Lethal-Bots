@@ -278,8 +278,6 @@ namespace LethalBots.AI.AIStates
                 else if ((playerRequestLeave || LethalBotManager.Instance.AreAllHumanPlayersDead())
                 && LethalBotManager.Instance.AreAllPlayersOnTheShip())
                 {
-                    // HACKHACK: We fake pulling the ship lever to leave early, we will make the bot actually
-                    // use the ship lever once I fix the interact trigger object code later
                     if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET)
                     {
                         if (GetOffTerminal())
@@ -608,11 +606,11 @@ namespace LethalBots.AI.AIStates
                     string messageToSend = GetNextMessageToSend();
                     if (!string.IsNullOrWhiteSpace(messageToSend))
                     {
-                        yield return SendCommandToTerminal($"transmit {messageToSend}");
+                        yield return SendCommandToTerminal(string.Format(TerminalConst.STRING_TRANSMIT_COMMAND, messageToSend));
                     }
                 }
 
-                // Update out "vision" to the targeted player on the monitor
+                // Update our "vision" to the targeted player on the monitor
                 targetedPlayer = StartOfRound.Instance.mapScreen.targetedPlayer;
                 if (playersRequstedTeleport.TryDequeue(out PlayerControllerB playerControllerB))
                 {
@@ -719,6 +717,7 @@ namespace LethalBots.AI.AIStates
 
                 // Make sure that in the period we were waiting to teleport the player or body
                 // that they still need to be teleported!
+                // NOTE: This also helps the bot not teleport the wrong player if someone changes who is being monitored.
                 PlayerControllerB playerOnMonitor = StartOfRound.Instance.mapScreen.targetedPlayer;
                 if (playerOnMonitor != null && !skipPostCheck)
                 {
@@ -733,7 +732,9 @@ namespace LethalBots.AI.AIStates
                     }
                 }
 
+                // FIXME: We need to hop off the terminal in order to push the teleport button!
                 ShipTeleporter.PressTeleportButtonOnLocalClient();
+                //ShipTeleporter.buttonTrigger.Interact(npcController.Npc.thisPlayerBody);
             }
         }
 
@@ -1401,7 +1402,6 @@ namespace LethalBots.AI.AIStates
                 return false;
             }
 
-            // TODO: Put this behind a config option incase players don't want this!
             // NEEDTOVALIDATE: Should I make it where the bot waits for the player to spin
             // or shake their camera instead?
             if (!player.isInElevator && !player.isInHangarShipRoom)
@@ -1435,6 +1435,15 @@ namespace LethalBots.AI.AIStates
                             {
                                 // Is the old bird targeting them?
                                 Transform? targetTransform = oldBird.targetedThreat?.threatScript?.GetThreatTransform();
+                                if (player.transform == targetTransform)
+                                {
+                                    return true;
+                                }
+                            }
+                            else if (spawnedEnemy is BaboonBirdAI baboonHawk)
+                            {
+                                // If the babooon hawk targeting them
+                                Transform? targetTransform = baboonHawk.focusedThreat?.threatScript?.GetThreatTransform();
                                 if (player.transform == targetTransform)
                                 {
                                     return true;
@@ -1945,6 +1954,14 @@ namespace LethalBots.AI.AIStates
             // This player wants to be teleported back to the ship
             ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.REQUEST_TELEPORT_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
+                // Make sure we have a teleporter
+                if (ShipTeleporter == null)
+                {
+                    // Remind the player on their poor decision to not buy a teleporter.......
+                    lethalBotAI.SendChatMessage("What do you mean, \"TELEPORT ME\"! We don't own a teleporter!");
+                    return true;
+                }
+
                 // Only add new requests!
                 MissionControlState missionControlState = (MissionControlState)state; // We have bigger problems if this cast fails!
                 if (!missionControlState.playersRequstedTeleport.Contains(playerWhoSentMessage))
@@ -2079,7 +2096,7 @@ namespace LethalBots.AI.AIStates
             {
                 return false;
             }
-            return true; // Everything else can go!
+            return base.FindObject(item); // Everything else can go!
         }
 
         /// <summary>
