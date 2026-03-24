@@ -3,7 +3,9 @@ using GameNetcodeStuff;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.Utils.Helpers;
 using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -161,10 +163,11 @@ namespace LethalBots.AI.AIStates
             }
 
             // Check for object to grab
-            if (ai.HasSpaceInInventory())
+            int groupID = GroupManager.Instance.GetGroupId(npcController.Npc);
+            if (!IsInventoryFull(groupID))
             {
                 GrabbableObject? grabbableObject = ai.LookingForObjectToGrab();
-                if (grabbableObject != null)
+                if (grabbableObject != null && ai.HasSpaceInInventory(grabbableObject))
                 {
                     scrapTimer = 0f; // Reset this since we found an object!
                     ai.State = new FetchingObjectState(this, grabbableObject);
@@ -189,7 +192,6 @@ namespace LethalBots.AI.AIStates
             SelectBestItemFromInventory();
 
             // Group logic
-            int groupID = GroupManager.Instance.GetGroupId(npcController.Npc);
             if (groupID != GroupManager.INVALID_GROUP_INDEX)
             {
                 // The group leader does their best to make sure no one falls behind.......
@@ -246,7 +248,7 @@ namespace LethalBots.AI.AIStates
                 // Hold on a minute, we should empty our inventory first!
                 // NOTE: If a player leaves scrap by an entrance, the bot will collect
                 // as much as they can and return to the ship as a result!
-                if (ai.HasScrapInInventory())
+                if (ai.HasScrapInInventory() || (groupID != GroupManager.INVALID_GROUP_INDEX && GroupManager.Instance.DoesGroupHaveScrap(groupID)))
                 {
                     // Now, lets check if someone is assigned to transfer loot
                     bool shouldWalkLootToShip = true;
@@ -494,6 +496,45 @@ namespace LethalBots.AI.AIStates
                 return distSqrToEntrance < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE;
             }
             return base.ShouldIgnoreInitialDangerCheck();
+        }
+
+        /// <summary>
+        /// Checks if the bot's inventory is full.
+        /// </summary>
+        /// <remarks>
+        /// This considers the bot's group as well.
+        /// </remarks>
+        /// <returns></returns>
+
+        private bool IsInventoryFull(int? groupID)
+        {
+            groupID ??= GroupManager.Instance.GetGroupId(npcController.Npc);
+            if (groupID != GroupManager.INVALID_GROUP_INDEX)
+            {
+                List<PlayerControllerB> groupMembers = GroupManager.Instance.GetGroupMembers(groupID.Value);
+                GrabbableObject[]? itemSlots = null;
+                foreach (PlayerControllerB member in groupMembers)
+                {
+                    // Make sure this member is valid
+                    if (member == null) continue;
+
+                    // Grab this member's inventory
+                    itemSlots = member.ItemSlots;
+                    int inventorySize = LethalBotAI.GetInventorySize(member, itemSlots);
+                    for (int i = 0; i < inventorySize; i++)
+                    {
+                        if (itemSlots[i] == null)
+                        {
+                            return false; // Someone has space in their inventory.
+                        }
+                    }
+                }
+
+                // Group is full, we should head back now.
+                return true;
+            }
+
+            return !ai.HasSpaceInInventory();
         }
 
         /// <summary>

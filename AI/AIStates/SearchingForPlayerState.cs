@@ -117,6 +117,9 @@ namespace LethalBots.AI.AIStates
                     AllowSwearing = Plugin.Config.AllowSwearing.Value
                 });
 
+                // We are following a human player, leave our current group or join theirs!
+                GroupManager.Instance.CreateOrJoinGroupWithMembersAndSync(player, new PlayerControllerB[] { npcController.Npc });
+
                 // Assign to new target
                 ai.SyncAssignTargetAndSetMovingTo(player);
                 if (Plugin.Config.ChangeSuitAutoBehaviour.Value)

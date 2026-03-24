@@ -267,6 +267,23 @@ namespace LethalBots.AI
                 }
                 return true;
             }));
+
+            // A player asked to join our group
+            ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.JOIN_GROUP_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            {
+                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController))
+                {
+                    // Yay, we found a vaild bot, have the local player join their group!
+                    int groupID = GroupManager.Instance.GetGroupId(lethalBotController);
+                    if (groupID != GroupManager.INVALID_GROUP_INDEX 
+                    && !GroupManager.Instance.ArePlayersInSameGroup(lethalBotController, playerWhoSentMessage))
+                    {
+                        lethalBotAI.SendChatMessage($"Yes, you may join our group!");
+                        GroupManager.Instance.AddToGroupAndSync(groupID, playerWhoSentMessage);
+                    }
+                }
+                return true;
+            }));
         }
 
         /// <summary>
@@ -310,7 +327,7 @@ namespace LethalBots.AI
         /// </remarks>
         /// <param name="player">The player to check for bot interaction. Cannot be null.</param>
         /// <returns>true if the player is addressing this bot and the bot is eligible to respond; otherwise, false.</returns>
-        public bool IsBotBeingAddressed(PlayerControllerB player, out PlayerControllerB? lethalBotController)
+        public bool IsBotBeingAddressed(PlayerControllerB player, [NotNullWhen(true)] out PlayerControllerB? lethalBotController)
         {
             // Make sure the player is valid
             lethalBotController = null;

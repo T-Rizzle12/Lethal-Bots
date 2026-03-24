@@ -2208,12 +2208,13 @@ namespace LethalBots.AI
         /// <summary>
         /// Make the controller look at the eyes of a player
         /// </summary>
-        /// <param name="positionPlayerEyeToLookAt"></param>
-        public void OrderToLookAtPlayer(Vector3 positionPlayerEyeToLookAt)
+        /// <param name="playerToLookAt"></param>
+        public void OrderToLookAtPlayer(PlayerControllerB playerToLookAt)
         {
             this.LookAtTarget.enumObjectsLookingAt = EnumObjectsLookingAt.Position;
-            this.LookAtTarget.AimHeadTowards(positionPlayerEyeToLookAt, EnumLookAtPriority.MEDIUM_PRIORITY, bypassSteadyCheck: true);
+            this.LookAtTarget.AimHeadTowards(playerToLookAt.NetworkObject, EnumLookAtPriority.MEDIUM_PRIORITY, bypassSteadyCheck: true);
         }
+
         /// <summary>
         /// Make the controller look straight forward
         /// </summary>
@@ -2222,14 +2223,19 @@ namespace LethalBots.AI
             this.LookAtTarget.enumObjectsLookingAt = EnumObjectsLookingAt.Forward;
             this.LookAtTarget.lookAtPriority = EnumLookAtPriority.LOW_PRIORITY; // HACKHACK: Reset LookAtPriority
         }
-        /// <summary>
-        /// Make the controller look at an specific vector position
-        /// </summary>
-        /// <param name="positionToLookAt"></param>
-        public void OrderToLookAtPosition(Vector3 positionToLookAt, EnumLookAtPriority priority = EnumLookAtPriority.LOW_PRIORITY, float duration = 0.0f, bool bypassSteadyCheck = false, float maxBodyFOV = Const.LETHAL_BOT_FOV)
+
+        /// <inheritdoc cref="LookAtTarget.AimHeadTowards(Vector3, EnumLookAtPriority, float, bool, float)"/>
+        public void OrderToLookAtPosition(Vector3 lookAtPos, EnumLookAtPriority priority = EnumLookAtPriority.LOW_PRIORITY, float duration = 0.0f, bool bypassSteadyCheck = false, float maxBodyFOV = Const.LETHAL_BOT_FOV)
         {
             this.LookAtTarget.enumObjectsLookingAt = EnumObjectsLookingAt.Position;
-            this.LookAtTarget.AimHeadTowards(positionToLookAt, priority, duration, bypassSteadyCheck, maxBodyFOV);
+            this.LookAtTarget.AimHeadTowards(lookAtPos, priority, duration, bypassSteadyCheck, maxBodyFOV);
+        }
+
+        /// <inheritdoc cref="LookAtTarget.AimHeadTowards(NetworkObjectReference, EnumLookAtPriority, float, bool, float)"/>
+        public void OrderToLookAtPosition(NetworkObject lookAtSubject, EnumLookAtPriority priority = EnumLookAtPriority.LOW_PRIORITY, float duration = 0.0f, bool bypassSteadyCheck = false, float maxBodyFOV = Const.LETHAL_BOT_FOV)
+        {
+            this.LookAtTarget.enumObjectsLookingAt = EnumObjectsLookingAt.Position;
+            this.LookAtTarget.AimHeadTowards(lookAtSubject, priority, duration, bypassSteadyCheck, maxBodyFOV);
         }
 
         /// <summary>

@@ -1805,6 +1805,36 @@ namespace LethalBots.Managers
                     }
                     return;
                 }
+                else if (message.Contains("i will transfer loot"))
+                {
+                    // A human player wants to transfer loot. Sync to others!
+                    // HACKHACK: Only network this once, since LethalBotsRespondToChatMessage is called for all players,
+                    // we can check this here!
+                    if (playerWhoSentMessage == GameNetworkManager.Instance.localPlayerController)
+                    {
+                        AddPlayerToLootTransferListAndSync(playerWhoSentMessage);
+                    }
+                    return;
+                }
+                else if (message.Contains(Const.CREATE_GROUP_COMMAND))
+                {
+                    // Lets the local player create a group.
+                    if (playerWhoSentMessage == GameNetworkManager.Instance.localPlayerController)
+                    { 
+                        GroupManager.Instance.CreateGroupAndSync(playerWhoSentMessage); 
+                    }
+                    return;
+                }
+                else if (message.Contains(Const.LEAVE_GROUP_COMMAND))
+                {
+                    // Lets the local player leave the group they are in.
+                    if (playerWhoSentMessage == GameNetworkManager.Instance.localPlayerController 
+                        && GroupManager.Instance.IsPlayerInGroup(playerWhoSentMessage))
+                    {
+                        GroupManager.Instance.RemoveFromCurrentGroupAndSync(playerWhoSentMessage);
+                    }
+                    return;
+                }
                 //else if (message.Contains("time info"))
                 //{
                 //    TimeOfDay timeOfDay = TimeOfDay.Instance;

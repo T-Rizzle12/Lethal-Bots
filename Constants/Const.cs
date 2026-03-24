@@ -143,6 +143,9 @@ namespace LethalBots.Constants
         public const string CLEAR_MONITORING_COMMAND = "clear monitoring";
         public const string REQUEST_TELEPORT_COMMAND = "request teleport";
         public const string HOP_OFF_THE_TERMINAL_COMMAND = "hop off the terminal";
+        public const string JOIN_GROUP_COMMAND = "join group";
+        public const string LEAVE_GROUP_COMMAND = "leave group";
+        public const string CREATE_GROUP_COMMAND = "create group";
 
         // Signal Translator command consts
         public const string RETURN_COMMAND = "return";

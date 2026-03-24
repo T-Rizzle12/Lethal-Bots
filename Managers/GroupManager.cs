@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Unity.Netcode;
 using UnityEngine;
+using System.Linq;
 
 namespace LethalBots.Managers
 {
@@ -86,11 +87,12 @@ namespace LethalBots.Managers
         /// This always fails if not called on the server.
         /// </remarks>
         /// <param name="leader"></param>
-        private void CreateGroup(PlayerControllerB leader)
+        /// <returns>The newly created group id</returns>
+        private int CreateGroup(PlayerControllerB leader)
         {
             if (!IsServer)
             {
-                return;
+                return INVALID_GROUP_INDEX;
             }
 
             RemoveFromCurrentGroup(leader);
@@ -102,6 +104,7 @@ namespace LethalBots.Managers
                 Member = leader,
                 IsLeader = true
             });
+            return groupId;
         }
 
         /// <summary>
@@ -241,6 +244,83 @@ namespace LethalBots.Managers
             if (player.TryGet(out PlayerControllerB groupLeader))
             {
                 CreateOrJoinGroupAndSync(groupLeader);
+            }
+        }
+
+        /// <inheritdoc cref="CreateOrJoinGroupWithMembers(PlayerControllerB, PlayerControllerB[], bool)"/>
+        /// <remarks>
+        /// This will automatically call <see cref="CreateGroupServerRpc(NetworkBehaviourReference)"/> if called on a client.
+        /// </remarks>
+        public void CreateOrJoinGroupWithMembersAndSync(PlayerControllerB leader, PlayerControllerB[] members, bool forceNewGroup = false)
+        {
+            if (IsServer)
+            {
+                CreateOrJoinGroupWithMembers(leader, members, forceNewGroup);
+            }
+            else
+            {
+                CreateOrJoinGroupWithMembersServerRpc(leader, members.Select(m => new NetworkBehaviourReference(m)).ToArray(), forceNewGroup);
+            }
+        }
+
+        /// <summary>
+        /// Creates a group with the given <paramref name="leader"/> and the given <paramref name="members"/>.
+        /// </summary>
+        /// <remarks>
+        /// If the group already exists and the <paramref name="leader"/> is the leader of the group, 
+        /// the given <paramref name="members"/> will just be added to the already existing group instead.<br/>
+        /// Otherwise a new group with the given <paramref name="leader"/> and <paramref name="members"/> will be created.
+        /// </remarks>
+        /// <param name="leader">The player controller to make the leader of this group.</param>
+        /// <param name="members">The player controllers to add as members to the group</param>
+        /// <param name="forceNewGroup">Should we make a new group even if the given <paramref name="leader"/> is already a leader of another group?</param>
+        private void CreateOrJoinGroupWithMembers(PlayerControllerB leader, PlayerControllerB[] members, bool forceNewGroup = false)
+        {
+            if (!IsServer)
+                return;
+
+            // Either we join or create a new group
+            if (forceNewGroup
+                || !IsPlayerGroupLeader(leader, out int groupID)
+                || groupID == INVALID_GROUP_INDEX)
+            {
+                // Create our new group
+                groupID = CreateGroup(leader);
+            }
+
+            // Make sure we have a vaild group here
+            if (groupID != INVALID_GROUP_INDEX)
+            {
+                // Add all of the founding members
+                foreach (PlayerControllerB member in members)
+                {
+                    AddToGroup(groupID, member);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Helper rpc that allows bots that are not owned by the host to auto create or join groups
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="players"></param>
+        /// <param name="forceNewGroup"></param>
+        [ServerRpc(RequireOwnership = false)]
+        private void CreateOrJoinGroupWithMembersServerRpc(NetworkBehaviourReference player, NetworkBehaviourReference[] players, bool forceNewGroup = false)
+        {
+            // First get the group leader
+            if (player.TryGet(out PlayerControllerB groupLeader))
+            {
+                // Now get the new group members
+                HashSet<PlayerControllerB> members = new HashSet<PlayerControllerB>();
+                foreach (NetworkBehaviourReference memberReference in players)
+                {
+                    if (memberReference.TryGet(out PlayerControllerB member))
+                    {
+                        members.Add(member);
+                    }
+                }
+                CreateOrJoinGroupWithMembers(groupLeader, members.ToArray(), forceNewGroup);
             }
         }
 
@@ -469,6 +549,42 @@ namespace LethalBots.Managers
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Checks if anyone in the group is holding onto scrap.
+        /// </summary>
+        /// <param name="groupId"></param>
+        /// <returns></returns>
+        public bool DoesGroupHaveScrap(int groupId)
+        {
+            List<PlayerControllerB> groupMembers = GetGroupMembers(groupId);
+            foreach (PlayerControllerB member in groupMembers)
+            {
+                // Must be a valid player
+                if (member == null) continue;
+                LethalBotAI? isPlayerBot = LethalBotManager.Instance.GetLethalBotAI(member);
+                if (isPlayerBot != null)
+                {
+                    // This makes bots ignore loadout items
+                    if (isPlayerBot.HasScrapInInventory())
+                    {
+                        return true;
+                    }
+                }
+                else
+                {
+                    // Support for human players
+                    foreach (GrabbableObject item in member.ItemSlots)
+                    {
+                        if (item != null && LethalBotAI.IsItemScrap(item))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
         }
 
         /// <summary>

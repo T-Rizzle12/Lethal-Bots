@@ -209,7 +209,7 @@ namespace LethalBots.AI.AIStates
             if (!Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, targetPos + Vector3.up * 0.2f, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault)
                 || hitInfo.collider.gameObject.GetComponentInParent<EnemyAI>() == this.CurrentEnemy)
             {
-                npcController.OrderToLookAtPosition(targetPos, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime, true, maxBodyFOV: attackFOV);
+                npcController.OrderToLookAtPosition(this.CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime, true, maxBodyFOV: attackFOV);
             }
             else
             {
@@ -339,7 +339,7 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         /// <param name="CurrentEnemy">the enemy to find the collider for</param>
         /// <returns>the found collider or null</returns>
-        private static Collider? FindEnemyCollider(EnemyAI? CurrentEnemy, Vector3 ourPos)
+        internal static Collider? FindEnemyCollider(EnemyAI? CurrentEnemy, Vector3 ourPos)
         {
             Collider? result = null;
             float resultDistSqr = float.MaxValue;

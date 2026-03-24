@@ -1,6 +1,7 @@
 ﻿using GameNetcodeStuff;
 using JetBrains.Annotations;
 using LethalBots.AI;
+using LethalBots.AI.AIStates;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Utils.Helpers;
@@ -23,6 +24,7 @@ namespace LethalBots.NetworkSerializers
         public NetworkObjectReference? lookAtSubject;
         public EnumLookAtPriority lookAtPriority;
         public CountdownTimer lookAtExpireTimer;
+        public CountdownTimer lookAtTrackingTimer;
         public IntervalTimer lookAtDurationTimer;
         public bool isSightedIn;
         public bool hasBeenSightedIn;
@@ -44,6 +46,7 @@ namespace LethalBots.NetworkSerializers
             lookAtSubject = null;
             lookAtPriority = EnumLookAtPriority.LOW_PRIORITY;
             lookAtExpireTimer = new CountdownTimer();
+            lookAtTrackingTimer = new CountdownTimer();
             lookAtDurationTimer = new IntervalTimer();
             isSightedIn = false;
             hasBeenSightedIn = false;
@@ -58,6 +61,7 @@ namespace LethalBots.NetworkSerializers
             LethalBotNetworkSerializer.SerializeNullable(serializer, ref lookAtSubject);
             serializer.SerializeValue(ref lookAtPriority);
             serializer.SerializeValue(ref lookAtExpireTimer);
+            serializer.SerializeValue(ref lookAtTrackingTimer);
             serializer.SerializeValue(ref lookAtDurationTimer);
             serializer.SerializeValue(ref isSightedIn);
             serializer.SerializeValue(ref hasBeenSightedIn);
@@ -148,6 +152,7 @@ namespace LethalBots.NetworkSerializers
                 lookAtSubject = this.lookAtSubject,
                 lookAtPriority = this.lookAtPriority,
                 lookAtExpireTimer = this.lookAtExpireTimer.Clone(),
+                lookAtTrackingTimer = this.lookAtTrackingTimer.Clone(),
                 lookAtDurationTimer = this.lookAtDurationTimer.Clone(),
                 isSightedIn = this.isSightedIn,
                 hasBeenSightedIn = this.hasBeenSightedIn,
@@ -243,9 +248,14 @@ namespace LethalBots.NetworkSerializers
         {
             // If we are aiming at a target subject, make sure to update our target lookAtPos!
             PlayerControllerB lethalBotController = npcController.Npc;
-            if (lookAtSubject.HasValue && lookAtSubject.Value.TryGet(out var subject))
+            if (!lookAtTrackingTimer.HasStarted() || lookAtTrackingTimer.Elapsed())
             {
-                lookAtPos = subject.transform.position;
+                lookAtTrackingTimer.Start(UnityEngine.Random.Range(0.05f, 0.3f));
+                Vector3? lookAtSubjectPos = SelectSubjectTargetPoint(lethalBotController);
+                if (lookAtSubjectPos.HasValue)
+                {
+                    lookAtPos = lookAtSubjectPos.Value;
+                }
             }
 
             Vector3 direction = lookAtPos - lethalBotController.gameplayCamera.transform.position;
@@ -304,6 +314,47 @@ namespace LethalBots.NetworkSerializers
             }
         }
 
+        /// <summary>
+        /// Helper function that returns the position we want to look at for our set <see cref="lookAtSubject"/>
+        /// </summary>
+        /// <param name="lethalBotController"></param>
+        /// <returns></returns>
+        private Vector3? SelectSubjectTargetPoint(PlayerControllerB lethalBotController)
+        {
+            Vector3? targetPos = null;
+            if (lookAtSubject.HasValue && lookAtSubject.Value.TryGet(out var subject))
+            {
+                // Change where we are aiming based on the given network object
+                if (subject.TryGetComponent<EnemyAI>(out var enemyAI))
+                {
+                    Collider? lookAtSubjectCollider = FightEnemyState.FindEnemyCollider(enemyAI, lethalBotController.transform.position);
+                    if (lookAtSubjectCollider != null)
+                    {
+                        targetPos = lookAtSubjectCollider.bounds.center;
+                    }
+                    else if (enemyAI.eye != null)
+                    {
+                        targetPos = enemyAI.eye.transform.position;
+                    }
+                    else
+                    {
+                        targetPos = enemyAI.transform.position;
+                    }
+                }
+                // For players, look at their head!
+                else if (subject.TryGetComponent<PlayerControllerB>(out var player))
+                {
+                    targetPos = player.gameplayCamera.transform.position;
+                }
+                // No special logic for everything else
+                else
+                {
+                    targetPos = subject.transform.position;
+                }
+            }
+            return targetPos;
+        }
+
         public bool Equals(LookAtTarget? other)
         {
             if (other is null)
@@ -314,6 +365,7 @@ namespace LethalBots.NetworkSerializers
                 && lookAtSubject.Equals(other.lookAtSubject)
                 && lookAtPriority == other.lookAtPriority
                 && lookAtExpireTimer == other.lookAtExpireTimer
+                && lookAtTrackingTimer == other.lookAtTrackingTimer
                 && lookAtDurationTimer == other.lookAtDurationTimer
                 && isSightedIn == other.isSightedIn
                 && hasBeenSightedIn == other.hasBeenSightedIn
@@ -334,6 +386,7 @@ namespace LethalBots.NetworkSerializers
             hash.Add(lookAtSubject);
             hash.Add(lookAtPriority);
             hash.Add(lookAtExpireTimer);
+            hash.Add(lookAtTrackingTimer);
             hash.Add(lookAtDurationTimer);
             hash.Add(isSightedIn);
             hash.Add(hasBeenSightedIn);

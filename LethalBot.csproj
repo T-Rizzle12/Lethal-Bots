@@ -173,6 +173,9 @@
 	<Reference Include="LCVR">
 	  <HintPath>lib\mods\LCVR.dll</HintPath>
 	</Reference>
+	<Reference Include="LethalEmotesAPI">
+		<HintPath>lib\mods\LethalEmotesAPI.dll</HintPath>
+	</Reference>
 	<Reference Include="ReservedItemSlotCore">
 	  <HintPath>lib\mods\ReservedItemSlotCore.dll</HintPath>
 	</Reference>

@@ -949,9 +949,10 @@ namespace LethalBots.Patches.NpcPatches
         static void KillPlayer_PostFix(PlayerControllerB __instance)
         {
             // Remove player from their group
-            if (__instance.IsOwner && __instance.isPlayerDead)
+            if (__instance.IsOwner && __instance.isPlayerDead && __instance.AllowPlayerDeath())
             {
                 GroupManager.Instance.RemoveFromCurrentGroupAndSync(__instance);
+                LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(__instance);
             }
         }
 
@@ -1041,7 +1042,7 @@ namespace LethalBots.Patches.NpcPatches
                 // Line Follow
                 EnumAIStates currentBotState = lethalBot.State.GetAIState();
                 if (lethalBot.OwnerClientId != __instance.actualClientId 
-                    || !lethalBot.IsFollowingTargetPlayer())
+                    || !lethalBot.IsFollowingLocalPlayer())
                 {
                     sb.Append(string.Format(Const.TOOLTIP_FOLLOW_ME, InputManager.Instance.GetKeyAction(Plugin.InputActionsInstance.LeadBot)))
                         .AppendLine();

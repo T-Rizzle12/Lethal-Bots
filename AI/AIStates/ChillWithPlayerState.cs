@@ -18,6 +18,8 @@ namespace LethalBots.AI.AIStates
     /// </remarks>
     public class ChillWithPlayerState : AIState
     {
+        private CountdownTimer entranceDropTimer = new CountdownTimer();
+
         /// <summary>
         /// Represents the distance between the body of bot (<c>PlayerControllerB</c> position) and the target player (owner of bot), 
         /// only on axis x and z, y at 0, and squared
@@ -116,6 +118,72 @@ namespace LethalBots.AI.AIStates
             else if (ai.searchForScrap.visitInProgress)
             {
                 ai.searchForScrap.StopSearch();
+            }
+
+            // If we are in a group, only follow the group leader
+            int groupID = GroupManager.Instance.GetGroupId(npcController.Npc);
+            if (groupID != GroupManager.INVALID_GROUP_INDEX)
+            {
+                PlayerControllerB? groupLeader = GroupManager.Instance.GetGroupLeader(groupID);
+                if (groupLeader != null)
+                {
+                    if (groupLeader == npcController.Npc)
+                    {
+                        ai.State = new SearchingForScrapState(this);
+                        return;
+                    }
+                    else if (ai.targetPlayer != groupLeader)
+                    {
+                        ai.targetPlayer = groupLeader;
+                        targetLastKnownPosition = groupLeader.transform.position;
+                    }
+                }
+                // This should never happen, but if it does......
+                else
+                {
+                    GroupManager.Instance.RemoveFromCurrentGroupAndSync(npcController.Npc);
+                }
+            }
+
+            // If the player we were following is dropping off loot at an entrance, then lets do the same!
+            if (ai.isOutside && (!entranceDropTimer.HasStarted() || entranceDropTimer.Elapsed()) && ai.HasScrapInInventory())
+            {
+                // Now, lets check if someone is assigned to transfer loot
+                // NOTE: If the player we are following is transfering loot, then we don't drop ours!
+                entranceDropTimer.Start(0.5f); // Only do this every half a second!
+                if (LethalBotManager.Instance.LootTransferPlayers.Count > 0 
+                    && !LethalBotManager.Instance.LootTransferPlayers.Contains(ai.targetPlayer))
+                {
+                    bool areWeNearbyEntrance = false;
+                    foreach (EntranceTeleport entrance in LethalBotAI.EntrancesTeleportArray)
+                    {
+                        if (entrance.isEntranceToBuilding
+                            && (entrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE)
+                        {
+                            areWeNearbyEntrance = true;
+                            break;
+                        }
+                    }
+
+                    if (areWeNearbyEntrance)
+                    {
+                        // Stop moving while we drop our items
+                        ai.StopMoving();
+                        npcController.OrderToStopSprint();
+
+                        GrabbableObject? heldItem = ai.HeldItem;
+                        if (heldItem != null && DropScrapAtEntrance(heldItem))
+                        {
+                            ai.DropItem();
+                            LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
+                        }
+                        else if (ai.HasGrabbableObjectInInventory(DropScrapAtEntrance, out int objectSlot))
+                        {
+                            ai.SwitchItemSlotsAndSync(objectSlot);
+                        }
+                    }
+                }
+                return;
             }
 
             VehicleController? vehicleController = ai.GetVehicleCruiserTargetPlayerIsIn();
@@ -228,7 +296,7 @@ namespace LethalBots.AI.AIStates
                     PlayerControllerB? playerToLook = ai.CheckLOSForClosestPlayer(Const.LETHAL_BOT_FOV, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
                     if (playerToLook != null)
                     {
-                        npcController.OrderToLookAtPlayer(playerToLook.playerEye.position);
+                        npcController.OrderToLookAtPlayer(playerToLook);
                     }
                     else
                     {
@@ -295,6 +363,15 @@ namespace LethalBots.AI.AIStates
                 return false;
             }
             return Plugin.Config.DropHeldEquipmentAtShip || LethalBotAI.IsItemScrap(item);
+        }
+
+        /// <summary>
+        /// Simple function that checks if the give <paramref name="item"/> is scrap.
+        /// </summary>
+        /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
+        protected bool DropScrapAtEntrance(GrabbableObject item)
+        {
+            return LethalBotAI.IsItemScrap(item) && (!ai.IsGrabbableObjectInLoadout(item) || ai.HasDuplicateLoadoutItems(item, out _)); // Found a scrap item, great, we want to drop it!
         }
     }
 }

@@ -8,6 +8,7 @@ using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
 using System.Linq;
 using TMPro;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -209,7 +210,7 @@ namespace LethalBots.Managers
 
                 EnumAIStates currentBotState = lethalBot.State.GetAIState();
                 if (lethalBot.OwnerClientId != localPlayer.actualClientId 
-                    || !lethalBot.IsFollowingTargetPlayer())
+                    || !lethalBot.IsFollowingLocalPlayer())
                 {
                     if (lethalBot.IsInSpecialAnimation())
                     {
@@ -232,21 +233,7 @@ namespace LethalBots.Managers
                     });
 
                     // We are following a human player, leave our current group or join theirs!
-                    int playerGroupID = GroupManager.Instance.GetGroupId(localPlayer);
-                    if (GroupManager.Instance.IsPlayerInGroup(player) || playerGroupID != GroupManager.INVALID_GROUP_INDEX)
-                    {
-                        // If we are not in the human player's group, join them
-                        if (playerGroupID != GroupManager.INVALID_GROUP_INDEX)
-                        {
-                            // AddToGroup internally checks if the bot is already in the group!
-                            GroupManager.Instance.AddToGroupAndSync(playerGroupID, player);
-                        }
-                        else
-                        {
-                            // Leave the previous group so the the group leader can update as needed
-                            GroupManager.Instance.RemoveFromCurrentGroupAndSync(player);
-                        }
-                    }
+                    GroupManager.Instance.CreateOrJoinGroupWithMembersAndSync(localPlayer, new PlayerControllerB[] { player });
 
                     lethalBot.SyncAssignTargetAndSetMovingTo(localPlayer);
 

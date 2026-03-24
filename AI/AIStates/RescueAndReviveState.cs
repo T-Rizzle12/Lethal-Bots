@@ -590,6 +590,7 @@ namespace LethalBots.AI.AIStates
 
             // Alright, look at the body first
             npcController.OrderToLookAtPosition(playerBody.transform.position, EnumLookAtPriority.HIGH_PRIORITY);
+            yield return null;
             yield return new WaitUntil(npcController.LookAtTarget.IsHeadAimingOnTarget);
 
             // Now we fake the revive time

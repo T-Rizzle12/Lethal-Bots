@@ -191,7 +191,10 @@ namespace LethalBots.AI.AIStates
 
                 // Try to find the closest player to target
                 PlayerControllerB? player = ai.CheckLOSForClosestPlayer(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
-                if (player != null && !LethalBotManager.Instance.IsPlayerLethalBot(player) && player != LethalBotManager.Instance.MissionControlPlayer) // new target
+                if (player != null 
+                    && !LethalBotManager.Instance.IsPlayerLethalBot(player) 
+                    && player != LethalBotManager.Instance.MissionControlPlayer
+                    && !GroupManager.Instance.IsPlayerGroupLeader(npcController.Npc, out _)) // new target
                 {
                     // Don't compromise the ship by being loud!
                     if (!ai.CheckProximityForEyelessDogs())
@@ -210,6 +213,9 @@ namespace LethalBots.AI.AIStates
                             AllowSwearing = Plugin.Config.AllowSwearing.Value
                         });
                     }
+
+                    // We are following a human player, leave our current group or join theirs!
+                    GroupManager.Instance.CreateOrJoinGroupWithMembersAndSync(player, new PlayerControllerB[] { npcController.Npc });
 
                     // Assign to new target
                     ai.SyncAssignTargetAndSetMovingTo(player);

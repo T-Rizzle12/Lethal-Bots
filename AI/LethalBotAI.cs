@@ -893,6 +893,30 @@ namespace LethalBots.AI
             }
         }
 
+        public bool IsFollowingLocalPlayer()
+        {
+            // Must be a valid player
+            if (targetPlayer == null
+                || targetPlayer != GameNetworkManager.Instance.localPlayerController
+                || !targetPlayer.isPlayerControlled
+                || targetPlayer.isPlayerDead)
+            {
+                return false;
+            }
+
+            switch (State.GetAIState())
+            {
+                case EnumAIStates.GetCloseToPlayer:
+                case EnumAIStates.ChillWithPlayer:
+                case EnumAIStates.JustLostPlayer:
+                case EnumAIStates.PlayerInCruiser:
+                case EnumAIStates.FetchingObject:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         // FIXME: We should recreate the player push away code rather than this!
         public override void OnCollideWithPlayer(Collider other)
         {
@@ -3913,7 +3937,7 @@ namespace LethalBots.AI
         public bool HasSpaceInInventory()
         {
             GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
-            int inventorySize = GetInventorySize(itemSlots);
+            int inventorySize = GetInventorySize(NpcController.Npc, itemSlots);
             for (int i = 0; i < inventorySize; i++)
             {
                 GrabbableObject? item = itemSlots[i];
@@ -6336,18 +6360,19 @@ namespace LethalBots.AI
         /// <remarks>
         /// Only use this function if you don't want to check the bot's reserved item slots!
         /// </remarks>
-        /// <param name="cachedInventory">The bot's inventory. Only exists as an optimization!</param>
+        /// <param name="playerController">The player controller to check.</param>
+        /// <param name="cachedInventory">The player's inventory. Only exists as an optimization!</param>
         /// <returns></returns>
-        public int GetInventorySize(GrabbableObject[] cachedInventory = null!)
+        public static int GetInventorySize(PlayerControllerB playerController, GrabbableObject[] cachedInventory = null!)
         {
             // Minor optimization, lets me skip an index call!
-            cachedInventory ??= NpcController.Npc.ItemSlots;
+            cachedInventory ??= playerController.ItemSlots;
 
             // Support for reserved item slots!
             int inventorySize = cachedInventory.Length;
             if (Plugin.IsModReservedItemSlotCoreLoaded)
             {
-                return GetReservedInventorySize(inventorySize);
+                return GetReservedInventorySize(playerController, inventorySize);
             }
 
             return inventorySize;
@@ -6356,11 +6381,12 @@ namespace LethalBots.AI
         /// <summary>
         /// Helper function that only exists to stop my mod from attempting to load ReservedItemSlotCore if its not installed!
         /// </summary>
+        /// <param name="playerController"></param>
         /// <param name="inventorySize"></param>
         /// <returns></returns>
-        private int GetReservedInventorySize(int inventorySize)
+        private static int GetReservedInventorySize(PlayerControllerB playerController, int inventorySize)
         {
-            if (ReservedPlayerData.allPlayerData.TryGetValue(NpcController.Npc, out var playerData))
+            if (ReservedPlayerData.allPlayerData.TryGetValue(playerController, out var playerData))
             {
                 return Mathf.Min(playerData.reservedHotbarStartIndex, inventorySize); // Sanity check, use the smaller value!
             }
@@ -7178,6 +7204,7 @@ namespace LethalBots.AI
             }
 
             // OK, there is a 50 character limit for chat messages, so we need to split them up!
+            // FIXME: Allow users to change the char limit
             const int charLimit = 49;
             List<string> splitMessages = new List<string>();
 
