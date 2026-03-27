@@ -10,7 +10,8 @@ using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils.Helpers;
-using PySpeech;
+using LethalLib.Modules;
+using SpeechRecognitionAPI;
 using Scoops.customization;
 using Scoops.gameobjects;
 using Scoops.misc;
@@ -1404,6 +1405,18 @@ namespace LethalBots.Managers
             //        break;
             //    }
             //}
+            if (Plugin.IsModGeneralImprovementsLoaded)
+            {
+                // Update scan nodes now that we have the Steam names
+                if (IsGeneralImprovementsPlayerNodesActive())
+                {
+                    var scanNode = lethalBotController.GetComponentInChildren<ScanNodeProperties>();
+                    if (scanNode != null)
+                    {
+                        scanNode.headerText = lethalBotController.playerUsername;
+                    }
+                }
+            }
 
             // Direct access to avoid looping
             // Exactly how the game does it in PlayerControllerB.SendNewPlayerValuesClientRpc!
@@ -1456,6 +1469,15 @@ namespace LethalBots.Managers
 
             Plugin.LogDebug($"++ Bot with body {lethalBotController.playerClientId} with identity spawned: {lethalBotIdentity.ToString()}");
             lethalBotAI.Init(spawnParamsNetworkSerializable.enumSpawnAnimation);
+        }
+
+        /// <summary>
+        /// Helper function to check if <see cref="Plugin.IsModGeneralImprovementsLoaded"/> has ScanPlayers enabled.
+        /// </summary>
+        /// <returns></returns>
+        private bool IsGeneralImprovementsPlayerNodesActive()
+        {
+            return GeneralImprovements.Plugin.ScanPlayers.Value;
         }
 
         /// <summary>
@@ -2034,8 +2056,6 @@ namespace LethalBots.Managers
             LethalBotsRespondToVoiceChat(message, playerWhoSaidMessage);
         }
 
-        private static readonly FieldInfo bestMatchField = AccessTools.Field(typeof(Speech), "bestMatch");
-
         /// <summary>
         /// Helper function that registers voice commands
         /// </summary>
@@ -2046,21 +2066,8 @@ namespace LethalBots.Managers
             {
                 return;
             }
-            // TODO: Revamp the chat command system to be more modular and easier to add new commands
-            // Until then, we have to register all of the commands here manually
-            //string[] ValidCommands = new string[]
-            //{
-            //    "jester",
-            //    "start the ship",
-            //    "hop off the terminal",
-            //    "request monitoring",
-            //    "request teleport",
-            //    "clear monitoring",
-            //    "man the ship",
-            //    "transmit", // FIXME: This command doesn't work due to how speech recognition works, a fix will be made later
-            //    "transfer loot",
-            //    "gear up"
-            //};
+
+            // Grab all default and custom chat commands
             string[] ValidCommands = ChatCommandsManager.GetAllRegisteredChatCommandKeywords();
 
             // Register valid phrases for speech recognition
@@ -2080,7 +2087,7 @@ namespace LethalBots.Managers
                 PlayerControllerB? playerControllerB = GameNetworkManager.Instance?.localPlayerController;
                 if (playerControllerB != null && Speech.IsAboveThreshold(ValidCommands, Plugin.Config.VoiceRecognitionSimilarityThreshold.Value))
                 {
-                    LethalBotManager.Instance?.TransmitVoiceChatAndSync((string)bestMatchField.GetValue(null), (int)playerControllerB.playerClientId);
+                    LethalBotManager.Instance?.TransmitVoiceChatAndSync(Speech.bestMatch, (int)playerControllerB.playerClientId);
                 }
             }
 

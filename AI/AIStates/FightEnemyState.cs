@@ -3,10 +3,12 @@ using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.NetworkSerializers;
 using LethalBots.Utils.Helpers;
 using System.Collections;
 using System.Linq;
 using System.Reflection;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.InputSystem.HID;
@@ -339,7 +341,7 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         /// <param name="CurrentEnemy">the enemy to find the collider for</param>
         /// <returns>the found collider or null</returns>
-        internal static Collider? FindEnemyCollider(EnemyAI? CurrentEnemy, Vector3 ourPos)
+        private static Collider? FindEnemyCollider(EnemyAI? CurrentEnemy, Vector3 ourPos)
         {
             Collider? result = null;
             float resultDistSqr = float.MaxValue;
@@ -681,6 +683,22 @@ namespace LethalBots.AI.AIStates
                 maxRange = 1.5f;
                 hitMask = shovelMask.Invoke(shovel);
             }
+        }
+
+        public override Vector3? SelectSubjectTargetPoint(LookAtTarget lookAtTarget, NetworkObject subject, PlayerControllerB ourController)
+        {
+            // Change where we are aiming based on the given network object
+            if (subject.TryGetComponent<EnemyAI>(out var enemyAI))
+            {
+                Collider? lookAtSubjectCollider = enemyAI == this.CurrentEnemy ? EnemyCollision : FindEnemyCollider(enemyAI, ourController.transform.position);
+                if (lookAtSubjectCollider != null)
+                {
+                    return lookAtSubjectCollider.bounds.center;
+                }
+            }
+            
+            // Base logic for everything else
+            return base.SelectSubjectTargetPoint(lookAtTarget, subject, ourController);
         }
 
         /// <summary>

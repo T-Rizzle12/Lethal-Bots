@@ -137,6 +137,9 @@
     <Reference Include="FuckYouMod">
       <HintPath>lib\mods\MoreEmotes1.3.3.dll</HintPath>
     </Reference>
+	<Reference Include="GeneralImprovements">
+		<HintPath>lib\mods\GeneralImprovements.dll</HintPath>
+	</Reference>
     <Reference Include="LethalPhones">
       <HintPath>lib\mods\LethalPhones.dll</HintPath>
     </Reference>
@@ -164,8 +167,8 @@
 	<Reference Include="LethalInternship">
 	  <HintPath>lib\mods\LethalInternship.dll</HintPath>  
 	</Reference>
-	<Reference Include="PySpeech">
-	  <HintPath>lib\mods\PySpeech.dll</HintPath>
+	<Reference Include="SpeechRecognitionAPI">
+	  <HintPath>lib\mods\SpeechRecognitionAPI.dll</HintPath>
 	</Reference>
 	<Reference Include="Zaprillator">
 	  <HintPath>lib\mods\Zaprillator.dll</HintPath>

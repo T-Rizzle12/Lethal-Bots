@@ -3,6 +3,7 @@ using LethalBots.AI.AIStates;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.NetworkSerializers;
 using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Utils.Helpers;
 using System;
@@ -13,6 +14,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Unity.Netcode;
 using UnityEngine;
 using static UnityEngine.InputSystem.InputRemoting;
 using Random = UnityEngine.Random;
@@ -395,6 +397,41 @@ namespace LethalBots.AI
                 return true;
             }
             return null;
+        }
+
+        /// <summary>
+        /// Helper function that returns the position we want to look at for the set <see cref="LookAtTarget.lookAtSubject"/>
+        /// </summary>
+        /// <param name="lookAtTarget">The look at target to refrence</param>
+        /// <param name="subject">The network object we want to look at</param>
+        /// <param name="ourController">The bot controller, provided for optimization reasons</param>
+        /// <returns></returns>
+        public virtual Vector3? SelectSubjectTargetPoint(LookAtTarget lookAtTarget, NetworkObject subject, PlayerControllerB ourController)
+        {
+            // Change where we are aiming based on the given network object
+            Vector3? targetPos = null;
+            if (subject.TryGetComponent<EnemyAI>(out var enemyAI))
+            {
+                if (enemyAI.eye != null)
+                {
+                    targetPos = enemyAI.eye.transform.position;
+                }
+                else
+                {
+                    targetPos = enemyAI.transform.position;
+                }
+            }
+            // For players, look at their head!
+            else if (subject.TryGetComponent<PlayerControllerB>(out var player))
+            {
+                targetPos = player.gameplayCamera.transform.position;
+            }
+            // No special logic for everything else
+            else
+            {
+                targetPos = subject.transform.position;
+            }
+            return targetPos;
         }
 
         /// <remarks>

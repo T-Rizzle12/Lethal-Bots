@@ -269,6 +269,35 @@ namespace LethalBots.AI.AIStates
                 lethalBotAI.State = new GrabLoadoutState(state);
                 return true;
             }));
+
+            ChatCommandsManager.RegisterCommandForState<ChillWithPlayerState>(new ChatCommand(Const.USE_KEY_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            {
+                // Make sure we have a key or lockpicker
+                // Check what door the player is looking at
+                if (!lethalBotAI.HasKeyInInventory() 
+                    || !Physics.Raycast(new Ray(playerWhoSentMessage.gameplayCamera.transform.position, playerWhoSentMessage.gameplayCamera.transform.forward), out var hitInfo, 3f, 2816))
+                {
+                    return true;
+                }
+
+                // Get the door object from the raycast
+                DoorLock lockedDoor = hitInfo.transform.GetComponent<DoorLock>();
+                if (lockedDoor == null)
+                {
+                    TriggerPointToDoor component = hitInfo.transform.GetComponent<TriggerPointToDoor>();
+                    if (component != null)
+                    {
+                        lockedDoor = component.pointToDoor;
+                    }
+                }
+
+                // If the door is locked, we better open it!
+                if (lockedDoor != null && lockedDoor.isLocked && !lockedDoor.isPickingLock)
+                {
+                    lethalBotAI.State = new UseKeyOnLockedDoorState(state, lockedDoor);
+                }
+                return true;
+            }));
         }
 
         /// <inheritdoc cref="AIState.RegisterSignalTranslatorCommands"/>

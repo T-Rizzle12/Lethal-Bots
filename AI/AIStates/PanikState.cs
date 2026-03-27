@@ -518,7 +518,7 @@ namespace LethalBots.AI.AIStates
             // Look at the enemy if they are a coil head!
             if (CurrentEnemy is SpringManAI || CurrentEnemy is FlowermanAI)
             {
-                npcController.OrderToLookAtPosition(CurrentEnemy.eye.position, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
+                npcController.OrderToLookAtPosition(CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
             }
             // Ok, there are three state indexes for nutcrackers to date!
             // 0. Patroling
@@ -581,9 +581,11 @@ namespace LethalBots.AI.AIStates
                 {
                     score -= 100f; // Not good, really dislike this node!
                 }
-
-                // Path safety is king
-                score += minPathDistanceToEnemy * 2.5f;
+                else
+                {
+                    // Path safety is king
+                    score += minPathDistanceToEnemy * 2.5f;
+                }
 
                 // Visibility matters, but not infinitely
                 if (isPathOutOfSight) score += 15f;
@@ -801,6 +803,8 @@ namespace LethalBots.AI.AIStates
                 float minDist = float.MaxValue;
                 foreach (var corner in ai.path1.corners)
                 {
+                    // TODO: Make this pick the closest point on the path.
+                    // Use the same stuff safe path uses.
                     minDist = Math.Min(minDist, (corner - enemyPos).sqrMagnitude);
                 }
 

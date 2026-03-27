@@ -100,7 +100,7 @@ namespace LethalBots.AI.AIStates
             if (!Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, this.TargetItem.transform.position + Vector3.up * 0.05f, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault) 
                 || hitInfo.transform.GetComponent<GrabbableObject>() == this.TargetItem)
             {
-                npcController.OrderToLookAtPosition(this.TargetItem.transform.position, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
+                npcController.OrderToLookAtPosition(this.TargetItem.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
             }
             else
             {

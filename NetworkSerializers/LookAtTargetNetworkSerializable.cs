@@ -251,10 +251,13 @@ namespace LethalBots.NetworkSerializers
             if (!lookAtTrackingTimer.HasStarted() || lookAtTrackingTimer.Elapsed())
             {
                 lookAtTrackingTimer.Start(UnityEngine.Random.Range(0.05f, 0.3f));
-                Vector3? lookAtSubjectPos = SelectSubjectTargetPoint(lethalBotController);
-                if (lookAtSubjectPos.HasValue)
+                if (lookAtSubject.HasValue)
                 {
-                    lookAtPos = lookAtSubjectPos.Value;
+                    Vector3? lookAtSubjectPos = lethalBotAI.State?.SelectSubjectTargetPoint(this, lookAtSubject.Value, lethalBotController);
+                    if (lookAtSubjectPos.HasValue)
+                    {
+                        lookAtPos = lookAtSubjectPos.Value;
+                    }
                 }
             }
 
@@ -312,47 +315,6 @@ namespace LethalBots.NetworkSerializers
             {
                 npcController.SetTurnBodyTowardsDirectionWithPosition(lookAtPos);
             }
-        }
-
-        /// <summary>
-        /// Helper function that returns the position we want to look at for our set <see cref="lookAtSubject"/>
-        /// </summary>
-        /// <param name="lethalBotController"></param>
-        /// <returns></returns>
-        private Vector3? SelectSubjectTargetPoint(PlayerControllerB lethalBotController)
-        {
-            Vector3? targetPos = null;
-            if (lookAtSubject.HasValue && lookAtSubject.Value.TryGet(out var subject))
-            {
-                // Change where we are aiming based on the given network object
-                if (subject.TryGetComponent<EnemyAI>(out var enemyAI))
-                {
-                    Collider? lookAtSubjectCollider = FightEnemyState.FindEnemyCollider(enemyAI, lethalBotController.transform.position);
-                    if (lookAtSubjectCollider != null)
-                    {
-                        targetPos = lookAtSubjectCollider.bounds.center;
-                    }
-                    else if (enemyAI.eye != null)
-                    {
-                        targetPos = enemyAI.eye.transform.position;
-                    }
-                    else
-                    {
-                        targetPos = enemyAI.transform.position;
-                    }
-                }
-                // For players, look at their head!
-                else if (subject.TryGetComponent<PlayerControllerB>(out var player))
-                {
-                    targetPos = player.gameplayCamera.transform.position;
-                }
-                // No special logic for everything else
-                else
-                {
-                    targetPos = subject.transform.position;
-                }
-            }
-            return targetPos;
         }
 
         public bool Equals(LookAtTarget? other)

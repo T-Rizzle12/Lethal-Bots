@@ -162,16 +162,14 @@ namespace LethalBots.Managers
             // Get the audio type
             AudioType audioType = GetAudioType(uri);
 
-            // Convert to absolute path and forward slashes
-            string localPath = Path.GetFullPath(uri).Replace("\\", "/");
-
-            // Use file:/// prefix
-            string sanitizedUri = "file:///" + localPath;
+            // Proper URI conversion
+            //string sanitizedUri = new Uri(uri);
+            string sanitizedUri = uri;
             using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(sanitizedUri, audioType))
             {
                 yield return www.SendWebRequest();
 
-                Plugin.LogInfo($"Loaded audio file at {uri} \n SanitizedUri: {sanitizedUri}");
+                Plugin.LogDebug($"Loading audio file at {www.uri}");
                 if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
                 {
                     lethalBotVoice.ResetAboutToTalk();
@@ -179,6 +177,7 @@ namespace LethalBots.Managers
                 }
                 else
                 {
+                    Plugin.LogInfo($"Loaded audio file at {uri} \n SanitizedUri: {sanitizedUri}");
                     AudioClip audioClip = DownloadHandlerAudioClip.GetContent(www);
                     AddAudioClip(uri, audioClip);
 

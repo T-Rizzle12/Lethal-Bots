@@ -37,7 +37,6 @@ using Unity.Netcode;
 using UnityEngine;
 using Object = UnityEngine.Object;
 using GameNetcodeStuff;
-using PySpeech;
 using LethalBots.Patches.ModPatches.LCVR;
 
 namespace LethalBots
@@ -50,7 +49,7 @@ namespace LethalBots
     [BepInDependency(LethalLib.Plugin.ModGUID, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency(Const.CSYNC_GUID, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency(LethalCompanyInputUtils.PluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.HardDependency)]
-    [BepInDependency(Const.PYSPEECH_GUID, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(Const.SPEECHRECOGNITIONAPI_GUID, BepInDependency.DependencyFlags.HardDependency)]
     // SoftDependencies
     [BepInDependency(Const.REVIVECOMPANY_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(Const.BUNKBEDREVIVE_GUID, BepInDependency.DependencyFlags.SoftDependency)]
@@ -100,6 +99,7 @@ namespace LethalBots
         internal static bool IsModNavmeshInCompanyLoaded = false;
         internal static bool IsModReservedItemSlotCoreLoaded = false;
         internal static bool IsModLethalPhonesLoaded = false;
+        internal static bool IsModGeneralImprovementsLoaded = false;
         private readonly Harmony _harmony = new(ModGUID);
 
         private void Awake()
@@ -268,6 +268,7 @@ namespace LethalBots
             IsModNavmeshInCompanyLoaded = IsModLoaded(Const.NAVMESHINCOMPANY_GUID);
             IsModReservedItemSlotCoreLoaded = IsModLoaded(Const.RESERVEDITEMSLOTCORE_GUID);
             IsModLethalPhonesLoaded = IsModLoaded(Const.LETHALPHONES_GUID);
+            IsModGeneralImprovementsLoaded = IsModLoaded(Const.GENERAL_IMPROVEMENTS_GUID);
 
             bool isModMoreEmotesLoaded = IsModLoaded(Const.MOREEMOTES_GUID);
             bool isModBetterEmotesLoaded = IsModLoaded(Const.BETTEREMOTES_GUID);

@@ -10,7 +10,7 @@ namespace LethalBots.Constants
     public class Const
     {
         public const string CSYNC_GUID = "com.sigurd.csync";
-        public const string PYSPEECH_GUID = "JS03.PySpeech";
+        public const string SPEECHRECOGNITIONAPI_GUID = "JS03.SpeechRecognitionAPI";
 
         public const string MORECOMPANY_GUID = "me.swipez.melonloader.morecompany";
         public const string BETTER_EXP_GUID = "Swaggies.BetterEXP";
@@ -18,6 +18,7 @@ namespace LethalBots.Constants
         public const string BETTEREMOTES_GUID = "BetterEmotes";
         public const string MODELREPLACEMENT_GUID = "meow.ModelReplacementAPI";
         public const string LETHALPHONES_GUID = "LethalPhones";
+        public const string GENERAL_IMPROVEMENTS_GUID = "ShaosilGaming.GeneralImprovements";
         public const string FASTERITEMDROPSHIP_GUID = "FlipMods.FasterItemDropship";
         public const string SHOWCAPACITY_GUID = "Piggy.ShowCapacity";
         public const string REVIVECOMPANY_GUID = "OpJosMod.ReviveCompany";
@@ -143,6 +144,7 @@ namespace LethalBots.Constants
         public const string CLEAR_MONITORING_COMMAND = "clear monitoring";
         public const string REQUEST_TELEPORT_COMMAND = "request teleport";
         public const string HOP_OFF_THE_TERMINAL_COMMAND = "hop off the terminal";
+        public const string USE_KEY_COMMAND = "use key";
         public const string JOIN_GROUP_COMMAND = "join group";
         public const string LEAVE_GROUP_COMMAND = "leave group";
         public const string CREATE_GROUP_COMMAND = "create group";
