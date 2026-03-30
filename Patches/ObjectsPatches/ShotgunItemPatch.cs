@@ -182,6 +182,61 @@ namespace LethalBots.Patches.ObjectsPatches
             return codes.AsEnumerable();
         }
 
+        [HarmonyPatch("ItemInteractLeftRight")]
+        [HarmonyTranspiler]
+        static IEnumerable<CodeInstruction> ItemInteractLeftRight_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var patched = false;
+            var timesPatched = 0;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // SetSafetyControlTip method
+            MethodInfo setSafetyControlTipMethod = AccessTools.Method(typeof(ShotgunItem), "SetSafetyControlTip");
+
+            // Replacement field: this.playerHeldBy
+            FieldInfo playerHeldByField = AccessTools.Field(typeof(GrabbableObject), "playerHeldBy");
+
+            // ----------------------------------------------------------------------
+            for (var i = 0; i < codes.Count - 1; i++)
+            {
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].Calls(setSafetyControlTipMethod))
+                {
+                    // Create our label's destination....
+                    Label skipSnapshot = generator.DefineLabel();
+                    var nop = new CodeInstruction(OpCodes.Nop);
+                    nop.labels.Add(skipSnapshot);
+                    codes.Insert(i + 2, nop); // Set label to the instruction **after** the ClearControlTips call
+
+                    // Insert new method call to skip SetSafetyControlTip if a bot is holding the item
+                    List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+                    {
+                        new CodeInstruction(OpCodes.Ldarg_0),
+                        new CodeInstruction(OpCodes.Ldfld, playerHeldByField), // Load `playerHeldBy`
+                        new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLethalBotMethod),
+                        new CodeInstruction(OpCodes.Brtrue_S, skipSnapshot)
+                    };
+
+                    // Insert the new instruction to call the replacement method.
+                    codes.InsertRange(i, codesToAdd);
+                    i += codesToAdd.Count; // Move our index past the newly added codes!
+                    patched = true;
+                    timesPatched++;
+                }
+            }
+
+            if (!patched)
+            {
+                Plugin.LogError($"LethalBot.Patches.ObjectsPatches.ShotgunItem.ItemInteractLeftRight_Transpiler could not check if player local for Crouch");
+            }
+            else
+            {
+                Plugin.LogDebug($"Patched out SetSafetyControlTip calls for bots in Shotgun code {timesPatched} times!");
+            }
+
+            return codes.AsEnumerable();
+        }
+
         [HarmonyPatch("SetControlTipsForItem")]
         [HarmonyPrefix]
         [HarmonyPriority(Priority.First)]

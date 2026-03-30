@@ -497,6 +497,10 @@ namespace LethalBots.AI.AIStates
                     return;
                 }
             }
+            else if (heldItem is NoisemakerProp)
+            {
+                return; // Nope, not the time for this......
+            }
             base.UseHeldItem();
         }
 

@@ -63,6 +63,7 @@ namespace LethalBots.AI
         }
         protected AIStateInfo previousStateUpdate;
 
+        protected CountdownTimer useNoiseMakerCooldown = new CountdownTimer();
         protected Coroutine? panikCoroutine;
         protected Coroutine? safePathCoroutine;
         protected Coroutine? lookingAroundCoroutine;
@@ -945,6 +946,22 @@ namespace LethalBots.AI
                         }
                     }
                 }
+                else if (heldItem is NoisemakerProp noisemakerProp)
+                {
+                    if (!useNoiseMakerCooldown.HasStarted() || useNoiseMakerCooldown.Elapsed())
+                    {
+                        // For now, hard code this!
+                        useNoiseMakerCooldown.Start(Random.Range(5f, 25f));
+                        if (!ai.CheckProximityForEyelessDogs())
+                        {
+                            noisemakerProp.UseItemOnClient(true);
+                            if (noisemakerProp.itemProperties.holdButtonUse)
+                            {
+                                noisemakerProp.UseItemOnClient(false); // HACKHACK: Fake release the button!
+                            }
+                        }
+                    }
+                }
             }
 
             // Handle lethal phone calls after item usage, since the bot may using an item that
@@ -1577,7 +1594,8 @@ namespace LethalBots.AI
         }
 
         /// <summary>
-        /// Simple function that checks if the give <paramref name="item"/> is null or not<br/>
+        /// Simple function that checks if the given <paramref name="item"/> should be dropped by the bot.<br/>
+        /// By default, this will return false for items in the bot's loadout<br/>
         /// This was designed to be overridden by states that want to drop specific items only!
         /// </summary>
         /// <remarks>

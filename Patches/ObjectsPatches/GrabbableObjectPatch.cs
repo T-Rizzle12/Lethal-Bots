@@ -41,8 +41,43 @@ namespace LethalBots.Patches.ObjectsPatches
             var startIndex = -1;
             var codes = new List<CodeInstruction>(instructions);
 
+            // Delcare local variable
+            var playerLocal = generator.DeclareLocal(typeof(PlayerControllerB));
+
+            // Grab methods and fields we need!
+            MethodInfo discardItemMethod = AccessTools.Method(typeof(GrabbableObject), "DiscardItem");
             MethodInfo getHUDManagerInstance = AccessTools.PropertyGetter(typeof(HUDManager), "Instance");
             MethodInfo clearControlTipsMethod = AccessTools.Method(typeof(HUDManager), "ClearControlTips");
+            FieldInfo playerHeldByField = AccessTools.Field(typeof(GrabbableObject), "playerHeldBy");
+
+            // ----------------------------------------------------------------------
+            for (var i = 0; i < codes.Count - 1; i++)
+            {
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].Calls(discardItemMethod))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Insert new field call so we can store the heldItem variable so we can check if a bot is dropping the item
+                // We do this since DiscardItem clears the playerHeldBy attribute making it impossible to check who is dropping the object at this point
+                List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+                {
+                    new CodeInstruction(OpCodes.Ldarg_0), // Load this
+                    new CodeInstruction(OpCodes.Ldfld, playerHeldByField), // Load this.playerHeldBy
+                    new CodeInstruction(OpCodes.Stloc, playerLocal) // Store in our local variable
+                };
+                codes.InsertRange(startIndex, codesToAdd);
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.ObjectsPatches.DiscardItemOnClient_Transpiler could not remove check if holding player is bot");
+                return codes.AsEnumerable();
+            }
 
             // ----------------------------------------------------------------------
             for (var i = 0; i < codes.Count - 1; i++)
@@ -65,8 +100,8 @@ namespace LethalBots.Patches.ObjectsPatches
                 // Insert new method call to skip ClearControlTips if a bot is dropping the item
                 List<CodeInstruction> codesToAdd = new List<CodeInstruction>
                 {
-                    new CodeInstruction(OpCodes.Ldarg_0),
-                    new CodeInstruction(OpCodes.Call, PatchesUtil.IsAnLethalBotAiOwnerOfObjectMethod),
+                    new CodeInstruction(OpCodes.Ldloc, playerLocal),
+                    new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLethalBotMethod),
                     new CodeInstruction(OpCodes.Brtrue_S, skipSnapshot)
                 };
                 codes.InsertRange(startIndex, codesToAdd);
@@ -143,6 +178,56 @@ namespace LethalBots.Patches.ObjectsPatches
             else
             {
                 Plugin.LogError($"LethalBot.Patches.ObjectsPatches.DiscardItem_Transpiler could not remove check if holding player is bot");
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        [HarmonyPatch("GrabItemOnClient")]
+        [HarmonyTranspiler]
+        static IEnumerable<CodeInstruction> GrabItemOnClient_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // GrabbableObject.SetControlTipsForItem
+            MethodInfo setControlTipsForItemMethod = AccessTools.Method(typeof(GrabbableObject), "SetControlTipsForItem");
+
+            // Replacement field: this.playerHeldBy
+            FieldInfo playerHeldByField = AccessTools.Field(typeof(GrabbableObject), "playerHeldBy");
+
+            // ----------------------------------------------------------------------
+            for (var i = 0; i < codes.Count - 1; i++)
+            {
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].Calls(setControlTipsForItemMethod))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Create our label's destination....
+                Label skipSnapshot = generator.DefineLabel();
+                var nop = new CodeInstruction(OpCodes.Nop);
+                nop.labels.Add(skipSnapshot);
+                codes.Insert(startIndex + 2, nop); // Set label to the instruction **after** the SetControlTipsForItem call
+
+                // Insert new method call to skip SetControlTipsForItem if a bot is grabbing the item
+                List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+                {
+                    new CodeInstruction(OpCodes.Ldarg_0),
+                    new CodeInstruction(OpCodes.Ldfld, playerHeldByField), // Load `playerHeldBy`
+                    new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLethalBotMethod),
+                    new CodeInstruction(OpCodes.Brtrue_S, skipSnapshot)
+                };
+                codes.InsertRange(startIndex, codesToAdd);
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.ObjectsPatches.GrabItemOnClient_Transpiler could not remove check if holding player is bot");
             }
 
             return codes.AsEnumerable();

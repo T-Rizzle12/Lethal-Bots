@@ -65,7 +65,6 @@ namespace LethalBots.AI.AIStates
             float grabDistance = npcController.Npc.grabDistance; // grabDistance determines our interact trigger distance!
             if (Mathf.Min(sqrDistToInteractTrigger, sqrDistToLandingSpot) > grabDistance * grabDistance)
             {
-
                 if (!npcController.WaitForFullStamina && sqrDistToLandingSpot > Const.DISTANCE_START_RUNNING * Const.DISTANCE_START_RUNNING)
                 {
                     npcController.OrderToSprint();
@@ -76,7 +75,7 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // If need to wait nearby the landing spot, we should do so!
-                if ((IsDropShipLanding() || IsPurchasedItemsInbound()) && sqrDistToLandingSpot <= Const.DISTANCE_TO_WAIT_FOR_DROPSHIP * Const.DISTANCE_TO_WAIT_FOR_DROPSHIP)
+                if ((IsDropShipLanding() || IsPurchasedItemsInbound()) && !ItemDropship.shipLanded && sqrDistToLandingSpot <= Const.DISTANCE_TO_WAIT_FOR_DROPSHIP * Const.DISTANCE_TO_WAIT_FOR_DROPSHIP)
                 {
                     ai.StopMoving();
 
@@ -105,7 +104,7 @@ namespace LethalBots.AI.AIStates
                 ai.StopMoving();
 
                 // Don't get too close until it has landed!
-                if (IsDropShipLanding() || IsPurchasedItemsInbound())
+                if (IsDropShipLanding() || IsPurchasedItemsInbound() && !ItemDropship.shipLanded)
                 {
                     // We are WAY TOO CLOSE, FALLBACK!
                     if (sqrDistToLandingSpot < Const.DISTANCE_FALLBACK_FROM_DROPSHIP * Const.DISTANCE_FALLBACK_FROM_DROPSHIP)

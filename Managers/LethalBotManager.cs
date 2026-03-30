@@ -2062,7 +2062,8 @@ namespace LethalBots.Managers
         private static void RegisterVoiceCommands()
         {
             // Only do this once!
-            if (registeredVoiceCommands)
+            if (registeredVoiceCommands 
+                || !Plugin.IsModSpeechRecognitionAPILoaded)
             {
                 return;
             }

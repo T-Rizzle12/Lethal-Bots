@@ -49,8 +49,8 @@ namespace LethalBots
     [BepInDependency(LethalLib.Plugin.ModGUID, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency(Const.CSYNC_GUID, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency(LethalCompanyInputUtils.PluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.HardDependency)]
-    [BepInDependency(Const.SPEECHRECOGNITIONAPI_GUID, BepInDependency.DependencyFlags.HardDependency)]
     // SoftDependencies
+    [BepInDependency(Const.SPEECHRECOGNITIONAPI_GUID, BepInDependency.DependencyFlags.SoftDependency)] // Voice recognition
     [BepInDependency(Const.REVIVECOMPANY_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(Const.BUNKBEDREVIVE_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(Const.ZAPRILLATOR_GUID, BepInDependency.DependencyFlags.SoftDependency)]
@@ -86,6 +86,7 @@ namespace LethalBots
         internal static new Configs.Config Config = null!;
         internal static LethalBotsInputs InputActionsInstance = null!;
 
+        internal static bool IsModSpeechRecognitionAPILoaded = false;
         internal static bool IsModTooManyEmotesLoaded = false;
         internal static bool IsModModelReplacementAPILoaded = false;
         internal static bool IsModCustomItemBehaviourLibraryLoaded = false;
@@ -255,6 +256,7 @@ namespace LethalBots
         {
             // -----------------------
             // Are these mods loaded ?
+            IsModSpeechRecognitionAPILoaded = IsModLoaded(Const.SPEECHRECOGNITIONAPI_GUID);
             IsModTooManyEmotesLoaded = IsModLoaded(Const.TOOMANYEMOTES_GUID);
             IsModModelReplacementAPILoaded = IsModLoaded(Const.MODELREPLACEMENT_GUID);
             IsModCustomItemBehaviourLibraryLoaded = IsModLoaded(Const.CUSTOMITEMBEHAVIOURLIBRARY_GUID);
