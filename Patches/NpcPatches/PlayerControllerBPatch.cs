@@ -980,7 +980,7 @@ namespace LethalBots.Patches.NpcPatches
                         return;
                     }
 
-                    if (ragdoll.bodyID.Value == Const.INIT_RAGDOLL_ID)
+                    if (ragdoll.bodyID == Const.INIT_RAGDOLL_ID)
                     {
                         // Remove tooltip text
                         __instance.cursorTip.text = string.Empty;

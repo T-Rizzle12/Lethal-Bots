@@ -934,14 +934,14 @@ namespace LethalBots.AI.AIStates
                 {
                     return;
                 }
-                if (!BunkbedController.CanRevive(ragdollGrabbableObject.bodyID.Value, logStuff: true))
+                if (!BunkbedController.CanRevive(ragdollGrabbableObject.bodyID, logStuff: true))
                 {
                     return;
                 }
                 Terminal terminalScript = TerminalManager.Instance.GetTerminal();
                 terminalScript.groupCredits -= reviveCost;
                 LethalBotManager.Instance.SyncGroupCreditsForNotOwnerTerminalServerRpc(terminalScript.groupCredits, terminalScript.numberOfItemsInDropship);
-                BunkbedReviveRPCDelegate.Invoke(ragdollGrabbableObject.bodyID.Value);
+                BunkbedReviveRPCDelegate.Invoke(ragdollGrabbableObject.bodyID);
                 npcController.Npc?.DespawnHeldObject();
             }
         }
@@ -977,7 +977,7 @@ namespace LethalBots.AI.AIStates
             {
                 return;
             }
-            if (!BunkbedController.CanRevive(ragdollGrabbableObject.bodyID.Value, logStuff: true))
+            if (!BunkbedController.CanRevive(ragdollGrabbableObject.bodyID, logStuff: true))
             {
                 return;
             }

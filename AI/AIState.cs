@@ -520,7 +520,7 @@ namespace LethalBots.AI
                     //float entranceDistSqr = (entrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
                     if (entrance.FindExitPoint()
                         && !IsEntranceCoveredInQuickSand(entrance)
-                        && LethalBotAI.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitPoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, false, out _)
+                        && LethalBotAI.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, false, out _)
                         && CanPathToEntrance(entrance, true) 
                         && ai.pathDistance < closestEntranceDist)
                     {
@@ -559,7 +559,7 @@ namespace LethalBots.AI
             // Check if the entrance is covered in quicksand
             if (entrance != null)
             {
-                return IsPositionCoveredInQuickSand(entrance.isEntranceToBuilding ? entrance.entrancePoint.position : entrance.exitPoint.position);
+                return IsPositionCoveredInQuickSand(entrance.isEntranceToBuilding ? entrance.entrancePoint.position : entrance.exitScript.entrancePoint.position);
             }
             return false;
         }
@@ -711,7 +711,7 @@ namespace LethalBots.AI
             }
 
             // If we don't have a cached value, we need to check if the entrance is safe
-            Vector3 entrancePoint = useEntrancePoint ? entrance.entrancePoint.position : entrance.exitPoint.position;
+            Vector3 entrancePoint = useEntrancePoint ? entrance.entrancePoint.position : entrance.exitScript.entrancePoint.position;
             foreach (EnemyAI enemy in RoundManager.Instance.SpawnedEnemies)
             {
                 const float dangerRange = 7.7f; // 7.7f is the same distance used by the base game to show the enemy activity nearby message!

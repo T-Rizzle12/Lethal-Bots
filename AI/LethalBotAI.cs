@@ -3027,7 +3027,7 @@ namespace LethalBots.AI
                     return entrance.entrancePoint.position;
                 }
             }*/
-            return entranceToUse.exitPoint.position;
+            return entranceToUse.exitScript.entrancePoint.position;
         }
 
         /// <summary>
@@ -4573,7 +4573,7 @@ namespace LethalBots.AI
                     continue;
                 }
 
-                PlayerControllerB playerController = StartOfRound.Instance.allPlayerScripts[deadBody.bodyID.Value];
+                PlayerControllerB playerController = StartOfRound.Instance.allPlayerScripts[deadBody.bodyID];
                 if (playerController == null || !RescueAndReviveState.CanRevivePlayer(this, playerController))
                 {
                     //Plugin.LogInfo($"Can Revive Player? {playerController != null && RescueAndReviveState.CanRevivePlayer(this, playerController)}");
@@ -5541,7 +5541,7 @@ namespace LethalBots.AI
             if (targetEntrance != null)
             {
                 Transform thisPlayerBody = lethalBotController.thisPlayerBody;
-                thisPlayerBody.eulerAngles = new Vector3(thisPlayerBody.eulerAngles.x, targetEntrance.exitPoint.eulerAngles.y, thisPlayerBody.eulerAngles.z);
+                thisPlayerBody.eulerAngles = new Vector3(thisPlayerBody.eulerAngles.x, targetEntrance.exitScript.entrancePoint.eulerAngles.y, thisPlayerBody.eulerAngles.z);
                 TimeSinceTeleporting = Time.timeSinceLevelLoad;
                 targetEntrance.timeAtLastUse = Time.realtimeSinceStartup;
                 //EntranceTeleport entranceTeleport = RoundManager.FindMainEntranceScript(setOutside.Value);
@@ -8018,7 +8018,8 @@ namespace LethalBots.AI
                                    bool spawnBody = true,
                                    CauseOfDeath causeOfDeath = CauseOfDeath.Unknown,
                                    int deathAnimation = 0,
-                                   Vector3 positionOffset = default(Vector3))
+                                   Vector3 positionOffset = default(Vector3),
+                                   bool setOverrideDropItems = false)
         {
             Plugin.LogDebug($"SyncKillLethalBot for LOCAL client #{NetworkManager.LocalClientId}, lethalBot object: Bot #{this.BotId} {NpcController.Npc.playerUsername}");
 
@@ -8032,11 +8033,11 @@ namespace LethalBots.AI
             if (base.IsServer)
             {
                 KillLethalBotSpawnBody(spawnBody, deathAnimation);
-                KillLethalBotClientRpc(bodyVelocity, spawnBody, causeOfDeath, deathAnimation, positionOffset);
+                KillLethalBotClientRpc(bodyVelocity, spawnBody, causeOfDeath, deathAnimation, positionOffset, setOverrideDropItems);
             }
             else
             {
-                KillLethalBotServerRpc(bodyVelocity, spawnBody, causeOfDeath, deathAnimation, positionOffset);
+                KillLethalBotServerRpc(bodyVelocity, spawnBody, causeOfDeath, deathAnimation, positionOffset, setOverrideDropItems);
             }
         }
 
@@ -8052,21 +8053,11 @@ namespace LethalBots.AI
                                          bool spawnBody,
                                          CauseOfDeath causeOfDeath,
                                          int deathAnimation,
-                                         Vector3 positionOffset)
+                                         Vector3 positionOffset,
+                                         bool setOverrideDropItems)
         {
             KillLethalBotSpawnBody(spawnBody, deathAnimation);
-            KillLethalBotClientRpc(bodyVelocity, spawnBody, causeOfDeath, deathAnimation, positionOffset);
-        }
-
-        /// <summary>
-        /// Server side, spawn the ragdoll of the dead body, despawn held object if no dead body to spawn
-        /// (lethalBot eaten or disappeared in some way)
-        /// </summary>
-        /// <param name="spawnBody">Is there a dead body to spawn following the death of the lethalBot ?</param>
-        [ServerRpc]
-        private void KillLethalBotSpawnBodyServerRpc(bool spawnBody, int deathAnimation)
-        {
-            KillLethalBotSpawnBody(spawnBody, deathAnimation);
+            KillLethalBotClientRpc(bodyVelocity, spawnBody, causeOfDeath, deathAnimation, positionOffset, setOverrideDropItems);
         }
 
         /// <summary>
@@ -8079,11 +8070,19 @@ namespace LethalBots.AI
             this.ReParentLethalBot(NpcController.Npc.playersManager.playersContainer);
             if (!spawnBody)
             {
-                foreach (var grabbableObject in NpcController.Npc.ItemSlots)
+                if (!NpcController.Npc.overrideDropItems)
                 {
-                    if (grabbableObject != null)
+                    foreach (var grabbableObject in NpcController.Npc.ItemSlots)
                     {
-                        grabbableObject.gameObject.GetComponent<NetworkObject>().Despawn(true);
+                        if (grabbableObject != null)
+                        {
+                            grabbableObject.gameObject.GetComponent<NetworkObject>().Despawn();
+                        }
+                    }
+                    GrabbableObject reservedSlot = NpcController.Npc.ItemOnlySlot;
+                    if (reservedSlot != null)
+                    {
+                        reservedSlot.gameObject.GetComponent<NetworkObject>().Despawn();
                     }
                 }
             }
@@ -8091,7 +8090,7 @@ namespace LethalBots.AI
             {
                 GameObject gameObject = Object.Instantiate<GameObject>(StartOfRound.Instance.ragdollGrabbableObjectPrefab, NpcController.Npc.playersManager.propsContainer);
                 gameObject.GetComponent<NetworkObject>().Spawn(false);
-                gameObject.GetComponent<RagdollGrabbableObject>().bodyID.Value = (int)NpcController.Npc.playerClientId;
+                gameObject.GetComponent<RagdollGrabbableObject>().bodyID = (int)NpcController.Npc.playerClientId;
             }
         }
 
@@ -8107,11 +8106,12 @@ namespace LethalBots.AI
                                          bool spawnBody,
                                          CauseOfDeath causeOfDeath,
                                          int deathAnimation,
-                                         Vector3 positionOffset)
+                                         Vector3 positionOffset,
+                                         bool setOverrideDropItems)
         {
 
 
-            KillLethalBot(bodyVelocity, spawnBody, causeOfDeath, deathAnimation, positionOffset);
+            KillLethalBot(bodyVelocity, spawnBody, causeOfDeath, deathAnimation, positionOffset, setOverrideDropItems);
         }
 
         /// <summary>
@@ -8125,7 +8125,8 @@ namespace LethalBots.AI
                                 bool spawnBody,
                                 CauseOfDeath causeOfDeath,
                                 int deathAnimation,
-                                Vector3 positionOffset)
+                                Vector3 positionOffset,
+                                bool setOverrideDropItems)
         {
             PlayerControllerB lethalBotController = NpcController.Npc;
             Plugin.LogDebug(@$"KillLethalBot for LOCAL client #{NetworkManager.LocalClientId}, lethalBot object: Bot #{this.BotId} {lethalBotController.playerUsername}
@@ -8149,6 +8150,13 @@ namespace LethalBots.AI
             }
 
             // Reset body
+            lethalBotController.overrideDontSpawnBody = false;
+            lethalBotController.overrideDropItems = setOverrideDropItems;
+            if (!spawnBody)
+            {
+                deathAnimation = -1;
+            }
+            //StartOfRound.Instance.LocalPlayerDieEvent.Invoke(this, deathAnimation); // WHY ZEEKERSS, now I have to recreate a bunch of logic for the bots. :(
             lethalBotController.isPlayerDead = true;
             lethalBotController.isPlayerControlled = false;
             lethalBotController.thisPlayerModelArms.enabled = false;
@@ -8178,10 +8186,19 @@ namespace LethalBots.AI
             lethalBotController.setPositionOfDeadPlayer = true;
             lethalBotController.snapToServerPosition = false;
             lethalBotController.causeOfDeath = causeOfDeath;
+            lethalBotController.drunkness = 0f;
+            lethalBotController.drunknessInertia = 0f;
+            lethalBotController.poison = 0f;
+            lethalBotController.poisonInertia = 0f;
+            lethalBotController.slipperyFloor = 0f;
+            lethalBotController.slimeSlipAudio.Stop();
+            PatchesUtil.slimeSlipAudioVolumeSyncFiled.Invoke(lethalBotController) = 0f;
+            lethalBotController.slimeOnFaceDecals[0].gameObject.SetActive(value: false);
+            lethalBotController.slimeOnFaceDecals[1].gameObject.SetActive(value: false);
             PatchesUtil.positionOfDeathField.Invoke(lethalBotController) = lethalBotController.transform.position;
-            if (spawnBody)
+            if (spawnBody && !lethalBotController.overrideDontSpawnBody)
             {
-                lethalBotController.SpawnDeadBody((int)lethalBotController.playerClientId, bodyVelocity, (int)causeOfDeath, lethalBotController, deathAnimation, null, positionOffset);
+                lethalBotController.SpawnDeadBody((int)lethalBotController.playerClientId, bodyVelocity, (int)causeOfDeath, lethalBotController, deathAnimation, null, null, positionOffset: positionOffset);
                 
                 // Sigh, if the death animation is set to 9 the body has a chance to be null!
                 if (lethalBotController.deadBody != null)
@@ -8211,7 +8228,7 @@ namespace LethalBots.AI
             this.ReParentLethalBot(lethalBotController.playersManager.playersContainer);
             SoundManager.Instance.playerVoicePitchTargets[lethalBotController.playerClientId] = 1f;
             SoundManager.Instance.playerVoicePitchLerpSpeed[lethalBotController.playerClientId] = 3f;
-            lethalBotController.DropAllHeldItems(spawnBody);
+            lethalBotController.DropAllHeldItems(spawnBody || lethalBotController.overrideDropItems);
             if (this.State?.TargetItem != null)
             {
                 // If the bot died trying to pickup an item, we need to make sure no other bot tries to pick it up!

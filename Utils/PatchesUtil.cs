@@ -32,6 +32,7 @@ namespace LethalBots.Utils
 
         public static readonly AccessTools.FieldRef<PlayerControllerB, Vector3> positionOfDeathField = AccessTools.FieldRefAccess<Vector3>(typeof(PlayerControllerB), "positionOfDeath");
         public static readonly AccessTools.FieldRef<PlayerControllerB, float> timeSinceSwitchingSlotsField = AccessTools.FieldRefAccess<float>(typeof(PlayerControllerB), "timeSinceSwitchingSlots");
+        public static readonly AccessTools.FieldRef<PlayerControllerB, float> slimeSlipAudioVolumeSyncFiled = AccessTools.FieldRefAccess<float>(typeof(PlayerControllerB), "slimeSlipAudioVolumeSync");
 
         #endregion
 

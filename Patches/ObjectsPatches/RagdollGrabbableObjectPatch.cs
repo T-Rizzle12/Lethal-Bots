@@ -22,7 +22,7 @@ namespace LethalBots.Patches.ObjectsPatches
         [HarmonyPrefix]
         static bool Update_PreFix(RagdollGrabbableObject __instance, ref bool ___foundRagdollObject)
         {
-            int bodyID = __instance.bodyID.Value;
+            int bodyID = __instance.bodyID;
             if (bodyID == Const.INIT_RAGDOLL_ID)
             {
                 if (__instance.ragdoll == null)
@@ -55,7 +55,7 @@ namespace LethalBots.Patches.ObjectsPatches
         [HarmonyPostfix]
         static void Update_PostFix(RagdollGrabbableObject __instance)
         {
-            if (__instance.bodyID.Value == Const.INIT_RAGDOLL_ID)
+            if (__instance.bodyID == Const.INIT_RAGDOLL_ID)
             {
                 __instance.grabbableToEnemies = false;
             }

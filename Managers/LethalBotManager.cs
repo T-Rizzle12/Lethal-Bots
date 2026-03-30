@@ -1287,6 +1287,8 @@ namespace LethalBots.Managers
             lethalBotController.parentedToElevatorLastFrame = false; // Force update!
             lethalBotController.playerActions = new PlayerActions();
             lethalBotController.health = spawnParamsNetworkSerializable.Hp == 0 ? 100 : spawnParamsNetworkSerializable.Hp;
+            lethalBotController.overridePoisonValue = false;
+            lethalBotController.carryWeight = 1f;
             lethalBotController.DisablePlayerModel(objectParent, enable: true, disableLocalArms: true);
             lethalBotController.isInsideFactory = !spawnParamsNetworkSerializable.IsOutside;
             lethalBotController.isMovementHindered = 0;
