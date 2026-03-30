@@ -192,7 +192,7 @@ namespace LethalBots.AI
         public LineRendererUtil LineRendererUtil = null!;
         private float stuckTimer; // Used for stuck detection
 
-        private void Awake()
+        public override void Awake()
         {
             // Behaviour states
             enemyBehaviourStates = new EnemyBehaviourState[Enum.GetNames(typeof(EnumAIStates)).Length];
