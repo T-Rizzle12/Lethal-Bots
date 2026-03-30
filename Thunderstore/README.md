@@ -90,6 +90,10 @@ Also, the bot only checks for the keywords anywhere in the message, for example,
 </br>**transmit (desired message)** - The bot who is currently on the terminal will send the given message on the signal translator.
 </br>**transfer loot** - The bot will cycle between facility entrances and transfer any loot they find to the ship.
 </br>**gear up** - Bots that are following the player will automatically swap to the GrabLoadoutState and grab their set loadout.
+</br>**create group** - This creates a new group with you as the leader!
+</br>**leave group** - This causes you to leave the current group you are in.
+</br>**join group** - This lets you join a group. You must look at the bot of the group you want to join.
+</br>**use key** - This tells every bot that is following you to unlock the door you are looking at. NOTE: You must be standing within use range for this to work!
 </br>Please note that you must be in chat range for the bot to hear you. If you are too far away, the bot will not respond to your command.
 If both you and the bot have a walkie-talkie, you can use the command in the chat and the bot will respond to it.
 </br>Please note that these are also voice commands, but they require you to only say the word unlike how they work as said in the chat.
@@ -104,6 +108,8 @@ Please note that these commands are not case sensitive, so you can use any combi
 </br>**i will man the ship** - If you say this command, you will be marked as the Mission Controller. The previous Bot that was set as Mission Controller will hand the terminal to you. No other bots wil be allowed to automatically assume the Mission Control role unless one of the following things happen:
 1. You die
 2. The day ends
+
+**i will transfer loot** - This tells bots that you will be transferring loot! NOTE: All it does is add you to the LootTransferPlayers list. This causes the drop loot outside of entrances code to run!
 
 ## How the bots work
 The bots take one of the player objects in the game and I attach an EnemyAI to it for the pathfinding code.

@@ -1,5 +1,67 @@
 # Changelog
 
+## 4.0.0 - 2026-3-30
+Since V80 just came out recently, I think its fine for me to release this update now rather than later.
+**NOTE: THIS UPDATE IS FOR V73, IT MAY OR MAY NOT WORK IN V80**
+
+Now then, this update adds a new group system that allows you to give bots predefined groups in the ConfigIdentities file. Bots will automatically join their assigned groups when they first enter the searching for scrap state.
+This update also fixes some bugs that were found as well.
+
+## Group System
+This is it, the Group System. There isn't much to talk about since the system is mostly the "concept" of a group. What I mean by that is that there is no fancy UI showing who is and isn't in your group. This system can definently be improved as time goes on, but for now it works.
+- GroupManager handles the creation, removal, and networking of all player and bot groups
+- Changed LethalBotAI.SyncAssignTargetAndSetMovingTo to work with bots as well.
+- Updated bot identity file to accept internal group ids
+
+## AI State Improvements and Bug Fixes
+I made some fixes to some AI states that were reported and as well as found during testing of this update.
+- Refactored bot "look at" logic, again, to now properly utilize NetworkObjects for targeting, and updated several AI states to use the new system.
+- Hopefully fixed a logic error in FightEnemyState where bots had a chance to stand too far away from the enemy they are trying to fight
+- Fixed bots in the MissionControlState attempting to grab their selected weapon and walkie-talkie if they have no room for items. 
+- Bots upon entering PanikState will now flee backwards while waiting for their retreat node to be chosen
+- Made some optimizations to GetCloseToPlayerState
+- Changed AIStates to use new CurrentEnemy property
+- Fixed a logic error in MissionControl state that caused them to never consider Baboon Hawks as threats
+- Fixed Mission Controller bots grabbing their loadout just to immediately drop it.
+- Bots will now remind players of their poor decision of not purchasing a teleporter if they request a teleport and the crew doesn't own said teleporter
+- Bots that are following other players will now drop their held scrap, if there is a HUMAN player or bot transferring loot, at entrances. 
+- Fixed more bugs with bots picking up and dropping items sometimes breaking item tooltips
+- Fixed a rare bug where an EnemyAI.eye could be invalid, but not null which would cause the bots to break and spam the console with logic errors
+- Fixed bots sometimes failing to grab items from the dropship.     
+- Bots can now randomly use NoiseMaker items
+
+## Chat, Signal Translator and Voice Commands improvements
+The entire chat command and voice command system has been reworked to be much better than it was before. Most of the changes are behind the hood, but make it 10 times easier to add and remove chat, signal translator, and voice commands.
+- Added two new managers ChatCommandManager and SignalTranslatorCommandsManager, ChatCommandManager also handles voice commands.
+- Refactored the chat command system to a much better system that has a manager that handles registering commands.
+All AIStates that use chat commands have been updated.
+- LethalBotManager now handles registering chat commands.
+- Chat commands will now automatically register themselves as voice commands
+- Voice command registration is now handled in LethalBotManager
+- Replaced PySpeech with SpeechRecognitionAPI for voice command recognition
+-  Fix a sanitization issue with file paths with the bot voice chat system
+
+Oh, and there are new chat commands as well!
+- Added some new chat commands:
+1. i will transfer loot, this tells bots that you will be transferring loot! NOTE: All it does is add you to the LootTransferPlayers list. This causes the drop loot outside of entrances code to run!
+2. create group, this creates a new group with you as the leader!   
+3. leave group, this causes you to leave the current group you are in.
+4. join group, this lets you join a group. You must look at the bot of the group you want to join.
+5. use key, this tells every bot that is following you to unlock the door you are looking at. NOTE: You must be standing within use range for this to work!
+
+## General and Mod Support Fixes
+- Voice recognition API is now an optional mod requirement
+- Added LethalBotNetworkSerializer.SerializeNullable support for NetworkBehaviourReference
+- Added a new Postfix in EnemyAIPatch to catch enemies that don't properly register themselves to SpawnedEnemies when spawned.
+- Made an experimental change to see what happens if I allow the bot to pathfind and move while in midair
+- Added a new config option, DisableNameBillBoards. This disables the bot's name billboards from rendering.
+- Added partial support for the GeneralImprovements mod, fixing scannable player's feature not working properly with bots.
+- Fixed a logic error with Bunk Bed Revives. Bots no longer get infinite revives.
+- Fixed bots not hanging up their phones before leaving the server. 
+
+## Other changes
+- Updated outdated README.md files........there is still more to fix, but I think its good enough for now
+
 ## 3.0.1 - 2026-3-4
 Just some minor bug fixes!
 - Fixed some logic errors in CollectPurchasedItemsState
