@@ -17,6 +17,7 @@ using ReservedItemSlotCore.Patches;
 using Scoops.gameobjects;
 using Scoops.misc;
 using Scoops.service;
+using Steamworks.Ugc;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -3601,6 +3602,11 @@ namespace LethalBots.AI
             { 
                 return true;
             }
+            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null && HasAmmoForWeapon(itemOnlySlot))
+            {
+                return true;
+            }
             foreach (var weapon in NpcController.Npc.ItemSlots)
             {
                 // Do we need ammo in order to use this weapon?
@@ -3624,6 +3630,13 @@ namespace LethalBots.AI
             {
                 return true;
             }
+            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null 
+                && HasAmmoForWeapon(itemOnlySlot) 
+                && IsItemRangedWeapon(itemOnlySlot))
+            {
+                return true;
+            }
             foreach (var weapon in NpcController.Npc.ItemSlots)
             {
                 if (HasAmmoForWeapon(weapon) 
@@ -3643,6 +3656,11 @@ namespace LethalBots.AI
         public bool HasKeyInInventory(bool keyOnly = false)
         {
             if (IsHoldingKey(keyOnly))
+            {
+                return true;
+            }
+            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null && (itemOnlySlot is KeyItem || (!keyOnly && itemOnlySlot is LockPicker)))
             {
                 return true;
             }
@@ -3771,6 +3789,17 @@ namespace LethalBots.AI
                     return true;
                 }
 
+                // Check if the lethalBot has ammo in its item only slot
+                GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+                if (itemOnlySlot != null)
+                {
+                    GunAmmo? gunAmmo = itemOnlySlot as GunAmmo;
+                    if (gunAmmo != null && gunAmmo.ammoType == shotgun.gunCompatibleAmmoID)
+                    {
+                        return true;
+                    }
+                }
+
                 // Using foreach with manual index tracking
                 int index = 0;
                 foreach (var item in NpcController.Npc.ItemSlots)
@@ -3816,6 +3845,14 @@ namespace LethalBots.AI
                 return true;
             }
 
+            // Check if the lethalBot has the object in its item only slot
+            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot == grabbableObject)
+            {
+                objectSlot = Const.RESERVED_EQUIPMENT_SLOT;
+                return true;
+            }
+
             // Check if the lethalBot has the object in its inventory
             int index = 0;
             foreach(var item in NpcController.Npc.ItemSlots)
@@ -3846,6 +3883,14 @@ namespace LethalBots.AI
             if (typeOfObject.IsInstanceOfType(HeldItem))
             {
                 objectSlot = NpcController.Npc.currentItemSlot;
+                return true;
+            }
+
+            // Check if the lethalBot has the object in its item only slot
+            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null && typeOfObject.IsInstanceOfType(itemOnlySlot))
+            {
+                objectSlot = Const.RESERVED_EQUIPMENT_SLOT;
                 return true;
             }
 
@@ -3882,6 +3927,14 @@ namespace LethalBots.AI
                 return true;
             }
 
+            // Check if the lethalBot has the object in its item only slot
+            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null && objectPredicate(itemOnlySlot))
+            {
+                objectSlot = Const.RESERVED_EQUIPMENT_SLOT;
+                return true;
+            }
+
             // Check if the lethalBot has the object in its inventory
             int index = 0;
             foreach (var item in NpcController.Npc.ItemSlots)
@@ -3914,6 +3967,14 @@ namespace LethalBots.AI
             GrabbableObject? bestItem = null;
 
             // Assess all items in inventory
+            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null && filter(itemOnlySlot))
+            {
+                bestItem = itemOnlySlot;
+                objectSlot = Const.RESERVED_EQUIPMENT_SLOT;
+            }
+
+            // Onto the regular item slots, using foreach with manual index tracking
             int index = 0;
             foreach (var canidate in NpcController.Npc.ItemSlots)
             {
@@ -3975,6 +4036,11 @@ namespace LethalBots.AI
             {
                 return true;
             }
+            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null)
+            {
+                return true;
+            }
             foreach (var item in NpcController.Npc.ItemSlots)
             {
                 if (item != null)
@@ -3997,6 +4063,13 @@ namespace LethalBots.AI
             {
                 return true;
             }
+            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null 
+                && IsItemScrap(itemOnlySlot)
+                && !IsGrabbableObjectInLoadout(itemOnlySlot))
+            {
+                return true;
+            }
             foreach (var scrap in NpcController.Npc.ItemSlots)
             {
                 if (IsItemScrap(scrap) 
@@ -4015,6 +4088,11 @@ namespace LethalBots.AI
         public bool HasSellableItemInInventory()
         {
             if (!AreHandsFree() && IsGrabbableObjectSellable(HeldItem, true, true))
+            {
+                return true;
+            }
+            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null && IsGrabbableObjectSellable(itemOnlySlot, true, true))
             {
                 return true;
             }
@@ -4047,6 +4125,14 @@ namespace LethalBots.AI
             // Make sure this is in our inventory!
             if (HasGrabbableObjectInInventory(grabbableObject, out int itemSlot))
             {
+                GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+                if (itemOnlySlot != null
+                    && itemSlot != Const.RESERVED_EQUIPMENT_SLOT
+                    && itemOnlySlot.itemProperties.itemName == grabbableObject.itemProperties.itemName)
+                {
+                    objectSlot = Const.RESERVED_EQUIPMENT_SLOT;
+                    return true;
+                }
                 GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
                 for (int i = 0; i < itemSlots.Length; i++)
                 {
@@ -4169,6 +4255,16 @@ namespace LethalBots.AI
                     networkObject.ChangeOwnership(newOwnerClientId);
                 }
             }
+            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null)
+            {
+                NetworkObject? networkObject = itemOnlySlot.NetworkObject;
+                if (networkObject != null && networkObject.OwnerClientId != newOwnerClientId)
+                {
+                    // Change ownership of the item to the player that owns the bot
+                    networkObject.ChangeOwnership(newOwnerClientId);
+                }
+            }
         }
 
         #endregion
@@ -4197,6 +4293,16 @@ namespace LethalBots.AI
             foreach (var item in NpcController.Npc.ItemSlots)
             {
                 NetworkObject? networkObject = item?.NetworkObject;
+                if (networkObject != null && networkObject.OwnerClientId != this.OwnerClientId)
+                {
+                    // Change ownership of the item to the player that owns the bot
+                    networkObject.ChangeOwnership(this.OwnerClientId);
+                }
+            }
+            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null)
+            {
+                NetworkObject? networkObject = itemOnlySlot.NetworkObject;
                 if (networkObject != null && networkObject.OwnerClientId != this.OwnerClientId)
                 {
                     // Change ownership of the item to the player that owns the bot
@@ -5884,6 +5990,11 @@ namespace LethalBots.AI
                     item.isInElevator = inElevator;
                 }
             }
+            GrabbableObject? itemOnlySlot = lethalBotController.ItemOnlySlot;
+            if (itemOnlySlot != null)
+            {
+                lethalBotController.SetItemInElevator(droppedInShipRoom: isInShip, droppedInElevator: inElevator, itemOnlySlot);
+            }
 
             // NEEDTOVAILDATE: Make sure the player movement code works as expected
             // The following code should be found under UpdatePlayerPositionClientRpc!
@@ -6279,11 +6390,20 @@ namespace LethalBots.AI
         /// <returns>Returns the open slot <c>int</c> or <see cref="Const.INVALID_ITEM_SLOT"/> </returns>
         public int FirstEmptyItemSlot(GrabbableObject? grabbableObject = null)
         {
+            PlayerControllerB thisBot = NpcController.Npc;
+            GrabbableObject[] itemSlots = thisBot.ItemSlots;
             int result = Const.INVALID_ITEM_SLOT;
-            GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
-            if (itemSlots[NpcController.Npc.currentItemSlot] == null)
+            if (thisBot.ItemOnlySlot == null
+                && grabbableObject != null
+                && !grabbableObject.itemProperties.isScrap
+                && !grabbableObject.itemProperties.twoHanded
+                && !grabbableObject.itemProperties.disallowUtilitySlot)
             {
-                result = NpcController.Npc.currentItemSlot;
+                result = Const.RESERVED_EQUIPMENT_SLOT;
+            }
+            else if (thisBot.currentItemSlot != Const.RESERVED_EQUIPMENT_SLOT && itemSlots[thisBot.currentItemSlot] == null)
+            {
+                result = thisBot.currentItemSlot;
             }
             else
             {
@@ -6471,26 +6591,41 @@ namespace LethalBots.AI
             thisBot.currentItemSlot = slot;
             if (fillSlotWithItem != null)
             {
-                itemSlots[slot] = fillSlotWithItem;
+                if (slot == Const.RESERVED_EQUIPMENT_SLOT)
+                {
+                    thisBot.ItemOnlySlot = fillSlotWithItem;
+                }
+                else
+                {
+                    itemSlots[slot] = fillSlotWithItem;
+                }
             }
             if (!this.AreHandsFree())
             {
                 this.HeldItem.playerHeldBy = thisBot;
                 this.SetSpecialGrabAnimationBool(false, this.HeldItem);
                 this.HeldItem.PocketItem();
-                if (itemSlots[slot] != null && !string.IsNullOrEmpty(itemSlots[slot].itemProperties.pocketAnim))
+                if (slot == Const.RESERVED_EQUIPMENT_SLOT)
+                {
+                    if (thisBot.ItemOnlySlot != null && !string.IsNullOrEmpty(thisBot.ItemOnlySlot.itemProperties.pocketAnim))
+                    {
+                        thisBot.playerBodyAnimator.SetTrigger(thisBot.ItemOnlySlot.itemProperties.pocketAnim);
+                    }
+                }
+                else if (itemSlots[slot] != null && !string.IsNullOrEmpty(itemSlots[slot].itemProperties.pocketAnim))
                 {
                     thisBot.playerBodyAnimator.SetTrigger(itemSlots[slot].itemProperties.pocketAnim);
                 }
             }
-            if (itemSlots[slot] != null)
+            GrabbableObject? grabbableObject = slot == Const.RESERVED_EQUIPMENT_SLOT ? thisBot.ItemOnlySlot : itemSlots[slot];
+            if (grabbableObject!= null)
             {
-                itemSlots[slot].playerHeldBy = thisBot;
-                itemSlots[slot].EquipItem();
-                this.SetSpecialGrabAnimationBool(true, itemSlots[slot]);
+                grabbableObject.playerHeldBy = thisBot;
+                grabbableObject.EquipItem();
+                this.SetSpecialGrabAnimationBool(true, grabbableObject);
                 if (!this.AreHandsFree())
                 {
-                    if (itemSlots[slot].itemProperties.twoHandedAnimation || this.HeldItem.itemProperties.twoHandedAnimation)
+                    if (grabbableObject.itemProperties.twoHandedAnimation || this.HeldItem.itemProperties.twoHandedAnimation)
                     {
                         thisBot.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATIONTWOHANDED);
                         thisBot.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATIONTWOHANDED);
@@ -6498,13 +6633,13 @@ namespace LethalBots.AI
                     thisBot.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATION);
                     thisBot.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATION);
                 }
-                thisBot.twoHandedAnimation = itemSlots[slot].itemProperties.twoHandedAnimation;
-                thisBot.twoHanded = itemSlots[slot].itemProperties.twoHanded;
+                thisBot.twoHandedAnimation = grabbableObject.itemProperties.twoHandedAnimation;
+                thisBot.twoHanded = grabbableObject.itemProperties.twoHanded;
                 thisBot.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, true);
                 thisBot.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, false);
                 thisBot.isHoldingObject = true;
-                thisBot.currentlyHeldObjectServer = itemSlots[slot];
-                this.HeldItem = itemSlots[slot];
+                thisBot.currentlyHeldObjectServer = grabbableObject;
+                this.HeldItem = grabbableObject;
                 if (fillSlotWithItem == null)
                 {
                     this.HeldItem.gameObject.GetComponent<AudioSource>().PlayOneShot(this.HeldItem.itemProperties.grabSFX, 0.6f);
@@ -6742,12 +6877,12 @@ namespace LethalBots.AI
                 Plugin.LogDebug("HeldItem: " + HeldItem.itemProperties.itemName);
             }
 
-            GrabbableObject? grabbableObject = lethalBotController.ItemSlots[itemSlot];
-            if (lethalBotController.isHoldingObject && !AreHandsFree())
+            GrabbableObject? grabbableObject = itemSlot == Const.RESERVED_EQUIPMENT_SLOT ? lethalBotController.ItemOnlySlot : lethalBotController.ItemSlots[itemSlot];
+            if (lethalBotController.isHoldingObject)
             {
                 if (lethalBotController.currentItemSlot == itemSlot)
                 {
-                    lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight - (HeldItem.itemProperties.weight - 1f), 1f, 10f);
+                    lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight - (grabbableObject.itemProperties.weight - 1f), 1f, 10f);
                     lethalBotController.isHoldingObject = false;
                     lethalBotController.twoHanded = false;
                     lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, value: true);
@@ -6755,7 +6890,7 @@ namespace LethalBots.AI
                     lethalBotController.activatingItem = false;
                 }
 
-                if (!AreHandsFree() && HeldItem == lethalBotController.ItemSlots[itemSlot])
+                if (!AreHandsFree() && HeldItem == grabbableObject)
                 {
                     SetSpecialGrabAnimationBool(setBool: false, HeldItem);
                     if (IsOwner)
@@ -6767,8 +6902,14 @@ namespace LethalBots.AI
                     lethalBotController.currentlyHeldObjectServer = null;
                 }
             }
-
-            lethalBotController.ItemSlots[itemSlot] = null;
+            if (itemSlot == Const.RESERVED_EQUIPMENT_SLOT)
+            {
+                lethalBotController.ItemOnlySlot = null;
+            }
+            else
+            { 
+                lethalBotController.ItemSlots[itemSlot] = null; 
+            }
             if (IsServer)
             {
                 grabbableObject?.NetworkObject.Despawn();
@@ -6789,39 +6930,21 @@ namespace LethalBots.AI
                 {
                     continue;
                 }
-                if (itemsFall)
+                PlayerControllerBPatch.DropHeldItem_ReversePatch(lethalBotController, grabbableObject, itemsFall, false);
+                if (base.IsOwner)
                 {
-                    DictJustDroppedItems[grabbableObject] = Time.realtimeSinceStartup;
-                    grabbableObject.parentObject = null;
-                    grabbableObject.heldByPlayerOnServer = false;
-                    if (lethalBotController.isInElevator)
-                    {
-                        grabbableObject.transform.SetParent(lethalBotController.playersManager.elevatorTransform, worldPositionStays: true);
-                    }
-                    else
-                    {
-                        grabbableObject.transform.SetParent(lethalBotController.playersManager.propsContainer, worldPositionStays: true);
-                    }
-                    lethalBotController.SetItemInElevator(lethalBotController.isInHangarShipRoom, lethalBotController.isInElevator, grabbableObject);
-                    grabbableObject.EnablePhysics(enable: true);
-                    grabbableObject.EnableItemMeshes(enable: true);
-                    grabbableObject.transform.localScale = grabbableObject.originalScale;
-                    grabbableObject.isHeld = false;
-                    grabbableObject.isPocketed = false;
-                    grabbableObject.startFallingPosition = grabbableObject.transform.parent.InverseTransformPoint(grabbableObject.transform.position);
-                    grabbableObject.FallToGround(randomizePosition: true);
-                    grabbableObject.fallTime = UnityEngine.Random.Range(-0.3f, 0.05f);
-                    if (base.IsOwner)
-                    {
-                        grabbableObject.DiscardItemOnClient();
-                    }
-                    else if (!grabbableObject.itemProperties.syncDiscardFunction)
-                    {
-                        grabbableObject.playerHeldBy = null;
-                    }
+                    lethalBotController.activatingItem = false;
                 }
-
                 itemSlots[i] = null;
+            }
+            if (lethalBotController.ItemOnlySlot)
+            {
+                PlayerControllerBPatch.DropHeldItem_ReversePatch(lethalBotController, lethalBotController.ItemOnlySlot, itemsFall, false);
+                if (base.IsOwner)
+                {
+                    lethalBotController.activatingItem = false;
+                }
+                lethalBotController.ItemOnlySlot = null;
             }
             if (lethalBotController.isHoldingObject)
             {
@@ -6880,14 +7003,13 @@ namespace LethalBots.AI
             }
 
             Plugin.LogDebug($"{lethalBot.playerUsername} Try to despawn held item {this.HeldItem} on client #{NetworkManager.LocalClientId}");
-            GrabbableObject?[] itemSlots = lethalBot.ItemSlots;
-            for (int i = 0; i < itemSlots.Length; i++)
+            if (lethalBot.currentItemSlot == Const.RESERVED_EQUIPMENT_SLOT)
             {
-                if (itemSlots[i] == this.HeldItem)
-                {
-                    itemSlots[i] = null;
-                    break;
-                }
+                lethalBot.ItemOnlySlot = null;
+            }
+            else
+            {
+                lethalBot.ItemSlots[lethalBot.currentItemSlot] = null;
             }
 
             SetSpecialGrabAnimationBool(false, this.HeldItem);
@@ -6895,6 +7017,12 @@ namespace LethalBots.AI
             lethalBot.twoHanded = false;
             lethalBot.twoHandedAnimation = false;
             lethalBot.carryWeight = Mathf.Clamp(lethalBot.carryWeight - (this.HeldItem.itemProperties.weight - 1f), 1f, 10f);
+            // NOTE: SendChangedWeightEvent that Zeekerss added is used to update the weight display on the client,
+            // so its not need for bots.
+            //if (base.IsOwner && isPlayerControlled)
+            //{
+            //    StartOfRound.Instance.SendChangedWeightEvent();
+            //}
         }
 
         /// <summary>
@@ -7141,12 +7269,20 @@ namespace LethalBots.AI
                 if (itemSlots[i] == grabbableObject)
                 {
                     itemSlots[i] = null;
-                    break;
                 }
+            }
+            if (NpcController.Npc.ItemOnlySlot == grabbableObject)
+            {
+                NpcController.Npc.ItemOnlySlot = null;
             }
 
             NpcController.Npc.carryWeight = Mathf.Clamp(NpcController.Npc.carryWeight - (grabbableObject.itemProperties.weight - 1f), 1f, 10f);
-
+            // NOTE: SendChangedWeightEvent that Zeekerss added is used to update the weight display on the client,
+            // so its not need for bots.
+            //if (base.IsOwner && isPlayerControlled)
+            //{
+            //    StartOfRound.Instance.SendChangedWeightEvent();
+            //}
             SyncBatteryLethalBot(grabbableObject, (int)(grabbableObject.insertedBattery.charge * 100f));
             Plugin.LogDebug($"{NpcController.Npc.playerUsername} dropped {grabbableObject}, on client #{NetworkManager.LocalClientId}");
         }

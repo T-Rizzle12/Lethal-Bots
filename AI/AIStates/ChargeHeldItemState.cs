@@ -147,6 +147,19 @@ namespace LethalBots.AI.AIStates
         /// <returns><see langword="true"/>: we have an item we want to charge, <see langword="false"/>: we didn't find an item to charge.</returns>
         public static bool HasItemToCharge(LethalBotAI lethalBotAI, out GrabbableObject? itemToCharge)
         {
+            // Check if the lethalBot has the object in its item only slot
+            // that needs to be charged.
+            GrabbableObject? itemOnlySlot = lethalBotAI.NpcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null 
+                && itemOnlySlot.itemProperties.requiresBattery
+                && (itemOnlySlot.insertedBattery.empty
+                    || itemOnlySlot.insertedBattery.charge < 0.9f))
+            {
+                itemToCharge = itemOnlySlot;
+                return true;
+            }
+
+            // Check if the lethalBot has any item in its inventory that needs to be charged.
             foreach (var item in lethalBotAI.NpcController.Npc.ItemSlots)
             {
                 if (item != null && item.itemProperties.requiresBattery

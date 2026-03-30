@@ -87,6 +87,7 @@ namespace LethalBots.Constants
         public const int PLAYER_MASK = 8;
         public const float MAX_CHAT_RANGE = 25f;
         public const int INVALID_ITEM_SLOT = -1;
+        public const int RESERVED_EQUIPMENT_SLOT = 50; // This is the special equipment slot Zeekerss added. Made it a const so we can easily change it if needed!
         public const string PLAYER_ANIMATION_WEIGHT_HOLDINGITEMSRIGHTHAND = "HoldingItemsRightHand";
         public const string PLAYER_ANIMATION_WEIGHT_HOLDINGITEMSBOTHHANDS = "HoldingItemsBothHands";
         public const string PLAYER_ANIMATION_WEIGHT_SPECIALANIMATIONS = "SpecialAnimations";

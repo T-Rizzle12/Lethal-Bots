@@ -178,7 +178,7 @@ namespace LethalBots.AI.AIStates
                         waitTimer = 0f;
                         EntranceTeleport? previousEntrance = targetEntrance;
                         checkedEntrances.Add(previousEntrance); // Mark this entrance as checked
-                        if (ai.HasSomethingInInventory())
+                        if (ai.HasScrapInInventory())
                         {
                             // We have something in our inventory, return to ship to drop it off
                             ai.State = new ReturnToShipState(this);

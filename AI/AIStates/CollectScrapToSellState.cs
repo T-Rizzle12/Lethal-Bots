@@ -1,8 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using System;
+using System.Collections.Generic;
+using System.Text;
 
 namespace LethalBots.AI.AIStates
 {
@@ -83,11 +84,22 @@ namespace LethalBots.AI.AIStates
             // Check if we can fulfill the profit quota with the scrap we have already sold and the scrap we have in our inventory.
             int fulfilledQuota = timeOfDay.quotaFulfilled + LethalBotManager.GetValueOfItemsOnDesk();
             int valueOfInventory = 0;
+
+            // Ok, in the base game, the item only slot cannot have scrap in it, but modders can change that,
+            // so we have to check if the item only slot has scrap in it and if it does, we have to count it towards our profit quota!
+            GrabbableObject? itemOnlySlot = npcController.Npc.ItemOnlySlot;
+            if (itemOnlySlot != null 
+                && ai.IsGrabbableObjectSellable(itemOnlySlot, true, true))
+            {
+                valueOfInventory += itemOnlySlot.scrapValue;
+            }
+
             foreach (var item in npcController.Npc.ItemSlots)
             {
                 // We have to check if the item is null
                 // because the bot might have empty inventory slots.
-                if (item != null)
+                if (item != null 
+                    && ai.IsGrabbableObjectSellable(item, true, true))
                 {
                     valueOfInventory += item.scrapValue;
                 }

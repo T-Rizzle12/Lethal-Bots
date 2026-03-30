@@ -11,11 +11,11 @@ using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils.Helpers;
 using LethalLib.Modules;
-using SpeechRecognitionAPI;
 using Scoops.customization;
 using Scoops.gameobjects;
 using Scoops.misc;
 using Scoops.service;
+using SpeechRecognitionAPI;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -3750,6 +3750,20 @@ namespace LethalBots.Managers
                                         Vector3 positionOffset = item.itemProperties.positionOffset;
                                         positionOffset = parentObject.rotation * positionOffset;
                                         item.transform.position += positionOffset;
+                                    }
+                                }
+                                GrabbableObject? itemOnlySlot = lethalBotController.ItemOnlySlot;
+                                if (itemOnlySlot != null)
+                                {
+                                    Transform parentObject = itemOnlySlot.parentObject;
+                                    if (parentObject != null)
+                                    {
+                                        itemOnlySlot.transform.rotation = parentObject.rotation;
+                                        itemOnlySlot.transform.Rotate(itemOnlySlot.itemProperties.rotationOffset);
+                                        itemOnlySlot.transform.position = parentObject.position;
+                                        Vector3 positionOffset = itemOnlySlot.itemProperties.positionOffset;
+                                        positionOffset = parentObject.rotation * positionOffset;
+                                        itemOnlySlot.transform.position += positionOffset;
                                     }
                                 }
                             }

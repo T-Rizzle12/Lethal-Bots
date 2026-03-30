@@ -1,13 +1,14 @@
 ﻿using GameNetcodeStuff;
-using LethalBots.NetworkSerializers;
 using LethalBots.AI;
+using LethalBots.Constants;
+using LethalBots.NetworkSerializers;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Unity.Netcode;
 using UnityEngine;
-using System.Linq;
 
 namespace LethalBots.Managers
 {
@@ -575,6 +576,11 @@ namespace LethalBots.Managers
                 else
                 {
                     // Support for human players
+                    GrabbableObject? itemOnlySlot = member.ItemOnlySlot;
+                    if (itemOnlySlot != null && LethalBotAI.IsItemScrap(itemOnlySlot))
+                    {
+                        return true;
+                    }
                     foreach (GrabbableObject item in member.ItemSlots)
                     {
                         if (item != null && LethalBotAI.IsItemScrap(item))

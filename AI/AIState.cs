@@ -987,13 +987,13 @@ namespace LethalBots.AI
         {
             // If we have an item we would like to use in our inventory, we should switch to it!
             if (ai.CanSwitchItemSlot() 
-                && ai.TryFindItemInInventory(SelectBestItemFromInventoryFilter, SelectBetterItemFromInventory, out int bestItem) 
-                && bestItem != Const.INVALID_ITEM_SLOT)
+                && ai.TryFindItemInInventory(SelectBestItemFromInventoryFilter, SelectBetterItemFromInventory, out int bestItemSlot) 
+                && bestItemSlot != Const.INVALID_ITEM_SLOT)
             {
-                GrabbableObject item = npcController.Npc.ItemSlots[bestItem];
-                if (npcController.Npc.currentItemSlot != bestItem || ai.HeldItem != item)
+                GrabbableObject item = bestItemSlot == Const.RESERVED_EQUIPMENT_SLOT ? npcController.Npc.ItemOnlySlot : npcController.Npc.ItemSlots[bestItemSlot];
+                if (npcController.Npc.currentItemSlot != bestItemSlot || ai.HeldItem != item)
                 {
-                    ai.SwitchItemSlotsAndSync(bestItem);
+                    ai.SwitchItemSlotsAndSync(bestItemSlot);
                 }
             }
         }

@@ -668,6 +668,22 @@ namespace LethalBots.Patches.NpcPatches
         public static void RemovePlayerPhysicsParentServerRpc_ReversePatch(object instance, Vector3 newPos, bool removeOverride, bool removeBoth, bool inElevator, bool isInShip) => throw new NotImplementedException("Stub LethalBot.Patches.NpcPatches.PlayerControllerBPatch.RemovePlayerPhysicsParentServerRpc_ReversePatch");
 
         /// <summary>
+        /// Reverse patch to call <c>DropHeldItem</c>.<br/>
+        /// </summary>
+        /// <remarks>
+        /// This is a stub for the reverse patch, it will be replaced by the actual implementation
+        /// </remarks>
+        /// <param name="instance"></param>
+        /// <param name="dropItem"></param>
+        /// <param name="itemsFall"></param>
+        /// <param name="disconnecting"></param>
+        /// <exception cref="NotImplementedException"></exception>
+        [HarmonyPatch("DropHeldItem")]
+        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
+        [HarmonyPriority(Priority.Last)]
+        public static void DropHeldItem_ReversePatch(object instance, GrabbableObject dropItem, bool itemsFall, bool disconnecting) => throw new NotImplementedException("Stub LethalBot.Patches.NpcPatches.PlayerControllerBPatch.DropHeldItem_ReversePatch");
+
+        /// <summary>
         /// Reverse patch to call <c>PlayJumpAudio</c>
         /// </summary>
         /// <exception cref="NotImplementedException"></exception>

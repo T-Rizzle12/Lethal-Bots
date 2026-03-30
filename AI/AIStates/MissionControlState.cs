@@ -1492,7 +1492,16 @@ namespace LethalBots.AI.AIStates
                 return false; 
             }
 
+            // Check if the player has a weapon in their item only slot
             bool isPlayerBot = LethalBotManager.Instance.IsPlayerLethalBot(player);
+            GrabbableObject? itemOnlySlot = player.ItemOnlySlot;
+            if (LethalBotAI.IsItemWeapon(itemOnlySlot) 
+                || (!isPlayerBot && itemOnlySlot != null && itemOnlySlot.itemProperties.isDefensiveWeapon))
+            {
+                return true;
+            }
+
+            // Check if the player has a weapon in their inventory
             foreach (var weapon in player.ItemSlots)
             {
                 if (LethalBotAI.IsItemWeapon(weapon) 
@@ -1661,11 +1670,22 @@ namespace LethalBots.AI.AIStates
         {
             // First, we need to check if we have a walkie-talkie in our inventory
             walkieTalkie = null;
-            foreach (var walkieTalkie in npcController.Npc.ItemSlots)
+            if (ai.HasGrabbableObjectInInventory(FindWalkieHelper, out int walkieSlot))
             {
-                if (walkieTalkie != null && walkieTalkie is WalkieTalkie walkieTalkieObj)
+                // Check for the reserved equipment slot
+                // TODO: Add helper function to get grabbable object from inventory slot index, since this is used in multiple places now!
+                if (walkieSlot == Const.RESERVED_EQUIPMENT_SLOT)
                 {
-                    this.walkieTalkie = walkieTalkieObj;
+                    this.walkieTalkie = npcController.Npc.ItemOnlySlot as WalkieTalkie;
+                }
+                else
+                {
+                    this.walkieTalkie = npcController.Npc.ItemSlots[walkieSlot] as WalkieTalkie;
+                }
+
+                // Make sure its valid!
+                if (walkieTalkie != null)
+                {
                     return;
                 }
             }
@@ -1698,18 +1718,37 @@ namespace LethalBots.AI.AIStates
         }
 
         /// <summary>
+        /// Helper function to find a walkie-talkie in the bot's inventory.
+        /// </summary>
+        /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
+        private bool FindWalkieHelper(GrabbableObject item)
+        {
+            return item != null && item is WalkieTalkie;
+        }
+
+        /// <summary>
         /// Helper function to find a weapon in our inventory or on the ship!
         /// </summary>
         private void FindWeapon()
         {
             // First, we need to check if we have a weapon in our inventory
             weapon = null;
-            foreach (var weapon in npcController.Npc.ItemSlots)
+            if (ai.HasGrabbableObjectInInventory(FindWeaponHelper, out int weaponSlot))
             {
-                // NOTE: HasAmmoForWeapon, checks if the item is a weapon internally!
-                if (ai.HasAmmoForWeapon(weapon))
+                // Check for the reserved equipment slot
+                // TODO: Add helper function to get grabbable object from inventory slot index, since this is used in multiple places now!
+                if (weaponSlot == Const.RESERVED_EQUIPMENT_SLOT)
                 {
-                    this.weapon = weapon;
+                    this.weapon = npcController.Npc.ItemOnlySlot;
+                }
+                else
+                {
+                    this.weapon = npcController.Npc.ItemSlots[weaponSlot];
+                }
+
+                // Make sure its valid!
+                if (weapon != null)
+                {
                     return;
                 }
             }
@@ -1738,6 +1777,15 @@ namespace LethalBots.AI.AIStates
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Helper function to find a weapon in the bot's inventory.
+        /// </summary>
+        /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
+        private bool FindWeaponHelper(GrabbableObject item)
+        {
+            return item != null && ai.HasAmmoForWeapon(item);
         }
 
         private void SetupTerminalAccessibleObjects()

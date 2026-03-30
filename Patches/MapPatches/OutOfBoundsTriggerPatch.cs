@@ -80,6 +80,20 @@ namespace LethalBots.Patches.MapPatches
                             item.transform.position += positionOffset;
                         }
                     }
+                    GrabbableObject? itemOnlySlot = component.ItemOnlySlot;
+                    if (itemOnlySlot != null)
+                    {
+                        Transform parentObject = itemOnlySlot.parentObject;
+                        if (parentObject != null)
+                        {
+                            itemOnlySlot.transform.rotation = parentObject.rotation;
+                            itemOnlySlot.transform.Rotate(itemOnlySlot.itemProperties.rotationOffset);
+                            itemOnlySlot.transform.position = parentObject.position;
+                            Vector3 positionOffset = itemOnlySlot.itemProperties.positionOffset;
+                            positionOffset = parentObject.rotation * positionOffset;
+                            itemOnlySlot.transform.position += positionOffset;
+                        }
+                    }
                 }
                 else if (component.isInsideFactory)
                 {
