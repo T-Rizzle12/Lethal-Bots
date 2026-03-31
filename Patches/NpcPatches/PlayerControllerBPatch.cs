@@ -465,24 +465,24 @@ namespace LethalBots.Patches.NpcPatches
             return true;
         }
 
-        /// <summary>
-        /// Patch for calling lethalBot method if lethalBot
-        /// </summary>
-        /// <param name="__instance"></param>
-        /// <returns></returns>
-        [HarmonyPatch("PlayerHitGroundEffects")]
-        [HarmonyPrefix]
-        static bool PlayerHitGroundEffects_PreFix(PlayerControllerB __instance)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                PlayerHitGroundEffects_ReversePatch(__instance);
-                return false;
-            }
+        ///// <summary>
+        ///// Patch for calling lethalBot method if lethalBot
+        ///// </summary>
+        ///// <param name="__instance"></param>
+        ///// <returns></returns>
+        //[HarmonyPatch("PlayerHitGroundEffects")]
+        //[HarmonyPrefix]
+        //static bool PlayerHitGroundEffects_PreFix(PlayerControllerB __instance)
+        //{
+        //    LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
+        //    if (lethalBotAI != null)
+        //    {
+        //        PlayerHitGroundEffects_ReversePatch(__instance);
+        //        return false;
+        //    }
 
-            return true;
-        }
+        //    return true;
+        //}
 
         [HarmonyPatch("IncreaseFearLevelOverTime")]
         [HarmonyPrefix]
@@ -698,41 +698,7 @@ namespace LethalBots.Patches.NpcPatches
         [HarmonyPatch("PlayerHitGroundEffects")]
         [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
         [HarmonyPriority(Priority.Last)]
-        public static void PlayerHitGroundEffects_ReversePatch(object instance)
-        {
-            IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
-            {
-                var startIndex = -1;
-                List<CodeInstruction> codes = new List<CodeInstruction>(instructions);
-
-                // ----------------------------------------------------------------------
-                for (var i = 0; i < codes.Count - 5; i++)
-                {
-                    if (codes[i].ToString().StartsWith("ldarg.0 NULL") // 33
-                        && codes[i + 5].ToString().StartsWith("call void GameNetcodeStuff.PlayerControllerB::LandFromJumpServerRpc(")) // 38
-                    {
-                        startIndex = i;
-                        break;
-                    }
-                }
-                if (startIndex > -1)
-                {
-                    codes[startIndex + 5].operand = PatchesUtil.SyncLandFromJumpMethod;
-                    codes.Insert(startIndex + 1, new CodeInstruction(OpCodes.Ldfld, PatchesUtil.FieldInfoPlayerClientId));
-                    startIndex = -1;
-                }
-                else
-                {
-                    Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.PlayerHitGroundEffects_ReversePatch could not use jump from land method for lethalBot");
-                }
-
-                return codes.AsEnumerable();
-            }
-
-#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
-            _ = Transpiler(null);
-#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
-        }
+        public static void PlayerHitGroundEffects_ReversePatch(object instance) => throw new NotImplementedException("Stub LethalBot.Patches.NpcPatches.PlayerControllerBPatch.PlayerHitGroundEffects_ReversePatch");
 
         /// <summary>
         /// Reverse patch to call <c>CheckConditionsForEmote</c>

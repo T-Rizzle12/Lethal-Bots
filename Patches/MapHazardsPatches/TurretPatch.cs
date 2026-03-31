@@ -30,12 +30,15 @@ namespace LethalBots.Patches.MapHazardsPatches
             var startIndex = -1;
             var codes = new List<CodeInstruction>(instructions);
 
+            MethodInfo checkForPlayersInLineOfSightMethod = AccessTools.Method(typeof(Turret), "CheckForPlayersInLineOfSight");
+            MethodInfo killPlayerMethod = AccessTools.Method(typeof(PlayerControllerB), "KillPlayer");
+
             // ----------------------------------------------------------------------
-            for (var i = 0; i < codes.Count - 39; i++)
+            for (var i = 0; i < codes.Count - 40; i++)
             {
-                if (codes[i].ToString().StartsWith("ldarg.0 NULL") //306
-                    && codes[i + 3].ToString().StartsWith("call GameNetcodeStuff.PlayerControllerB Turret::CheckForPlayersInLineOfSight(")//309
-                    && codes[i + 39].ToString().StartsWith("callvirt void GameNetcodeStuff.PlayerControllerB::KillPlayer("))//345
+                if (codes[i].IsLdarg(0) //306
+                    && codes[i + 3].Calls(checkForPlayersInLineOfSightMethod) //309
+                    && codes[i + 40].Calls(killPlayerMethod)) //345
                 {
                     startIndex = i;
                     break;
@@ -61,11 +64,11 @@ namespace LethalBots.Patches.MapHazardsPatches
             }
 
             // ----------------------------------------------------------------------
-            for (var i = 0; i < codes.Count - 39; i++)
+            for (var i = 0; i < codes.Count - 40; i++)
             {
-                if (codes[i].ToString().StartsWith("ldarg.0 NULL") //490
-                    && codes[i + 3].ToString().StartsWith("call GameNetcodeStuff.PlayerControllerB Turret::CheckForPlayersInLineOfSight(")//493
-                    && codes[i + 39].ToString().StartsWith("callvirt void GameNetcodeStuff.PlayerControllerB::KillPlayer("))//529
+                if (codes[i].IsLdarg(0) //490
+                    && codes[i + 3].Calls(checkForPlayersInLineOfSightMethod) //493
+                    && codes[i + 40].Calls(killPlayerMethod)) //529
                 {
                     startIndex = i;
                     break;
