@@ -6,13 +6,13 @@ You can download the mod here: https://thunderstore.io/c/lethal-company/p/TRizzl
 
 I also have a discord server as well for any questions or support: https://discord.gg/TVqJst8yHf
 
-## Preramble:<br/>
+## Preamble:<br/>
 
 Playing solo in Lethal Company is hard, as the game is inherently designed around a team of 4 players.<br/><br/>
 Now, there are certain mechanics that automatically adjust for single player, but you still run into multiple disadvantages.<br/><br/>
-Loosing all your scrap if you die, enemies like the butler and coil head really screwing you over, turrets, landimes, big doors, and many other issues that are a lot easier to deal with multiple players.<br/><br/>
+Losing all your scrap if you die, enemies like the butler and coil head really screwing you over, turrets, landmines, big doors, and many other issues that are a lot easier to deal with multiple players.<br/><br/>
 After I discovered the mod Lethal Interns, it inspired me in a way. I realized I could use my previous modding experience with player bots and use it to finally create player-like bots for Lethal Company.<br/><br/>
-And that is how this mod came to be, and you would not believe how long it took me to get here. There are many older verison of this mod, lost to time.<br/><br/>
+And that is how this mod came to be, and you would not believe how long it took me to get here. There are many older version of this mod, lost to time.<br/><br/>
 In the end, while they may never be as smart as a real player, its still better than playing alone. <br/><br/>
 Oh, and before I forget, this mod is 100% MULTIPLAYER friendly, so feel free to add them to assist your Duo or Trio.
 
@@ -68,7 +68,7 @@ To link the voice folder to the bot, simply change the "VoiceFolder" property in
 T-Rizzle: I may change the voice lines along with using TTS in the future, but since the original mod was under an MIT license, I will keep the original voice lines for now.
 </br>A big thanks to **Mathew Kelly** and his incredible voice acting, there's more than 700 (!!) voice lines for those little guys.</br>
 Chilling with you, following, founding loot, panicking, you name it, there's a voice line for every state of mind !</br>
-You may know him as **Dragon-V0942** from [FurAffinity](https://www.furaffinity.net/user/dragon-v0942), and you can find some of his voice acting works on youtube [(Voice acting example)](https://youtu.be/SZDDcCBvyjc).
+You may know him as **Dragon-V0942** from [FurAffinity](https://www.furaffinity.net/user/dragon-v0942), and you can find some of his voice acting works on YouTube [(Voice acting example)](https://youtu.be/SZDDcCBvyjc).
 </br>
 </br>
 
@@ -100,18 +100,18 @@ Also, the bot only checks for the keywords anywhere in the message, for example,
 If both you and the bot have a walkie-talkie, you can use the command in the chat and the bot will respond to it.
 </br>Please note that these are also voice commands, but they require you to only say the word unlike how they work as said in the chat.
 
-Note: The bot will also respond to commands on the signal translator, but there is a seperate list of commands for that.
+Note: The bot will also respond to commands on the signal translator, but there is a separate list of commands for that.
 </br>**return** - The bot will return to the ship immediately.
 </br>**jester** - The bot will check to see if there is an active jester, if there is, they will try to escape the facility immediately.
 
 ### Global Chat Commands
 These chat commands are global meaning bots will always respond to these commands even if they can't normally hear you.
 Please note that these commands are not case sensitive, so you can use any combination of upper and lower case letters.
-</br>**i will man the ship** - If you say this command, you will be marked as the Mission Controller. The previous Bot that was set as Mission Controller will hand the terminal to you. No other bots wil be allowed to automatically assume the Mission Control role unless one of the following things happen:
+</br>**I will man the ship** - If you say this command, you will be marked as the Mission Controller. The previous Bot that was set as Mission Controller will hand the terminal to you. No other bots will be allowed to automatically assume the Mission Control role unless one of the following things happen:
 1. You die
 2. The day ends
 
-**i will transfer loot** - This tells bots that you will be transferring loot! NOTE: All it does is add you to the LootTransferPlayers list. This causes the drop loot outside of entrances code to run!
+**I will transfer loot** - This tells bots that you will be transferring loot! NOTE: All it does is add you to the LootTransferPlayers list. This causes the drop loot outside of entrances code to run!
 
 ## How the bots work
 The bots take one of the player objects in the game and I attach an EnemyAI to it for the pathfinding code.
@@ -131,7 +131,7 @@ NOTE: All players, "humans and bots," must be on the ship before the bot will vo
 </br>they will wander around looking for a human player before searching for scrap on their own.
 
 </br>GetCloseToPlayer
-</br>The bot moves closer to the player they are following, they check horizantal and vertical distances when checking if they are close enough.
+</br>The bot moves closer to the player they are following, they check horizontal and vertical distances when checking if they are close enough.
 
 </br>JustLostPlayer
 </br>The bot just lost sight of the player they were following, they will check the last position they saw you at.
@@ -147,7 +147,7 @@ NOTE: All players, "humans and bots," must be on the ship before the bot will vo
 </br>PlayerInCruiser
 </br>The bot will hop into the back of the cruiser the player they are following is in and ride!
 
-</br>Panik
+</br>Panic
 </br>The bot will flee from a nearby enemy. If the bot is near an entrance, it will use it to escape!
 </br>NOTE: If the bot escapes the enemy, has scrap, and is not following a player. They will return to drop off scrap early!
 </br>If the bot has a weapon and they believe the enemy can be killed, they will swap to the FightEnemyState
@@ -240,7 +240,7 @@ These bots are to be more player like and this includes advantages such as count
 - I recommend about 23 to 31 of them. After that it really starts to get laggy and there is only so much I can do to optimize them.
 
 ## Credits
-- [**Szumi57**](https://github.com/Szumi57) - Original idea and coding of the original mod, Lethal Intership.
+- [**Szumi57**](https://github.com/Szumi57) - Original idea and coding of the original mod, Lethal Internship.
 - [**T-Rizzle**](https://github.com/T-Rizzle12) - Major code refactor, bug fixes, and new features.
 - [**Gummar**](https://github.com/Gummar) - Created the new search algorithm for the bots.
 - **Mathew Kelly** - Voice acting for the bots, over 700 voice lines!
@@ -248,11 +248,11 @@ These bots are to be more player like and this includes advantages such as count
 ## Things to add
 - More Orders, currently you can tell them to loot and follow you. There are a decent amount of chat commands at least?
 - ~~I hope to make them able to do more on the ship terminal in the future. Like purchasing items and who knows what else!~~ Done! :)
-- ~~Add some kind of voice recognition software, so bots could respond to simple voice commands. (DEVNOTE: Looks like there are some librarys on thunderstore that could help me with this endeavor!)~~ DONE! :)
+- ~~Add some kind of voice recognition software, so bots could respond to simple voice commands. (DEVNOTE: Looks like there are some libraries on thunderstore that could help me with this endeavour!)~~ DONE! :)
 - As stated earlier, add TTS to bots so they can be better at relaying information to players. (DEVNOTE: TTS would be perfect for helping the bots declare enemies on the terminal!)
 
 ## Bugs to fix
-- The game will lag during the inital landing sequence after the bots spawn. I have no idea what causes this, but it fixes itself after the ship lands. This only seems to happen with about 21 or more bots. If you play with the default lobby size of 4 players, you won't see this issue. (DEVUPATE: Found out it might have something to do with collsion, have a few ideas on how to aleviate it!)
+- The game will lag during the inital landing sequence after the bots spawn. I have no idea what causes this, but it fixes itself after the ship lands. This only seems to happen with about 21 or more bots. If you play with the default lobby size of 4 players, you won't see this issue. (DEVUPATE: Found out it might have something to do with collision, have a few ideas on how to alleviate it!)
 - Sand spider web trap not working for bots. Transpiler or Postfix should work, just need to find out what would be the best option.
 - Snare Fleas ignore bots that walk under them. The cause is that they only check for the Local Client walks under them, a transpiler or postfix can fix this!
 - ~~Nutcracker ignoring bots. The cause of this is known, but I still don't know a good way to fix it yet!~~ Fixed!
