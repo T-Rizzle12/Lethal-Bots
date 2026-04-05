@@ -10,7 +10,7 @@ I also have a discord server as well for any questions or support: https://disco
 
 Playing solo in Lethal Company is hard, as the game is inherently designed around a team of 4 players.<br/><br/>
 Now, there are certain mechanics that automatically adjust for single player, but you still run into multiple disadvantages.<br/><br/>
-Loosing all your scrap if you die, enemies like the butler and coil head really screwing you over, turrets, landmines, big doors, and many other issues that are a lot easier to deal with multiple players.<br/><br/>
+Losing all your scrap if you die, enemies like the butler and coil head really screwing you over, turrets, landmines, big doors, and many other issues that are a lot easier to deal with multiple players.<br/><br/>
 After I discovered the mod Lethal Interns, it inspired me in a way. I realized I could use my previous modding experience with player bots and use it to finally create player-like bots for Lethal Company.<br/><br/>
 And that is how this mod came to be, and you would not believe how long it took me to get here. There are many older version of this mod, lost to time.<br/><br/>
 In the end, while they may never be as smart as a real player, its still better than playing alone. <br/><br/>
