@@ -119,6 +119,9 @@
     <Reference Include="Assembly-CSharp-firstpass">
       <HintPath>lib\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
+	<Reference Include="DunGen">
+		<HintPath>lib\DunGen.dll</HintPath>
+	</Reference>
     <Reference Include="BetterEmotes">
       <HintPath>lib\mods\BetterEmotes.dll</HintPath>
     </Reference>

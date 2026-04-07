@@ -107,6 +107,18 @@ namespace LethalBots.AI
         public NpcController NpcController = null!;
         public LethalBotIdentity LethalBotIdentity = null!;
         public AudioSource LethalBotVoice = null!;
+        private DunGenTileTracker? dunGenTileTracker = null;
+        public DunGenTileTracker DunGenTileTracker
+        {
+            get
+            {
+                if (dunGenTileTracker == null)
+                {
+                    dunGenTileTracker = this.gameObject.GetComponent<DunGenTileTracker>() ?? this.gameObject.AddComponent<DunGenTileTracker>();
+                }
+                return dunGenTileTracker;
+            }
+        }
         /// <summary>
         /// Currently held item by lethalBot
         /// </summary>
@@ -177,7 +189,19 @@ namespace LethalBots.AI
         /// </remarks>
         public NetworkVariable<float> FearLevel = new NetworkVariable<float>(writePerm: NetworkVariableWritePermission.Owner);
         public NetworkVariable<bool> FearLevelIncreasing = new NetworkVariable<bool>(writePerm: NetworkVariableWritePermission.Owner);
+
+        /// <summary>
+        /// The infection data used by <see cref="CadaverGrowthAI"/> to manage the bot's infection
+        /// </summary>
         public NetworkVariable<LethalBotInfection> BotInfectionData = new NetworkVariable<LethalBotInfection>(writePerm: NetworkVariableWritePermission.Owner);
+        
+        /// <summary>
+        /// Used by <see cref="HealPlayerState"/> to determine how infected a player must be by a <see cref="CadaverGrowthAI"/>, before the bot will cure them.
+        /// </summary>
+        /// <remarks>
+        /// This is only synced to keep the level consistent between clients
+        /// </remarks>
+        public NetworkVariable<float> HealInfectionLevel = new NetworkVariable<float>(writePerm: NetworkVariableWritePermission.Owner);
 
         private string stateIndicatorServer = string.Empty;
         private Vector3 previousWantedDestination;
@@ -274,6 +298,9 @@ namespace LethalBots.AI
             // Init controller
             this.NpcController.Awake();
 
+            // Init DunGenTileTracker
+            DunGenTileTracker.TargetOverride = NpcController.Npc.transform;
+
             // Health
             MaxHealth = LethalBotIdentity.HpMax;
             NpcController.Npc.health = MaxHealth;
@@ -289,9 +316,10 @@ namespace LethalBots.AI
             // Reset Network Variables
             if (base.IsOwner)
             {
-                FearLevel.Reset();
-                FearLevelIncreasing.Reset();
-                BotInfectionData.Reset(new LethalBotInfection());
+                FearLevel.Value = 0f;
+                FearLevelIncreasing.Value = false;
+                BotInfectionData.Value = new LethalBotInfection();
+                HealInfectionLevel.Value = UnityEngine.Random.Range(0.3f, 0.7f); // For now, pick a number between 0.3 and 0.7!
             }
 
             // Search coroutines
@@ -2737,6 +2765,19 @@ namespace LethalBots.AI
             {
                 return isHumanPlayer;
             }
+            else if (enemy is BushWolfEnemy bushWolf)
+            {
+                if (bushWolf.draggingPlayer != null)
+                {
+                    return true; // We need to save a player, ATTACK!
+                }
+                return hasRangedWeapon || isHumanPlayer || isEnemyStunned;
+            }
+            else if (enemy is CadaverBloomAI)
+            {
+                // Slightly special in that the mission controller bot will give their life to protect the ship!
+                return hasRangedWeapon || isHumanPlayer || isEnemyStunned || enemy.isInsidePlayerShip;
+            }
             else
             {
                 return false;
@@ -4772,7 +4813,8 @@ namespace LethalBots.AI
         {
             // First things first, check if we need to be healed!
             PlayerControllerB lethalBotController = NpcController.Npc;
-            if (HealPlayerState.CanHealPlayer(this, lethalBotController))
+            float requiredInfectionLevel = HealInfectionLevel.Value;
+            if (HealPlayerState.CanHealPlayer(this, lethalBotController, requiredInfectionLevel))
             {
                 return lethalBotController;
             }
@@ -4794,7 +4836,7 @@ namespace LethalBots.AI
             {
                 // Check if they are a valid heal target
                 PlayerControllerB player = instanceSOR.allPlayerScripts[i];
-                if (!HealPlayerState.CanHealPlayer(this, player))
+                if (!HealPlayerState.CanHealPlayer(this, player, requiredInfectionLevel))
                 {
                     continue;
                 }
@@ -5096,21 +5138,21 @@ namespace LethalBots.AI
                 Bounds shipBounds = instanceSOR.shipBounds.bounds;
                 Bounds shipStrictInnerRoomBounds = instanceSOR.shipStrictInnerRoomBounds.bounds;
                 if (!lethalBotController.isInElevator
-                    && (shipBounds.Contains(playerPos) || shipBounds.Contains(playerCameraPos)))
+                    && (shipBounds.ClosestPoint(playerPos) == playerPos || shipBounds.ClosestPoint(playerCameraPos) == playerCameraPos))
                 {
                     lethalBotController.isInElevator = true;
                 }
 
                 if (lethalBotController.isInElevator
                     && !wasInHangarShipRoom
-                    && (shipStrictInnerRoomBounds.Contains(playerPos) || shipStrictInnerRoomBounds.Contains(playerCameraPos)))//&& instanceSOR.shipInnerRoomBounds.bounds.Contains(lethalBotController.transform.position)
+                    && (shipStrictInnerRoomBounds.ClosestPoint(playerPos) == playerPos || shipStrictInnerRoomBounds.ClosestPoint(playerCameraPos) == playerCameraPos))//&& instanceSOR.shipInnerRoomBounds.bounds.Contains(lethalBotController.transform.position)
                 {
                     lethalBotController.isInHangarShipRoom = true;
                     this.isInsidePlayerShip = true;
                 }
                 else if (lethalBotController.isInElevator
-                    && !shipBounds.Contains(playerPos) 
-                    && !shipBounds.Contains(playerCameraPos))
+                    && shipBounds.ClosestPoint(playerPos) != playerPos
+                    && shipBounds.ClosestPoint(playerCameraPos) != playerCameraPos)
                 {
                     lethalBotController.isInElevator = false;
                     lethalBotController.isInHangarShipRoom = false;
@@ -5736,6 +5778,14 @@ namespace LethalBots.AI
                     }
                 }
 
+                if (AIState.IsFrontEntrance(targetEntrance) && targetEntrance.isEntranceToBuilding)
+                {
+                    DunGenTileTracker tileTracker = this.GetComponent<DunGenTileTracker>();
+                    if (tileTracker != null)
+                    {
+                        tileTracker.SetToStartTile();
+                    }
+                }
             }
         }
 
@@ -7005,6 +7055,7 @@ namespace LethalBots.AI
                     continue;
                 }
                 PlayerControllerBPatch.DropHeldItem_ReversePatch(lethalBotController, grabbableObject, itemsFall, false, syncedPlayerPosition, syncedHeldObjectPosition, syncedHeldObjectRotation, syncedPlayerCamPosition, syncedPlayerCamRotation, setInShip, setInElevator);
+                DictJustDroppedItems[grabbableObject] = Time.realtimeSinceStartup;
                 if (base.IsOwner)
                 {
                     lethalBotController.activatingItem = false;
@@ -7014,6 +7065,7 @@ namespace LethalBots.AI
             if (lethalBotController.ItemOnlySlot)
             {
                 PlayerControllerBPatch.DropHeldItem_ReversePatch(lethalBotController, lethalBotController.ItemOnlySlot, itemsFall, false, syncedPlayerPosition, syncedHeldObjectPosition, syncedHeldObjectRotation, syncedPlayerCamPosition, syncedPlayerCamRotation, setInShip, setInElevator);
+                DictJustDroppedItems[lethalBotController.ItemOnlySlot] = Time.realtimeSinceStartup;
                 if (base.IsOwner)
                 {
                     lethalBotController.activatingItem = false;
@@ -8362,6 +8414,8 @@ namespace LethalBots.AI
             // Reset body
             lethalBotController.overrideDontSpawnBody = false;
             lethalBotController.overrideDropItems = setOverrideDropItems;
+            lethalBotController.isPlayerDead = true;
+            lethalBotController.isSprinting = false;
             if (!spawnBody)
             {
                 deathAnimation = -1;
@@ -8372,7 +8426,6 @@ namespace LethalBots.AI
             // I had to make a small transpiler patch to make sure it only uses the provided controller so it works with both the local player and bots.
             // I hope other modders that use this even in the future only use the provided controller, otherwise things may break in very weird ways!
             StartOfRound.Instance.LocalPlayerDieEvent.Invoke(lethalBotController, deathAnimation);
-            lethalBotController.isPlayerDead = true;
             lethalBotController.isPlayerControlled = false;
             lethalBotController.thisPlayerModelArms.enabled = false;
             lethalBotController.localVisor.position = lethalBotController.playersManager.notSpawnedPosition.position;
@@ -8459,7 +8512,7 @@ namespace LethalBots.AI
             this.isEnemyDead = true;
             this.LethalBotIdentity.Hp = 0;
             SetAgent(enabled: false);
-            this.LethalBotIdentity.Voice.StopAudioFadeOut();
+            //this.LethalBotIdentity.Voice.StopAudioFadeOut();
             this.State = new BrainDeadState(this);
             Plugin.LogDebug($"Ran kill lethalBot function for LOCAL client #{NetworkManager.LocalClientId}, lethalBot object: Bot #{this.BotId} {lethalBotController.playerUsername}");
 

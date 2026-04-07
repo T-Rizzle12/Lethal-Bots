@@ -2802,9 +2802,7 @@ namespace LethalBots.Managers
                 yield break;
             }
 
-            Vector3 positionLethalBot;
             Vector3 teleportPos = default(Vector3);
-            Vector3 nodePos;
             AudioReverbPresets audioReverbPresets = Object.FindObjectOfType<AudioReverbPresets>();
             LethalBotAI[] lethalBotAIs = GetLethalBotsAIOwnedByLocal();
             foreach (LethalBotAI lethalBotAI in lethalBotAIs)
@@ -2819,51 +2817,52 @@ namespace LethalBots.Managers
                     continue;
                 }
 
-                positionLethalBot = lethalBotAI.NpcController.Npc.transform.position;
-                if (lethalBotAI.NpcController.Npc.deadBody != null)
-                {
-                    positionLethalBot = lethalBotAI.NpcController.Npc.deadBody.bodyParts[5].transform.position;
-                }
+                //positionLethalBot = lethalBotAI.NpcController.Npc.transform.position;
+                //if (lethalBotAI.NpcController.Npc.deadBody != null)
+                //{
+                //    positionLethalBot = lethalBotAI.NpcController.Npc.deadBody.bodyParts[5].transform.position;
+                //}
 
-                if ((positionLethalBot - teleporter.teleportOutPosition.position).sqrMagnitude > 2f * 2f)
-                {
-                    continue;
-                }
+                //if ((positionLethalBot - teleporter.teleportOutPosition.position).sqrMagnitude > 2f * 2f)
+                //{
+                //    continue;
+                //}
 
-                if (RoundManager.Instance.insideAINodes.Length == 0)
-                {
-                    continue;
-                }
+                //if (RoundManager.Instance.insideAINodes.Length == 0)
+                //{
+                //    continue;
+                //}
 
-                // Random pos
-                nodePos = RoundManager.Instance.insideAINodes[shipTeleporterSeed.Next(0, RoundManager.Instance.insideAINodes.Length)].transform.position;
+                //// Random pos
+                //nodePos = RoundManager.Instance.insideAINodes[shipTeleporterSeed.Next(0, RoundManager.Instance.insideAINodes.Length)].transform.position;
 
-                int maxAttempts = 10;
-                bool foundTeleportPosition = false;
-                for (int i = 0; i < maxAttempts; i++)
-                {
-                    teleportPos = RoundManager.Instance.GetRandomNavMeshPositionInBoxPredictable(nodePos, 10f, default(NavMeshHit), shipTeleporterSeed, -1);
+                //int maxAttempts = 10;
+                //bool foundTeleportPosition = false;
+                //for (int i = 0; i < maxAttempts; i++)
+                //{
+                //    teleportPos = RoundManager.Instance.GetRandomNavMeshPositionInBoxPredictable(nodePos, 10f, default(NavMeshHit), shipTeleporterSeed, -1);
 
-                    // Now we check if we would spawn inside of an object!
-                    if (!Physics.CheckSphere(teleportPos + Vector3.up * 0.2f, radius: lethalBotAI.agent.radius, StartOfRound.Instance.allPlayersCollideWithMask))
-                    {
-                        foundTeleportPosition = true;
-                        break;
-                    }
-                }
+                //    // Now we check if we would spawn inside of an object!
+                //    if (!Physics.CheckSphere(teleportPos + Vector3.up * 0.2f, radius: lethalBotAI.agent.radius, StartOfRound.Instance.allPlayersCollideWithMask))
+                //    {
+                //        foundTeleportPosition = true;
+                //        break;
+                //    }
+                //}
 
-                // If we fail to find a vaild teleport position, just choose the node itself!
-                // NEEDTOVALIDATE: We may no longer need this code as the bots can now stuck teleport!
-                if (!foundTeleportPosition)
-                {
-                    Plugin.LogWarning($"BeamOutLethalBots failed to find random navmesh postion near target node that was not obstructed for Bot {lethalBotAI.NpcController.Npc.playerUsername} after {maxAttempts} attempts!");
-                    Plugin.LogWarning("Falling back to the actual node position instead!");
-                    teleportPos = RoundManager.Instance.GetNavMeshPosition(nodePos, default(NavMeshHit), 2.7f, -1);
-                }
+                //// If we fail to find a vaild teleport position, just choose the node itself!
+                //// NEEDTOVALIDATE: We may no longer need this code as the bots can now stuck teleport!
+                //if (!foundTeleportPosition)
+                //{
+                //    Plugin.LogWarning($"BeamOutLethalBots failed to find random navmesh postion near target node that was not obstructed for Bot {lethalBotAI.NpcController.Npc.playerUsername} after {maxAttempts} attempts!");
+                //    Plugin.LogWarning("Falling back to the actual node position instead!");
+                //    teleportPos = RoundManager.Instance.GetNavMeshPosition(nodePos, default(NavMeshHit), 2.7f, -1);
+                //}
 
                 // Teleport bot
                 PlayerControllerB playerControllerB = lethalBotAI.NpcController.Npc;
                 ShipTeleporterPatch.SetPlayerTeleporterId_ReversePatch(teleporter, playerControllerB, 2);
+                teleportPos = ShipTeleporterPatch.GetInverseTelePosition_ReversePatch(teleporter);
                 if (playerControllerB.deadBody != null)
                 {
                     teleporter.TeleportPlayerBodyOutServerRpc((int)playerControllerB.playerClientId, teleportPos);

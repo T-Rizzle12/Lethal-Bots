@@ -32,6 +32,11 @@
       "itemName": "Walkie-talkie",
       "desiredStock": 0,
       "requiredItemName": "None"
+    },
+    {
+      "itemName": "Weed killer",
+      "desiredStock": 4,
+      "requiredItemName": "None"
     }
   ]
 }

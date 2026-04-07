@@ -347,51 +347,26 @@ namespace LethalBots.AI.AIStates
             float resultDistSqr = float.MaxValue;
             if (CurrentEnemy != null)
             {
-                Plugin.LogDebug($"Attempt 1 to get the enemy collider!");
-                Collider[] colliders = CurrentEnemy.gameObject.GetComponents<Collider>();
-                foreach (Collider collider in colliders)
+                Plugin.LogDebug($"Attempting to get the enemy collider!");
+                Collider[] colliders = CurrentEnemy.gameObject.GetComponentsInChildren<Collider>();
+                foreach (Collider childCollider in colliders)
                 {
                     // Scan nodes are not the enemy's collider!
-                    ScanNodeProperties? component = collider?.transform.gameObject.GetComponent<ScanNodeProperties>();
-                    if (collider != null && component == null)
+                    ScanNodeProperties? component = childCollider?.transform.gameObject.GetComponent<ScanNodeProperties>();
+                    if (childCollider != null && component == null)
                     {
-                        Vector3 closestPoint = collider.ClosestPoint(ourPos);
-                        float colliderDistSqr = (closestPoint - ourPos).sqrMagnitude;
-                        if (result == null || colliderDistSqr < resultDistSqr)
-                        { 
-                            result = collider; 
-                            resultDistSqr = colliderDistSqr;
+                        Vector3 closestPoint = childCollider.ClosestPoint(ourPos);
+                        float childColliderDistSqr = (closestPoint - ourPos).sqrMagnitude;
+                        if (result == null || childColliderDistSqr < resultDistSqr)
+                        {
+                            result = childCollider;
+                            resultDistSqr = childColliderDistSqr;
                         }
                         //break; // For now stop at the first valid instance!
                     }
                 }
 
                 Plugin.LogDebug($"{(result != null ? "Found" : "Not Found")}");
-
-                if (result == null)
-                {
-                    Plugin.LogDebug($"Attempt 2 to get the enemy collider!");
-                    colliders = CurrentEnemy.gameObject.GetComponentsInChildren<Collider>();
-                    foreach (Collider childCollider in colliders)
-                    {
-                        // Scan nodes are not the enemy's collider!
-                        ScanNodeProperties? component = childCollider?.transform.gameObject.GetComponent<ScanNodeProperties>();
-                        if (childCollider != null && component == null)
-                        {
-                            Vector3 closestPoint = childCollider.ClosestPoint(ourPos);
-                            float childColliderDistSqr = (closestPoint - ourPos).sqrMagnitude;
-                            if (result == null || childColliderDistSqr < resultDistSqr)
-                            {
-                                result = childCollider;
-                                resultDistSqr = childColliderDistSqr;
-                            }
-                            //break; // For now stop at the first valid instance!
-                        }
-                    }
-
-                    Plugin.LogDebug($"{(result != null ? "Found" : "Not Found")}");
-
-                }
 
                 return result;
             }
@@ -576,7 +551,7 @@ namespace LethalBots.AI.AIStates
             // We don't use GetWeaponAttackInfo as its max range is may be diffrent due to how its raycast checks are done.
             if (weapon is ShotgunItem)
             {
-                return 5f; // Based off of the ray postion and range
+                return 4f; // Based off of the ray postion and range
             }
             else if (weapon is PatcherTool)
             {

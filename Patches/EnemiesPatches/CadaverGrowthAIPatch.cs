@@ -1,4 +1,5 @@
-﻿using GameNetcodeStuff;
+﻿using DunGen;
+using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Managers;
@@ -21,6 +22,7 @@ namespace LethalBots.Patches.EnemiesPatches
         // TODO: Use delegates instead of using reflection to call the private methods
         private static MethodInfo displayFeverStatusEffectMethod = AccessTools.Method(typeof(CadaverGrowthAI), "DisplayFeverStatusEffect");
         private static MethodInfo increaseBackFlowersMethod = AccessTools.Method(typeof(CadaverGrowthAI), "IncreaseBackFlowers");
+        private static MethodInfo healPlayerSporeEffectMethod = AccessTools.Method(typeof(CadaverGrowthAI), "HealPlayerSporeEffect");
 
         /// <summary>
         /// Simple patch that makes sure that the movement hindering effect of the infection is removed for bots
@@ -153,23 +155,146 @@ namespace LethalBots.Patches.EnemiesPatches
         // I could just check the entire list of GrowthTiles, but that would be pretty bad for performance. For now, bots can't get infected this way.
         // I'm going to look into how GrowthTile finds what tiles its on as I could use that logic to find what tile the bot is on and check if it's active or not.
         // UPDATE2: I just found out the base game only calls this function once every second. This is huge for the optimization side of things!
-        //[HarmonyPatch("InfectPlayers")]
-        //[HarmonyPostfix]
-        //public static void InfectPlayers_Postfix(CadaverGrowthAI __instance)
-        //{
-        //    // Mimic the local player logic for bots as well.
-        //    LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-        //    foreach (var lethalBotAI in lethalBotAIs)
-        //    {
-        //        PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
-        //        if (lethalBotController != null 
-        //            && lethalBotController.isPlayerControlled 
-        //            && !lethalBotController.isPlayerDead)
-        //        {
-        //            __instance.InfectPlayer(lethalBotController, false);
-        //        }
-        //    }
-        //}
+        [HarmonyPatch("InfectPlayers")]
+        [HarmonyPostfix]
+        public static void InfectPlayers_Postfix(CadaverGrowthAI __instance, ref int ___numberOfInfected)
+        {
+            // Mimic the local player logic for bots as well.
+            LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
+            foreach (var lethalBotAI in lethalBotAIs)
+            {
+                if (lethalBotAI == null) continue;
+
+                PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
+                if (lethalBotController != null
+                    && lethalBotController.isPlayerControlled
+                    && !lethalBotController.isPlayerDead)
+                {
+                    LethalBotInfection lethalBotInfection = lethalBotAI.BotInfectionData.Value;
+                    Tile? currentTile = lethalBotAI.DunGenTileTracker.currentTile;
+                    bool infected = __instance.playerInfections[lethalBotController.playerClientId].infected;
+                    bool flag = false;
+                    bool flag2 = false;
+                    int index = -1;
+                    for (int i = 0; i < __instance.GrowthTiles.Count; i++)
+                    {
+                        TileWithGrowth tileWithGrowth = __instance.GrowthTiles[i];
+                        if (tileWithGrowth.tile == currentTile && !tileWithGrowth.eradicated && tileWithGrowth.plantsInTile > 0)
+                        {
+                            flag = true;
+                            flag2 = true;
+                            index = i;
+                            break;
+                        }
+                    }
+                    float num = 0f;
+                    if (flag)
+                    {
+                        float num2 = 1000f;
+                        int num3 = -1;
+                        float num4 = 0f;
+                        for (int j = 0; j < __instance.GrowthTiles[index].plantPositions.Count; j++)
+                        {
+                            float sqrMagnitude = (lethalBotController.transform.position - __instance.GrowthTiles[index].plantPositions[j]).sqrMagnitude;
+                            if (sqrMagnitude < num2)
+                            {
+                                num2 = sqrMagnitude;
+                                num3 = j;
+                            }
+                            if (sqrMagnitude < 100f)
+                            {
+                                num4 += 1f;
+                            }
+                        }
+                        num = Mathf.Clamp(Mathf.Lerp(2f, 16f, num4 / (float)__instance.TileCapacity), 0f, 100f);
+                        num *= __instance.ChanceToInfectMultiplier;
+                        if (!infected)
+                        {
+                            num *= Mathf.Lerp(1f, 0.75f, (float)___numberOfInfected / (float)StartOfRound.Instance.livingPlayers);
+                        }
+                        if (num3 != -1)
+                        {
+                            float sqrMagnitude = Vector3.Distance(__instance.GrowthTiles[index].plantPositions[num3], lethalBotController.transform.position);
+                            num *= Mathf.Lerp(3f, 0.015f, Mathf.Clamp(sqrMagnitude / 10f, 0f, 1f));
+                        }
+                    }
+                    bool flag3 = false;
+                    for (int k = 0; k < __instance.playerInfections.Length; k++)
+                    {
+                        if (k == (int)lethalBotController.playerClientId || !__instance.playerInfections[k].infected)
+                        {
+                            continue;
+                        }
+                        float sqrMagnitude = Vector3.Distance(StartOfRound.Instance.allPlayerScripts[k].transform.position, lethalBotController.transform.position);
+                        if (sqrMagnitude < 7f)
+                        {
+                            if (!flag && !flag3)
+                            {
+                                flag3 = true;
+                                num = 1.25f;
+                            }
+                            float min = 0.35f;
+                            if (flag2)
+                            {
+                                min = 1f;
+                            }
+                            num *= Mathf.Clamp(Mathf.Lerp(2f, 0.35f, Mathf.Clamp(sqrMagnitude / 7f, 0f, 1f)), min, 100f);
+                        }
+                    }
+                    if (num >= 1.5f && flag)
+                    {
+                        //bool flag4 = false;
+                        if (num >= 1.9f)
+                        {
+                            if (lethalBotInfection.stoodInWeedsLastCheck)
+                            {
+                                lethalBotInfection.localPlayerImmunityTimer += __instance.InfectIntervalTime;
+                                lethalBotInfection.totalTimeSpentInPlants += __instance.InfectIntervalTime;
+                                if (StartOfRound.Instance.connectedPlayersAmount == 0)
+                                {
+                                    //flag4 = true;
+                                }
+                            }
+                            lethalBotInfection.stoodInWeedsLastCheck = true;
+                        }
+                        //if (!flag4)
+                        //{
+                        //    HUDManager.Instance.DisplayStatusEffect("HEALTH RISK!\n\nAir filter overwhelmed by particulates");
+                        //}
+                    }
+                    else if (lethalBotInfection.stoodInWeedsLastCheck)
+                    {
+                        lethalBotInfection.stoodInWeedsLastCheck = false;
+                        if (__instance.playerInfections[lethalBotController.playerClientId].infected)
+                        {
+                            lethalBotInfection.totalTimeSpentInPlants = Mathf.Max(0f, lethalBotInfection.totalTimeSpentInPlants - __instance.InfectIntervalTime * 0.25f);
+                        }
+                    }
+                    if (!infected && flag)
+                    {
+                        if (lethalBotController.health == 100)
+                        {
+                            num *= 0.75f;
+                        }
+                        else if (lethalBotController.health <= 60)
+                        {
+                            num *= 1.2f;
+                        }
+                        if (lethalBotController.criticallyInjured && lethalBotInfection.stoodInWeedsLastCheck && num >= 1.9f)
+                        {
+                            num *= 1.5f;
+                        }
+                        if ((StartOfRound.Instance.connectedPlayersAmount != 0 || !(lethalBotInfection.localPlayerImmunityTimer < 7f)) && (StartOfRound.Instance.connectedPlayersAmount <= 0 || !(lethalBotInfection.localPlayerImmunityTimer <= 4f)) && UnityEngine.Random.Range(0f, 100f) < num)
+                        {
+                            bool flag5 = UnityEngine.Random.Range(0, 100) < 60;
+                            bool flag6 = flag5 || UnityEngine.Random.Range(0, 100) < 40;
+                            __instance.InfectPlayer(lethalBotController, flag5, flag6);
+                            __instance.InfectPlayerRpc((int)lethalBotController.playerClientId, flag5, flag6);
+                        }
+                    }
+                }
+            }
+        }
 
         /// <summary>
         /// Since <see cref="BurstFromPlayer_Prefix(CadaverGrowthAI, PlayerControllerB, Vector3, Vector3)"/> runs before the base game logic, 
@@ -185,7 +310,12 @@ namespace LethalBots.Patches.EnemiesPatches
             PlayerInfection playerInfection = cadaver.playerInfections[player.playerClientId];
             yield return null;
             yield return new WaitForEndOfFrame();
-            if (player != null && player.isPlayerControlled && playerInfection.infected && playerInfection.infectionMeter > 0.85f && Vector3.Distance(player.transform.position, cadaver.bloomEnemies[infectedNum].transform.position) < 14f)
+            if (player != null 
+                && player.isPlayerControlled 
+                && playerInfection.infected 
+                && playerInfection.infectionMeter > 0.85f 
+                && StartOfRound.Instance.livingPlayers > 1
+                && Vector3.Distance(player.transform.position, cadaver.bloomEnemies[infectedNum].transform.position) < 14f)
             {
                 cadaver.BurstFromPlayer(player, player.transform.position, player.transform.eulerAngles);
                 cadaver.SyncBurstFromPlayerRpc((int)player.playerClientId, player.transform.position, player.transform.eulerAngles);
@@ -243,6 +373,34 @@ namespace LethalBots.Patches.EnemiesPatches
                     lethalBotAI?.StartCoroutine(BurstFromPlayerCoroutine(__instance, lethalBotController, num));
                 }
             }
+        }
+
+        [HarmonyPatch("HealInfection")]
+        [HarmonyPrefix]
+        public static bool HealInfection_Prefix(CadaverGrowthAI __instance, int infectionId, float healAmount)
+        {
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(infectionId);
+            if (lethalBotAI == null)
+            {
+                return true; // Not bot, do base game logic
+            }
+            PlayerInfection obj = __instance.playerInfections[infectionId];
+            LethalBotInfection lethalBotInfection = lethalBotAI.BotInfectionData.Value;
+            int clipIndex = UnityEngine.Random.Range(0, __instance.healPlayerSFX.Length);
+            healPlayerSporeEffectMethod.Invoke(__instance, new object[] { infectionId, clipIndex });
+            obj.infectionMeter -= healAmount;
+            lethalBotInfection.timeAtLastHealing = Time.realtimeSinceStartup;
+            lethalBotInfection.totalTimeSpentInPlants = Mathf.Clamp(lethalBotInfection.totalTimeSpentInPlants - lethalBotInfection.totalTimeSpentInPlants / 4f, 0f, 100f);
+            if (obj.infectionMeter <= 0f)
+            {
+                __instance.CurePlayer(infectionId);
+                __instance.CurePlayerRpc(infectionId);
+            }
+            else
+            {
+                __instance.HealInfectionSyncRpc(infectionId, healAmount, clipIndex);
+            }
+            return false; // Is bot, skip base game logic
         }
 
         [HarmonyPatch("ProgressPlayerInfections")]

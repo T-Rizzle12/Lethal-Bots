@@ -136,7 +136,7 @@ namespace LethalBots.Configs
 
             RestockEcoLimit = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                 "Bot restock spending limit",
-                                                defaultValue: 0,
+                                                defaultValue: 550,
                                                 new ConfigDescription("How much money should the bot leave in reserve when restocking the ship. This is useful if you want the bot to keep some spare cash on hand.", 
                                                     new AcceptableValueRange<int>(0, int.MaxValue)));
 
@@ -215,7 +215,7 @@ namespace LethalBots.Configs
             VoiceRecognitionSimilarityThreshold = cfg.Bind(ConfigConst.ConfigSectionVoiceRecognition,
                                                            "Voice recognition similarity threshold (Client only)",
                                                            defaultValue: 0.8f,
-                                                           new ConfigDescription("This is the level of accuracy that would be used by PySpeech when the bot attempts to determine if the given message was a valid chat command. (Higher numbers means a higher level of accuracy is needed!)", 
+                                                           new ConfigDescription("This is the level of accuracy that would be used by SpeechRecognitionAPI when the bot attempts to determine if the given message was a valid chat command. (Higher numbers means a higher level of accuracy is needed!)", 
                                                                             new AcceptableValueRange<float>(0.0f, 1.0f)));
 
             // Voices

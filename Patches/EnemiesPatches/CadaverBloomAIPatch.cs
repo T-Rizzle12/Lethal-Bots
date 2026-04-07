@@ -128,7 +128,7 @@ namespace LethalBots.Patches.EnemiesPatches
 
         [HarmonyPatch("BurstForth")]
         [HarmonyTranspiler]
-        public static IEnumerable<CodeInstruction> BurstForth_Prefix(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        public static IEnumerable<CodeInstruction> BurstForth_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
         {
             var startIndex = -1;
             var codes = new List<CodeInstruction>(instructions);
@@ -158,7 +158,8 @@ namespace LethalBots.Patches.EnemiesPatches
                 codes[startIndex].operand = null;
                 codes[startIndex + 1].opcode = OpCodes.Nop;
                 codes[startIndex + 1].operand = null;
-                codes[startIndex + 2] = new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLocalOrLethalBotOwnerLocalMethod);
+                codes[startIndex + 2].opcode = OpCodes.Call;
+                codes[startIndex + 2].operand = PatchesUtil.IsPlayerLocalOrLethalBotOwnerLocalMethod;
                 startIndex = -1;
             }
             else

@@ -11,6 +11,7 @@ namespace LethalBots.Utils.Helpers
     /// <remarks>
     /// NetworkSerializable so we can easily sync it across all clients.
     /// </remarks>
+    [Serializable]
     public sealed class LethalBotInfection : INetworkSerializable, IEquatable<LethalBotInfection>
     {
         public float showSignsMeter;
@@ -18,6 +19,8 @@ namespace LethalBots.Utils.Helpers
         public float setPoison;
         public float sprayOnPlayerMeter;
         public float totalTimeSpentInPlants;
+        public bool stoodInWeedsLastCheck;
+        public float localPlayerImmunityTimer;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -26,6 +29,8 @@ namespace LethalBots.Utils.Helpers
             serializer.SerializeValue(ref setPoison);
             serializer.SerializeValue(ref sprayOnPlayerMeter);
             serializer.SerializeValue(ref totalTimeSpentInPlants);
+            serializer.SerializeValue(ref stoodInWeedsLastCheck);
+            serializer.SerializeValue(ref localPlayerImmunityTimer);
         }
 
         public bool Equals(LethalBotInfection? other)
@@ -35,7 +40,9 @@ namespace LethalBots.Utils.Helpers
                    timeAtLastHealing == other.timeAtLastHealing &&
                    setPoison == other.setPoison &&
                    sprayOnPlayerMeter == other.sprayOnPlayerMeter &&
-                   totalTimeSpentInPlants == other.totalTimeSpentInPlants;
+                   totalTimeSpentInPlants == other.totalTimeSpentInPlants &&
+                   stoodInWeedsLastCheck == other.stoodInWeedsLastCheck &&
+                   localPlayerImmunityTimer == other.localPlayerImmunityTimer;
         }
 
         public override bool Equals(object obj)
@@ -45,7 +52,7 @@ namespace LethalBots.Utils.Helpers
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(showSignsMeter, timeAtLastHealing, setPoison, sprayOnPlayerMeter, totalTimeSpentInPlants);
+            return HashCode.Combine(showSignsMeter, timeAtLastHealing, setPoison, sprayOnPlayerMeter, totalTimeSpentInPlants, stoodInWeedsLastCheck, localPlayerImmunityTimer);
         }
     }
 }

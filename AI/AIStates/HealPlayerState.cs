@@ -143,8 +143,9 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         /// <param name="lethalBotAI">The bot who is thinking about healing <paramref name="healTarget"/></param>
         /// <param name="healTarget">The player <paramref name="lethalBotAI"/> is thinking about healing</param>
+        /// <param name="requiredInfectionLevel">The level the <paramref name="healTarget"/>'s infection needs to be at before we consider curing them</param>
         /// <returns>true if the player can be healed using weedkiller; otherwise, false.</returns>
-        private static bool CanHealPlayerWithWeedKiller(LethalBotAI lethalBotAI, PlayerControllerB healTarget)
+        private static bool CanHealPlayerWithWeedKiller(LethalBotAI lethalBotAI, PlayerControllerB healTarget, float requiredInfectionLevel = 0.0f)
         {
             if (lethalBotAI?.NpcController?.Npc == healTarget)
             {
@@ -156,14 +157,14 @@ namespace LethalBots.AI.AIStates
                 cadaverGrowthAI = Object.FindObjectOfType<CadaverGrowthAI>();
                 if (cadaverGrowthAI == null)
                 {
-                    Plugin.LogDebug("HealPlayerState: Cannot find CadaverGrowthAI, cannot heal with weed killer!");
+                    //Plugin.LogDebug("HealPlayerState: Cannot find CadaverGrowthAI, cannot heal with weed killer!");
                     return false;
                 }
             }
             PlayerInfection playerInfection = cadaverGrowthAI.playerInfections[healTarget.playerClientId];
-            if (!playerInfection.infected)
+            if (!playerInfection.infected || playerInfection.infectionMeter < requiredInfectionLevel)
             {
-                Plugin.LogDebug("HealPlayerState: Player is not infected with the Cadaver infection, cannot heal with weed killer!");
+                //Plugin.LogDebug("HealPlayerState: Player is not infected with the Cadaver infection, cannot heal with weed killer!");
                 return false;
             }
             // Intentionally allow healing with weed killer even if the player's burst meter is above 0.
@@ -176,7 +177,7 @@ namespace LethalBots.AI.AIStates
             //}
             if (lethalBotAI != null && !lethalBotAI.HasGrabbableObjectInInventory(FindWeedKiller, out _))
             {
-                Plugin.LogDebug("HealPlayerState: Can't heal player from infection, bot doesn't have weed killer in inventory!");
+                //Plugin.LogDebug("HealPlayerState: Can't heal player from infection, bot doesn't have weed killer in inventory!");
                 return false;
             }
             return true;
@@ -202,8 +203,9 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         /// <param name="lethalBotAI">The bot who is thinking about healing <paramref name="healTarget"/></param>
         /// <param name="healTarget">The player <paramref name="lethalBotAI"/> is thinking about healing</param>
+        /// <param name="requiredInfectionLevel">The level the <paramref name="healTarget"/>'s infection needs to be at before we consider curing them</param>
         /// <returns>true if the player can be healed using any of the supported mods or methods; otherwise, false.</returns>
-        public static bool CanHealPlayer(LethalBotAI lethalBotAI, PlayerControllerB healTarget)
+        public static bool CanHealPlayer(LethalBotAI lethalBotAI, PlayerControllerB healTarget, float requiredInfectionLevel = 0.0f)
         {
             // Make sure the player is a valid target.
             if (healTarget == null || !healTarget.isPlayerControlled || healTarget.isPlayerDead)
@@ -214,7 +216,7 @@ namespace LethalBots.AI.AIStates
             // Alright, we heal players based on the best source of healing we have available.
             // If the player is infected with the Cadaver infection, we use weed killer to heal them.
             // Otherwise, it depends on what mods are installed.
-            if (CanHealPlayerWithWeedKiller(lethalBotAI, healTarget))
+            if (CanHealPlayerWithWeedKiller(lethalBotAI, healTarget, requiredInfectionLevel))
             {
                 return true;
             }
@@ -264,6 +266,11 @@ namespace LethalBots.AI.AIStates
                 yield break;
             }
 
+            // WAIT, don't spray while the player is critically injured......
+            // I learned that the hard way....poor Claire Annette......
+            // She ended up killing Amy Stake in a fit of rage......
+            yield return new WaitUntil(() => healTarget == null || healTarget.isPlayerDead || !healTarget.isPlayerControlled || !healTarget.criticallyInjured);
+
             // Alright, juice em!
             startTime = Time.timeSinceLevelLoad;
             weedKiller.UseItemOnClient(true);
@@ -282,7 +289,9 @@ namespace LethalBots.AI.AIStates
         {
             // Lets go and cure a player
             float sqrDistToHealTarget = (healTarget.transform.position - npcController.Npc.transform.position).sqrMagnitude;
-            if (sqrDistToHealTarget > Const.DISTANCE_CLOSE_ENOUGH_TO_HEAL_TARGET * Const.DISTANCE_CLOSE_ENOUGH_TO_HEAL_TARGET)
+            if (sqrDistToHealTarget > Const.DISTANCE_CLOSE_ENOUGH_TO_HEAL_TARGET * Const.DISTANCE_CLOSE_ENOUGH_TO_HEAL_TARGET 
+                || (Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, healTarget.gameplayCamera.transform.position, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault)
+                && hitInfo.transform.GetComponent<PlayerControllerB>() != healTarget))
             {
                 // Select and use items based on our current situation, if needed
                 SelectBestItemFromInventory();
