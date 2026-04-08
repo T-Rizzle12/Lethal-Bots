@@ -3,12 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using DunGen;
 using DunGen.Tags;
+using LethalBots.AI;
 using UnityEngine;
 
 namespace LethalBots.Utils.Helpers
 {
     public class DunGenTileTracker : MonoBehaviour
     {
+        private readonly UpdateLimiter updateLimiter = new UpdateLimiter();
+
+        public LethalBotAI lethalBotAI { get; internal set; } = null!;
+
         public int AdjacentTileDepth = 1;
 
         public bool CullBehindClosedDoors = true;
@@ -236,8 +241,19 @@ namespace LethalBots.Utils.Helpers
 
         protected virtual void LateUpdate()
         {
-            if (Ready)
+            if (Ready && updateLimiter.CanUpdate())
             {
+                // Reset the update limiter
+                updateLimiter.SetUpdateInterval(lethalBotAI.AIIntervalTime);
+                updateLimiter.Invalidate();
+
+                // Don't do this if we are not inside
+                if (!lethalBotAI.NpcController.Npc.isInsideFactory)
+                {
+                    return;
+                }
+
+                // Check what tile we are on
                 Tile? tile = currentTile;
                 if (currentTile == null)
                 {

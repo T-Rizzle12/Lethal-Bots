@@ -115,6 +115,7 @@ namespace LethalBots.AI
                 if (dunGenTileTracker == null)
                 {
                     dunGenTileTracker = this.gameObject.GetComponent<DunGenTileTracker>() ?? this.gameObject.AddComponent<DunGenTileTracker>();
+                    dunGenTileTracker.lethalBotAI = this;
                 }
                 return dunGenTileTracker;
             }
