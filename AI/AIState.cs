@@ -87,7 +87,7 @@ namespace LethalBots.AI
 
             this.panikCoroutine = oldState.panikCoroutine;
             this.CurrentEnemy = oldState.CurrentEnemy;
-
+            this.useNoiseMakerCooldown = oldState.useNoiseMakerCooldown;
         }
 
         /// <summary>
@@ -726,6 +726,14 @@ namespace LethalBots.AI
             // If we didn't find any enemies near the exit point, we can use this entrance!
             entranceSafetyCache[entrance] = (true, Time.timeSinceLevelLoad);
             return true;
+        }
+
+        /// <summary>
+        /// Simple helper function to clear the <see cref="entranceSafetyCache"/>
+        /// </summary>
+        public static void ResetEntranceSafetyCache()
+        {
+            entranceSafetyCache.Clear();
         }
 
         /// <summary>

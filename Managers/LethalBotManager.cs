@@ -2817,16 +2817,16 @@ namespace LethalBots.Managers
                     continue;
                 }
 
-                //positionLethalBot = lethalBotAI.NpcController.Npc.transform.position;
-                //if (lethalBotAI.NpcController.Npc.deadBody != null)
-                //{
-                //    positionLethalBot = lethalBotAI.NpcController.Npc.deadBody.bodyParts[5].transform.position;
-                //}
+                Vector3 positionLethalBot = lethalBotAI.NpcController.Npc.transform.position;
+                if (lethalBotAI.NpcController.Npc.deadBody != null)
+                {
+                    positionLethalBot = lethalBotAI.NpcController.Npc.deadBody.bodyParts[5].transform.position;
+                }
 
-                //if ((positionLethalBot - teleporter.teleportOutPosition.position).sqrMagnitude > 2f * 2f)
-                //{
-                //    continue;
-                //}
+                if ((positionLethalBot - teleporter.teleportOutPosition.position).sqrMagnitude > 2f * 2f)
+                {
+                    continue;
+                }
 
                 //if (RoundManager.Instance.insideAINodes.Length == 0)
                 //{
@@ -3570,6 +3570,7 @@ namespace LethalBots.Managers
                 GroupManager.Instance.ResetAndRemoveAllGroups();
             }
             SetLastReportedTimeOfDay(DayMode.Dawn);
+            AIState.ResetEntranceSafetyCache();
 
             if (preRevive)
             {

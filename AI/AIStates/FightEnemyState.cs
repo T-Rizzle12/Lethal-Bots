@@ -5,7 +5,9 @@ using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.NetworkSerializers;
 using LethalBots.Utils.Helpers;
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Unity.Netcode;
@@ -28,7 +30,7 @@ namespace LethalBots.AI.AIStates
         private static readonly AccessTools.FieldRef<PatcherTool, int> anomalyMask = AccessTools.FieldRefAccess<int>(typeof(PatcherTool), "anomalyMask");
         private float attackFOV;
         private bool canHitTarget;
-        private RaycastHit[]? enemyColliders;
+        private RaycastHit[] enemyColliders = null!;
         private Coroutine? currentAttackRoutine;
         private Collider? _enemyCollision;
         private EnemyAI? _lastEnemy;
@@ -499,37 +501,170 @@ namespace LethalBots.AI.AIStates
             PlayerControllerB lethalBotController = npcController.Npc;
             Vector3 toEnemy = targetPos - lethalBotController.gameplayCamera.transform.position;
             float angleToEnemy = Vector3.Angle(lethalBotController.playerEye.forward, toEnemy);
+            enemyColliders ??= new RaycastHit[10];
 
             // Check if we can potentially hit!
             GetWeaponAttackInfo(heldItem, lethalBotController, out Ray ray, out float maxFOV, out float radius, out float maxRange, out LayerMask hitMask);
             attackFOV = Mathf.Clamp(maxFOV, 0f, Const.LETHAL_BOT_FOV);
             if (angleToEnemy < maxFOV)
             {
-                // Check if we hit the target!
-                enemyColliders ??= new RaycastHit[10];
-
-                // Do an initial linecast!
-                if (Physics.Linecast(lethalBotController.gameplayCamera.transform.position, targetPos, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
+                // Choose a checker function based on the weapon!
+                // TODO: Add a function(s) that makes it easier for modders to add custom weapon support!
+                if (heldItem is PatcherTool)
                 {
-                    return false;
+                    return CanHitPatcherTool(lethalBotController, targetPos, ray, radius, maxRange, hitMask);
                 }
-
-                // Now check if we would actually hit based on the weapon's hitmask!
-                int numHit = Physics.SphereCastNonAlloc(ray, radius, enemyColliders, maxRange, hitMask, QueryTriggerInteraction.Collide);
-                for (int i = 0; i < numHit; i++)
+                else if (LethalBotAI.IsItemRangedWeapon(heldItem))
                 {
-                    // Check if we hit the target!
-                    var hitInfo = enemyColliders[i];
-                    if (hitInfo.collider == EnemyCollision
-                        || (hitInfo.collider.gameObject.GetComponentInParent<EnemyAI>() is EnemyAI hitTarget 
-                            && hitTarget == this.CurrentEnemy))
-                    {
-                        return true;
-                    }
+                    return CanHitRangedWeapon(lethalBotController, ray, radius, maxRange, hitMask);
                 }
-
+                else
+                {
+                    return CanHitMeleeWeapon(lethalBotController, ray, radius, maxRange, hitMask);
+                }
             }
 
+            return false;
+        }
+
+        /// <summary>
+        /// Helper function that checks if the bot can hit our <see cref="AIState.CurrentEnemy"/>.
+        /// </summary>
+        /// <remarks>
+        /// This is an almost 1:1 recreation of the <see cref="ShotgunItem.ShootGun(Vector3, Vector3)"/>.
+        /// </remarks>
+        /// <param name="lethalBotController">The bot's <see cref="PlayerControllerB"/></param>
+        /// <param name="ray">The <see cref="Ray"/> we want to assess</param>
+        /// <param name="radius"></param>
+        /// <param name="maxRange"></param>
+        /// <param name="hitMask"></param>
+        /// <returns></returns>
+        private bool CanHitRangedWeapon(PlayerControllerB lethalBotController, Ray ray, float radius, float maxRange, LayerMask hitMask)
+        {
+            // Check if we hit the target based on the weapon's hitmask!
+            int numHit = Physics.SphereCastNonAlloc(ray, radius, enemyColliders, maxRange, hitMask, QueryTriggerInteraction.Collide);
+            for (int i = 0; i < numHit; i++)
+            {
+                // Check if we hit the target!
+                var hitInfo = enemyColliders[i];
+                if (hitInfo.distance == 0f || hitInfo.point == Vector3.zero) continue;
+
+                // // Make sure this is a valid hit target and do an initial linecast!
+                if (!hitInfo.transform.TryGetComponent<IHittable>(out _) || Physics.Linecast(lethalBotController.gameplayCamera.transform.position, hitInfo.point, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
+                {
+                    continue;
+                }
+
+                // Check if we hit the target!
+                if (hitInfo.collider == EnemyCollision
+                    || (hitInfo.transform.gameObject.GetComponent<EnemyAICollisionDetect>()?.mainScript is EnemyAI hitTarget
+                        && hitTarget == this.CurrentEnemy))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Helper function that checks if the bot can hit our <see cref="AIState.CurrentEnemy"/>.
+        /// </summary>
+        /// <remarks>
+        /// This is a partial recreation of the <see cref="PatcherTool"/>'s ScanGun and GunMeetsConditionsToShock.
+        /// </remarks>
+        /// <param name="lethalBotController">The bot's <see cref="PlayerControllerB"/></param>
+        /// <param name="ray">The <see cref="Ray"/> we want to assess</param>
+        /// <param name="targetPos"></param>
+        /// <param name="radius"></param>
+        /// <param name="maxRange"></param>
+        /// <param name="hitMask"></param>
+        /// <returns></returns>
+        private bool CanHitPatcherTool(PlayerControllerB lethalBotController, Vector3 targetPos, Ray ray, float radius, float maxRange, LayerMask hitMask)
+        {
+            // Check if we hit the target!
+            enemyColliders ??= new RaycastHit[10];
+
+            // Do an initial linecast!
+            if (Physics.Linecast(lethalBotController.gameplayCamera.transform.position, targetPos, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
+            {
+                return false;
+            }
+
+            // Now check if we would actually hit based on the weapon's hitmask!
+            int numHit = Physics.SphereCastNonAlloc(ray, radius, enemyColliders, maxRange, hitMask, QueryTriggerInteraction.Collide);
+            for (int i = 0; i < numHit; i++)
+            {
+                // Check if we hit the target!
+                var hitInfo = enemyColliders[i];
+                if (hitInfo.collider == EnemyCollision
+                    || (hitInfo.collider.gameObject.GetComponentInParent<EnemyAI>() is EnemyAI hitTarget
+                        && hitTarget == this.CurrentEnemy))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Helper function that checks if the bot can hit our <see cref="AIState.CurrentEnemy"/>.
+        /// </summary>
+        /// <remarks>
+        /// This is an almost 1:1 recreation of the <see cref="Shovel.HitShovel(bool)"/> and <see cref="KnifeItem.HitKnife(bool)"/>.
+        /// </remarks>
+        /// <param name="lethalBotController">The bot's <see cref="PlayerControllerB"/></param>
+        /// <param name="ray">The <see cref="Ray"/> we want to assess</param>
+        /// <param name="radius"></param>
+        /// <param name="maxRange"></param>
+        /// <param name="hitMask"></param>
+        /// <returns></returns>
+        private bool CanHitMeleeWeapon(PlayerControllerB lethalBotController, Ray ray, float radius, float maxRange, LayerMask hitMask)
+        {
+            // Check if we hit the target based on the weapon's hitmask!
+            RaycastHit[] raycastHits = Physics.SphereCastAll(ray, radius, maxRange, hitMask, QueryTriggerInteraction.Collide);
+            List<RaycastHit> orderdHitList = raycastHits.OrderBy((RaycastHit x) => x.distance).ToList();
+            foreach (var hitInfo in raycastHits)
+            {
+                // Check if we hit a wall!
+                if (hitInfo.transform.gameObject.layer == 8 || hitInfo.transform.gameObject.layer == 11)
+                {
+                    if (hitInfo.collider.isTrigger)
+                    {
+                        continue;
+                    }
+                    string text = hitInfo.collider.gameObject.tag;
+                    foreach (var surface in StartOfRound.Instance.footstepSurfaces)
+                    {
+                        if (surface.surfaceTag == text)
+                        {
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    // Check if we hit a valid target
+                    if (!hitInfo.transform.TryGetComponent<IHittable>(out var component) || (hitInfo.point != Vector3.zero && Physics.Linecast(lethalBotController.gameplayCamera.transform.position, hitInfo.point, out var _, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)))
+                    {
+                        continue;
+                    }
+                    Vector3 forward = lethalBotController.gameplayCamera.transform.forward;
+                    EnemyAICollisionDetect component2 = hitInfo.transform.GetComponent<EnemyAICollisionDetect>();
+                    bool isIHittablePlayer = hitInfo.transform.GetComponent<PlayerControllerB>() != null;
+                    if (component2 != null || !isIHittablePlayer)
+                    {
+                        if (!isIHittablePlayer || (component2?.mainScript != null && (!StartOfRound.Instance.hangarDoorsClosed || component2.mainScript.isInsidePlayerShip == lethalBotController.isInHangarShipRoom)))
+                        {
+                            // Check if we hit the target!
+                            if (hitInfo.collider == EnemyCollision
+                                || (component2 != null && component2 == this.CurrentEnemy))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
             return false;
         }
 
