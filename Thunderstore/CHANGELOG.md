@@ -17,7 +17,7 @@ Mind you the issue gets worse with adding more human players as well.........
 Anyway I also made some other optimizations and bug fixes.
 
 Change Log:
-- Fixed a logic error in FightEnemyState which caused bots to sometimes believe they cannot hit an enemy when they actually could
+- Fixed a logic error in FightEnemyState which caused bots to sometimes believe they cannot hit an enemy when they actually could. (Yes, bots can now properly fight Thumpers again! :confetti_ball:)
 - Fixed a logic error in HealPlayerState that would cause the bots to spam FindObjectOfType calls every time CanHealPlayerWithWeedKiller was called
 - Fixed AIState.useNoiseMakerCooldown not being shared between states which could causes some infinite loops
 - Fixed all bots being teleported by an inverse teleporter even if they were not standing near it
