@@ -39,7 +39,7 @@ Now, here are some general AI fixes for the bots:
 - Fixed a minor logic error with bots assigned to transfer loot that had a loadout assigned
 - Added a constraint for the new reserved equipment slot
 - Added a new reverse patch for DropHeldItem
-- Improved drunkness effects and ship bounds logic for bots
+- Improved drunkenness effects and ship bounds logic for bots
 - Updated item drop syncing to be more in line with how the base game handles it
 - Refactored UpdateLimiter and DeadBodyInfoMonitor for reuse and robustness
 
@@ -75,7 +75,7 @@ Now then, this update adds a new group system that allows you to give bots prede
 This update also fixes some bugs that were found as well.
 
 ## Group System
-This is it, the Group System. There isn't much to talk about since the system is mostly the "concept" of a group. What I mean by that is that there is no fancy UI showing who is and isn't in your group. This system can definently be improved as time goes on, but for now it works.
+This is it, the Group System. There isn't much to talk about since the system is mostly the "concept" of a group. What I mean by that is that there is no fancy UI showing who is and isn't in your group. This system can definitely be improved as time goes on, but for now it works.
 - GroupManager handles the creation, removal, and networking of all player and bot groups
 - Changed LethalBotAI.SyncAssignTargetAndSetMovingTo to work with bots as well.
 - Updated bot identity file to accept internal group ids
@@ -85,7 +85,7 @@ I made some fixes to some AI states that were reported and as well as found duri
 - Refactored bot "look at" logic, again, to now properly utilize NetworkObjects for targeting, and updated several AI states to use the new system.
 - Hopefully fixed a logic error in FightEnemyState where bots had a chance to stand too far away from the enemy they are trying to fight
 - Fixed bots in the MissionControlState attempting to grab their selected weapon and walkie-talkie if they have no room for items. 
-- Bots upon entering PanikState will now flee backwards while waiting for their retreat node to be chosen
+- Bots upon entering PanicState will now flee backwards while waiting for their retreat node to be chosen
 - Made some optimizations to GetCloseToPlayerState
 - Changed AIStates to use new CurrentEnemy property
 - Fixed a logic error in MissionControl state that caused them to never consider Baboon Hawks as threats
@@ -110,7 +110,7 @@ All AIStates that use chat commands have been updated.
 
 Oh, and there are new chat commands as well!
 - Added some new chat commands:
-1. i will transfer loot, this tells bots that you will be transferring loot! NOTE: All it does is add you to the LootTransferPlayers list. This causes the drop loot outside of entrances code to run!
+1. I will transfer loot, this tells bots that you will be transferring loot! NOTE: All it does is add you to the LootTransferPlayers list. This causes the drop loot outside of entrances code to run!
 2. create group, this creates a new group with you as the leader!   
 3. leave group, this causes you to leave the current group you are in.
 4. join group, this lets you join a group. You must look at the bot of the group you want to join.
@@ -120,7 +120,7 @@ Oh, and there are new chat commands as well!
 - Voice recognition API is now an optional mod requirement
 - Added LethalBotNetworkSerializer.SerializeNullable support for NetworkBehaviourReference
 - Added a new Postfix in EnemyAIPatch to catch enemies that don't properly register themselves to SpawnedEnemies when spawned.
-- Made an experimental change to see what happens if I allow the bot to pathfind and move while in midair
+- Made an experimental change to see what happens if I allow the bot to path find and move while in mid-air
 - Added a new config option, DisableNameBillBoards. This disables the bot's name billboards from rendering.
 - Added partial support for the GeneralImprovements mod, fixing scannable player's feature not working properly with bots.
 - Fixed a logic error with Bunk Bed Revives. Bots no longer get infinite revives.
@@ -178,9 +178,9 @@ You may have not known, but Ghost Girl would break with bots. She wouldn't run a
 - Bots in the MissionControlState will now grab their loadout
 - Made some adjustments to MissionControlState in general. Bot's logic when monitoring players has been slightly improved.
 - Added a new overload to LethalBotAI.HasSpaceInInventory that considers if the bot has space for the given GrabbableObject
-- My mod will now list all items and unlockables in the game along with their id in the console. This makes it easier to find custom item names and suit ids!
+- My mod will now list all items and unlockable in the game along with their id in the console. This makes it easier to find custom item names and suit ids!
 - Improved how FightEnemyState detects enemy colliders
-- Improved PanikState by adding a new function CounterEnemy, which will make it easier to make bots counter certain enemies.
+- Improved PanicState by adding a new function CounterEnemy, which will make it easier to make bots counter certain enemies.
 - Updated Constraints files
 - Made some minor optimizations
   
@@ -229,7 +229,7 @@ Its that time again, another update! It was voted upon in the mod's discord for 
 
 ## New Config Options
 ### Kill Everything Config
-- Added ``ShouldKillEverything`` config option to allow bots to attack all enemies regardless of normal killability. Closes #44 
+- Added ``ShouldKillEverything`` config option to allow bots to attack all enemies regardless of normal kill ability. Closes #44 
 
 ### Allow Talking While Dead
 - New config option ``AllowTalkingWhileDead`` lets bots play random voice lines when dead. Closes #43 
@@ -237,7 +237,7 @@ Its that time again, another update! It was voted upon in the mod's discord for 
 
 ## Lethal Phones Support
 Yeah, you heard correctly, bots now support Lethal Phones! They can pickup and accept calls from players and even enemies. Currently, bots will **NOT** call other player, but the code to do so does exist. So, this can be improved upon later. This closes #45 
-- My mod will handle ownership, initialization, and cleanup for bots.
+- My mod will handle ownership, initialization, and clean up for bots.
 - Bots can answer calls
 - Mission Controller bots will become the switchboard operator automatically
 
@@ -246,8 +246,8 @@ Yeah, you heard correctly, bots now support Lethal Phones! They can pickup and a
 Credit goes to https://github.com/Gummar for this new system! Fixes #16 
 - Overhauled Search Logic: Bots no longer rely on the vanilla ``EnemyAI.AISearchRoutine`` or its related functions. Search logic is now handled within the custom ``LethalBotSearchRoutine``, which is optimized for better performance.
 - Much Better Persistent Search Memory: Bots can now pause and resume searches without forgetting explored areas. This prevents them from revisiting the same locations repeatedly.
-- Dynamic Search Center: Search paths are now calculated based on the bot's current position or destination, rather than a fixed point chosen when the search began.
-  - Note: If a bot loses sight of a player, it will use the player's last known position as the search center.
+- Dynamic Search Centre: Search paths are now calculated based on the bot's current position or destination, rather than a fixed point chosen when the search began.
+  - Note: If a bot loses sight of a player, it will use the player's last known position as the search centre.
 - Unrestricted Searching: Removed distance limitations on search behavior.
 
 ### Combat improvements
@@ -280,12 +280,12 @@ And now the part you have been waiting for, the bug fixes!
 - Fixed various AI state edge cases.
 - Tentative fix for ShowCapacity creating issues with bots. Fixes #41
 
-## Performance, Optimizations, & Cleanup
+## Performance, Optimizations, & Clean up
 - Reduced index calls in some functions
 - Replaced some Lists with HashSets
 - Removed obsolete damage sync code, we let the base game handle that now.
 - Removed redundant patches and unused logic
-- Many other logic simplification and cleanup
+- Many other logic simplification and clean up
 
 ## 2.1.0 - 2026-1-28
 It was brought to my attention that multiplayer use with the bots had some issues. I have been working with the community on the both GitHub and Discord to find and fix these desync issues that were happening. I have also added some requested configuration options and much needed AI adjustments. Anyway, on to patch notes!
@@ -295,7 +295,7 @@ It was brought to my attention that multiplayer use with the bots had some issue
   - Corrected handling of animation slot 0 and animation hash layers.
   - Resolved issues where IsMoving returned false due to non-networked movement data.
 - The animation culling system, to be honest, is a waste of CPU resources. Unlike Lethal Internship the bots only take up open player slots. This means if your PC can handle 16 animated players, then your PC can handle 16 bots. (NOTE: Not 1:1, but you should hopefully get what I mean) The animation culling system also created many animation desync issues with other players, so I have just decided to retire it.
-- Removed CutAnimations, it was causing more issues than optimzations it gave.
+- Removed CutAnimations, it was causing more issues than optimizations it gave.
 - Fixed emote-related errors, including BetterEmotes compatibility and preventing emote spam when idle.
 - Fixed a base game item desync bug
 There is a bug in the base game when first opening a lobby that clients that join don't update the in-ship status of items. This causes bots to pickup items in the ship because they think said item is "outside" of the ship.
@@ -308,7 +308,7 @@ There is a bug in the base game when first opening a lobby that clients that joi
 - Added new mission control-related config and chat command:
   - StartShipChatCommandProtection: If set to false, non-host clients can tell the Mission Controller bot to start the ship. By default this is true, making it so only the host can tell the bot to start the ship. Regardless if this setting is true or false, bots will allow non-host clients to use this chat command if the host is dead!
   - AutoMissionControl: if true, bots will be allowed to assume the mission control state if the current mission controller is not set or dead. If false, bots will not be allowed to assume the mission control position.
-  - Added new chat command "i will man the ship", this tells all bots that the player who said this will be the mission controller. THIS WORKS FOR HUMAN PLAYERS! Good for if you want AutoMissionControl true, but a human player wants the role!
+  - Added new chat command "I will man the ship", this tells all bots that the player who said this will be the mission controller. THIS WORKS FOR HUMAN PLAYERS! Good for if you want AutoMissionControl true, but a human player wants the role!
 - Bots in the ChillAtShip state will no longer auto-follow the player assigned as Mission Controller.
 
 ## General AI, Movement, & Pathfinding Improvements
@@ -321,7 +321,7 @@ There is a bug in the base game when first opening a lobby that clients that joi
   - Added RegisterCustomThreats to LethalBotManager This makes it easier for modders to add custom fear ranges and functions for bots.
   - Added AIState.IsSafePathRunning, allows me to check if the safePathCoroutine is running on a state
   - The static version of LethalBotAI.IsValidPathToTarget can now return path distance. Don't know why I forgot to add that in the first place......
-  - Made the instance version of LethalBotAI.IsValidPathToTarget's logs a bit better and changed its code to be more consitent with how the base game does path checks.
+  - Made the instance version of LethalBotAI.IsValidPathToTarget's logs a bit better and changed its code to be more consistent with how the base game does path checks.
 
 ## Return To Ship State improvements
 - Fixed entrance detection and return-to-ship logic, bots should no longer only pick the middle of the ship when returning.
@@ -337,7 +337,7 @@ When checking if an object could be picked up bots would check their current pos
 - Added config option GrabDockedApparatus: If set to false, bots will no longer be allowed to pull the apparatus. Bots will still be able to pick them up if a human player decides to pull the apparatus themselves.
  - Bots will no longer grab extension ladders unless they returning to the ship at the end of the day and they are not actively deployed.
 
-## Reserved Item Slots && Hotbar Plus Support
+## Reserved Item Slots && Hot bar Plus Support
 - Bots will no longer reset their inventory size back to the default value of 4. They will now allow other mods to adjust their inventory size!
 - Bots have a basic understanding of how Reserved Item Slots works. When they pickup items they will automatedly check if they can put it into its respective reserved item slot. Bots are also able to use items in reserved item slots.
 - Special thanks to https://github.com/cmooref17 for adjusting parts of their mod I needed to make this happen.
@@ -345,7 +345,7 @@ When checking if an object could be picked up bots would check their current pos
 ## Fight Enemy State && Company Building fixes
 - Fixed a rare issue where bots could forget how to use their weapon.
 - Fixed a rare bug where bots fail to stop using their held item, this would make the bot unable to swap to its chosen weapon!
-- Fixed bots being unabled to use the zap gun in some cases.
+- Fixed bots being unable to use the zap gun in some cases.
 - Bots are hopefully better at aiming weapons they are attempting to use
 FightEnemyState had a rare issue where bots would fail to stop using their held item. This has been fixed.
 - Bots can now trigger AnimatedObjectFloatSetters and OutOfBoundsTriggers. These triggers are commonly used to kill players!
@@ -358,7 +358,7 @@ FightEnemyState had a rare issue where bots would fail to stop using their held 
 - Fixed non-host clients attempting to update player counts at the end of the round. A warning would be logged, but nothing would happen due to my failsafe code!
 - Put CountAliveAndDisableLethalBots in a try catch statement to make sure bots are cleared even if an error occurs!
 - Fixed bot voice chat not respecting the default volume set in the Identity file
-- Updated NpcControler.ForceTurnTowardsTarget to be more in line with how PlayerControllerB.ForceTurnTowardsTarget is.
+- Updated NpcController.ForceTurnTowardsTarget to be more in line with how PlayerControllerB.ForceTurnTowardsTarget is.
 
 ## 2.0.0 - 2026-1-16
 Hello and welcome the the first **MAJOR** patch of Lethal Bots! Please do note that you **MUST** update your custom identity config files. If not, many errors may occur! Ok, now onto the changes!
@@ -415,11 +415,11 @@ And the changes I don't really know where to put anywhere else, so uh, here you 
 ## 1.2.1 - 2026-1-12
 Hotfix for the 1.2.0 update. I added some experimental retreat code, but it made the bots too afraid to run away at times.
 - Reverted some of the new parts of the experimental retreat code
-- Made bots immediatly reconsider their target safe path postion if they swap states
+- Made bots immediately reconsider their target safe path position if they swap states
 - Fixed a minor logic error in the fallback code in BrainDeadState
 
 ## 1.2.0 - 2026-1-9
-As you may or may not be aware. Bots have support for some revive mods. Before this update, bots could only be revived and could not revive other players, now they can! There are also some other improvemnets such as better fallback choices when paniking.
+As you may or may not be aware. Bots have support for some revive mods. Before this update, bots could only be revived and could not revive other players, now they can! There are also some other improvements such as better fallback choices when panicking.
 
 ## Revival and Mod Compatibility
 - Bots, using supported revive mods, can now revive dead players and bots! (Suggestion from GitHub)
@@ -428,16 +428,16 @@ As you may or may not be aware. Bots have support for some revive mods. Before t
 - Fixed bots revived via Revive Company being fully healed when revived. They will now take ReviveToHeath config into consideration now.
 - Fixed bots not updating the Spectator UI if they were revived
 
-## Panik / Fleeing Improvements
-- Rewrote a good chunk of the Panik system. Bots now assess if the path to the node they are thinking about fleeing to will get too close to the enemy they are fleeing from when picking a safe node to fall back to.
-- Fixed a logic error in PanikState that would cause bots to forget that they were running away from jester if another enemy became a more important threat.
+## Panic / Fleeing Improvements
+- Rewrote a good chunk of the Panic system. Bots now assess if the path to the node they are thinking about fleeing to will get too close to the enemy they are fleeing from when picking a safe node to fall back to.
+- Fixed a logic error in PanicState that would cause bots to forget that they were running away from jester if another enemy became a more important threat.
 - Fixed bots using facility entrances to flee from outside enemies. This could cause the bot to enter an infinite loop of fleeing the same two inside and outside enemies!
-- Made bots always test node visibility in PanikState
-- Cleaned up code and removed redundant comments in PanikState
+- Made bots always test node visibility in PanicState
+- Cleaned up code and removed redundant comments in PanicState
 - Made PathIsIntersectedByLineOfSight more consistent with the checks used in the safe path system
 
 ## Mission Control & other AI State Improvements
-- Improved combat fallback movement with navmesh raycasting, improved edge case handling, and fixed the spectating UI not updating when a bot was revived.
+- Improved combat fallback movement with navmesh ray casting, improved edge case handling, and fixed the spectating UI not updating when a bot was revived.
 - Removed the hacky method used by Mission Control bots for collecting bodies. They will now actually pickup the body shortly after teleporting them.
 - Added a helper function to MissionControlState, GetOffTerminal, its designed to get the bot to leave the terminal and stop all active coroutines in the state. Helps reduce duplicated code!
 - After spawning bots will now pick their stating AI state based on the current situation. This is good if you have player revive mods since they will return to searching for scrap if another bot revives them.
@@ -445,7 +445,7 @@ As you may or may not be aware. Bots have support for some revive mods. Before t
 - Gave MissionControlState a new constructor
 
 ## Grabbable Object & Enum Changes
-- Added a new enum EnumGrabbableObjectCall which helps IsGrabbableObjectBlackListed determine which items are actually blacklisted.
+- Added a new Enum EnumGrabbableObjectCall which helps IsGrabbableObjectBlackListed determine which items are actually blacklisted.
 - Also changed IsGrabbableObjectGrabbable to accept the new EnumGrabbableObjectCall
 - Made FetchingObjectState accept EnumGrabbableObjectCall instead of a bool for checking if the bot is selling or reviving a player.
 
@@ -495,9 +495,9 @@ Its time for the first "real" update that isn't just bug fixes. You can now give
 - Add IsItemScrap utility and update scrap checks.
 
 ## Bug Fixes & Behavior Adjustments
-- PanikState will no longer call the base class for OnPlayerChatMessageRecevied since it seemed a bit weird for a bot that is panicking to be listening to a player
-- Fixed a logic error in PanikState that caused bots to return to the ship even if they were following a player
-- Potentially fixed another logic error in PanikState:
+- PanicState will no longer call the base class for OnPlayerChatMessageReceived since it seemed a bit weird for a bot that is panicking to be listening to a player
+- Fixed a logic error in PanicState that caused bots to return to the ship even if they were following a player
+- Potentially fixed another logic error in PanicState:
 Changed node consideration code to use the safety score instead of a bunch of if else statements. This should hopefully fix an issue where bots only prioritized paths further from the enemy instead of trying to break line of sight as well.
 
 ## Config Changes
@@ -507,12 +507,12 @@ This was done since the name may have been misleading for users. Its new name ac
 ## 1.0.7 - 2026-1-3
 Waiter, Waiter, more bugs fixed please! Back with another bug fix update. Hopefully, this should be the last of them for a while, other than the "Incompatible with Better Emotes" bug, which I'm still working on.
 
-- Bots now cache the transform they chose when returning to the ship. They will now update their target ship postion every few seconds. Fixes #18 on GitHub.
+- Bots now cache the transform they chose when returning to the ship. They will now update their target ship position every few seconds. Fixes #18 on GitHub.
 - Fixed logic error in stuck detection causing the off the navmesh teleport check to never run.
 - Updated TeleportAgentAIAndBody to also call agent.Warp when teleporting the bot.
 - Added null checks for NpcController in patches to prevent errors on bot spawn.
 - Disabled and removed most of my model replacement patches. They were from Lethal Internship and were only creating more issues than they were worth. Besides, the base game and original mod handles model replacements just fine. Fixes #19 on GitHub.
-- Minor change to have my mod cleanup model replacements when the bots "disconnect."
+- Minor change to have my mod clean up model replacements when the bots "disconnect."
 - Fixed LethalBotManager.ShipDoor being a private property
 - Fixed a potential null reference exception in UpdateOwnershipOfBotInventoryServer
 
@@ -524,7 +524,7 @@ I don't know when, but apparently a bug got introduced that caused bots to not p
 - Fixed BodyReplacementBasePatch not calling OnDeath function and not calling the avatar update function on dead bodies
 - Fixed my mod sometimes failing to clean up old dead bodies with model replacements
 - Added a few helper functions with safely removing model replacements
-- Fixed bots not properly cleaning up their model replacements when they left the server. (This bug didn't happen if the host closes the lobby since ModelReplacementAPI will cleanup the models automatically)
+- Fixed bots not properly cleaning up their model replacements when they left the server. (This bug didn't happen if the host closes the lobby since ModelReplacementAPI will clean up the models automatically)
 - Fixed a logic error where searchForScrap would wrongfully clear its already searched nodes prematurely
 - Gave bots support for using the Zap Gun
 - Added a new constraint called TIMER_CHILL_AT_SHIP_AT_COMPANY
@@ -546,10 +546,10 @@ Another day, another bug fix! Special thanks to everyone on the mod's discord wh
 
 ## 1.0.2 - 2025-12-22
 - Fixed an logic error where ListModelReplacement was never initialized. This caused the ModelReplacementApi support to not work! (Reported on GitHub)
-- Update README files to remove any refrences to AI voices as they were copied over from when I forked Lethal Internship and do not reflect my interests for this mod.
+- Update README files to remove any references to AI voices as they were copied over from when I forked Lethal Internship and do not reflect my interests for this mod.
 
 ## 1.0.1 - 2025-12-14
-- Fixed a logic error in the ChillInShipState which caused the bot to not properly initalize the state while at the Company Building.
+- Fixed a logic error in the ChillInShipState which caused the bot to not properly initialize the state while at the Company Building.
 
 ## 1.0.0 - 2025-06-22
 - Initial release
