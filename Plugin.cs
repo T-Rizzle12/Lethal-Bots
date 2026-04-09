@@ -48,7 +48,7 @@ namespace LethalBots
     // HardDependencies
     [BepInDependency(LethalLib.Plugin.ModGUID, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency(Const.CSYNC_GUID, BepInDependency.DependencyFlags.HardDependency)]
-    [BepInDependency(LethalCompanyInputUtils.PluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(LethalCompanyInputUtils.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.HardDependency)]
     // SoftDependencies
     [BepInDependency(Const.SPEECHRECOGNITIONAPI_GUID, BepInDependency.DependencyFlags.SoftDependency)] // Voice recognition
     [BepInDependency(Const.REVIVECOMPANY_GUID, BepInDependency.DependencyFlags.SoftDependency)]
