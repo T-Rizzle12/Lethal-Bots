@@ -47,12 +47,29 @@ namespace LethalBots.Utils.Helpers
             this.Invalidate();
         }
 
+        /// <summary>
+        /// Changes the update interval for this <see cref="UpdateLimiter"/>
+        /// </summary>
+        /// <param name="updateInterval"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetUpdateInterval(float updateInterval)
+        {
+            this.updateInterval = updateInterval;
+        }
+
+        /// <summary>
+        /// Has our <see cref="updateInterval"/> elapsed
+        /// </summary>
+        /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool CanUpdate()
         {
             return !nextUpdateTimer.HasStarted() || nextUpdateTimer.Elapsed();
         }
 
+        /// <summary>
+        /// Restarts our update limiter by using our set <see cref="updateInterval"/>
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Invalidate()
         {

@@ -2,6 +2,7 @@
 using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
+using LethalBots.Utils.Helpers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
@@ -17,7 +18,19 @@ namespace LethalBots.AI.AIStates
         private PlayerControllerB healTarget;
         private HealMethod healMethod = HealMethod.None;
         private Coroutine? healCoroutine;
-        private static CadaverGrowthAI? cadaverGrowthAI;
+        private static readonly UpdateLimiter nextCadaverGrowthCheck = new UpdateLimiter();
+        private static CadaverGrowthAI? CadaverGrowthAI
+        {
+            get
+            {
+                if (field == null && nextCadaverGrowthCheck.CanUpdate())
+                {
+                    nextCadaverGrowthCheck.Invalidate();
+                    field = Object.FindObjectOfType<CadaverGrowthAI>();
+                }
+                return field;
+            }
+        }
 
         public HealPlayerState(AIState oldState, PlayerControllerB targetPlayer) : base(oldState)
         {
@@ -152,16 +165,12 @@ namespace LethalBots.AI.AIStates
                 return false; // We can't heal ourselves with weed killer, someone else has to do it for us.
             }
 
-            if (cadaverGrowthAI == null)
+            if (CadaverGrowthAI == null)
             {
-                cadaverGrowthAI = Object.FindObjectOfType<CadaverGrowthAI>();
-                if (cadaverGrowthAI == null)
-                {
-                    //Plugin.LogDebug("HealPlayerState: Cannot find CadaverGrowthAI, cannot heal with weed killer!");
-                    return false;
-                }
+                //Plugin.LogDebug("HealPlayerState: Cannot find CadaverGrowthAI, cannot heal with weed killer!");
+                return false;
             }
-            PlayerInfection playerInfection = cadaverGrowthAI.playerInfections[healTarget.playerClientId];
+            PlayerInfection playerInfection = CadaverGrowthAI.playerInfections[healTarget.playerClientId];
             if (!playerInfection.infected || playerInfection.infectionMeter < requiredInfectionLevel)
             {
                 //Plugin.LogDebug("HealPlayerState: Player is not infected with the Cadaver infection, cannot heal with weed killer!");

@@ -3,7 +3,13 @@ using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Managers;
+using LethalBots.Utils;
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
 using UnityEngine;
 using Random = System.Random;
 
@@ -55,6 +61,54 @@ namespace LethalBots.Patches.MapPatches
             {
                 lethalBotAI.InitStateToSearchingNoTarget(true);
             }
+        }
+
+        // I just recently learned that we CAN patch coroutines, you just need to add the MethodType.Enumerator to do so!!!!! :D
+        [HarmonyPatch("beamUpPlayer", MethodType.Enumerator)]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> beamUpPlayer_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // Target property: GameNetworkManager.Instance.localPlayerController
+            MethodInfo getGameNetworkManagerInstance = AccessTools.PropertyGetter(typeof(GameNetworkManager), "Instance");
+            FieldInfo localPlayerControllerField = AccessTools.Field(typeof(GameNetworkManager), "localPlayerController");
+
+            // Unity Object Equality Method
+            MethodInfo opEqualityMethod = AccessTools.Method(typeof(UnityEngine.Object), "op_Equality");
+
+            // ------------------------------------------------
+            for (var i = 0; i < codes.Count - 4; i++)
+            {
+                // NOTE: We cannot access the fields of the coroutine class, we must manually find them instead!
+                if (codes[i].opcode == OpCodes.Ldfld && codes[i].operand is FieldInfo fi && fi.Name.Contains("playerToBeamUp")
+                    && codes[i + 1].Calls(getGameNetworkManagerInstance) // 1588
+                    && codes[i + 2].LoadsField(localPlayerControllerField) // 1589
+                    && codes[i + 3].Calls(opEqualityMethod)) // 1593
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Replace the old GameNetworkManager.Instance.localPlayerController == this.playerToBeamUp check,
+                // and replace it with our IsPlayerLocalOrLethalBotOwnerLocalMethod
+                codes[startIndex + 1].opcode = OpCodes.Nop;
+                codes[startIndex + 1].operand = null;
+                codes[startIndex + 2].opcode = OpCodes.Nop;
+                codes[startIndex + 2].operand = null;
+                codes[startIndex + 3].opcode = OpCodes.Call;
+                codes[startIndex + 3].operand = PatchesUtil.IsPlayerLocalOrLethalBotOwnerLocalMethod;
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.MapPatches.ShipTeleporterPatch.beamUpPlayer_Transpiler could not make bots drop their held items when teleported");
+            }
+
+            return codes.AsEnumerable();
         }
 
         [HarmonyPatch("SetPlayerTeleporterId")]

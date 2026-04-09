@@ -1,5 +1,32 @@
 # Changelog
 
+## 5.0.1 - 2026-4-8
+Hello, a minor bug fix patch here. It came to my attention that trying to have more than 3 bots would REALLY lag the game. The cause was a logic error in HealPlayerState that would cause the bots to spam FindObjectOfType calls every time CanHealPlayerWithWeedKiller was called.
+
+Here was how bad the logic error was:
+For context, this was called for every bot for every player in the game other than the bot itself.
+
+For three bots, that's about 3 Bots * 4 Players each. That's around 12 FindObjectOfType calls. Which isn't too bad........
+
+As for 7 bots, that's about 7 Bots * 8 Players each. That's over 56 FindObjectOfType CALLS.........
+
+And for the 15 bots, that's about 15 Bots * 16 Players each. That's OVER 240 FindObjectOfType..... :sob: 
+
+Mind you the issue gets worse with adding more human players as well.........
+
+Anyway I also made some other optimizations and bug fixes.
+
+Change Log:
+- Fixed a logic error in FightEnemyState which caused bots to sometimes believe they cannot hit an enemy when they actually could. (Yes, bots can now properly fight Thumpers again! :confetti_ball:)
+- Fixed a logic error in HealPlayerState that would cause the bots to spam FindObjectOfType calls every time CanHealPlayerWithWeedKiller was called
+- Fixed AIState.useNoiseMakerCooldown not being shared between states which could causes some infinite loops
+- Fixed all bots being teleported by an inverse teleporter even if they were not standing near it
+- Fixed a bug created by the V80 update which caused bots to not drop their held items when teleported back to the ship
+- DunGenTileTracker now keeps track of the LethalBotAI its attached to
+- Added an UpdateLimiter to DunGenTileTracker and had its update rate set the the LethalBotAI's AIIntervalTime so about every 0.3 seconds
+- Added a new function to UpdateLimiter, SetUpdateInterval. This allows me to change updateInterval without having access to the constructor
+- Added some comments to UpdateLimiter
+
 ## 5.0.0 - 2026-4-7
 ITS V81 TIME!!!!!!!<br/>
 Hello again, V81 came out and as such the bots needed to be updated to work with the newest version of Lethal Company. I have also taken the liberty to teach the bots how to counter one of the new enemies, but with a catch. Now onto the patch notes!
