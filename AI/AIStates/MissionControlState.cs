@@ -60,40 +60,37 @@ namespace LethalBots.AI.AIStates
         private PriorityMessageQueue messageQueue = new PriorityMessageQueue();
         private static readonly AccessTools.FieldRef<TerminalAccessibleObject, bool> isDoorOpen = AccessTools.FieldRefAccess<bool>(typeof(TerminalAccessibleObject), "isDoorOpen");
         private static readonly AccessTools.FieldRef<TerminalAccessibleObject, bool> inCooldown = AccessTools.FieldRefAccess<bool>(typeof(TerminalAccessibleObject), "inCooldown");
-        private static ShipTeleporter? _shipTeleporter;
         private static ShipTeleporter? ShipTeleporter
         {
             get
             {
-                if (_shipTeleporter == null)
+                if (field == null)
                 {
-                    _shipTeleporter = LethalBotAI.FindTeleporter();
+                    field = LethalBotAI.FindTeleporter();
                 }
-                return _shipTeleporter;
+                return field;
             }
         }
-        private static SignalTranslator? _signalTranslator;
         internal static SignalTranslator? SignalTranslator
         {
             get
             {
-                if (_signalTranslator == null)
+                if (field == null)
                 {
-                    _signalTranslator = UnityEngine.Object.FindObjectOfType<SignalTranslator>();
+                    field = UnityEngine.Object.FindObjectOfType<SignalTranslator>();
                 }
-                return _signalTranslator;
+                return field;
             }
         }
-        private static ShipAlarmCord? _shipHorn;
         private static ShipAlarmCord? ShipHorn
         {
             get
             {
-                if (_shipHorn == null)
+                if (field == null)
                 {
-                    _shipHorn = UnityEngine.Object.FindObjectOfType<ShipAlarmCord>();
+                    field = UnityEngine.Object.FindObjectOfType<ShipAlarmCord>();
                 }
-                return _shipHorn;
+                return field;
             }
         }
 

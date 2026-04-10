@@ -1,4 +1,5 @@
-﻿using GameNetcodeStuff;
+﻿using BepInEx;
+using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.AI.AIStates;
@@ -20,9 +21,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Unity.AI.Navigation;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
@@ -176,8 +179,6 @@ namespace LethalBots.Managers
         /// </summary>
         public static DayMode lastReportedTimeOfDay = DayMode.Dawn;
 
-        public static DepositItemsDesk? _companyDesk;
-
         /// <summary>
         /// Returns the <see cref="DepositItemsDesk"/> instance in the scene, if it exists.<br/>
         /// </summary>
@@ -185,15 +186,13 @@ namespace LethalBots.Managers
         {
             get
             {
-                if (_companyDesk == null)
+                if (field == null)
                 {
-                    _companyDesk = UnityEngine.Object.FindObjectOfType<DepositItemsDesk>();
+                    field = UnityEngine.Object.FindObjectOfType<DepositItemsDesk>();
                 }
-                return _companyDesk;
+                return field;
             }
         }
-
-        private static HangarShipDoor? _shipDoor;
 
         /// <summary>
         /// Returns the <see cref="HangarShipDoor"/> instance in the scene, if it exists.<br/>
@@ -202,15 +201,21 @@ namespace LethalBots.Managers
         {
             get
             {
-                if (_shipDoor == null)
+                if (field == null)
                 {
-                    _shipDoor = UnityEngine.Object.FindObjectOfType<HangarShipDoor>();
+                    field = UnityEngine.Object.FindObjectOfType<HangarShipDoor>();
                 }
-                return _shipDoor;
+                return field;
             }
         }
 
         public VehicleController? VehicleController;
+
+        // Variables that handle the ship's NavMesh
+        private NavMeshSurface shipNavMeshSurface = null!;
+        private bool shipNavMeshBuilt => shipNavMeshSurface != null
+                                    && shipNavMeshSurface.navMeshData != null;
+        private bool shipNavMeshActive = false;
 
         public Dictionary<EnemyAI, INoiseListener> DictEnemyAINoiseListeners = new Dictionary<EnemyAI, INoiseListener>();
 
@@ -563,21 +568,35 @@ namespace LethalBots.Managers
             IdentityManager.Instance.InitIdentities(Plugin.Config.ConfigIdentities.configIdentities);
             RestockManager.Instance.InitStockRequirements(Plugin.Config.ConfigStockRequirements.configStockRequirements);
 
-            // DEBUG: List all available items and their ids
+            // List out item information about equipment and unlockables since they are used in the restock and identity file system
+            string directoryPath = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID);
+            Directory.CreateDirectory(directoryPath);
             Plugin.LogInfo("Listing all items in the game!");
-            foreach (Item item in StartOfRound.Instance.allItemsList.itemsList)
+            using (StreamWriter outputFile = new StreamWriter(Utility.CombinePaths(directoryPath, ConfigConst.FILE_NAME_GAME_ITEMS)))
             {
-                Plugin.LogInfo($"Name: {item.itemName} with ID: {item.itemId}");
-            }
+                // DEBUG: List all available items and their ids
+                outputFile.WriteLine("Listing all items in the game!");
+                foreach (Item item in StartOfRound.Instance.allItemsList.itemsList)
+                {
+                    string itemInfo = $"Name: {item.itemName} with ID: {item.itemId}";
+                    outputFile.WriteLine(itemInfo);
+                    Plugin.LogInfo(itemInfo);
+                }
 
-            // DEBUG: List all available unlockables and their ids
-            Plugin.LogInfo("Listing all unlockable items in the game!");
-            List<UnlockableItem> unlockableItems = StartOfRound.Instance.unlockablesList.unlockables;
-            for (int i = 0; i < unlockableItems.Count; i++)
-            {
-                UnlockableItem item = unlockableItems[i];
-                if (item != null)
-                    Plugin.LogInfo($"Name: {item.unlockableName} with ID: {i}");
+                // DEBUG: List all available unlockables and their ids
+                Plugin.LogInfo("Listing all unlockable items in the game!");
+                outputFile.WriteLine("Listing all unlockable items in the game!");
+                List<UnlockableItem> unlockableItems = StartOfRound.Instance.unlockablesList.unlockables;
+                for (int i = 0; i < unlockableItems.Count; i++)
+                {
+                    UnlockableItem item = unlockableItems[i];
+                    if (item != null)
+                    {
+                        string itemInfo = $"Name: {item.unlockableName} with ID: {i}";
+                        outputFile.WriteLine(itemInfo);
+                        Plugin.LogInfo(itemInfo);
+                    }
+                }
             }
 
             // Bot objects
@@ -1865,6 +1884,18 @@ namespace LethalBots.Managers
                         GroupManager.Instance.RemoveFromCurrentGroupAndSync(playerWhoSentMessage);
                     }
                     return;
+                }
+                else if (message.Contains("get navarea"))
+                {
+                    Vector3 navArea = RoundManager.Instance.GetNavMeshPosition(playerWhoSentMessage.transform.position);
+                    if (RoundManager.Instance.GotNavMeshPositionResult)
+                    {
+                        HUDManager.Instance.AddTextToChatOnServer($"Found NavArea: {navArea}. Distance to Player {Vector3.Distance(playerWhoSentMessage.transform.position, navArea)}");
+                    }
+                    else
+                    {
+                        HUDManager.Instance.AddTextToChatOnServer($"Didn't find a NavArea.");
+                    }
                 }
                 //else if (message.Contains("time info"))
                 //{
@@ -3835,6 +3866,53 @@ namespace LethalBots.Managers
                 AllBotPlayerIndexs.Add((int)lethalBotController.playerClientId);
             }
         }
+
+        #region Ship NavMesh
+
+        public void EnsureShipNavMeshBuilt()
+        {
+            if (shipNavMeshBuilt) return;
+
+            // Grab the ship bounds
+            var bounds = StartOfRound.Instance.shipBounds.bounds;
+            bounds.Expand(2f); // avoid edge issues
+
+            // Get our create out NavMeshSurface
+            shipNavMeshSurface = this.gameObject.GetComponent<NavMeshSurface>() ?? this.gameObject.AddComponent<NavMeshSurface>();
+            shipNavMeshSurface.collectObjects = CollectObjects.Volume;
+            shipNavMeshSurface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+            shipNavMeshSurface.layerMask = ~0;
+            shipNavMeshSurface.agentTypeID = 0; // Bots are type 0!
+            shipNavMeshSurface.buildHeightMesh = true;
+
+            // Limit to the ship only
+            shipNavMeshSurface.center = bounds.center;
+            shipNavMeshSurface.size = bounds.size;
+
+            // Generate the mesh!
+            shipNavMeshSurface.BuildNavMesh();
+
+            // Mark mesh as active since BuildNavMesh calls AddData internally
+            shipNavMeshActive = true;
+        }
+
+        public void EnableShipNavMesh()
+        {
+            if (!shipNavMeshBuilt || shipNavMeshActive) return;
+
+            shipNavMeshSurface.AddData();
+            shipNavMeshActive = true;
+        }
+
+        public void DisableShipNavMesh()
+        {
+            if (!shipNavMeshBuilt || !shipNavMeshActive) return;
+
+            shipNavMeshSurface.RemoveData();
+            shipNavMeshActive = false;
+        }
+
+        #endregion
 
         #region SyncEndOfRoundLethalBots
 

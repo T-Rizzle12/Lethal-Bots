@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using Unity.AI.Navigation;
 using LethalBots.Constants;
 using LethalBots.Managers;
 
@@ -56,6 +57,34 @@ namespace LethalBots.Patches.GameEnginePatches
                     intWithRarity.rarity = 300;
                 }
                 Plugin.LogDebug($"dungeonFlowTypes {intWithRarity.id} {intWithRarity.rarity}");
+            }
+        }
+
+        /// <summary>
+        /// This disables the <see cref="NavMeshSurface"/> object used by the bots in orbit
+        /// </summary>
+        [HarmonyPatch("BakeDunGenNavMesh")]
+        [HarmonyPrefix]
+        static void BakeDunGenNavMesh_Prefix()
+        {
+            Plugin.LogDebug("Disabling ship NavMeshSurface object. Reason: Landing on moon to gather scrap.");
+            LethalBotManager.Instance.DisableShipNavMesh();
+        }
+
+        /// <summary>
+        /// This disables the <see cref="NavMeshSurface"/> object used by the bots in orbit
+        /// </summary>
+        /// <param name="__instance"></param>
+        [HarmonyPatch("GenerateNewLevelClientRpc")]
+        [HarmonyPrefix]
+        static void GenerateNewLevelClientRpc_Prefix(RoundManager __instance)
+        {
+            // BakeDunGenNavMesh isn't called for moons that don't spawn enemies and scrap
+            // We work around this by just disabling the mesh here
+            if (!__instance.currentLevel.spawnEnemiesAndScrap)
+            {
+                Plugin.LogDebug("Disabling ship NavMeshSurface object. Reason: At Company Building.");
+                LethalBotManager.Instance.DisableShipNavMesh();
             }
         }
 

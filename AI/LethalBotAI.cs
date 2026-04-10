@@ -107,17 +107,16 @@ namespace LethalBots.AI
         public NpcController NpcController = null!;
         public LethalBotIdentity LethalBotIdentity = null!;
         public AudioSource LethalBotVoice = null!;
-        private DunGenTileTracker? dunGenTileTracker = null;
         public DunGenTileTracker DunGenTileTracker
         {
             get
             {
-                if (dunGenTileTracker == null)
+                if (field == null)
                 {
-                    dunGenTileTracker = this.gameObject.GetComponent<DunGenTileTracker>() ?? this.gameObject.AddComponent<DunGenTileTracker>();
-                    dunGenTileTracker.lethalBotAI = this;
+                    field = this.gameObject.GetComponent<DunGenTileTracker>() ?? this.gameObject.AddComponent<DunGenTileTracker>();
+                    field.lethalBotAI = this;
                 }
-                return dunGenTileTracker;
+                return field;
             }
         }
         /// <summary>
@@ -141,16 +140,15 @@ namespace LethalBots.AI
         public static EntranceTeleport[] EntrancesTeleportArray { private set; get; } = null!;
         public static QuicksandTrigger[] QuicksandArray { private set; get; } = null!;
         private static DoorLock[] doorLocksArray = null!;
-        private static ShipTeleporter? _inverseTeleporter = null;
         public static ShipTeleporter? InverseTeleporter
         {
             get
             {
-                if (_inverseTeleporter == null)
+                if (field == null)
                 {
-                    _inverseTeleporter = FindTeleporter(true);
+                    field = FindTeleporter(true);
                 }
-                return _inverseTeleporter;
+                return field;
             }
         }
         public static MineshaftElevatorController? ElevatorScript { private set; get; } = null;
@@ -247,6 +245,7 @@ namespace LethalBots.AI
             {
                 agent = gameObject.GetComponentInChildren<NavMeshAgent>();
                 agent.acceleration = float.MaxValue; // Is THIS a good idea?
+                Plugin.LogDebug($"LethalBot Agent Type ID {agent.agentTypeID}");
                 Plugin.LogDebug($"LethalBot Area Mask {agent.areaMask}");
                 agent.enabled = false;
                 skinnedMeshRenderers = gameObject.GetComponentsInChildren<SkinnedMeshRenderer>();

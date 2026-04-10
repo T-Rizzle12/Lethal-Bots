@@ -98,6 +98,18 @@ namespace LethalBots.Patches.GameEnginePatches
             LethalBotManager.Instance.SyncEndOfRoundLethalBots();
         }
 
+        /// <summary>
+        /// Patch to create the NavMesh on the ship for the bots.
+        /// </summary>
+        [HarmonyPatch("SetShipReadyToLand")]
+        [HarmonyPostfix]
+        static void SetShipReadyToLand_Postfix()
+        {
+            Plugin.LogDebug("Creating and Enabling ship NavMeshSurface object");
+            LethalBotManager.Instance.EnsureShipNavMeshBuilt();
+            LethalBotManager.Instance.EnableShipNavMesh();
+        }
+
         [HarmonyPatch("SyncAlreadyHeldObjectsClientRpc")]
         [HarmonyPostfix]
         static void SyncAlreadyHeldObjectsClientRpc_PostFix(StartOfRound __instance)

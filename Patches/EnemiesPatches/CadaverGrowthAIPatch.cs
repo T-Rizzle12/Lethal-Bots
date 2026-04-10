@@ -525,7 +525,7 @@ namespace LethalBots.Patches.EnemiesPatches
                     }
                     float num4 = 1f;
                     bool flag = false;
-                    if (!playerController.isInsideFactory && TimeOfDay.Instance.normalizedTimeOfDay < 0.6f && !Physics.Linecast(TimeOfDay.Instance.sunDirect.transform.position, StartOfRound.Instance.allPlayerScripts[i].gameplayCamera.transform.position, StartOfRound.Instance.collidersRoomDefaultAndFoliage, QueryTriggerInteraction.Ignore))
+                    if (!playerController.isInsideFactory && TimeOfDay.Instance.normalizedTimeOfDay < 0.6f && !Physics.Linecast(TimeOfDay.Instance.sunDirect.transform.position, playerController.gameplayCamera.transform.position, StartOfRound.Instance.collidersRoomDefaultAndFoliage, QueryTriggerInteraction.Ignore))
                     {
                         flag = true;
                     }
