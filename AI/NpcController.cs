@@ -132,16 +132,16 @@ namespace LethalBots.AI
         /// <summary>
         /// Initialize the <c>PlayerControllerB</c>
         /// </summary>
-        public void Awake()
+        public void Awake(bool clientJoining = false)
         {
             //Plugin.LogDebug("Awake bot controller.");
-            Init();
+            Init(clientJoining);
 
             PatchesUtil.FieldInfoPreviousAnimationStateHash.SetValue(Npc, new List<int>(new int[Npc.playerBodyAnimator.layerCount]));
             PatchesUtil.FieldInfoCurrentAnimationStateHash.SetValue(Npc, new List<int>(new int[Npc.playerBodyAnimator.layerCount]));
         }
 
-        private void Init()
+        private void Init(bool clientJoining = false)
         {
             Npc.isHostPlayerObject = false;
             Npc.serverPlayerPosition = Npc.transform.position;
@@ -153,7 +153,7 @@ namespace LethalBots.AI
 
             this.IsCameraDisabled = true;
             Npc.sprintMeter = 1f;
-            Npc.ItemSlots ??= new GrabbableObject[4]; // Only create new array if it doesn't exist!
+            if (!clientJoining) Npc.ItemSlots ??= new GrabbableObject[4]; // Only create new array if it doesn't exist!
             RightArmProceduralTargetBasePosition = Npc.rightArmProceduralTarget.localPosition;
 
             Npc.usernameBillboardText.text = Npc.playerUsername;

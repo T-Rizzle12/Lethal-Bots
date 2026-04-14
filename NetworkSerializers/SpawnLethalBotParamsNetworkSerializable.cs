@@ -8,6 +8,7 @@ namespace LethalBots.NetworkSerializers
     [Serializable]
     public struct SpawnLethalBotParamsNetworkSerializable : INetworkSerializable
     {
+        public NetworkObjectReference? LethalBotReference;
         public int IndexNextLethalBot;
         public int? IndexNextPlayerObject = null;
         public int LethalBotIdentityID;
@@ -26,6 +27,7 @@ namespace LethalBots.NetworkSerializers
         // INetworkSerializable
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
+            LethalBotNetworkSerializer.SerializeNullable(serializer, ref LethalBotReference);
             serializer.SerializeValue(ref IndexNextLethalBot);
             LethalBotNetworkSerializer.SerializeNullable(serializer, ref IndexNextPlayerObject);
             serializer.SerializeValue(ref LethalBotIdentityID);

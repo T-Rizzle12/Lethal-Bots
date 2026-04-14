@@ -36,6 +36,10 @@ namespace LethalBots.Utils
 
         #endregion
 
+        #region Method Infos
+
+        public static readonly MethodInfo PlayerLoadedServerRpcMethod = AccessTools.Method(typeof(StartOfRound), "PlayerLoadedServerRpc");
+
         public static readonly MethodInfo AllEntitiesCountMethod = SymbolExtensions.GetMethodInfo(() => AllEntitiesCount());
         public static readonly MethodInfo AllRealPlayersCountMethod = SymbolExtensions.GetMethodInfo(() => AllRealPlayersCount());
         public static readonly MethodInfo IsPlayerLocalOrLethalBotOwnerLocalMethod = SymbolExtensions.GetMethodInfo(() => IsPlayerLocalOrLethalBotOwnerLocal(new PlayerControllerB()));
@@ -54,6 +58,7 @@ namespace LethalBots.Utils
         public static readonly MethodInfo SyncJumpMethod = SymbolExtensions.GetMethodInfo(() => SyncJump(new ulong()));
         public static readonly MethodInfo SyncLandFromJumpMethod = SymbolExtensions.GetMethodInfo(() => SyncLandFromJump(new ulong(), new bool()));
 
+        #endregion
 
         public static List<CodeInstruction> InsertIsPlayerLethalBotInstructions(List<CodeInstruction> codes,
                                                                              ILGenerator generator,

@@ -12,6 +12,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
 namespace LethalBots.Patches.GameEnginePatches
@@ -143,6 +144,43 @@ namespace LethalBots.Patches.GameEnginePatches
             if (__instance.currentLevel.planetHasTime)
             { 
                 LethalBotManager.Instance.UpdateLethalBotsXP(__instance, __instance.gameStats, ___localPlayerWasMostProfitableThisRound); 
+            }
+        }
+
+        /// <summary>
+        /// Patch to mark bots as "fully loaded" when the host fully loads!
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="clientId"></param>
+        /// <param name="sceneName"></param>
+        [HarmonyPatch("SceneManager_OnLoadComplete1")]
+        [HarmonyPostfix]
+        static void SceneManager_OnLoadComplete1_Postfix(StartOfRound __instance, ulong clientId, string sceneName)
+        {
+            __instance.ClientPlayerList.TryGetValue(clientId, out var player);
+            if (player == 0)
+            {
+                LethalBotManager.Instance?.MarkBotsAsLoaded();
+            }
+        }
+
+        /// <summary>
+        /// Patch to mark bots as "fully loaded" when the host fully loads!
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="clientId"></param>
+        /// <param name="sceneName"></param>
+        [HarmonyPatch("SceneManager_OnUnloadComplete")]
+        [HarmonyPostfix]
+        static void SceneManager_OnUnloadComplete_Postfix(StartOfRound __instance, ulong clientId, string sceneName)
+        {
+            if (sceneName == __instance.currentLevel.sceneName)
+            {
+                __instance.ClientPlayerList.TryGetValue(clientId, out var player);
+                if (player == 0)
+                {
+                    LethalBotManager.Instance?.MarkBotsAsLoaded();
+                }
             }
         }
 
@@ -642,6 +680,7 @@ namespace LethalBots.Patches.GameEnginePatches
                 LethalBotManager.Instance.SyncLoadedJsonLoadoutsServerRpc(clientId);
                 LethalBotManager.Instance.SyncLoadedJsonIdentitiesServerRpc(clientId);
                 LethalBotManager.Instance.SyncLoadedJsonStockRequirementsServerRpc(clientId);
+                LethalBotManager.Instance.SyncLethalBotsToJoiningPlayerServerRpc(clientId);
                 SaveManager.Instance.SyncCurrentValuesServerRpc(clientId);
             }
         }

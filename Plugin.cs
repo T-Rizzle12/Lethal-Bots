@@ -77,9 +77,11 @@ namespace LethalBots
         public const string ModGUID = "T-Rizzle." + MyPluginInfo.PLUGIN_NAME;
 
         public static AssetBundle ModAssets = null!;
+        public static AssetBundle ShipOrbitNavMeshAssets = null!;
         internal static string DirectoryName = null!;
 
         internal static EnemyType LethalBotNPCPrefab = null!;
+        internal static GameObject ShipOrbitNavMeshPrefab = null!;
         internal static int PluginIrlPlayersCount = 0;
 
         internal static new ManualLogSource Logger = null!;
@@ -106,6 +108,7 @@ namespace LethalBots
         private void Awake()
         {
             var bundleName = "lethalbotnpcmodassets";
+            var bundleName2 = "ship_orbit_navmesh";
             DirectoryName = Path.GetDirectoryName(Info.Location);
 
             Logger = base.Logger;
@@ -167,6 +170,22 @@ namespace LethalBots
             FieldInfo fieldInfo = type.GetField("GlobalObjectIdHash", BindingFlags.NonPublic | BindingFlags.Instance);
             var networkObject = LethalBotNPCPrefab.enemyPrefab.GetComponent<NetworkObject>();
             fieldInfo.SetValue(networkObject, newGlobalObjectIdHash);
+
+            // Now for the ship navmesh bundle
+            ShipOrbitNavMeshAssets = AssetBundle.LoadFromFile(Path.Combine(DirectoryName, bundleName2));
+            if (ShipOrbitNavMeshAssets == null)
+            {
+                Logger.LogFatal($"Unknown to load custom ship navmesh assests.");
+                return;
+            }
+
+            // Load the navmesh colliders prefabs
+            ShipOrbitNavMeshPrefab = ShipOrbitNavMeshAssets.LoadAsset<GameObject>("ShipNavMeshColliders");
+            if (ShipOrbitNavMeshPrefab == null)
+            {
+                Logger.LogFatal($"ShipOrbitNavMesh prefab failed to load.");
+                return;
+            }
 
             // Register the network prefab with the randomized GlobalObjectIdHash
             LethalLib.Modules.NetworkPrefabs.RegisterNetworkPrefab(LethalBotNPCPrefab.enemyPrefab);

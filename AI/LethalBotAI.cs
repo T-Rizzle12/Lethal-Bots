@@ -161,7 +161,7 @@ namespace LethalBots.AI
             {
                 if (ElevatorScript != null)
                 {
-                    return (NpcController.Npc.transform.position - ElevatorScript.elevatorInsidePoint.position).sqrMagnitude < 2f * 2f;
+                    return ElevatorScript.elevatorBounds.bounds.Contains(NpcController.Npc.transform.position);
                 }
                 return false;
             }
@@ -170,7 +170,7 @@ namespace LethalBots.AI
         
         public LethalBotSearchRoutine searchForScrap = null!;
         private Coroutine grabObjectCoroutine = null!;
-        private Coroutine? spawnAnimationCoroutine = null;
+        internal Coroutine? spawnAnimationCoroutine = null;
         public Coroutine? useLadderCoroutine = null;
         private Coroutine? offMeshLinkCoroutine = null;
         internal Coroutine? useInteractTriggerCoroutine = null;
@@ -272,7 +272,7 @@ namespace LethalBots.AI
         /// <remarks>
         /// This method is used as an initialization and re-initialization too.
         /// </remarks>
-        public void Init(EnumSpawnAnimation enumSpawnAnimation)
+        public void Init(EnumSpawnAnimation enumSpawnAnimation, bool clientJoining = false)
         {
             // Entrances
             EntrancesTeleportArray = Object.FindObjectsOfType<EntranceTeleport>(includeInactive: false);
@@ -296,14 +296,15 @@ namespace LethalBots.AI
             LethalBotManager.Instance.RegisterItems();
 
             // Init controller
-            this.NpcController.Awake();
+            if (enumSpawnAnimation != EnumSpawnAnimation.ReinitializePlayer || clientJoining)
+                this.NpcController.Awake(clientJoining);
 
             // Init DunGenTileTracker
             DunGenTileTracker.TargetOverride = NpcController.Npc.transform;
 
             // Health
             MaxHealth = LethalBotIdentity.HpMax;
-            NpcController.Npc.health = MaxHealth;
+            NpcController.Npc.health = Mathf.Clamp(NpcController.Npc.health, 1, MaxHealth);
             healthRegenerateTimerMax = 100f / (float)MaxHealth;
             NpcController.Npc.healthRegenerateTimer = healthRegenerateTimerMax;
 
@@ -633,7 +634,7 @@ namespace LethalBots.AI
                 //Plugin.LogDebug($"{NpcController.Npc.playerUsername} --> y {(NpcController.IsTouchingGround ? NpcController.GroundHit.point.y : aiPosition.y)} MoveVector {NpcController.MoveVector}");
                 NpcController.Npc.transform.position = new Vector3(x,
                                                                    aiPosition.y,
-                                                                   z); ;
+                                                                   z);
                 this.transform.position = aiPosition;
                 NpcController.Npc.ResetFallGravity();
             }
@@ -681,9 +682,10 @@ namespace LethalBots.AI
                 if (agent.velocity.sqrMagnitude < 0.002f
                     && !agent.isOnOffMeshLink
                     && !IsInsideElevator
-                    && instanceSOR.shipHasLanded
-                    && !instanceSOR.shipIsLeaving
-                    && !instanceSOR.shipLeftAutomatically) // Mathf.Abs((NpcController.Npc.oldPlayerPosition - NpcController.Npc.transform.position).sqrMagnitude) < Const.EPSILON * Const.EPSILON
+                    && (StartOfRound.Instance.inShipPhase 
+                        || (instanceSOR.shipHasLanded
+                        && !instanceSOR.shipIsLeaving
+                        && !instanceSOR.shipLeftAutomatically))) // Mathf.Abs((NpcController.Npc.oldPlayerPosition - NpcController.Npc.transform.position).sqrMagnitude) < Const.EPSILON * Const.EPSILON
                 {
                     if (stuckTimer > 4f)
                     {
@@ -863,6 +865,7 @@ namespace LethalBots.AI
         private bool ShouldFixedMovement()
         {
             if ((NpcController.Npc.isInElevator || NpcController.Npc.isInHangarShipRoom)
+                && !StartOfRound.Instance.inShipPhase // Disable movement while in orbit for now since, the bot's movement is bugged for some reason.
                 && (StartOfRound.Instance.shipIsLeaving 
                     || !StartOfRound.Instance.shipHasLanded))
             {
@@ -5130,57 +5133,49 @@ namespace LethalBots.AI
             PlayerControllerB lethalBotController = this.NpcController.Npc;
             if (base.IsOwner && lethalBotController.isPlayerControlled)
             {
-                // HACKHAC: V80 introduced some kind of bug with the ship bounds where the player can be considered outside of the ship while being inside,
-                // this is a hacky fix to prevent the bots from falling out of the ship!
-                bool wasInHangarShipRoom = lethalBotController.isInHangarShipRoom;
+                // Do the same ship checks as the base game.
                 Vector3 playerPos = lethalBotController.transform.position;
-                Vector3 playerCameraPos = lethalBotController.gameplayCamera.transform.position;
                 Bounds shipBounds = instanceSOR.shipBounds.bounds;
-                Bounds shipStrictInnerRoomBounds = instanceSOR.shipStrictInnerRoomBounds.bounds;
-                if (!lethalBotController.isInElevator
-                    && (shipBounds.ClosestPoint(playerPos) == playerPos || shipBounds.ClosestPoint(playerCameraPos) == playerCameraPos))
+                Bounds shipInnerRoomBounds = instanceSOR.shipInnerRoomBounds.bounds;
+                if (!instanceSOR.inShipPhase && instanceSOR.shipDoorsEnabled && !instanceSOR.suckingPlayersOutOfShip)
                 {
-                    lethalBotController.isInElevator = true;
-                }
-
-                if (lethalBotController.isInElevator
-                    && !wasInHangarShipRoom
-                    && (shipStrictInnerRoomBounds.ClosestPoint(playerPos) == playerPos || shipStrictInnerRoomBounds.ClosestPoint(playerCameraPos) == playerCameraPos))//&& instanceSOR.shipInnerRoomBounds.bounds.Contains(lethalBotController.transform.position)
-                {
-                    lethalBotController.isInHangarShipRoom = true;
-                    this.isInsidePlayerShip = true;
-                }
-                else if (lethalBotController.isInElevator
-                    && shipBounds.ClosestPoint(playerPos) != playerPos
-                    && shipBounds.ClosestPoint(playerCameraPos) != playerCameraPos)
-                {
-                    lethalBotController.isInElevator = false;
-                    lethalBotController.isInHangarShipRoom = false;
-                    this.isInsidePlayerShip = false;
-                    wasInHangarShipRoom = false;
-                    if (!this.AreHandsFree())
+                    const float OUT_OF_BOUNDS_Y_RANGE = -600f;
+                    if (lethalBotController.transform.position.y < OUT_OF_BOUNDS_Y_RANGE)
                     {
-                        lethalBotController.SetItemInElevator(droppedInShipRoom: false, droppedInElevator: false, HeldItem);
+                        lethalBotController.KillPlayer(Vector3.zero, spawnBody: false, CauseOfDeath.Gravity);
                     }
-
-                    /*if (this.HasSomethingInInventory())
+                    else if (NpcController.IsTouchingGround)
                     {
-                        for (int i = 0; i < this.NpcController.Npc.ItemSlots.Length; i++)
+                        bool isInElevator = shipBounds.Contains(playerPos + Vector3.up * 0.25f);
+                        if (lethalBotController.isInElevator != isInElevator)
                         {
-                            if (this.NpcController.Npc.ItemSlots[i] != null
-                                && this.NpcController.Npc.ItemSlots[i].isHeld)
+                            lethalBotController.isInElevator = isInElevator;
+                            if (!isInElevator)
                             {
-                                this.NpcController.Npc.SetItemInElevator(droppedInShipRoom: false, droppedInElevator: false, this.NpcController.Npc.ItemSlots[i]);
+                                lethalBotController.isInHangarShipRoom = false;
+                                this.isInsidePlayerShip = false;
+                            }
+                            lethalBotController.SetAllItemsInElevator(inShipRoom: lethalBotController.isInHangarShipRoom, inElevator: isInElevator);
+                        }
+                        else
+                        {
+                            bool isInHangarShipRoom = shipInnerRoomBounds.Contains(playerPos + Vector3.up * 0.25f);
+                            if (isInElevator && lethalBotController.isInHangarShipRoom != isInHangarShipRoom)
+                            {
+                                lethalBotController.isInHangarShipRoom = isInHangarShipRoom;
+                                this.isInsidePlayerShip = isInHangarShipRoom;
+                                lethalBotController.SetAllItemsInElevator(inShipRoom: lethalBotController.isInHangarShipRoom, inElevator: isInElevator);
                             }
                         }
-                    }*/
+                    }
                 }
-
-                if (wasInHangarShipRoom != lethalBotController.isInHangarShipRoom
-                    && !lethalBotController.isInHangarShipRoom
-                    && !this.AreHandsFree())
+                else if (!instanceSOR.suckingPlayersOutOfShip)
                 {
-                    lethalBotController.SetItemInElevator(droppedInShipRoom: false, droppedInElevator: true, HeldItem);
+                    // Technically the base game checks shipInnerRoomBounds, but shipBounds should work just fine
+                    if (instanceSOR.testRoom == null && !shipBounds.Contains(playerPos + Vector3.up * 0.25f))
+                    {
+                        lethalBotController.TeleportPlayer(StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(instanceSOR, (int)lethalBotController.playerClientId, true));
+                    }
                 }
 
                 if (lethalBotController.overridePhysicsParent != null)
@@ -8621,6 +8616,7 @@ namespace LethalBots.AI
             switch (enumSpawnAnimation)
             {
                 case EnumSpawnAnimation.None:
+                case EnumSpawnAnimation.ReinitializePlayer:
                     return StartCoroutine(CoroutineNoSpawnAnimation());
 
                 case EnumSpawnAnimation.OnlyPlayerSpawnAnimation:
@@ -9423,15 +9419,15 @@ namespace LethalBots.AI
         #region Bots suits
 
         [ServerRpc(RequireOwnership = false)]
-        public void ChangeSuitLethalBotServerRpc(ulong idLethalBotController, int suitID)
+        public void ChangeSuitLethalBotServerRpc(ulong idLethalBotController, int suitID, bool playAudio = true)
         {
-            ChangeSuitLethalBotClientRpc(idLethalBotController, suitID);
+            ChangeSuitLethalBotClientRpc(idLethalBotController, suitID, playAudio);
         }
 
         [ClientRpc]
-        private void ChangeSuitLethalBotClientRpc(ulong idLethalBotController, int suitID)
+        private void ChangeSuitLethalBotClientRpc(ulong idLethalBotController, int suitID, bool playAudio = true)
         {
-            ChangeSuitLethalBot(idLethalBotController, suitID, playAudio: true);
+            ChangeSuitLethalBot(idLethalBotController, suitID, playAudio: playAudio);
         }
 
         public void ChangeSuitLethalBot(ulong idLethalBotController, int suitID, bool playAudio = false)
@@ -9439,6 +9435,13 @@ namespace LethalBots.AI
             if (suitID > StartOfRound.Instance.unlockablesList.unlockables.Count())
             {
                 suitID = 0;
+            }
+
+            UnlockableItem unlockableItem = StartOfRound.Instance.unlockablesList.unlockables[suitID];
+            if (!unlockableItem.hasBeenUnlockedByPlayer 
+                && !unlockableItem.alreadyUnlocked)
+            {
+                return;
             }
 
             PlayerControllerB lethalBotController = StartOfRound.Instance.allPlayerScripts[idLethalBotController];

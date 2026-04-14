@@ -62,6 +62,7 @@ namespace LethalBots.AI.AIStates
 
             // Wait for ship to land before doing anything!
             if ((npcController.Npc.isInElevator || npcController.Npc.isInHangarShipRoom)
+                && !StartOfRound.Instance.inShipPhase
                 && (StartOfRound.Instance.shipIsLeaving
                     || !StartOfRound.Instance.shipHasLanded))
             {

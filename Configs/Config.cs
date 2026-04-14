@@ -25,6 +25,7 @@ namespace LethalBots.Configs
     {
         // Bot settings
         [SyncedEntryField] public SyncedEntry<int> MaxBotsAllowedToSpawn;
+        [SyncedEntryField] public SyncedEntry<bool> AllowBotsInOrbit;
         public ConfigEntry<bool> DisableNameBillBoards;
 
         // Identity  
@@ -81,6 +82,11 @@ namespace LethalBots.Configs
                                            defaultValue: ConfigConst.DEFAULT_MAX_BOTS_AVAILABLE,
                                            new ConfigDescription("Be aware of possible performance problems when more than ~16 bots spawned",
                                                                  new AcceptableValueRange<int>(ConfigConst.MIN_BOTS_AVAILABLE, ConfigConst.MAX_BOTS_AVAILABLE)));
+
+            AllowBotsInOrbit = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMain,
+                                            "Allow bots in orbit (YOU MUST HAVE NavmeshInCompany!)",
+                                            defaultVal: true,
+                                            "Are bots allowed to stay on the ship while its in orbit? If false, bots will automatically leave and rejoin between rounds.");
 
             DisableNameBillBoards = cfg.Bind(ConfigConst.ConfigSectionMain,
                                             "Should bots have their name tags disabled (Client only)",

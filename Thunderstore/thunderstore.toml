@@ -30,6 +30,10 @@ source = "../UnityProject/AssetBundles/StandaloneWindows/lethalbotnpcmodassets"
 target = "plugins/TRizzle-LethalBot/"
 
 [[build.copy]]
+source = "../UnityProject/AssetBundles/StandaloneWindows/ship_orbit_navmesh"
+target = "plugins/TRizzle-LethalBot/"
+
+[[build.copy]]
 source = "./CHANGELOG.md"
 target = "/"
 

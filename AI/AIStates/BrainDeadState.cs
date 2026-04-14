@@ -22,6 +22,7 @@ namespace LethalBots.AI.AIStates
 
             // Don't need to do the rest of the logic if we already voted to leave!
             if (hasVotedToLeave 
+                || StartOfRound.Instance.inShipPhase
                 || StartOfRound.Instance.shipIsLeaving 
                 || TimeOfDay.Instance.shipLeavingAlertCalled)
             {

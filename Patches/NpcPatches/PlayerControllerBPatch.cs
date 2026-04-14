@@ -582,6 +582,25 @@ namespace LethalBots.Patches.NpcPatches
             return true;
         }
 
+        [HarmonyPatch("SpawnPlayerAnimation")]
+        [HarmonyPrefix]
+        static bool SpawnPlayerAnimation_PreFix(PlayerControllerB __instance)
+        {
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
+            if (lethalBotAI == null)
+            {
+                return true;
+            }
+
+            if (lethalBotAI.spawnAnimationCoroutine != null)
+            {
+                lethalBotAI.StopCoroutine(lethalBotAI.spawnAnimationCoroutine);
+            }
+
+            lethalBotAI.spawnAnimationCoroutine = lethalBotAI.BeginLethalBotSpawnAnimation(EnumSpawnAnimation.OnlyPlayerSpawnAnimation);
+            return false;
+        }
+
         [HarmonyPatch("TeleportPlayer")]
         [HarmonyPrefix]
         static bool TeleportPlayer_PreFix(PlayerControllerB __instance,
