@@ -219,6 +219,8 @@ namespace LethalBots.Managers
                                     && shipNavMeshSurface.navMeshData != null
                                     && shipNavMeshInstance != null;
         private bool shipNavMeshActive = false;
+        private NavMeshObstacle landingShipNavObstacle = null!;
+        private (float height, float radius) landingShipNavObstacleInfo = (0f, 0f);
 
         public Dictionary<EnemyAI, INoiseListener> DictEnemyAINoiseListeners = new Dictionary<EnemyAI, INoiseListener>();
 
@@ -1981,6 +1983,15 @@ namespace LethalBots.Managers
                         Plugin.LogInfo("Building ship navmesh...");
                         shipNavMeshSurface.BuildNavMesh();
                         Plugin.LogInfo("Navmesh built: " + shipNavMeshSurface.navMeshData);
+                    }
+                }
+                else if (message.Contains("get navobstacles"))
+                {
+                    NavMeshObstacle[] navMeshObstacles = Object.FindObjectsOfType<NavMeshObstacle>();
+                    foreach (NavMeshObstacle obstacle in navMeshObstacles)
+                    {
+                        Plugin.LogInfo($"Obstacle: {obstacle} with name {obstacle.name}: isEnabled {obstacle.enabled}");
+                        //Object.Destroy(obstacle);
                     }
                 }
                 //else if (message.Contains("time info"))
@@ -4031,6 +4042,7 @@ namespace LethalBots.Managers
             // Setup our navmesh prefab
             GameObject? enviormentObject = GameObject.Find("Environment");
             shipNavMeshInstance ??= Object.Instantiate(Plugin.ShipOrbitNavMeshPrefab);
+            shipNavMeshInstance.SetActive(true);
             shipNavMeshInstance.transform.SetParent(StartOfRound.Instance.elevatorTransform, true);
 
             // Make sure our prefab is lined up correctly!
@@ -4063,7 +4075,22 @@ namespace LethalBots.Managers
             triangulation = NavMesh.CalculateTriangulation();
             Plugin.LogDebug($"After NavMesh vertices: {triangulation.vertices.Length}");
             Plugin.LogDebug($"Ship pos: {StartOfRound.Instance.elevatorTransform.position}");
-            Plugin.LogDebug($"NavMesh bounds center: {shipNavMeshSurface.navMeshData.sourceBounds.center}");
+            Plugin.LogDebug($"NavMesh pos: {shipNavMeshSurface.navMeshData.position}");
+
+            NavMeshObstacle[] navMeshObstacles = Object.FindObjectsOfType<NavMeshObstacle>();
+            foreach (NavMeshObstacle obstacle in navMeshObstacles)
+            {
+                // HACKHACK: Apprently LandingShipNavObstacle constantly renables itself. I have NO idea why, 
+                // so for now we just set its height and radius to zero and restore it upon landing!
+                Plugin.LogInfo($"Obstacle: {obstacle} with name {obstacle.name}: isEnabled {obstacle.enabled}");
+                if (obstacle.name == "LandingShipNavObstacle")
+                {
+                    landingShipNavObstacle = obstacle;
+                    landingShipNavObstacleInfo = (obstacle.height, obstacle.radius);
+                    obstacle.height = 0f;
+                    obstacle.radius = 0f;
+                }
+            }
 
             // Mark mesh as active since BuildNavMesh calls AddData internally
             shipNavMeshActive = true;
@@ -4073,7 +4100,10 @@ namespace LethalBots.Managers
         {
             if (!shipNavMeshBuilt || shipNavMeshActive) return;
 
+            shipNavMeshInstance?.SetActive(true);
             shipNavMeshSurface.AddData();
+            landingShipNavObstacle.height = 0f;
+            landingShipNavObstacle.radius = 0f;
             shipNavMeshActive = true;
         }
 
@@ -4081,7 +4111,10 @@ namespace LethalBots.Managers
         {
             if (!shipNavMeshBuilt || !shipNavMeshActive) return;
 
+            shipNavMeshInstance?.SetActive(false);
             shipNavMeshSurface.RemoveData();
+            landingShipNavObstacle.height = landingShipNavObstacleInfo.height;
+            landingShipNavObstacle.radius = landingShipNavObstacleInfo.radius;
             shipNavMeshActive = false;
         }
 
