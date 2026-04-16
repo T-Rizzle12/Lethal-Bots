@@ -69,34 +69,6 @@ namespace LethalBots.Patches.GameEnginePatches
         }
 
         /// <summary>
-        /// This disables the <see cref="NavMeshSurface"/> object used by the bots in orbit
-        /// </summary>
-        [HarmonyPatch("BakeDunGenNavMesh")]
-        [HarmonyPrefix]
-        static void BakeDunGenNavMesh_Prefix()
-        {
-            Plugin.LogDebug("Disabling ship NavMeshSurface object. Reason: Landing on moon to gather scrap.");
-            LethalBotManager.Instance.DisableShipNavMesh();
-        }
-
-        /// <summary>
-        /// This disables the <see cref="NavMeshSurface"/> object used by the bots in orbit
-        /// </summary>
-        /// <param name="__instance"></param>
-        [HarmonyPatch("GenerateNewLevelClientRpc")]
-        [HarmonyPrefix]
-        static void GenerateNewLevelClientRpc_Prefix(RoundManager __instance)
-        {
-            // BakeDunGenNavMesh isn't called for moons that don't spawn enemies and scrap
-            // We work around this by just disabling the mesh here
-            if (!__instance.currentLevel.spawnEnemiesAndScrap)
-            {
-                Plugin.LogDebug("Disabling ship NavMeshSurface object. Reason: At Company Building.");
-                LethalBotManager.Instance.DisableShipNavMesh();
-            }
-        }
-
-        /// <summary>
         /// This spawns the bots right as the ship starts to land!
         /// </summary>
         [HarmonyPatch("FinishGeneratingNewLevelClientRpc")]
@@ -113,7 +85,17 @@ namespace LethalBots.Patches.GameEnginePatches
 
             // FIXME: I need to find out why this is called twice for the host!
             //Plugin.LogInfo("FinishGeneratingNewLevelClientRpc called!");
+            LethalBotManager.Instance?.DisableShipNavMesh("Landing on a moon.");
             LethalBotManager.Instance?.SpawnLethalBotsAtShip();
+        }
+
+        [HarmonyPatch("RefreshEnemiesList")]
+        [HarmonyPostfix]
+        static void RefreshEnemiesList_PostFix(RoundManager __instance)
+        {
+            // RefreshEnemiesList catches the bots since they use EnemyAI objects, this removes them from the list!
+            __instance.SpawnedEnemies.RemoveAll(enemy => enemy is LethalBotAI);
+            __instance.numberOfEnemiesInScene = __instance.SpawnedEnemies.Count;
         }
 
         [HarmonyPatch("UnloadSceneObjectsEarly")]

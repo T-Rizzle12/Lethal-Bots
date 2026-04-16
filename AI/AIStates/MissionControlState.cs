@@ -306,14 +306,15 @@ namespace LethalBots.AI.AIStates
                         {
                             return;
                         }
-                        if (npcController.Npc.playersManager.shipHasLanded
-                            && !npcController.Npc.playersManager.shipIsLeaving
-                            && !npcController.Npc.playersManager.shipLeftAutomatically)
+                        StartOfRound instanceSOR = npcController.Npc.playersManager;
+                        if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
+                            && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
                             StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
                             if (startMatchLever != null)
                             {
                                 ai.PullShipLever(startMatchLever);
+                                playerRequestLeave = false;
                             }
                             //npcController.Npc.playersManager.ShipLeaveAutomatically(true);
                         }
@@ -345,14 +346,15 @@ namespace LethalBots.AI.AIStates
                         {
                             return;
                         }
-                        if (npcController.Npc.playersManager.shipHasLanded
-                            && !npcController.Npc.playersManager.shipIsLeaving
-                            && !npcController.Npc.playersManager.shipLeftAutomatically)
+                        StartOfRound instanceSOR = npcController.Npc.playersManager;
+                        if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
+                            && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
                             StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
                             if (startMatchLever != null)
                             {
                                 ai.PullShipLever(startMatchLever);
+                                playerRequestLeave = false;
                             }
                             //npcController.Npc.playersManager.ShipLeaveAutomatically(true);
                         }

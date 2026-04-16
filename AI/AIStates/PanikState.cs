@@ -519,7 +519,7 @@ namespace LethalBots.AI.AIStates
         private bool CounterEnemy(EnemyAI CurrentEnemy)
         {
             // Look at the enemy if they are a coil head!
-            if (CurrentEnemy is SpringManAI || CurrentEnemy is FlowermanAI)
+            if (CurrentEnemy is SpringManAI || CurrentEnemy is FlowermanAI || CurrentEnemy is PumaAI)
             {
                 npcController.OrderToLookAtPosition(CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
             }

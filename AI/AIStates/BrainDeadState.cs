@@ -2,6 +2,7 @@
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.Utils.Helpers;
 using UnityEngine;
 
 namespace LethalBots.AI.AIStates
@@ -9,7 +10,7 @@ namespace LethalBots.AI.AIStates
     public class BrainDeadState : AIState
     {
         private bool hasVotedToLeave;
-        private float voteInterval;
+        private CountdownTimer voteIntervalTimer = new CountdownTimer();
         public BrainDeadState(LethalBotAI ai) : base(ai)
         {
             hasVotedToLeave = false;
@@ -21,22 +22,23 @@ namespace LethalBots.AI.AIStates
             ai.StopMoving();
 
             // Don't need to do the rest of the logic if we already voted to leave!
+            StartOfRound instanceSOR = StartOfRound.Instance;
             if (hasVotedToLeave 
-                || StartOfRound.Instance.inShipPhase
-                || StartOfRound.Instance.shipIsLeaving 
+                || LethalBotManager.AreWeInOrbit(instanceSOR)
+                || instanceSOR.shipIsLeaving 
                 || TimeOfDay.Instance.shipLeavingAlertCalled)
             {
                 return;
             }
 
             // Only check if we need to vote every few seconds!
-            if (voteInterval > 0f)
+            if (voteIntervalTimer.HasStarted() && !voteIntervalTimer.Elapsed())
             {
-                voteInterval -= ai.AIIntervalTime;
                 return;
             }
 
-            voteInterval = Random.Range(Const.MIN_TIME_TO_VOTE, Const.MAX_TIME_TO_VOTE);
+            // Select a random timeframe
+            voteIntervalTimer.Start(Random.Range(Const.MIN_TIME_TO_VOTE, Const.MAX_TIME_TO_VOTE));
 
             // Only dead players can vote to leave early!
             if (npcController.Npc.isPlayerControlled || !npcController.Npc.isPlayerDead)
@@ -79,10 +81,9 @@ namespace LethalBots.AI.AIStates
             if (allLivingPlayersOnShip && (allHumanPlayersDead || isShipCompromised))
             {
                 if (ShouldReturnToShip() 
-                    || (StartOfRound.Instance.livingPlayers <= 1 && isShipCompromised))
+                    || (instanceSOR.livingPlayers <= 1 && isShipCompromised))
                 {
                     Plugin.LogDebug($"Bot {npcController.Npc.playerUsername} is attempting to vote to leave early!");
-                    //ai.LethalBotVoteToLeaveEarlyServerRpc();
                     TimeOfDay.Instance.SetShipLeaveEarlyServerRpc();
                     hasVotedToLeave = true;
                 }
@@ -111,7 +112,7 @@ namespace LethalBots.AI.AIStates
             }
             else
             {
-                ai.LethalBotIdentity.Voice.StopAudioFadeOut();
+                ai.LethalBotIdentity.Voice.TryStopAudioFadeOut();
             }
         }
 

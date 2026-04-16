@@ -108,7 +108,7 @@ namespace LethalBots.Patches.GameEnginePatches
         {
             Plugin.LogDebug("Creating and Enabling ship NavMeshSurface object");
             LethalBotManager.Instance.EnsureShipNavMeshBuilt();
-            LethalBotManager.Instance.EnableShipNavMesh();
+            LethalBotManager.Instance.EnableShipNavMesh("Now in orbit!");
         }
 
         [HarmonyPatch("SyncAlreadyHeldObjectsClientRpc")]
@@ -127,6 +127,39 @@ namespace LethalBots.Patches.GameEnginePatches
                 if (lethalBotController != null && lethalBotController.currentlyHeldObjectServer != null)
                 {
                     lethalBotAI?.HeldItem = lethalBotController.currentlyHeldObjectServer;
+                }
+            }
+        }
+
+        [HarmonyPatch("SuckLocalPlayerOutOfShipDoor")]
+        [HarmonyPostfix]
+        static void SuckLocalPlayerOutOfShipDoor_PostFix(StartOfRound __instance)
+        {
+            foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal())
+            {
+                PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
+                if (lethalBotController != null)
+                {
+                    lethalBotController.fallValue = 0f;
+                    lethalBotController.fallValueUncapped = 0f;
+                    if ((lethalBotController.transform.position - __instance.middleOfShipNode.position).sqrMagnitude < 25f * 25f)
+                    {
+                        if (Physics.Linecast(lethalBotController.transform.position, __instance.shipDoorNode.position, __instance.collidersAndRoomMask))
+                        {
+                            lethalBotController.externalForces = Vector3.Normalize(__instance.middleOfShipNode.position - lethalBotController.transform.position) * 350f;
+                        }
+                        else
+                        {
+                            lethalBotController.externalForces = Vector3.Normalize(__instance.middleOfSpaceNode.position - lethalBotController.transform.position) * (350f / Vector3.Distance(__instance.moveAwayFromShipNode.position, lethalBotController.transform.position)) * (__instance.suckingPower / 2.25f);
+                        }
+                        continue;
+                    }
+                    if (!lethalBotAI.choseRandomFlyDirForPlayer)
+                    {
+                        lethalBotAI.choseRandomFlyDirForPlayer = true;
+                        lethalBotAI.randomFlyDir = new Vector3(-1f, 0f, UnityEngine.Random.Range(-0.7f, 0.7f));
+                    }
+                    lethalBotController.externalForces = Vector3.Scale(Vector3.one, lethalBotAI.randomFlyDir) * 70f;
                 }
             }
         }
@@ -677,10 +710,12 @@ namespace LethalBots.Patches.GameEnginePatches
                 && !__instance.IsHost
                 && __instance.NetworkManager.LocalClientId == clientId)
             {
-                LethalBotManager.Instance.SyncLoadedJsonLoadoutsServerRpc(clientId);
-                LethalBotManager.Instance.SyncLoadedJsonIdentitiesServerRpc(clientId);
-                LethalBotManager.Instance.SyncLoadedJsonStockRequirementsServerRpc(clientId);
-                LethalBotManager.Instance.SyncLethalBotsToJoiningPlayerServerRpc(clientId);
+                LethalBotManager lethalBotManager = LethalBotManager.Instance;
+                lethalBotManager.SyncLoadedJsonLoadoutsServerRpc(clientId);
+                lethalBotManager.SyncLoadedJsonIdentitiesServerRpc(clientId);
+                lethalBotManager.SyncLoadedJsonStockRequirementsServerRpc(clientId);
+                lethalBotManager.SyncLethalBotsToJoiningPlayerServerRpc(clientId);
+                lethalBotManager.RequestPlayerCountServerRpc(clientId);
                 SaveManager.Instance.SyncCurrentValuesServerRpc(clientId);
             }
         }

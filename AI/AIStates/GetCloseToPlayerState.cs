@@ -61,10 +61,11 @@ namespace LethalBots.AI.AIStates
             }
 
             // Wait for ship to land before doing anything!
+            StartOfRound instanceSOR = StartOfRound.Instance;
             if ((npcController.Npc.isInElevator || npcController.Npc.isInHangarShipRoom)
-                && !StartOfRound.Instance.inShipPhase
-                && (StartOfRound.Instance.shipIsLeaving
-                    || !StartOfRound.Instance.shipHasLanded))
+                && !LethalBotManager.AreWeInOrbit(instanceSOR)
+                && (LethalBotManager.IsTheShipLeaving(instanceSOR)
+                    || !LethalBotManager.IsTheShipLanded(instanceSOR)))
             {
                 return;
             }

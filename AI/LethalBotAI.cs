@@ -12,6 +12,7 @@ using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using LethalInternship.AI;
 using ReservedItemSlotCore;
 using ReservedItemSlotCore.Data;
 using ReservedItemSlotCore.Patches;
@@ -32,6 +33,7 @@ using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 using Quaternion = UnityEngine.Quaternion;
 using Vector2 = UnityEngine.Vector2;
@@ -132,6 +134,10 @@ namespace LethalBots.AI
         public int BotId = -1;
         public int MaxHealth = 100;
         public float TimeSinceTeleporting = 0f;
+
+        // Fired logic!
+        internal bool choseRandomFlyDirForPlayer;
+        internal Vector3 randomFlyDir;
 
         public TimedTouchingGroundCheck IsTouchingGroundTimedCheck = null!;
 
@@ -248,6 +254,7 @@ namespace LethalBots.AI
                 Plugin.LogDebug($"LethalBot Agent Type ID {agent.agentTypeID}");
                 Plugin.LogDebug($"LethalBot Area Mask {agent.areaMask}");
                 agent.enabled = false;
+                enemyType.WaterType = EnemyWaterType.Amphibious;
                 skinnedMeshRenderers = gameObject.GetComponentsInChildren<SkinnedMeshRenderer>();
                 meshRenderers = gameObject.GetComponentsInChildren<MeshRenderer>();
                 if (creatureAnimator == null)
@@ -847,6 +854,12 @@ namespace LethalBots.AI
                 }
             }
 
+            if (StartOfRound.Instance.suckingPlayersOutOfShip)
+            {
+                Plugin.LogDebug($"{NpcController.Npc.playerUsername} being sucked out of the ship!");
+                return true;
+            }
+
             if (NpcController.Npc.externalForces.y > 7.1f)
             {
                 Plugin.LogDebug($"{NpcController.Npc.playerUsername} externalForces {NpcController.Npc.externalForces.y}");
@@ -864,10 +877,11 @@ namespace LethalBots.AI
 
         private bool ShouldFixedMovement()
         {
+            StartOfRound instanceSOR = StartOfRound.Instance;
             if ((NpcController.Npc.isInElevator || NpcController.Npc.isInHangarShipRoom)
-                && !StartOfRound.Instance.inShipPhase // Disable movement while in orbit for now since, the bot's movement is bugged for some reason.
-                && (StartOfRound.Instance.shipIsLeaving 
-                    || !StartOfRound.Instance.shipHasLanded))
+                && !LethalBotManager.AreWeInOrbit(instanceSOR)
+                && (LethalBotManager.IsTheShipLeaving(instanceSOR)
+                    || !LethalBotManager.IsTheShipLanded(instanceSOR)))
             {
                 return true;
             }
@@ -2776,7 +2790,7 @@ namespace LethalBots.AI
                 }
                 return hasRangedWeapon || isHumanPlayer || isEnemyStunned;
             }
-            else if (enemy is CadaverBloomAI)
+            else if (enemy is CadaverBloomAI || enemy is PumaAI)
             {
                 // Slightly special in that the mission controller bot will give their life to protect the ship!
                 return hasRangedWeapon || isHumanPlayer || isEnemyStunned || enemy.isInsidePlayerShip;
@@ -5171,8 +5185,14 @@ namespace LethalBots.AI
                 }
                 else if (!instanceSOR.suckingPlayersOutOfShip)
                 {
-                    // Technically the base game checks shipInnerRoomBounds, but shipBounds should work just fine
-                    if (instanceSOR.testRoom == null && !shipBounds.Contains(playerPos + Vector3.up * 0.25f))
+                    // Cleanup, in case we were previously fired!
+                    if (choseRandomFlyDirForPlayer)
+                    {
+                        choseRandomFlyDirForPlayer = false;
+                        lethalBotController.TeleportPlayer(StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(instanceSOR, (int)lethalBotController.playerClientId, false));
+                    }
+
+                    if (instanceSOR.testRoom == null && !shipInnerRoomBounds.Contains(playerPos + Vector3.up * 0.25f))
                     {
                         lethalBotController.TeleportPlayer(StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(instanceSOR, (int)lethalBotController.playerClientId, true));
                     }
@@ -8948,6 +8968,13 @@ namespace LethalBots.AI
         /// </summary>
         private void EndGame(StartMatchLever startMatchLever)
         {
+            // Kinda hard to use the ship lever when dead
+            if (!NpcController.Npc.isPlayerControlled
+                || isEnemyDead
+                || NpcController.Npc.isPlayerDead)
+            {
+                return;
+            }
             Plugin.LogDebug($"Bot {NpcController.Npc.playerUsername} has successfuly pulled the ship lever to end the round!");
 
             StartOfRound playersManager = startMatchLever.playersManager;
@@ -8992,6 +9019,18 @@ namespace LethalBots.AI
         }
 
         /// <summary>
+        /// setStartingShipEffectsMethod is private, so we use reflection here to call it
+        /// </summary>
+        /// <remarks>
+        /// TODO: We should either use a delegate function or a reverse patch in the future
+        /// </remarks>
+        private static MethodInfo setStartingShipEffectsMethod = AccessTools.Method(typeof(StartMatchLever), "SetStartingShipEffects");
+
+        private static MethodInfo pullLeverAnimMethod = AccessTools.Method(typeof(StartMatchLever), "PullLeverAnim");
+
+        private static AccessTools.FieldRef<StartMatchLever, bool> clientSentRPCField = AccessTools.FieldRefAccess<bool>(typeof(StartMatchLever), "clientSentRPC");
+
+        /// <summary>
         /// Carbon copy of <see cref="StartMatchLever.LeverAnimation"/>, but with support for bots
         /// </summary>
         /// <param name="startMatchLever"></param>
@@ -9006,68 +9045,34 @@ namespace LethalBots.AI
             }
 
             StartOfRound playersManager = StartOfRound.Instance;
-            if (!playersManager.travellingToNewLevel && (!playersManager.inShipPhase || playersManager.connectedPlayersAmount + 1 > 1 || startMatchLever.singlePlayerEnabled))
-            {
-                if (playersManager.shipHasLanded)
-                {
-                    PullLeverAnim(startMatchLever, leverPulled: false);
-                    PlayLeverPullEffectsServerRpc(startMatchLever.NetworkObject, leverPulled: false, true);
-                }
-                else if (playersManager.inShipPhase)
-                {
-                    PullLeverAnim(startMatchLever, leverPulled: true);
-                    PlayLeverPullEffectsServerRpc(startMatchLever.NetworkObject, leverPulled: true, true);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Carbon copy of <see cref="StartMatchLever.PullLeverAnim"/>, but with support for bots
-        /// </summary>
-        /// <param name="startMatchLever"></param>
-        /// <param name="leverPulled"></param>
-        private void PullLeverAnim(StartMatchLever startMatchLever, bool leverPulled)
-        {
-            Plugin.LogDebug($"Lever animation: setting bool to {leverPulled}");
-            startMatchLever.leverAnimatorObject.SetBool("pullLever", leverPulled);
-            startMatchLever.leverHasBeenPulled = leverPulled;
-            startMatchLever.triggerScript.interactable = false;
-        }
-
-        /// <summary>
-        /// Carbon copy of <see cref="StartMatchLever.PlayLeverPullEffectsServerRpc"/>, but with support for bots
-        /// </summary>
-        /// <param name="networkObjectReference"></param>
-        /// <param name="leverPulled"></param>
-        /// <param name="skipOwner"></param>
-        [ServerRpc(RequireOwnership = false)]
-        public void PlayLeverPullEffectsServerRpc(NetworkObjectReference networkObjectReference, bool leverPulled, bool skipOwner = false)
-        {
-            PlayLeverPullEffectsClientRpc(networkObjectReference, leverPulled, skipOwner);
-        }
-
-        /// <summary>
-        /// Carbon copy of <see cref="StartMatchLever.PlayLeverPullEffectsClientRpc"/>, but with support for bots
-        /// </summary>
-        /// <param name="networkObjectReference"></param>
-        /// <param name="leverPulled"></param>
-        /// <param name="skipOwner"></param>
-        [ClientRpc]
-        private void PlayLeverPullEffectsClientRpc(NetworkObjectReference networkObjectReference, bool leverPulled, bool skipOwner = false)
-        {
-            // Don't call this for the owner
-            if (skipOwner && IsOwner)
+            if (playersManager.travellingToNewLevel)
             {
                 return;
             }
-            if (networkObjectReference.TryGet(out NetworkObject networkObject, null))
+            if (playersManager.inShipPhase && playersManager.connectedPlayersAmount + 1 <= 1 && !startMatchLever.singlePlayerEnabled)
             {
-                StartMatchLever startMatchLever = networkObject.GetComponent<StartMatchLever>();
-                PullLeverAnim(startMatchLever, leverPulled);
+                return;
             }
-            else
+            if (playersManager.beganLoadingNewLevel)
             {
-                Plugin.LogError($"PlayLeverPullEffectsClientRpc for client {GameNetworkManager.Instance.localPlayerController.playerUsername}: Unknown to get network object from network object reference (PlayLeverPullEffects RPC)");
+                return;
+            }
+            if (SceneManager.sceneCount <= 1 || !playersManager.inShipPhase)
+            {
+                // Got to love the amount of reflection I have todo here, but oh well
+                if (playersManager.shipHasLanded)
+                {
+                    pullLeverAnimMethod.Invoke(startMatchLever, new object[] { false });
+                    clientSentRPCField.Invoke(startMatchLever) = true;
+                    startMatchLever.PlayLeverPullEffectsServerRpc(leverPulled: false);
+                }
+                else if (playersManager.inShipPhase)
+                {
+                    pullLeverAnimMethod.Invoke(startMatchLever, new object[] { true });
+                    clientSentRPCField.Invoke(startMatchLever) = true;
+                    setStartingShipEffectsMethod.Invoke(startMatchLever, null);
+                    startMatchLever.PlayLeverPullEffectsServerRpc(leverPulled: true);
+                }
             }
         }
 
