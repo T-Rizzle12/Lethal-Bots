@@ -105,7 +105,7 @@ namespace LethalBots.AI
         private bool disabledJetpackControlsThisFrame;
 
         private bool wasUnderwaterLastFrame;
-        public float DrowningTimer { private set; get; } = 1f;
+        public float DrowningTimer { internal set; get; } = 1f;
         private bool setFaceUnderwater;
         private float syncUnderwaterInterval;
 

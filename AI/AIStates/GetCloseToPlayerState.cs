@@ -109,7 +109,7 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
-            if (!ai.PlayerIsTargetable(ai.targetPlayer, false, true))
+            if (!ai.PlayerIsTargetable(ai.targetPlayer, false, true, false))
             {
                 // Target is not available anymore
                 ai.State = new SearchingForPlayerState(this);

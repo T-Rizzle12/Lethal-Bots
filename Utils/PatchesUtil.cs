@@ -32,13 +32,15 @@ namespace LethalBots.Utils
 
         public static readonly AccessTools.FieldRef<PlayerControllerB, Vector3> positionOfDeathField = AccessTools.FieldRefAccess<Vector3>(typeof(PlayerControllerB), "positionOfDeath");
         public static readonly AccessTools.FieldRef<PlayerControllerB, float> timeSinceSwitchingSlotsField = AccessTools.FieldRefAccess<float>(typeof(PlayerControllerB), "timeSinceSwitchingSlots");
-        public static readonly AccessTools.FieldRef<PlayerControllerB, float> slimeSlipAudioVolumeSyncFiled = AccessTools.FieldRefAccess<float>(typeof(PlayerControllerB), "slimeSlipAudioVolumeSync");
+        public static readonly AccessTools.FieldRef<PlayerControllerB, float> slimeSlipAudioVolumeSyncField = AccessTools.FieldRefAccess<float>(typeof(PlayerControllerB), "slimeSlipAudioVolumeSync");
+        public static readonly AccessTools.FieldRef<EntranceTeleport, InteractTrigger> triggerScriptField = AccessTools.FieldRefAccess<InteractTrigger>(typeof(EntranceTeleport), "triggerScript");
 
         #endregion
 
         #region Method Infos
 
         public static readonly MethodInfo PlayerLoadedServerRpcMethod = AccessTools.Method(typeof(StartOfRound), "PlayerLoadedServerRpc");
+        public static readonly MethodInfo KillPlayerServerRpcMethod = AccessTools.Method(typeof(PlayerControllerB), "KillPlayerServerRpc");
 
         public static readonly MethodInfo AllEntitiesCountMethod = SymbolExtensions.GetMethodInfo(() => AllEntitiesCount());
         public static readonly MethodInfo AllRealPlayersCountMethod = SymbolExtensions.GetMethodInfo(() => AllRealPlayersCount());

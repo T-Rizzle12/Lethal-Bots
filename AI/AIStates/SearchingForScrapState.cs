@@ -2,6 +2,7 @@
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using System.Collections;
 using System.Collections.Generic;
@@ -346,17 +347,25 @@ namespace LethalBots.AI.AIStates
                 // Check for teleport entrance
                 else if (Time.timeSinceLevelLoad - ai.TimeSinceTeleporting > Const.WAIT_TIME_TO_TELEPORT)
                 {
-                    Vector3? entranceTeleportPos = ai.GetTeleportPosOfEntrance(targetEntrance);
+                    EntranceTeleport entrance = targetEntrance;
+                    Vector3? entranceTeleportPos = ai.GetTeleportPosOfEntrance(entrance);
                     if (entranceTeleportPos.HasValue)
                     {
-                        Plugin.LogDebug($"======== TeleportLethalBotAndSync {ai.NpcController.Npc.playerUsername} !!!!!!!!!!!!!!! ");
                         ai.StopMoving();
-                        if (!IsEntranceSafe(targetEntrance))
+                        if (!IsEntranceSafe(entrance))
                         {
                             waitForSafePathTimer += ai.AIIntervalTime;
                             return; // We should not use the entrance if the entrance is not safe!
                         }
-                        ai.SyncTeleportLethalBot(entranceTeleportPos.Value, !this.targetEntrance?.isEntranceToBuilding ?? !ai.isOutside, this.targetEntrance);
+                        if (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)
+                        {
+                            ref InteractTrigger interactTrigger = ref PatchesUtil.triggerScriptField.Invoke(entrance);
+                            LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
+                            {
+                                Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
+                                lethalBotAI.SyncTeleportLethalBot(entranceTeleportPos.Value, !entrance?.isEntranceToBuilding ?? !lethalBotAI.isOutside, entrance);
+                            }, skipOriginalInteract: true);
+                        }
                         entranceAttempts++;
                     }
                     else

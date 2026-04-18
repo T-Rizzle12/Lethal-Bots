@@ -1702,30 +1702,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // So, we don't have a walkie-talkie in our inventory, lets check the ship!
-            float closestWalkieSqr = float.MaxValue;
-            for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
-            {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
-                GrabbableObject? walkieTalkie = gameObject.GetComponent<GrabbableObject>();
-                if (walkieTalkie != null
-                    && walkieTalkie is WalkieTalkie walkieTalkieObj 
-                    && walkieTalkieObj.isInShipRoom)
-                {
-                    float walkieSqr = (walkieTalkieObj.transform.position - npcController.Npc.transform.position).sqrMagnitude;
-                    if (walkieSqr < closestWalkieSqr 
-                        && ai.IsGrabbableObjectGrabbable(walkieTalkieObj)) // NOTE: IsGrabbableObjectGrabbable has a pathfinding check, so we run it last since it can be expensive!
-                    {
-                        closestWalkieSqr = walkieSqr;
-                        this.walkieTalkie = walkieTalkieObj;
-                    }
-                }
-            }
+            this.walkieTalkie = ai.FindItemOnShip(foundItem => foundItem is WalkieTalkie) as WalkieTalkie;
         }
 
         /// <summary>
@@ -1765,29 +1742,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // So, we don't have a weapon in our inventory, lets check the ship!
-            float closestWeaponSqr = float.MaxValue;
-            for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
-            {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
-                GrabbableObject? weapon = gameObject.GetComponent<GrabbableObject>();
-                if (ai.HasAmmoForWeapon(weapon)
-                    && weapon.isInShipRoom)
-                {
-                    float weaponSqr = (weapon.transform.position - npcController.Npc.transform.position).sqrMagnitude;
-                    if (weaponSqr < closestWeaponSqr
-                        && ai.IsGrabbableObjectGrabbable(weapon)) // NOTE: IsGrabbableObjectGrabbable has a pathfinding check, so we run it last since it can be expensive!
-                    {
-                        closestWeaponSqr = weaponSqr;
-                        this.weapon = weapon;
-                    }
-                }
-            }
+            this.weapon = ai.FindItemOnShip(foundItem => ai.HasAmmoForWeapon(foundItem));
         }
 
         /// <summary>

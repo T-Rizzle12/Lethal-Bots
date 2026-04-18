@@ -173,9 +173,9 @@ namespace LethalBots.AI.AIStates
                     {
                         if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET)
                         {
-                            if (npcController.Npc.playersManager.shipHasLanded
-                                && !npcController.Npc.playersManager.shipIsLeaving
-                                && !npcController.Npc.playersManager.shipLeftAutomatically)
+                            StartOfRound instanceSOR = npcController.Npc.playersManager;
+                            if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
+                                && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                             {
                                 StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
                                 if (startMatchLever != null)
@@ -246,7 +246,7 @@ namespace LethalBots.AI.AIStates
                         if (LethalBotManager.IsThereATrappedPlayer 
                             && !ai.HasKeyInInventory())
                         {
-                            GrabbableObject? key = FindKey() ?? FindLockpicker();
+                            GrabbableObject? key = ai.FindItemOnShip(foundItem => foundItem is KeyItem) ?? ai.FindItemOnShip(foundItem => foundItem is LockPicker);
                             if (key != null)
                             {
                                 ai.State = new FetchingObjectState(this, key, EnumGrabbableObjectCall.Default, new SearchingForScrapState(this));
@@ -262,9 +262,9 @@ namespace LethalBots.AI.AIStates
                 {
                     if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET)
                     {
-                        if (npcController.Npc.playersManager.shipHasLanded
-                            && !npcController.Npc.playersManager.shipIsLeaving
-                            && !npcController.Npc.playersManager.shipLeftAutomatically)
+                        StartOfRound instanceSOR = npcController.Npc.playersManager;
+                        if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
+                            && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
                             StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
                             if (startMatchLever != null)
@@ -330,76 +330,6 @@ namespace LethalBots.AI.AIStates
             {
                 return true;
             }));
-        }
-
-        /// <summary>
-        /// Helper function to find a key on the ship!
-        /// </summary>
-        private GrabbableObject? FindKey()
-        {
-            // So, we don't have a key in our inventory, lets check the ship!
-            GrabbableObject? closestKey = null;
-            float closestKeySqr = float.MaxValue;
-            for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
-            {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
-                GrabbableObject? keyItem = gameObject.GetComponent<GrabbableObject>();
-                if (keyItem != null
-                    && keyItem is KeyItem keyItemObj
-                    && keyItemObj.isInShipRoom)
-                {
-                    float keySqr = (keyItemObj.transform.position - npcController.Npc.transform.position).sqrMagnitude;
-                    if (keySqr < closestKeySqr
-                        && ai.IsGrabbableObjectGrabbable(keyItemObj)) // NOTE: IsGrabbableObjectGrabbable has a pathfinding check, so we run it last since it can be expensive!
-                    {
-                        closestKeySqr = keySqr;
-                        closestKey = keyItemObj;
-                    }
-                }
-            }
-
-            return closestKey;
-        }
-
-        /// <summary>
-        /// Helper function to find a lockpicker on the ship!
-        /// </summary>
-        private GrabbableObject? FindLockpicker()
-        {
-            // So, we don't have a lockpicker in our inventory, lets check the ship!
-            GrabbableObject? closestKey = null;
-            float closestKeySqr = float.MaxValue;
-            for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
-            {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
-                GrabbableObject? lockpickerItem = gameObject.GetComponent<GrabbableObject>();
-                if (lockpickerItem != null
-                    && lockpickerItem is LockPicker lockpickerItemObj
-                    && lockpickerItemObj.isInShipRoom)
-                {
-                    float lockpickerSqr = (lockpickerItemObj.transform.position - npcController.Npc.transform.position).sqrMagnitude;
-                    if (lockpickerSqr < closestKeySqr
-                        && ai.IsGrabbableObjectGrabbable(lockpickerItemObj)) // NOTE: IsGrabbableObjectGrabbable has a pathfinding check, so we run it last since it can be expensive!
-                    {
-                        closestKeySqr = lockpickerSqr;
-                        closestKey = lockpickerItemObj;
-                    }
-                }
-            }
-
-            return closestKey;
         }
     }
 }

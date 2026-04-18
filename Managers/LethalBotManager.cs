@@ -1377,10 +1377,10 @@ namespace LethalBots.Managers
             lethalBotAI.SetEnemyOutside(spawnParamsNetworkSerializable.IsOutside);
 
             // Plug ai on bot body
-            lethalBotAI.enabled = false;
-            lethalBotAI.NetworkObject.AutoObjectParentSync = false;
-            lethalBotAI.transform.parent = objectParent.transform;
-            lethalBotAI.NetworkObject.AutoObjectParentSync = true;
+            //lethalBotAI.enabled = false;
+            //lethalBotAI.NetworkObject.AutoObjectParentSync = false;
+            //lethalBotAI.transform.parent = objectParent.transform;
+            //lethalBotAI.NetworkObject.AutoObjectParentSync = true;
             lethalBotAI.enabled = true;
 
             objectParent.SetActive(true);
@@ -1929,7 +1929,7 @@ namespace LethalBots.Managers
                     // A human player has dedicated themself as the Mission Controller. Sync to others!
                     // HACKHACK: Only network this once, since LethalBotsRespondToChatMessage is called for all players,
                     // we can check this here!
-                    if (playerWhoSentMessage == GameNetworkManager.Instance.localPlayerController)
+                    if (IsPlayerLocal(playerWhoSentMessage))
                     { 
                         MissionControlPlayer = playerWhoSentMessage; 
                     }
@@ -1940,16 +1940,37 @@ namespace LethalBots.Managers
                     // A human player wants to transfer loot. Sync to others!
                     // HACKHACK: Only network this once, since LethalBotsRespondToChatMessage is called for all players,
                     // we can check this here!
-                    if (playerWhoSentMessage == GameNetworkManager.Instance.localPlayerController)
+                    if (IsPlayerLocal(playerWhoSentMessage))
                     {
                         AddPlayerToLootTransferListAndSync(playerWhoSentMessage);
                     }
                     return;
                 }
+                else if (message.StartsWith("/addbots"))
+                {
+                    // Lets the host have bots join the game
+                    if (HostPlayerScript != playerWhoSentMessage)
+                    {
+                        HUDManager.Instance.AddTextToChatOnServer("Only the host can add bots!");
+                        return;
+                    }
+
+                    if (AreWeInOrbit() && Plugin.Config.AllowBotsInOrbit.Value)
+                    {
+                        EnsureShipNavMeshBuilt();
+                        EnableShipNavMesh();
+                        SpawnLethalBotsAtShip(markBotsAsLoaded: true);
+                    }
+                    else
+                    {
+                        string failMessage = Plugin.Config.AllowBotsInOrbit.Value ? "You can only manually add bots in orbit!" : "You have disabled bots in orbit!";
+                        HUDManager.Instance.AddTextToChatOnServer(failMessage);
+                    }
+                }
                 else if (message.Contains(Const.CREATE_GROUP_COMMAND))
                 {
                     // Lets the local player create a group.
-                    if (playerWhoSentMessage == GameNetworkManager.Instance.localPlayerController)
+                    if (IsPlayerLocal(playerWhoSentMessage))
                     { 
                         GroupManager.Instance.CreateGroupAndSync(playerWhoSentMessage); 
                     }
@@ -1958,7 +1979,7 @@ namespace LethalBots.Managers
                 else if (message.Contains(Const.LEAVE_GROUP_COMMAND))
                 {
                     // Lets the local player leave the group they are in.
-                    if (playerWhoSentMessage == GameNetworkManager.Instance.localPlayerController 
+                    if (IsPlayerLocal(playerWhoSentMessage)
                         && GroupManager.Instance.IsPlayerInGroup(playerWhoSentMessage))
                     {
                         GroupManager.Instance.RemoveFromCurrentGroupAndSync(playerWhoSentMessage);
@@ -2447,15 +2468,16 @@ namespace LethalBots.Managers
         /// <summary>
         /// Checks if we are at the company building!
         /// </summary>
+        /// <param name="checkOrbit">Should we make sure we are not in orbit?</param>
         /// <returns>
         /// true: if we are at the company, false: if we are not
         /// </returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool AreWeAtTheCompanyBuilding()
+        public static bool AreWeAtTheCompanyBuilding(bool checkOrbit = true)
         {
             if (StartOfRound.Instance.currentLevel.levelID == Const.COMPANY_BUILDING_MOON_ID)
             {
-                return !AreWeInOrbit();
+                return !checkOrbit || !AreWeInOrbit();
             }
             return false;
         }
@@ -2795,10 +2817,10 @@ namespace LethalBots.Managers
         /// <summary>
         /// Spawn lethal bots from ship after landing
         /// </summary>
-        public void SpawnLethalBotsAtShip()
+        public void SpawnLethalBotsAtShip(bool markBotsAsLoaded = false)
         {
             // No bots on the company building moon unless there is a mod that adds navmesh there!
-            if (AreWeAtTheCompanyBuilding() && !CanBotsSpawnAtCompanyBuilding())
+            if (AreWeAtTheCompanyBuilding(checkOrbit: false) && !CanBotsSpawnAtCompanyBuilding())
             {
                 return;
             }
@@ -2814,10 +2836,10 @@ namespace LethalBots.Managers
             {
                 StopCoroutine(spawnLethalBotsAtShipCoroutine);
             }
-            spawnLethalBotsAtShipCoroutine = StartCoroutine(SpawnLethalBotsCoroutine());
+            spawnLethalBotsAtShipCoroutine = StartCoroutine(SpawnLethalBotsCoroutine(markBotsAsLoaded));
         }
 
-        private IEnumerator SpawnLethalBotsCoroutine()
+        private IEnumerator SpawnLethalBotsCoroutine(bool markBotsAsLoaded)
         {
             yield return null;
             int nbSpawnedBots = 0;
@@ -2906,6 +2928,13 @@ namespace LethalBots.Managers
             {
                 HUDManager.Instance.DisplayTip("Finished Spawning Bots!", string.Format("{0} bots were spawned!", nbSpawnedBots), false, false, "LC_Tip1");
             }
+
+            // Mark the bots as loaded if we were asked to do so!
+            if (markBotsAsLoaded)
+            {
+                MarkBotsAsLoaded();
+            }
+
             spawnLethalBotsAtShipCoroutine = null;
         }
 
@@ -3815,7 +3844,7 @@ namespace LethalBots.Managers
         {
             // No bots on the company building moon unless there is a mod that adds navmesh there!
             StartOfRound instanceSOR = StartOfRound.Instance;
-            if (AreWeAtTheCompanyBuilding() && !CanBotsSpawnAtCompanyBuilding())
+            if (AreWeAtTheCompanyBuilding(checkOrbit: false) && !CanBotsSpawnAtCompanyBuilding())
             {
                 return;
             }
@@ -3948,7 +3977,7 @@ namespace LethalBots.Managers
         private void CountAliveAndDisableLethalBots(bool _)
         {
             // No bots on the company building moon unless there is a mod that adds navmesh there!
-            if (AreWeAtTheCompanyBuilding() && !CanBotsSpawnAtCompanyBuilding())
+            if (AreWeAtTheCompanyBuilding(checkOrbit: false) && !CanBotsSpawnAtCompanyBuilding())
             {
                 return;
             }
