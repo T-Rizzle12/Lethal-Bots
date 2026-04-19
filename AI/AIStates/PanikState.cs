@@ -534,10 +534,10 @@ namespace LethalBots.AI.AIStates
                 npcController.OrderToLookAtPosition(CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
             }
             // We can save ourself if we have a weapon nearby us!
-            else if (CurrentEnemy is CentipedeAI || CurrentEnemy is MaskedPlayerEnemy || CurrentEnemy is BushWolfEnemy)
+            else if (CurrentEnemy is CentipedeAI || CurrentEnemy is CrawlerAI || CurrentEnemy is MaskedPlayerEnemy || CurrentEnemy is BushWolfEnemy)
             {
                 // This is good if we have a weapon on us, or dropped nearby us!
-                float maxRange = CurrentEnemy is MaskedPlayerEnemy ? Const.LETHAL_BOT_OBJECT_AWARNESS : Const.LETHAL_BOT_OBJECT_RANGE;
+                float maxRange = CurrentEnemy is MaskedPlayerEnemy || CurrentEnemy is CrawlerAI ? Const.LETHAL_BOT_OBJECT_AWARNESS : Const.LETHAL_BOT_OBJECT_RANGE;
                 GrabbableObject? weapon = FindNearbyWeapon(maxRange);
                 if (weapon != null)
                 {

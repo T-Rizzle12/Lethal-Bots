@@ -321,7 +321,7 @@ namespace LethalBots.AI.AIStates
             if (!ai.HasGrabbableObjectInInventory(FindWeedKiller, out _))
             {
                 neededMedicalTool = ai.FindItemOnShip(FindWeedKiller);
-                if (neededMedicalTool == null)
+                if (neededMedicalTool == null || !ai.HasSpaceInInventory(neededMedicalTool))
                 {
                     ChangeBackToPreviousState(); // Odd, we can't find the weedkiller, just give up!
                 }

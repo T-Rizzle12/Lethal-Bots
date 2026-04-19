@@ -1393,7 +1393,10 @@ namespace LethalBots.AI.AIStates
             yield return SendCommandToTerminal(string.Format(TerminalConst.STRING_ROUTE_COMMAND, moonName));
 
             // Accept at the confirmation page
-            if (!terminal.currentNode.isConfirmationNode)
+            // HACKHACK: The company building is a special case where it doesn't have a displayPlanetInfo ID!
+            TerminalNode currentNode = terminal.currentNode;
+            if (currentNode.displayPlanetInfo == -1 
+                && moonName.ToLower() != TerminalConst.STRING_COMPANY_BUILDING.ToLower())
             {
                 Plugin.LogWarning($"Bot {npcController.Npc.playerUsername} attempted to route to {moonName}, but it failed?");
                 yield break; // Huh, how did this happen?!

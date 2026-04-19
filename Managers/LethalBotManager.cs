@@ -234,6 +234,7 @@ namespace LethalBots.Managers
         private Coroutine? trappedPlayerCheckCoroutine = null;
         private Coroutine? disableNavMeshCoroutine = null;
         private Coroutine? markBotsAsLoadedCoroutine = null;
+        private Coroutine? markBotsAsGeneratedFloorCoroutine = null;
         /// <summary>
         /// Returns if the inverse teleporter is active or not.<br/>
         /// Used by the <see cref="LethalBotAI"/> to check if they should use it to teleport in or not.
@@ -1804,7 +1805,17 @@ namespace LethalBots.Managers
                 }
 
                 // Remove bot from "connected" player list
-                StartOfRound.Instance.ClientPlayerList.Remove(lethalBotController.actualClientId);
+                ulong clientId = lethalBotController.actualClientId;
+                StartOfRound.Instance.ClientPlayerList.Remove(clientId);
+
+                if (instanceSOR.fullyLoadedPlayers.Contains(clientId))
+                {
+                    instanceSOR.fullyLoadedPlayers.Remove(clientId);
+                }
+                if (RoundManager.Instance.playersFinishedGeneratingFloor.Contains(clientId))
+                {
+                    RoundManager.Instance.playersFinishedGeneratingFloor.Remove(clientId);
+                }
 
                 // Delete now unused bot object
                 if (base.IsServer)
@@ -3959,7 +3970,17 @@ namespace LethalBots.Managers
                 }
 
                 // Remove bot from "connected" player list
-                StartOfRound.Instance.ClientPlayerList.Remove(lethalBotController.actualClientId);
+                ulong clientId = lethalBotController.actualClientId;
+                StartOfRound.Instance.ClientPlayerList.Remove(clientId);
+
+                if (instanceSOR.fullyLoadedPlayers.Contains(clientId))
+                {
+                    instanceSOR.fullyLoadedPlayers.Remove(clientId);
+                }
+                if (RoundManager.Instance.playersFinishedGeneratingFloor.Contains(clientId))
+                {
+                    RoundManager.Instance.playersFinishedGeneratingFloor.Remove(clientId);
+                }
 
                 instanceSOR.allPlayerObjects[lethalBotController.playerClientId].SetActive(false);
                 //instanceSOR.connectedPlayersAmount -= 1;
@@ -4165,6 +4186,8 @@ namespace LethalBots.Managers
             }
         }
 
+        #region Level Loading Helpers
+
         /// <summary>
         /// Helper function that marks all active bots as loaded in the <see cref="StartOfRound.fullyLoadedPlayers"/>
         /// </summary>
@@ -4209,6 +4232,53 @@ namespace LethalBots.Managers
             MarkBotsAsLoaded();
             markBotsAsLoadedCoroutine = null;
         }
+
+        /// <summary>
+        /// Helper function that marks all active bots as loaded in the <see cref="RoundManager.playersFinishedGeneratingFloor"/>
+        /// </summary>
+        public void MarkBotsAsGeneratedFloor()
+        {
+            // Go through every bot and mark them as ready!
+            RoundManager instanceRM = RoundManager.Instance;
+            LethalBotAI[] lethalBotAIs = GetLethalBotAIs();
+            foreach (LethalBotAI lethalBotAI in lethalBotAIs)
+            {
+                PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
+                if (lethalBotController != null
+                    && (lethalBotController.isPlayerControlled
+                    || lethalBotController.isPlayerDead))
+                {
+                    // This will network to all players that the bot is "ready"
+                    instanceRM.FinishedGeneratingLevelServerRpc(lethalBotController.actualClientId);
+                }
+            }
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="MarkBotsAsGeneratedFloor"/>
+        /// </summary>
+        /// <remarks>
+        /// This waits until all human players have loaded before marking the bots as loaded
+        /// </remarks>
+        public void MarkBotsAsGeneratedFloorDelayed()
+        {
+            if (markBotsAsGeneratedFloorCoroutine != null)
+            {
+                StopCoroutine(markBotsAsGeneratedFloorCoroutine);
+                markBotsAsGeneratedFloorCoroutine = null;
+            }
+            markBotsAsGeneratedFloorCoroutine = StartCoroutine(MarkBotsAsGeneratedFloorWhenHumanPlayersReady());
+        }
+
+        private IEnumerator MarkBotsAsGeneratedFloorWhenHumanPlayersReady()
+        {
+            yield return null;
+            yield return new WaitUntil(() => RoundManager.Instance.playersFinishedGeneratingFloor.Count >= AllRealPlayersCount);
+            MarkBotsAsGeneratedFloor();
+            markBotsAsGeneratedFloorCoroutine = null;
+        }
+
+        #endregion
 
         #region Ship NavMesh
 

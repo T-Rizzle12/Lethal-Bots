@@ -1,5 +1,55 @@
 # Changelog
 
+## 6.0.0 2026-4-19
+Hello again, this update adds a long requested feature of letting the bots join you while the ship is in orbit. This fixes SO MANY BUGS. You see, when I had the bots "leave" the lobby, some mods thought the bots were still active in the game and could cause the game to enter an infinite loop of waiting for the bot to send the ready RPC. Now that the bots don't automatically "leave," I fixed up my bots to send that ready RPC. This should fix that infinite loading loop now that the game thinks all players have loaded. Now then, onto the patch notes! 
+
+## Bots in Orbit
+Well, here it is. The bots can now walk around and do stuff with players while in orbit. Its basic for now, but more can be added later.
+- My mod will now generate a NavMesh on the ship for the bots to use while in orbit. The NavMesh will automatically clean itself up when you land on a moon. NOTE: This only works for the default ship size, it will be up to other modders to add support for Lethal Bots! Nothing will break, but bots will be unable to path to certain parts of the ship.
+- Added /addbots chat command for host spawning while in orbit
+- Added a new config option AllowBotsInOrbit, to enable and disable the new bots stay on the ship after round ends code
+- My mod will now generate a txt file with all items and unlockable object's internal names. You can find in in the Config folder named GameItems.txt
+- If bots are allowed in orbit, they get fired with the human players as well.............
+- The Mission Controller bot will now automatically route to The Company Building if there are 0 days left in the profit quota. This can be disabled using the AutoRouteToCompany config option
+- Rewrote most of ChillAtShip state to be cleaner and support being in orbit
+- Changed other states to understand when the bot is on the ship in orbit
+
+## Lethal Bot Interaction  
+I'm working on a new interaction system for the bots, this new system has the bot actually hold their +use key when interacting with stuff. For now this is only used for the main entrance and fire exits, but will be expanded to other systems as well.
+- Introduced LethalBotInteraction to help mimic interactions with objects in the game that have to be held. Example: Using the main entrance.
+- Updated AI states to use the new interaction system. For now only used for the main entrance!
+
+## Multiplayer Improvements
+Yep, the multiplayer grind never ends it seems, I fixed more bugs the bots had and the allowing bots in orbit makes the bots much more stable than they were before.
+- Improved bot synchronization code when a new player joins the game
+- Fixed the game allowing players to join the lobby when the lobby has no open player controllers, "before it wouldn't consider 'connected' bots."
+- Fixed late joining players sometimes being assigned a controller already in use by a bot
+- Fixed the real human player count not being networked to late joining players
+- Updated bot pull lever code to use more reflection to be more consistent with the base game code
+- Fixed bots being able to equip suits that the crew didn't own
+- Improved bot suit change RPC code
+- Fixed the bot carry weight not being networked to players who join late
+
+## AI Improvements
+During testing of this update, I noticed some issues the bot had during testing with some of the new enemies added and with the Kidnapper Fox. I went ahead and made some adjustments to the AI to help them respond better.
+- Improved PanikState logic: bots can now attempt to grab nearby weapons if the bot could potentially save themself with it
+- Finally fixed bot movement code, bots movement should no longer be affected by framerate.
+- - Improved weedkiller healing logic for bots. Bots in the ship can now automatically pickup weedkiller if they don't have it in their inventory to heal a player.
+- Added generic method LethalBotAI.FindItemOnShip method, removed duplicate code
+- Improved NavMeshAgent enable/disable and teleport logic. Bots also consider paths through water to be twice as expensive. NOTE: This only works if the map sets the water NavMesh attribute.
+- Refactored bot death handling for better mod compatibility. The base game now handles more of the death logic.
+- Removed some redundant code in LethalBotAI
+
+## Bugfixes and Optimizations
+There were a few bugs I found and was informed about.
+- Made a minor optimization to ProgressPlayerInfections_Postfix
+- Hopefully fixed ship entry/exit bugs (e.g., bots falling out during landing)
+- Fixed PumaAI transpiler and AudioReverbTrigger issues
+- Removed PriorityMessageQueue class and replaced it with a helper class named PriorityQueue. This accepts all classes rather than just strings
+- Updated PatchesUtils with more fieldrefs
+- Made more optimizations in the terminal code
+- Cleaned up code, removed unused patches, improved logging
+
 ## 5.0.1 - 2026-4-8
 Hello, a minor bug fix patch here. It came to my attention that trying to have more than 3 bots would REALLY lag the game. The cause was a logic error in HealPlayerState that would cause the bots to spam FindObjectOfType calls every time CanHealPlayerWithWeedKiller was called.
 

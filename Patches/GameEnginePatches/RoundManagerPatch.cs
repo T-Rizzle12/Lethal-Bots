@@ -80,6 +80,19 @@ namespace LethalBots.Patches.GameEnginePatches
         }
 
         /// <summary>
+        /// Mark bots as finished loading the level as well
+        /// </summary>
+        /// <param name="__instance"></param>
+        [HarmonyPatch("FinishGeneratingLevel")]
+        [HarmonyPostfix]
+        static void FinishGeneratingLevel_PostFix(RoundManager __instance)
+        {
+            // Only run this on the server
+            if (__instance.IsServer || __instance.IsHost)
+                LethalBotManager.Instance?.MarkBotsAsGeneratedFloorDelayed();
+        }
+
+        /// <summary>
         /// This spawns the bots right as the ship starts to land!
         /// </summary>
         [HarmonyPatch("FinishGeneratingNewLevelClientRpc")]
