@@ -27,11 +27,7 @@ namespace LethalBots.Patches.ObjectsPatches
             // Just like the base game, we have to check if the cadaverGrowthAI is null.
             if (___cadaverGrowthAI == null)
             {
-                ___cadaverGrowthAI = UnityEngine.Object.FindObjectOfType<CadaverGrowthAI>();
-                if (___cadaverGrowthAI == null)
-                {
-                    return; // Just like the base game, if we can't find the cadaverGrowthAI, we can't do anything so we just return!
-                }
+                return;
             }
 
             // Mimic logic for bots as well.

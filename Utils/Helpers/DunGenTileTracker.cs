@@ -8,6 +8,9 @@ using UnityEngine;
 
 namespace LethalBots.Utils.Helpers
 {
+    /// <summary>
+    /// This is a carbon copy of <see cref="AdjacentRoomCullingModified"/>, but modified to work with the bots instead
+    /// </summary>
     public class DunGenTileTracker : MonoBehaviour
     {
         private readonly UpdateLimiter updateLimiter = new UpdateLimiter();

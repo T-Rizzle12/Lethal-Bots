@@ -1,4 +1,5 @@
-﻿using GameNetcodeStuff;
+﻿using BepInEx;
+using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.AI.AIStates;
@@ -9,6 +10,7 @@ using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.NpcPatches;
+using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using LethalLib.Modules;
 using Scoops.customization;
@@ -20,9 +22,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Unity.AI.Navigation;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
@@ -176,8 +180,6 @@ namespace LethalBots.Managers
         /// </summary>
         public static DayMode lastReportedTimeOfDay = DayMode.Dawn;
 
-        public static DepositItemsDesk? _companyDesk;
-
         /// <summary>
         /// Returns the <see cref="DepositItemsDesk"/> instance in the scene, if it exists.<br/>
         /// </summary>
@@ -185,15 +187,13 @@ namespace LethalBots.Managers
         {
             get
             {
-                if (_companyDesk == null)
+                if (field == null)
                 {
-                    _companyDesk = UnityEngine.Object.FindObjectOfType<DepositItemsDesk>();
+                    field = UnityEngine.Object.FindObjectOfType<DepositItemsDesk>();
                 }
-                return _companyDesk;
+                return field;
             }
         }
-
-        private static HangarShipDoor? _shipDoor;
 
         /// <summary>
         /// Returns the <see cref="HangarShipDoor"/> instance in the scene, if it exists.<br/>
@@ -202,15 +202,25 @@ namespace LethalBots.Managers
         {
             get
             {
-                if (_shipDoor == null)
+                if (field == null)
                 {
-                    _shipDoor = UnityEngine.Object.FindObjectOfType<HangarShipDoor>();
+                    field = UnityEngine.Object.FindObjectOfType<HangarShipDoor>();
                 }
-                return _shipDoor;
+                return field;
             }
         }
 
         public VehicleController? VehicleController;
+
+        // Variables that handle the ship's NavMesh
+        private NavMeshSurface shipNavMeshSurface = null!;
+        private GameObject? shipNavMeshInstance = null!;
+        private bool shipNavMeshBuilt => shipNavMeshSurface != null
+                                    && shipNavMeshSurface.navMeshData != null
+                                    && shipNavMeshInstance != null;
+        private bool shipNavMeshActive = false;
+        private NavMeshObstacle landingShipNavObstacle = null!;
+        private (float height, float radius) landingShipNavObstacleInfo = (0f, 0f);
 
         public Dictionary<EnemyAI, INoiseListener> DictEnemyAINoiseListeners = new Dictionary<EnemyAI, INoiseListener>();
 
@@ -222,6 +232,9 @@ namespace LethalBots.Managers
         private Coroutine? spawnLethalBotsAtShipCoroutine = null;
         private Coroutine BeamOutLethalBotsCoroutine = null!;
         private Coroutine? trappedPlayerCheckCoroutine = null;
+        private Coroutine? disableNavMeshCoroutine = null;
+        private Coroutine? markBotsAsLoadedCoroutine = null;
+        private Coroutine? markBotsAsGeneratedFloorCoroutine = null;
         /// <summary>
         /// Returns if the inverse teleporter is active or not.<br/>
         /// Used by the <see cref="LethalBotAI"/> to check if they should use it to teleport in or not.
@@ -301,6 +314,16 @@ namespace LethalBots.Managers
                     Destroy(Instance.gameObject);
                 }
                 Instance = this;
+            }
+        }
+
+        // If we get destroyed for some reason destory the NavMesh object we created as well!
+        public override void OnDestroy()
+        {
+            base.OnDestroy();
+            if (shipNavMeshInstance != null)
+            {
+                Object.Destroy(shipNavMeshInstance);
             }
         }
 
@@ -563,21 +586,35 @@ namespace LethalBots.Managers
             IdentityManager.Instance.InitIdentities(Plugin.Config.ConfigIdentities.configIdentities);
             RestockManager.Instance.InitStockRequirements(Plugin.Config.ConfigStockRequirements.configStockRequirements);
 
-            // DEBUG: List all available items and their ids
+            // List out item information about equipment and unlockables since they are used in the restock and identity file system
+            string directoryPath = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID);
+            Directory.CreateDirectory(directoryPath);
             Plugin.LogInfo("Listing all items in the game!");
-            foreach (Item item in StartOfRound.Instance.allItemsList.itemsList)
+            using (StreamWriter outputFile = new StreamWriter(Utility.CombinePaths(directoryPath, ConfigConst.FILE_NAME_GAME_ITEMS)))
             {
-                Plugin.LogInfo($"Name: {item.itemName} with ID: {item.itemId}");
-            }
+                // DEBUG: List all available items and their ids
+                outputFile.WriteLine("Listing all items in the game!");
+                foreach (Item item in StartOfRound.Instance.allItemsList.itemsList)
+                {
+                    string itemInfo = $"Name: {item.itemName} with ID: {item.itemId}";
+                    outputFile.WriteLine(itemInfo);
+                    Plugin.LogInfo(itemInfo);
+                }
 
-            // DEBUG: List all available unlockables and their ids
-            Plugin.LogInfo("Listing all unlockable items in the game!");
-            List<UnlockableItem> unlockableItems = StartOfRound.Instance.unlockablesList.unlockables;
-            for (int i = 0; i < unlockableItems.Count; i++)
-            {
-                UnlockableItem item = unlockableItems[i];
-                if (item != null)
-                    Plugin.LogInfo($"Name: {item.unlockableName} with ID: {i}");
+                // DEBUG: List all available unlockables and their ids
+                Plugin.LogInfo("Listing all unlockable items in the game!");
+                outputFile.WriteLine("Listing all unlockable items in the game!");
+                List<UnlockableItem> unlockableItems = StartOfRound.Instance.unlockablesList.unlockables;
+                for (int i = 0; i < unlockableItems.Count; i++)
+                {
+                    UnlockableItem item = unlockableItems[i];
+                    if (item != null)
+                    {
+                        string itemInfo = $"Name: {item.unlockableName} with ID: {i}";
+                        outputFile.WriteLine(itemInfo);
+                        Plugin.LogInfo(itemInfo);
+                    }
+                }
             }
 
             // Bot objects
@@ -624,12 +661,12 @@ namespace LethalBots.Managers
                         livingPlayerCount++;
                     }
                 }
-                SendNewPlayerCountServerRpc(instanceSOR.connectedPlayersAmount, livingPlayerCount, AllRealPlayersCount);
+                SendNewPlayerCountServerRpc(instanceSOR.connectedPlayersAmount, livingPlayerCount, GameNetworkManager.Instance.connectedPlayers);
             }
 
             // Start checking for trapped player once the ship has landed
             // and we are not in the lobby!
-            if (instanceSOR != null && !instanceSOR.inShipPhase && instanceSOR.shipHasLanded)
+            if (IsTheShipLanded(instanceSOR))
             {
                 StartTrappedPlayerCoroutine();
             }
@@ -1192,7 +1229,7 @@ namespace LethalBots.Managers
         /// Get the index of the next <c>PlayerControllerB</c> not controlled and ready to be hooked to an <c>LethalBotAI</c>
         /// </summary>
         /// <returns></returns>
-        private int GetNextAvailablePlayerObject()
+        internal int GetNextAvailablePlayerObject()
         {
             StartOfRound instance = StartOfRound.Instance;
             int playerArraySize = instance.allPlayerScripts.Length;
@@ -1258,7 +1295,8 @@ namespace LethalBots.Managers
         /// <param name="yRot">Rotation of the bots when spawning</param>
         /// <param name="isOutside">Spawning outside or inside the facility (used for initializing AI Nodes)</param>
         private void InitLethalBotSpawning(LethalBotAI lethalBotAI,
-                                        SpawnLethalBotParamsNetworkSerializable spawnParamsNetworkSerializable)
+                                        SpawnLethalBotParamsNetworkSerializable spawnParamsNetworkSerializable,
+                                        bool clientJoining = false)
         {
             StartOfRound instance = StartOfRound.Instance;
             LethalBotIdentity lethalBotIdentity = IdentityManager.Instance.LethalBotIdentities[spawnParamsNetworkSerializable.LethalBotIdentityID];
@@ -1290,7 +1328,7 @@ namespace LethalBots.Managers
             lethalBotController.playerActions = new PlayerActions();
             lethalBotController.health = spawnParamsNetworkSerializable.Hp == 0 ? 100 : spawnParamsNetworkSerializable.Hp;
             lethalBotController.overridePoisonValue = false;
-            lethalBotController.carryWeight = 1f;
+            lethalBotController.carryWeight = spawnParamsNetworkSerializable.CarryWeight ?? 1f;
             lethalBotController.DisablePlayerModel(objectParent, enable: true, disableLocalArms: true);
             lethalBotController.isInsideFactory = !spawnParamsNetworkSerializable.IsOutside;
             lethalBotController.isMovementHindered = 0;
@@ -1318,10 +1356,10 @@ namespace LethalBots.Managers
             lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_LIMP, false);
             lethalBotController.climbSpeed = Const.CLIMB_SPEED;
             lethalBotController.usernameBillboardText.enabled = true;
-            AccessTools.Field(typeof(PlayerControllerB), "updatePositionForNewlyJoinedClient").SetValue(lethalBotController, true);
+            if (!clientJoining) AccessTools.Field(typeof(PlayerControllerB), "updatePositionForNewlyJoinedClient").SetValue(lethalBotController, true);
 
             // Mimic base game join message
-            if (lethalBotIdentity.JustJoinedServer)
+            if (!clientJoining && lethalBotIdentity.JustJoinedServer)
             { 
                 HUDManager.Instance.AddTextToChatOnServer(lethalBotController.playerUsername + " joined the ship."); 
             }
@@ -1342,10 +1380,10 @@ namespace LethalBots.Managers
             lethalBotAI.SetEnemyOutside(spawnParamsNetworkSerializable.IsOutside);
 
             // Plug ai on bot body
-            lethalBotAI.enabled = false;
-            lethalBotAI.NetworkObject.AutoObjectParentSync = false;
-            lethalBotAI.transform.parent = objectParent.transform;
-            lethalBotAI.NetworkObject.AutoObjectParentSync = true;
+            //lethalBotAI.enabled = false;
+            //lethalBotAI.NetworkObject.AutoObjectParentSync = false;
+            //lethalBotAI.transform.parent = objectParent.transform;
+            //lethalBotAI.NetworkObject.AutoObjectParentSync = true;
             lethalBotAI.enabled = true;
 
             objectParent.SetActive(true);
@@ -1375,7 +1413,8 @@ namespace LethalBots.Managers
             }
 
             // Switch suit
-            lethalBotAI.ChangeSuitLethalBot(lethalBotController.playerClientId, lethalBotAI.LethalBotIdentity.SuitID.Value, true);
+            bool playAudio = !clientJoining;
+            lethalBotAI.ChangeSuitLethalBot(lethalBotController.playerClientId, lethalBotAI.LethalBotIdentity.SuitID.Value, playAudio);
 
             // Show model replacement
             if (Plugin.IsModModelReplacementAPILoaded)
@@ -1456,6 +1495,9 @@ namespace LethalBots.Managers
             Plugin.LogDebug($"Old Num of Living Players now {oldLivingPlayerCount}");
             Plugin.LogDebug($"Living Players now {instanceSOR.livingPlayers}");*/
 
+            // Add to "connected" client list
+            StartOfRound.Instance.ClientPlayerList[lethalBotController.actualClientId] = (int)lethalBotController.playerClientId;
+
             // Send player count update
             if (IsServer || IsHost)
             {
@@ -1472,7 +1514,48 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogDebug($"++ Bot with body {lethalBotController.playerClientId} with identity spawned: {lethalBotIdentity.ToString()}");
-            lethalBotAI.Init(spawnParamsNetworkSerializable.enumSpawnAnimation);
+            lethalBotAI.Init(spawnParamsNetworkSerializable.enumSpawnAnimation, clientJoining);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        private void ReinitSpawnedBotServerRpc(NetworkObjectReference networkObjectReferenceLethalBotAI)
+        {
+            ReinitSpawnedBotClientRpc(networkObjectReferenceLethalBotAI);
+        }
+
+        [ClientRpc]
+        private void ReinitSpawnedBotClientRpc(NetworkObjectReference networkObjectReferenceLethalBotAI)
+        {
+            if (networkObjectReferenceLethalBotAI.TryGet(out NetworkObject networkObjectLethalBotAI))
+            {
+                LethalBotAI lethalBotAI = networkObjectLethalBotAI.gameObject.GetComponent<LethalBotAI>();
+                ReinitSpawnedBot(lethalBotAI);
+            }
+            else
+            {
+                Plugin.LogError("ReinitSpawnedBotClientRpc was provided with an invalid LethalBotAI network object reference.");
+            }
+        }
+
+        /// <summary>
+        /// A stripped down version of <see cref="InitLethalBotSpawning(LethalBotAI, SpawnLethalBotParamsNetworkSerializable, bool)"/> made to
+        /// call <see cref="LethalBotAI.Init(EnumSpawnAnimation)"/> for already spawned bots.
+        /// </summary>
+        /// <param name="lethalBotAI"><c>LethalBotAI</c> to initialize</param>
+        private void ReinitSpawnedBot(LethalBotAI lethalBotAI)
+        {
+            // Just ensure the essentals are set
+            PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
+            lethalBotController.isInElevator = true;
+            lethalBotController.isInHangarShipRoom = true;
+            lethalBotAI.isInsidePlayerShip = true;
+
+            // lethalBot
+            lethalBotAI.LethalBotIdentity.Hp = lethalBotController.health;
+            lethalBotAI.SetEnemyOutside(true);
+
+            Plugin.LogDebug($"++ Bot with body {lethalBotController.playerClientId} with identity reinitialized: {lethalBotAI.LethalBotIdentity.ToString()}");
+            lethalBotAI.Init(EnumSpawnAnimation.ReinitializePlayer);
         }
 
         /// <summary>
@@ -1721,6 +1804,35 @@ namespace LethalBots.Managers
                     GroupManager.Instance.RemoveFromCurrentGroupAndSync(lethalBotController);
                 }
 
+                // Remove bot from "connected" player list
+                ulong clientId = lethalBotController.actualClientId;
+                StartOfRound.Instance.ClientPlayerList.Remove(clientId);
+
+                if (instanceSOR.fullyLoadedPlayers.Contains(clientId))
+                {
+                    instanceSOR.fullyLoadedPlayers.Remove(clientId);
+                }
+                if (RoundManager.Instance.playersFinishedGeneratingFloor.Contains(clientId))
+                {
+                    RoundManager.Instance.playersFinishedGeneratingFloor.Remove(clientId);
+                }
+
+                // Delete now unused bot object
+                if (base.IsServer)
+                {
+                    NetworkObject networkObject = lethalBotAI.NetworkObject;
+                    if (networkObject != null && networkObject.IsSpawned)
+                    {
+                        Plugin.LogDebug("Despawning kicked bot LethalBotAI object");
+                        networkObject.Despawn();
+                    }
+                    else
+                    {
+                        Plugin.LogWarning("Kicked bot LethalBotAI object was not spawned? Manually removing.");
+                        Object.Destroy(lethalBotAI.gameObject);
+                    }
+                }
+
                 // Finally update player counts
                 // NEEDTOVALIDATE: This function already runs on all clients, do we need this function call here?
                 //SendNewPlayerCountServerRpc(instanceSOR.connectedPlayersAmount, instanceSOR.livingPlayers, AllRealPlayersCount);
@@ -1830,7 +1942,7 @@ namespace LethalBots.Managers
                     // A human player has dedicated themself as the Mission Controller. Sync to others!
                     // HACKHACK: Only network this once, since LethalBotsRespondToChatMessage is called for all players,
                     // we can check this here!
-                    if (playerWhoSentMessage == GameNetworkManager.Instance.localPlayerController)
+                    if (IsPlayerLocal(playerWhoSentMessage))
                     { 
                         MissionControlPlayer = playerWhoSentMessage; 
                     }
@@ -1841,16 +1953,37 @@ namespace LethalBots.Managers
                     // A human player wants to transfer loot. Sync to others!
                     // HACKHACK: Only network this once, since LethalBotsRespondToChatMessage is called for all players,
                     // we can check this here!
-                    if (playerWhoSentMessage == GameNetworkManager.Instance.localPlayerController)
+                    if (IsPlayerLocal(playerWhoSentMessage))
                     {
                         AddPlayerToLootTransferListAndSync(playerWhoSentMessage);
                     }
                     return;
                 }
+                else if (message.StartsWith("/addbots"))
+                {
+                    // Lets the host have bots join the game
+                    if (HostPlayerScript != playerWhoSentMessage)
+                    {
+                        HUDManager.Instance.AddTextToChatOnServer("Only the host can add bots!");
+                        return;
+                    }
+
+                    if (AreWeInOrbit() && Plugin.Config.AllowBotsInOrbit.Value)
+                    {
+                        EnsureShipNavMeshBuilt();
+                        EnableShipNavMesh();
+                        SpawnLethalBotsAtShip(markBotsAsLoaded: true);
+                    }
+                    else
+                    {
+                        string failMessage = Plugin.Config.AllowBotsInOrbit.Value ? "You can only manually add bots in orbit!" : "You have disabled bots in orbit!";
+                        HUDManager.Instance.AddTextToChatOnServer(failMessage);
+                    }
+                }
                 else if (message.Contains(Const.CREATE_GROUP_COMMAND))
                 {
                     // Lets the local player create a group.
-                    if (playerWhoSentMessage == GameNetworkManager.Instance.localPlayerController)
+                    if (IsPlayerLocal(playerWhoSentMessage))
                     { 
                         GroupManager.Instance.CreateGroupAndSync(playerWhoSentMessage); 
                     }
@@ -1859,13 +1992,58 @@ namespace LethalBots.Managers
                 else if (message.Contains(Const.LEAVE_GROUP_COMMAND))
                 {
                     // Lets the local player leave the group they are in.
-                    if (playerWhoSentMessage == GameNetworkManager.Instance.localPlayerController 
+                    if (IsPlayerLocal(playerWhoSentMessage)
                         && GroupManager.Instance.IsPlayerInGroup(playerWhoSentMessage))
                     {
                         GroupManager.Instance.RemoveFromCurrentGroupAndSync(playerWhoSentMessage);
                     }
                     return;
                 }
+                //else if (message.Contains("get navarea"))
+                //{
+                //    if (NavMesh.SamplePosition(playerWhoSentMessage.transform.position, out RoundManager.Instance.navHit, 2.7f, NavMesh.AllAreas))
+                //    {
+                //        HUDManager.Instance.AddTextToChatOnServer($"Found NavArea: {RoundManager.Instance.navHit.position}. Distance to Player {Vector3.Distance(playerWhoSentMessage.transform.position, RoundManager.Instance.navHit.position)}");
+                //        HUDManager.Instance.AddTextToChatOnServer($"Area mask: {RoundManager.Instance.navHit.mask}");
+                //    }
+                //    else
+                //    {
+                //        HUDManager.Instance.AddTextToChatOnServer($"Didn't find a NavArea.");
+                //    }
+                //    LethalBotAI? lethalBotAI = GetLethalBotAI(1);
+                //    if (lethalBotAI != null)
+                //    {
+                //        Plugin.LogInfo($"Bot Position: {lethalBotAI.transform.position}");
+                //        Plugin.LogInfo($"Agent Position: {lethalBotAI.agent.transform.position}");
+                //        Plugin.LogInfo($"Agent AreaMask: {lethalBotAI.agent.areaMask}");
+                //        Plugin.LogInfo($"Controller Position: {lethalBotAI.NpcController.Npc.transform.position}");
+                //        Plugin.LogInfo($"Ship Elevator Position: {lethalBotAI.NpcController.Npc.playersManager.elevatorTransform.position}");
+                //        Plugin.LogInfo($"Old Ship Elevator Position: {lethalBotAI.NpcController.Npc.previousElevatorPosition}");
+                //        lethalBotAI.TeleportLethalBot(playerWhoSentMessage.transform.position, true);
+                //    }
+                //}
+                //else if (message.Contains("get navsettings"))
+                //{
+                //    if (!shipNavMeshBuilt)
+                //    {
+                //        EnsureShipNavMeshBuilt();
+                //    }
+                //    else if (shipNavMeshSurface != null)
+                //    {
+                //        Plugin.LogInfo("Building ship navmesh...");
+                //        shipNavMeshSurface.BuildNavMesh();
+                //        Plugin.LogInfo("Navmesh built: " + shipNavMeshSurface.navMeshData);
+                //    }
+                //}
+                //else if (message.Contains("get navobstacles"))
+                //{
+                //    NavMeshObstacle[] navMeshObstacles = Object.FindObjectsOfType<NavMeshObstacle>();
+                //    foreach (NavMeshObstacle obstacle in navMeshObstacles)
+                //    {
+                //        Plugin.LogInfo($"Obstacle: {obstacle} with name {obstacle.name}: isEnabled {obstacle.enabled}");
+                //        //Object.Destroy(obstacle);
+                //    }
+                //}
                 //else if (message.Contains("time info"))
                 //{
                 //    TimeOfDay timeOfDay = TimeOfDay.Instance;
@@ -2230,6 +2408,58 @@ namespace LethalBots.Managers
 
         #endregion
 
+        #region Orbit Helpers
+
+        /// <summary>
+        /// Checks if we are currently in orbit
+        /// </summary>
+        /// <param name="instanceSOR">If you already have the <see cref="StartOfRound"/> instance, you may provide it here.</param>
+        /// <returns><see langword="true"/> if we are in orbit; otherwise <see langword="false"/></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool AreWeInOrbit(StartOfRound? instanceSOR = null)
+        {
+            instanceSOR ??= StartOfRound.Instance;
+            return instanceSOR != null && instanceSOR.inShipPhase;
+        }
+
+        /// <summary>
+        /// Checks if the ship is landed
+        /// </summary>
+        /// <param name="instanceSOR">If you already have the <see cref="StartOfRound"/> instance, you may provide it here.</param>
+        /// <returns><see langword="true"/> if we the ship is landed; otherwise <see langword="false"/></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsTheShipLanded(StartOfRound? instanceSOR = null)
+        {
+            instanceSOR ??= StartOfRound.Instance;
+            return instanceSOR != null && instanceSOR.shipHasLanded && !IsTheShipLeaving(instanceSOR);
+        }
+
+        /// <summary>
+        /// Checks if the ship is landing
+        /// </summary>
+        /// <param name="instanceSOR">If you already have the <see cref="StartOfRound"/> instance, you may provide it here.</param>
+        /// <returns><see langword="true"/> if we the ship is landing; otherwise <see langword="false"/></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsTheShipLanding(StartOfRound? instanceSOR = null)
+        {
+            instanceSOR ??= StartOfRound.Instance;
+            return instanceSOR != null && !instanceSOR.shipHasLanded && !AreWeInOrbit(instanceSOR) && !IsTheShipLeaving(instanceSOR);
+        }
+
+        /// <summary>
+        /// Checks if the ship is leaving
+        /// </summary>
+        /// <param name="instanceSOR">If you already have the <see cref="StartOfRound"/> instance, you may provide it here.</param>
+        /// <returns><see langword="true"/> if the ship is leaving; otherwise <see langword="false"/></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsTheShipLeaving(StartOfRound? instanceSOR = null)
+        {
+            instanceSOR ??= StartOfRound.Instance;
+            return instanceSOR != null && (instanceSOR.shipIsLeaving || instanceSOR.shipLeftAutomatically);
+        }
+
+        #endregion
+
         #region Company Building Helpers
 
         /// <summary>
@@ -2251,15 +2481,16 @@ namespace LethalBots.Managers
         /// <summary>
         /// Checks if we are at the company building!
         /// </summary>
+        /// <param name="checkOrbit">Should we make sure we are not in orbit?</param>
         /// <returns>
-        /// true: if we are at the company, false: if we are not
+        /// <see langword="true"/>: if we are at the company, <see langword="false"/>: if we are not
         /// </returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool AreWeAtTheCompanyBuilding()
+        public static bool AreWeAtTheCompanyBuilding(bool checkOrbit = true)
         {
             if (StartOfRound.Instance.currentLevel.levelID == Const.COMPANY_BUILDING_MOON_ID)
             {
-                return true;
+                return !checkOrbit || !AreWeInOrbit();
             }
             return false;
         }
@@ -2599,10 +2830,10 @@ namespace LethalBots.Managers
         /// <summary>
         /// Spawn lethal bots from ship after landing
         /// </summary>
-        public void SpawnLethalBotsAtShip()
+        public void SpawnLethalBotsAtShip(bool markBotsAsLoaded = false)
         {
             // No bots on the company building moon unless there is a mod that adds navmesh there!
-            if (AreWeAtTheCompanyBuilding() && !CanBotsSpawnAtCompanyBuilding())
+            if (AreWeAtTheCompanyBuilding(checkOrbit: false) && !CanBotsSpawnAtCompanyBuilding())
             {
                 return;
             }
@@ -2618,14 +2849,12 @@ namespace LethalBots.Managers
             {
                 StopCoroutine(spawnLethalBotsAtShipCoroutine);
             }
-            spawnLethalBotsAtShipCoroutine = StartCoroutine(SpawnLethalBotsCoroutine());
+            spawnLethalBotsAtShipCoroutine = StartCoroutine(SpawnLethalBotsCoroutine(markBotsAsLoaded));
         }
 
-        private IEnumerator SpawnLethalBotsCoroutine()
+        private IEnumerator SpawnLethalBotsCoroutine(bool markBotsAsLoaded)
         {
             yield return null;
-            //int nbLethalBotsToSpawn = IdentityManager.Instance.GetNbIdentitiesToDrop();
-            //for (int i = 0; i < nbLethalBotsToSpawn; i++)
             int nbSpawnedBots = 0;
             int nbBotsToSpawn = Plugin.Config.MaxBotsAllowedToSpawn;
 
@@ -2639,7 +2868,13 @@ namespace LethalBots.Managers
             Plugin.LogDebug("Preparing to spawn bots!");
             for (int i = 0; i < AllLethalBotAIs.Length; i++)
             {
-                Plugin.LogDebug($"AI at index {i}: {AllLethalBotAIs[i]}");
+                LethalBotAI? lethalBotAI = AllLethalBotAIs[i];
+                Plugin.LogDebug($"AI at index {i}: {lethalBotAI}");
+                if (lethalBotAI != null)
+                {
+                    ReinitSpawnedBotServerRpc(lethalBotAI.NetworkObject);
+                    nbBotsToSpawn--;
+                }
             }
             for (int i = nbBotsToSpawn; i > 0; i--)
             {
@@ -2701,7 +2936,18 @@ namespace LethalBots.Managers
                 SetStartingRevivesReviveCompanyServerRpc();
             }
 
-            HUDManager.Instance.DisplayTip("Finished Spawning Bots!", string.Format("{0} bots were spawned!", nbSpawnedBots), false, false, "LC_Tip1");
+            // Only display if we actually spawned in bots.
+            if (nbSpawnedBots > 0)
+            {
+                HUDManager.Instance.DisplayTip("Finished Spawning Bots!", string.Format("{0} bots were spawned!", nbSpawnedBots), false, false, "LC_Tip1");
+            }
+
+            // Mark the bots as loaded if we were asked to do so!
+            if (markBotsAsLoaded)
+            {
+                MarkBotsAsLoadedDelayed();
+            }
+
             spawnLethalBotsAtShipCoroutine = null;
         }
 
@@ -2773,6 +3019,36 @@ namespace LethalBots.Managers
 
             Plugin.LogInfo($"[Client] Old Num of Connected Players {oldPlayerCount} -> {instanceSOR.connectedPlayersAmount}");
             Plugin.LogInfo($"[Client] Old Num of Living Players {oldLivingPlayerCount} -> {instanceSOR.livingPlayers}");
+            Plugin.LogInfo($"[Client] Real Players Count: {AllRealPlayersCount}");
+        }
+
+        /// <summary>
+        /// This sends the new human player count to all clients
+        /// </summary>
+        /// <param name="clientId"></param>
+        [ServerRpc(RequireOwnership = false)]
+        public void RequestPlayerCountServerRpc(ulong clientId)
+        {
+            Plugin.LogInfo($"Client {clientId} ask server/host {NetworkManager.LocalClientId} to update number of real players.");
+
+            // Update the number of connected human players
+            AllRealPlayersCount = GameNetworkManager.Instance.connectedPlayers;
+            Plugin.LogInfo($"[Server] Real Players Count: {AllRealPlayersCount}");
+            RequestPlayerCountClientRpc(AllRealPlayersCount);
+        }
+
+        [ClientRpc]
+        private void RequestPlayerCountClientRpc(int numRealPlayers)
+        {
+            // The host already updated these values, no need to do it again
+            if (IsServer || IsHost)
+            {
+                return;
+            }
+
+            // Update for the clients
+            Plugin.LogInfo("[Client] Received updated player counts!");
+            AllRealPlayersCount = numRealPlayers;
             Plugin.LogInfo($"[Client] Real Players Count: {AllRealPlayersCount}");
         }
 
@@ -2920,8 +3196,7 @@ namespace LethalBots.Managers
             yield return null;
             StartOfRound instanceSOR = StartOfRound.Instance;
             while (instanceSOR != null 
-                && !instanceSOR.inShipPhase 
-                && instanceSOR.shipHasLanded)
+                && IsTheShipLanded(instanceSOR))
             {
                 // Check if there is a player trapped in the facility
                 bool foundTrappedPlayer = false;
@@ -3024,7 +3299,7 @@ namespace LethalBots.Managers
                     }
 
                     // Check if they are inside the elevator!
-                    return (startPosition - LethalBotAI.ElevatorScript.elevatorInsidePoint.position).sqrMagnitude < 2f * 2f;
+                    return LethalBotAI.ElevatorScript.elevatorBounds.bounds.Contains(startPosition);
                 }
                 return false;
             }
@@ -3451,11 +3726,10 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
-        /// Retrieves all active LethalBotAI instances associated with the current game round.
+        /// Retrieves all LethalBotAI instances.
         /// </summary>
         /// <returns>
-        /// An array of LethalBotAI objects representing all active bots in the current round. The array is empty if no
-        /// bots are present.
+        /// An array of LethalBotAI objects. The array is empty if no LethalBotAIs are spawned.
         /// </returns>
         public LethalBotAI[] GetLethalBotAIs()
         {
@@ -3590,9 +3864,41 @@ namespace LethalBots.Managers
         {
             // No bots on the company building moon unless there is a mod that adds navmesh there!
             StartOfRound instanceSOR = StartOfRound.Instance;
-            if (AreWeAtTheCompanyBuilding() && !CanBotsSpawnAtCompanyBuilding())
+            if (AreWeAtTheCompanyBuilding(checkOrbit: false) && !CanBotsSpawnAtCompanyBuilding())
             {
                 return;
+            }
+
+            // Check if bots are allowed in orbit
+            if (Plugin.Config.AllowBotsInOrbit.Value)
+            {
+                // Clear out the table in case this is called again somehow
+                AllBotPlayerIndexs.Clear();
+                foreach (LethalBotAI lethalBotAI in GetLethalBotAIs())
+                {
+                    // Check for the bots that were respawned
+                    PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
+                    if (lethalBotController != null)
+                    {
+                        // Check if we need to play the revive player animation!
+                        if (lethalBotAI.LethalBotIdentity.DiedLastRound)
+                        {
+                            // This is the same stuff called by the game in the ReviveDeadPlayers code
+                            lethalBotController.hinderedMultiplier = 1f;
+                            lethalBotController.isMovementHindered = 0;
+                            lethalBotController.sourcesCausingSinking = 0;
+                            lethalBotController.reverbPreset = StartOfRound.Instance.shipReverb;
+                            lethalBotController.SpawnPlayerAnimation();
+                        }
+
+                        // Make sure our voice is up to date!
+                        int lethalBotPlayerClientID = (int)lethalBotController.playerClientId;
+                        SoundManager.Instance.playerVoicePitchTargets[lethalBotPlayerClientID] = lethalBotAI.LethalBotIdentity.Voice.VoicePitch;
+                        SoundManager.Instance.SetPlayerPitch(lethalBotAI.LethalBotIdentity.Voice.VoicePitch, lethalBotPlayerClientID);
+                    }
+                }
+
+                return; // Thats all we do here!
             }
 
             foreach (int lethalBot in AllBotPlayerIndexs)
@@ -3663,6 +3969,19 @@ namespace LethalBots.Managers
                     quickMenuManager.RemoveUserFromPlayerList(lethalBot);
                 }
 
+                // Remove bot from "connected" player list
+                ulong clientId = lethalBotController.actualClientId;
+                StartOfRound.Instance.ClientPlayerList.Remove(clientId);
+
+                if (instanceSOR.fullyLoadedPlayers.Contains(clientId))
+                {
+                    instanceSOR.fullyLoadedPlayers.Remove(clientId);
+                }
+                if (RoundManager.Instance.playersFinishedGeneratingFloor.Contains(clientId))
+                {
+                    RoundManager.Instance.playersFinishedGeneratingFloor.Remove(clientId);
+                }
+
                 instanceSOR.allPlayerObjects[lethalBotController.playerClientId].SetActive(false);
                 //instanceSOR.connectedPlayersAmount -= 1;
                 //instanceSOR.livingPlayers -= 1;
@@ -3688,7 +4007,7 @@ namespace LethalBots.Managers
         private void CountAliveAndDisableLethalBots(bool _)
         {
             // No bots on the company building moon unless there is a mod that adds navmesh there!
-            if (AreWeAtTheCompanyBuilding() && !CanBotsSpawnAtCompanyBuilding())
+            if (AreWeAtTheCompanyBuilding(checkOrbit: false) && !CanBotsSpawnAtCompanyBuilding())
             {
                 return;
             }
@@ -3782,11 +4101,15 @@ namespace LethalBots.Managers
                             }
                         }
 
-                        // Stop Emoting
-                        lethalBotAI.NpcController.StopPreformingEmote(true);
+                        // Only do this if bots are not allowed in orbit!
+                        if (!Plugin.Config.AllowBotsInOrbit.Value)
+                        {
+                            // Stop Emoting
+                            lethalBotAI.NpcController.StopPreformingEmote(true);
 
-                        // Drop our held items
-                        lethalBotController.DropAllHeldItems();
+                            // Drop our held items
+                            lethalBotController.DropAllHeldItems();
+                        }
                     }
                 }
                 catch (Exception e)
@@ -3794,25 +4117,52 @@ namespace LethalBots.Managers
                     Plugin.LogError($"An error occured during round cleanup! Error: {e}");
                 }
 
-                // Mark the status as recently used so they are spawned in again!
-                lethalBotAI.LethalBotIdentity.Status = EnumStatusIdentity.ToSpawn;
-                lethalBotAI.LethalBotIdentity.DiedLastRound = lethalBotController.isPlayerDead;
-                if (lethalBotAI.State != null
-                    && lethalBotAI.State.GetAIState() != EnumAIStates.BrainDead)
+                // We do different stuff here if the bot is allowed or not allowed in orbit!
+                if (Plugin.Config.AllowBotsInOrbit.Value)
                 {
-                    // If the bot was not in the BrainDead state, we set it to it so it doesn't do anything after this!
-                    lethalBotAI.State = new BrainDeadState(lethalBotAI);
-                }
+                    // We still set the died last round flag
+                    lethalBotAI.LethalBotIdentity.DiedLastRound = lethalBotController.isPlayerDead;
 
-                // Mod support!!!!
-                if (Plugin.IsModLethalPhonesLoaded)
-                {
-                    lethalBotAI.StopBeingSwitchboardOperator();
-                    if (lethalBotAI.AreWeInCall() || lethalBotAI.IsPhoneEquipped())
+                    // TODO: Add special state for in orbit
+                    //if (lethalBotAI.State != null
+                    //&& lethalBotAI.State.GetAIState() != EnumAIStates.BrainDead)
+                    //{
+                    //    // If the bot was not in the BrainDead state, we set it to it so it doesn't do anything after this!
+                    //    lethalBotAI.State = new BrainDeadState(lethalBotAI);
+                    //}
+
+                    if (Plugin.IsModLethalPhonesLoaded)
                     {
-                        lethalBotAI.HangupPhone();
+                        lethalBotAI.StopBeingSwitchboardOperator();
+                        if (lethalBotAI.AreWeInCall() || lethalBotAI.IsPhoneEquipped())
+                        {
+                            lethalBotAI.HangupPhone();
+                        }
                     }
-                    CleanupLethalPhoneForBot(lethalBotController);
+                }
+                // Not allowed in orbit, do the standard cleanup code!
+                else
+                {
+                    // Mark the status as recently used so they are spawned in again!
+                    lethalBotAI.LethalBotIdentity.Status = EnumStatusIdentity.ToSpawn;
+                    lethalBotAI.LethalBotIdentity.DiedLastRound = lethalBotController.isPlayerDead;
+                    if (lethalBotAI.State != null
+                        && lethalBotAI.State.GetAIState() != EnumAIStates.BrainDead)
+                    {
+                        // If the bot was not in the BrainDead state, we set it to it so it doesn't do anything after this!
+                        lethalBotAI.State = new BrainDeadState(lethalBotAI);
+                    }
+
+                    // Mod support!!!!
+                    if (Plugin.IsModLethalPhonesLoaded)
+                    {
+                        lethalBotAI.StopBeingSwitchboardOperator();
+                        if (lethalBotAI.AreWeInCall() || lethalBotAI.IsPhoneEquipped())
+                        {
+                            lethalBotAI.HangupPhone();
+                        }
+                        CleanupLethalPhoneForBot(lethalBotController);
+                    }
                 }
 
                 // Remove bot from their group
@@ -3835,6 +4185,253 @@ namespace LethalBots.Managers
                 AllBotPlayerIndexs.Add((int)lethalBotController.playerClientId);
             }
         }
+
+        #region Level Loading Helpers
+
+        /// <summary>
+        /// Helper function that marks all active bots as loaded in the <see cref="StartOfRound.fullyLoadedPlayers"/>
+        /// </summary>
+        public void MarkBotsAsLoaded()
+        {
+            // Go through every bot and mark them as ready!
+            StartOfRound instanceSOR = StartOfRound.Instance;
+            LethalBotAI[] lethalBotAIs = GetLethalBotAIs();
+            foreach (LethalBotAI lethalBotAI in lethalBotAIs)
+            {
+                PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
+                if (lethalBotController != null
+                    && (lethalBotController.isPlayerControlled
+                    || lethalBotController.isPlayerDead))
+                {
+                    // This will network to all players that the bot is "ready"
+                    PatchesUtil.PlayerLoadedServerRpcMethod.Invoke(instanceSOR, new object[] { lethalBotController.actualClientId });
+                }
+            }
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="MarkBotsAsLoaded"/>
+        /// </summary>
+        /// <remarks>
+        /// This waits until all human players have loaded before marking the bots as loaded
+        /// </remarks>
+        public void MarkBotsAsLoadedDelayed()
+        {
+            if (markBotsAsLoadedCoroutine != null)
+            {
+                StopCoroutine(markBotsAsLoadedCoroutine);
+                markBotsAsLoadedCoroutine = null;
+            }
+            markBotsAsLoadedCoroutine = StartCoroutine(MarkBotsAsLoadedWhenHumanPlayersReady());
+        }
+
+        private IEnumerator MarkBotsAsLoadedWhenHumanPlayersReady()
+        {
+            yield return null;
+            yield return new WaitUntil(() => StartOfRound.Instance.fullyLoadedPlayers.Count >= AllRealPlayersCount);
+            MarkBotsAsLoaded();
+            markBotsAsLoadedCoroutine = null;
+        }
+
+        /// <summary>
+        /// Helper function that marks all active bots as loaded in the <see cref="RoundManager.playersFinishedGeneratingFloor"/>
+        /// </summary>
+        public void MarkBotsAsGeneratedFloor()
+        {
+            // Go through every bot and mark them as ready!
+            RoundManager instanceRM = RoundManager.Instance;
+            LethalBotAI[] lethalBotAIs = GetLethalBotAIs();
+            foreach (LethalBotAI lethalBotAI in lethalBotAIs)
+            {
+                PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
+                if (lethalBotController != null
+                    && (lethalBotController.isPlayerControlled
+                    || lethalBotController.isPlayerDead))
+                {
+                    // This will network to all players that the bot is "ready"
+                    instanceRM.FinishedGeneratingLevelServerRpc(lethalBotController.actualClientId);
+                }
+            }
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="MarkBotsAsGeneratedFloor"/>
+        /// </summary>
+        /// <remarks>
+        /// This waits until all human players have loaded before marking the bots as loaded
+        /// </remarks>
+        public void MarkBotsAsGeneratedFloorDelayed()
+        {
+            if (markBotsAsGeneratedFloorCoroutine != null)
+            {
+                StopCoroutine(markBotsAsGeneratedFloorCoroutine);
+                markBotsAsGeneratedFloorCoroutine = null;
+            }
+            markBotsAsGeneratedFloorCoroutine = StartCoroutine(MarkBotsAsGeneratedFloorWhenHumanPlayersReady());
+        }
+
+        private IEnumerator MarkBotsAsGeneratedFloorWhenHumanPlayersReady()
+        {
+            yield return null;
+            yield return new WaitUntil(() => RoundManager.Instance.playersFinishedGeneratingFloor.Count >= AllRealPlayersCount);
+            MarkBotsAsGeneratedFloor();
+            markBotsAsGeneratedFloorCoroutine = null;
+        }
+
+        #endregion
+
+        #region Ship NavMesh
+
+        public void EnsureShipNavMeshBuilt()
+        {
+            if (shipNavMeshBuilt) return;
+
+            //var triangulation = NavMesh.CalculateTriangulation();
+            //Plugin.LogDebug($"Before NavMesh vertices: {triangulation.vertices.Length}");
+
+            // Setup our navmesh prefab
+            GameObject? enviormentObject = GameObject.Find("Environment");
+            shipNavMeshInstance ??= Object.Instantiate(Plugin.ShipOrbitNavMeshPrefab);
+            shipNavMeshInstance.SetActive(true);
+            shipNavMeshInstance.transform.SetParent(StartOfRound.Instance.elevatorTransform, true);
+
+            // Make sure our prefab is lined up correctly!
+            if (enviormentObject != null)
+            {
+                // Move to the environment object.
+                Plugin.LogInfo("Found Environment!");
+                shipNavMeshInstance.transform.position = enviormentObject.transform.position;
+                shipNavMeshInstance.transform.rotation = enviormentObject.transform.rotation;
+            }
+            else
+            {
+                // As where it is located in the Unity Editor.
+                Plugin.LogWarning("Failed to find Environment!");
+                shipNavMeshInstance.transform.position = new Vector3(-17.43886f, 7.605381f, -16.4713f);
+                shipNavMeshInstance.transform.rotation = new Quaternion(0, 0, 0, 1);
+            }
+
+            // Get our create out NavMeshSurface
+            shipNavMeshSurface = shipNavMeshInstance.GetComponent<NavMeshSurface>();
+
+            // Generate the mesh!
+            shipNavMeshSurface.enabled = true;
+            Plugin.LogInfo("Building ship navmesh...");
+            shipNavMeshSurface.BuildNavMesh();
+            //Plugin.LogInfo("Surface active: " + shipNavMeshSurface.isActiveAndEnabled);
+            //Plugin.LogInfo("Children found: " + shipNavMeshSurface.GetComponentsInChildren<MeshRenderer>().Length);
+            //Plugin.LogInfo("LayerMask: " + shipNavMeshSurface.layerMask.value);
+            Plugin.LogInfo("Navmesh built: " + shipNavMeshSurface.navMeshData);
+            //triangulation = NavMesh.CalculateTriangulation();
+            //Plugin.LogDebug($"After NavMesh vertices: {triangulation.vertices.Length}");
+            //Plugin.LogDebug($"Ship pos: {StartOfRound.Instance.elevatorTransform.position}");
+            //Plugin.LogDebug($"NavMesh pos: {shipNavMeshSurface.navMeshData.position}");
+
+            // Only find the object if its not cached!
+            if (landingShipNavObstacle == null)
+            {
+                NavMeshObstacle[] navMeshObstacles = Object.FindObjectsOfType<NavMeshObstacle>();
+                foreach (NavMeshObstacle obstacle in navMeshObstacles)
+                {
+                    // HACKHACK: Apprently LandingShipNavObstacle constantly renables itself. I have NO idea why, 
+                    // so for now we just set its height and radius to zero and restore it upon landing!
+                    Plugin.LogInfo($"Obstacle: {obstacle} with name {obstacle.name}: isEnabled {obstacle.enabled}");
+                    if (obstacle.name == "LandingShipNavObstacle")
+                    {
+                        landingShipNavObstacle = obstacle;
+                        landingShipNavObstacleInfo = (obstacle.height, obstacle.radius);
+                        obstacle.height = 0f;
+                        obstacle.radius = 0f;
+                        break;
+                    }
+                }
+            }
+
+            // Mark mesh as active since BuildNavMesh calls AddData internally
+            shipNavMeshActive = true;
+        }
+
+        public void EnableShipNavMesh(string reason = "Unknown")
+        {
+            if (!shipNavMeshBuilt || shipNavMeshActive) return;
+
+            Plugin.LogDebug($"Enabling ship NavMeshSurface object. Reason: {reason}");
+            shipNavMeshInstance?.SetActive(true);
+            shipNavMeshSurface.enabled = true;
+            shipNavMeshSurface.AddData();
+
+            // No need to do this anymore!
+            if (disableNavMeshCoroutine != null)
+            {
+                StopCoroutine(disableNavMeshCoroutine);
+                disableNavMeshCoroutine = null;
+            }
+
+            // "Disable" the ship NavObstacle
+            landingShipNavObstacle?.height = Const.EPSILON;
+            landingShipNavObstacle?.radius = Const.EPSILON;
+            shipNavMeshActive = true;
+        }
+
+        public void DisableShipNavMesh(string reason = "Unknown")
+        {
+            if (!shipNavMeshBuilt || !shipNavMeshActive) return;
+
+            Plugin.LogDebug($"Disabling ship NavMeshSurface object. Reason: {reason}");
+            shipNavMeshSurface.RemoveData();
+            shipNavMeshInstance?.SetActive(false);
+            shipNavMeshSurface.enabled = false;
+            
+            // Renable the navmesh blocker after a delay
+            if (disableNavMeshCoroutine != null)
+            {
+                StopCoroutine(disableNavMeshCoroutine);
+            }
+            disableNavMeshCoroutine = StartCoroutine(ReenableNavMeshBlockerDelayed());
+
+            // Mark mesh as inactive
+            shipNavMeshActive = false;
+
+            // There us a rare chance that the OffTheMesh links connect to the ship's navmesh.
+            // I force update the links to fix this issue.
+            NavMeshLink[] navMeshLinks = Object.FindObjectsOfType<NavMeshLink>();
+            Plugin.LogInfo($"Updating all NavMeshLinks! Count: {navMeshLinks.Length}");
+            foreach (NavMeshLink link in navMeshLinks)
+            {
+                if (link != null)
+                {
+                    link.UpdateLink();
+                }
+            }
+
+            // NOTE: Remove this once Lethal Company stops using OffMeshLinks!
+            #pragma warning disable CS0618 // Type or member is obsolete
+            OffMeshLink[] offMeshLinks = Object.FindObjectsOfType<OffMeshLink>();
+            Plugin.LogInfo($"Updating all OffMeshLinks! Count: {offMeshLinks.Length}");
+            foreach (OffMeshLink link in offMeshLinks)
+            {
+                if (link != null)
+                {
+                    link.UpdatePositions();
+                }
+            }
+            #pragma warning restore CS0618 // Type or member is obsolete
+        }
+
+        private IEnumerator ReenableNavMeshBlockerDelayed()
+        {
+            // Wait until the ship begins the landing sequence.
+            yield return null;
+            yield return new WaitUntil(() => StartOfRound.Instance == null || StartOfRound.Instance.shipDoorsEnabled);
+            yield return null;
+
+            // Use our cached ship NavObstacle data.
+            landingShipNavObstacle?.height = landingShipNavObstacleInfo.height;
+            landingShipNavObstacle?.radius = landingShipNavObstacleInfo.radius;
+            disableNavMeshCoroutine = null;
+        }
+
+        #endregion
 
         #region SyncEndOfRoundLethalBots
 
@@ -4032,6 +4629,79 @@ namespace LethalBots.Managers
 
             Plugin.LogDebug($"Recreate stock requirements for {configLoadoutNetworkSerializable.ConfigStockRequirements.Length} bots");
             RestockManager.Instance.InitStockRequirements(configLoadoutNetworkSerializable.ConfigStockRequirements);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void SyncLethalBotsToJoiningPlayerServerRpc(ulong clientId)
+        {
+            Plugin.LogDebug($"Client {clientId} ask server/host {NetworkManager.LocalClientId} to SyncLethalBots");
+            ClientRpcParams.Send = new ClientRpcSendParams()
+            {
+                TargetClientIds = new ulong[] { clientId }
+            };
+
+            // We are on the server, so we need to send down all of the active lethal bots to the client who just joined!
+            SpawnLethalBotParamsNetworkSerializable[] lethalBots = new SpawnLethalBotParamsNetworkSerializable[AllLethalBotAIs.Length];
+            for (int i = 0; i < AllLethalBotAIs.Length; i++)
+            {
+                LethalBotAI? lethalBotAI = AllLethalBotAIs[i];
+                if (lethalBotAI == null)
+                {
+                    // Just put an empty struct, the client can filter out the valid and invalid bots.
+                    lethalBots[i] = new SpawnLethalBotParamsNetworkSerializable();
+                }
+                else
+                {
+                    lethalBots[i] = new SpawnLethalBotParamsNetworkSerializable()
+                    {
+                        LethalBotReference = lethalBotAI.NetworkObject,
+                        IndexNextLethalBot = i,
+                        IndexNextPlayerObject = i, // i should be (int)lethalBotAI.NpcController.Npc.playerClientId if everything is working correctly
+                        LethalBotIdentityID = lethalBotAI.LethalBotIdentity.IdIdentity,
+                        enumSpawnAnimation = EnumSpawnAnimation.ReinitializePlayer,
+                        SuitID = lethalBotAI.LethalBotIdentity.SuitID ?? 0,
+                        CarryWeight = lethalBotAI.NpcController?.Npc?.carryWeight
+                    };
+                }
+            }
+
+            SyncLethalBotsToJoiningPlayerClientRpc(lethalBots, ClientRpcParams);
+        }
+
+        [ClientRpc]
+        private void SyncLethalBotsToJoiningPlayerClientRpc(SpawnLethalBotParamsNetworkSerializable[] spawnLethalBotParamsNetworkSerializable,
+                                                       ClientRpcParams clientRpcParams = default)
+        {
+            if (IsOwner)
+            {
+                return;
+            }
+
+            for (int i = 0; i < spawnLethalBotParamsNetworkSerializable.Length; i++)
+            {
+                // Make sure the this is a valid struct. The host will send structs without a LethalBotReference
+                // to indicate that there is no bot in that player slot.
+                var lethalBotData = spawnLethalBotParamsNetworkSerializable[i];
+                if (!lethalBotData.LethalBotReference.HasValue || !lethalBotData.LethalBotReference.Value.TryGet(out NetworkObject networkObject))
+                {
+                    Plugin.LogInfo($"No bot data found for index {i}!");
+                    continue;
+                }
+
+                // Check if the network object is actually a Lethal Bot!
+                LethalBotAI? lethalBotAI = networkObject.gameObject.GetComponent<LethalBotAI>();
+                if (lethalBotAI == null)
+                {
+                    Plugin.LogError($"Bot at index {i} network object didn't have LethalBotAI instance!");
+                    continue;
+                }
+
+                // Add the bot where they should be in the list!
+                AllLethalBotAIs[lethalBotData.IndexNextLethalBot] = lethalBotAI;
+
+                // Setup the bot for this client.
+                InitLethalBotSpawning(lethalBotAI, lethalBotData, clientJoining: true);
+            }
         }
 
         #endregion

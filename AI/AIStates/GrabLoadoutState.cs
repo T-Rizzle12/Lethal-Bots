@@ -1,6 +1,7 @@
 ﻿using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using Steamworks.Ugc;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -93,35 +94,9 @@ namespace LethalBots.AI.AIStates
             }
 
             // So, we don't have the item in our inventory, lets check the ship!
-            GrabbableObject? closestItem = null;
-            float closestItemSqr = float.MaxValue;
+            // Don't pickup conductive items during storms!
             LevelWeatherType levelWeatherType = TimeOfDay.Instance.currentLevelWeather;
-            for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
-            {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
-                GrabbableObject? item = gameObject.GetComponent<GrabbableObject>();
-                if (item != null
-                    && item.isInShipRoom
-                    && item.itemProperties.itemName == name 
-                    && (levelWeatherType != LevelWeatherType.Stormy || !item.itemProperties.isConductiveMetal)) // Don't pickup conductive items during storms!
-                {
-                    float itemSqr = (item.transform.position - npcController.Npc.transform.position).sqrMagnitude;
-                    if (itemSqr < closestItemSqr
-                        && ai.IsGrabbableObjectGrabbable(item)) // NOTE: IsGrabbableObjectGrabbable has a pathfinding check, so we run it last since it can be expensive!
-                    {
-                        closestItemSqr = itemSqr;
-                        closestItem = item;
-                    }
-                }
-            }
-
-            return closestItem;
+            return ai.FindItemOnShip(foundItem => foundItem.itemProperties.itemName == name && (levelWeatherType != LevelWeatherType.Stormy || !foundItem.itemProperties.isConductiveMetal));
         }
     }
 }

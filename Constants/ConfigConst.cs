@@ -48,6 +48,7 @@ namespace LethalBots.Constants
         public const int DEFAULT_MAX_IDENTITIES = 22;
         public const int MIN_IDENTITIES = 10;
         public const int MAX_IDENTITIES = 200;
+        public const string FILE_NAME_GAME_ITEMS = "GameItems.txt";
         public const string FILE_NAME_CONFIG_IDENTITIES = "ConfigIdentities.json";
         public const string FILE_NAME_CONFIG_LOADOUTS_DEFAULT = "ConfigLoadoutsDefault.json";
         public const string FILE_NAME_CONFIG_LOADOUTS_USER = "ConfigLoadoutsUser.json";

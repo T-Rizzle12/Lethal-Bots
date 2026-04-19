@@ -2,6 +2,7 @@
 using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
+using LethalBots.Managers;
 using LethalBots.Utils.Helpers;
 using System.Collections;
 using System.Collections.Generic;
@@ -16,6 +17,7 @@ namespace LethalBots.AI.AIStates
         private static readonly AccessTools.FieldRef<SprayPaintItem, bool> isSpraying = AccessTools.FieldRefAccess<bool>(typeof(SprayPaintItem), "isSpraying");
 
         private PlayerControllerB healTarget;
+        protected GrabbableObject? neededMedicalTool;
         private HealMethod healMethod = HealMethod.None;
         private Coroutine? healCoroutine;
         private static readonly UpdateLimiter nextCadaverGrowthCheck = new UpdateLimiter();
@@ -50,7 +52,7 @@ namespace LethalBots.AI.AIStates
                 || !healTarget.isPlayerControlled
                 || healTarget.isPlayerDead)
             {
-                Plugin.LogError("HealPlayerState: healTarget is null or dead, cannot heal!");
+                Plugin.LogWarning("HealPlayerState: healTarget is null or dead, cannot heal!");
                 ChangeBackToPreviousState();
                 return;
             }
@@ -96,6 +98,15 @@ namespace LethalBots.AI.AIStates
             if (!CanHealPlayer())
             {
                 ChangeBackToPreviousState();
+                return;
+            }
+
+            // One of our heal methods request we grab the needed medical tool
+            GrabbableObject? neededMedicalTool = this.neededMedicalTool;
+            if (neededMedicalTool != null)
+            {
+                this.neededMedicalTool = null; // Clear the tool!
+                ai.State = new FetchingObjectState(this, neededMedicalTool);
                 return;
             }
 
@@ -160,7 +171,8 @@ namespace LethalBots.AI.AIStates
         /// <returns>true if the player can be healed using weedkiller; otherwise, false.</returns>
         private static bool CanHealPlayerWithWeedKiller(LethalBotAI lethalBotAI, PlayerControllerB healTarget, float requiredInfectionLevel = 0.0f)
         {
-            if (lethalBotAI?.NpcController?.Npc == healTarget)
+            PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
+            if (lethalBotController == healTarget)
             {
                 return false; // We can't heal ourselves with weed killer, someone else has to do it for us.
             }
@@ -184,10 +196,19 @@ namespace LethalBots.AI.AIStates
             //    Plugin.LogDebug("HealPlayerState: Player's burst meter is above 0, the player is too far gone!");
             //    return false;
             //}
+            // Check if we have weedkiller in our inventory
             if (lethalBotAI != null && !lethalBotAI.HasGrabbableObjectInInventory(FindWeedKiller, out _))
             {
-                //Plugin.LogDebug("HealPlayerState: Can't heal player from infection, bot doesn't have weed killer in inventory!");
-                return false;
+                // Check if there is weedkiller on the ship
+                if ((lethalBotController != null 
+                    && !lethalBotController.isInElevator 
+                    && !lethalBotController.isInHangarShipRoom) 
+                    || lethalBotAI.FindItemOnShip(FindWeedKiller) is not GrabbableObject foundItem
+                    || !lethalBotAI.HasSpaceInInventory(foundItem))
+                {
+                    //Plugin.LogDebug("HealPlayerState: Can't heal player from infection, bot doesn't have weed killer in inventory!");
+                    return false;
+                }
             }
             return true;
         }
@@ -297,6 +318,16 @@ namespace LethalBots.AI.AIStates
         private void DoWeedKillerHealingLogic()
         {
             // Lets go and cure a player
+            if (!ai.HasGrabbableObjectInInventory(FindWeedKiller, out _))
+            {
+                neededMedicalTool = ai.FindItemOnShip(FindWeedKiller);
+                if (neededMedicalTool == null || !ai.HasSpaceInInventory(neededMedicalTool))
+                {
+                    ChangeBackToPreviousState(); // Odd, we can't find the weedkiller, just give up!
+                }
+                return;
+            }
+
             float sqrDistToHealTarget = (healTarget.transform.position - npcController.Npc.transform.position).sqrMagnitude;
             if (sqrDistToHealTarget > Const.DISTANCE_CLOSE_ENOUGH_TO_HEAL_TARGET * Const.DISTANCE_CLOSE_ENOUGH_TO_HEAL_TARGET 
                 || (Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, healTarget.gameplayCamera.transform.position, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault)

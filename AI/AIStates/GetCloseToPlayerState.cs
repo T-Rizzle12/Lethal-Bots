@@ -61,9 +61,11 @@ namespace LethalBots.AI.AIStates
             }
 
             // Wait for ship to land before doing anything!
+            StartOfRound instanceSOR = StartOfRound.Instance;
             if ((npcController.Npc.isInElevator || npcController.Npc.isInHangarShipRoom)
-                && (StartOfRound.Instance.shipIsLeaving
-                    || !StartOfRound.Instance.shipHasLanded))
+                && !LethalBotManager.AreWeInOrbit(instanceSOR)
+                && (LethalBotManager.IsTheShipLeaving(instanceSOR)
+                    || !LethalBotManager.IsTheShipLanded(instanceSOR)))
             {
                 return;
             }
@@ -107,7 +109,7 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
-            if (!ai.PlayerIsTargetable(ai.targetPlayer, false, true))
+            if (!ai.PlayerIsTargetable(ai.targetPlayer, false, true, false))
             {
                 // Target is not available anymore
                 ai.State = new SearchingForPlayerState(this);

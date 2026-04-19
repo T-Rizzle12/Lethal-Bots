@@ -499,6 +499,13 @@ namespace LethalBots.AI.AIStates
                 return false;
 
             PlayerControllerB lethalBotController = npcController.Npc;
+            if (this.CurrentEnemy is BushWolfEnemy bushWolf 
+                && bushWolf.draggingPlayer == lethalBotController
+                && !LethalBotAI.IsItemRangedWeapon(heldItem))
+            {
+                return true; // SAVE OURSELF!
+            }
+
             Vector3 toEnemy = targetPos - lethalBotController.gameplayCamera.transform.position;
             float angleToEnemy = Vector3.Angle(lethalBotController.playerEye.forward, toEnemy);
             enemyColliders ??= new RaycastHit[10];

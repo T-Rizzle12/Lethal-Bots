@@ -11,15 +11,17 @@ namespace LethalBots.AI.AIStates
     {
         private EnumGrabbableObjectCall enumGrabbable;
         private int grabAttempts;
+        private bool ignoreEnemies;
 
         /// <summary>
         /// <inheritdoc cref="AIState(AIState)"/>
         /// </summary>
-        public FetchingObjectState(AIState state, GrabbableObject? targetItem, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default, AIState? changeToOnEnd = null) : base(state, changeToOnEnd)
+        public FetchingObjectState(AIState state, GrabbableObject? targetItem, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default, AIState? changeToOnEnd = null, bool ignoreEnemies = false) : base(state, changeToOnEnd)
         {
             CurrentState = EnumAIStates.FetchingObject;
             this.TargetItem = targetItem;
             this.enumGrabbable = enumGrabbable;
+            this.ignoreEnemies = ignoreEnemies;
         }
 
         /// <summary>
@@ -28,12 +30,15 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
-            EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
-            if (enemyAI != null)
+            if (!ignoreEnemies)
             {
-                grabAttempts++;
-                ai.State = new PanikState(this, enemyAI);
-                return;
+                EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
+                if (enemyAI != null)
+                {
+                    grabAttempts++;
+                    ai.State = new PanikState(this, enemyAI);
+                    return;
+                }
             }
 
             // Target item invalid to grab

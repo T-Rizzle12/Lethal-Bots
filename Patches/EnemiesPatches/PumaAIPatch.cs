@@ -28,13 +28,14 @@ namespace LethalBots.Patches.EnemiesPatches
             MethodInfo opInequalityMethod = AccessTools.Method(typeof(UnityEngine.Object), "op_Inequality");
 
             // ------------------------------------------------
-            for (var i = 0; i < codes.Count - 4; i++)
+            for (var i = 0; i < codes.Count - 5; i++)
             {
                 if (codes[i].IsLdarg(0) // 1588
                     && codes[i + 1].LoadsField(PatchesUtil.FieldInfoTargetPlayer) // 1589
                     && codes[i + 2].Calls(getGameNetworkManagerInstance)
                     && codes[i + 3].LoadsField(localPlayerControllerField) // 1591
-                    && codes[i + 4].Calls(opInequalityMethod)) // 1593
+                    && codes[i + 4].Calls(opInequalityMethod)
+                    && (codes[i + 5].opcode == OpCodes.Brfalse_S || codes[i + 5].opcode == OpCodes.Brfalse)) // 1593
                 {
                     startIndex = i;
                     break;
@@ -57,6 +58,7 @@ namespace LethalBots.Patches.EnemiesPatches
                 codes[startIndex + 3].operand = PatchesUtil.FieldInfoTargetPlayer;
                 codes[startIndex + 4].opcode = OpCodes.Call;
                 codes[startIndex + 4].operand = PatchesUtil.IsPlayerLocalOrLethalBotOwnerLocalMethod;
+                codes[startIndex + 5].opcode = codes[startIndex + 5].opcode == OpCodes.Brfalse ? OpCodes.Brtrue : OpCodes.Brtrue_S;
                 startIndex = -1;
             }
             else
@@ -65,13 +67,14 @@ namespace LethalBots.Patches.EnemiesPatches
             }
 
             // ------------------------------------------------
-            for (var i = 0; i < codes.Count - 4; i++)
+            for (var i = 0; i < codes.Count - 5; i++)
             {
                 if (codes[i].IsLdarg(0) // 1588
                     && codes[i + 1].LoadsField(PatchesUtil.FieldInfoTargetPlayer) // 1589
                     && codes[i + 2].Calls(getGameNetworkManagerInstance)
                     && codes[i + 3].LoadsField(localPlayerControllerField) // 1591
-                    && codes[i + 4].Calls(opInequalityMethod)) // 1593
+                    && codes[i + 4].Calls(opInequalityMethod)
+                    && (codes[i + 5].opcode == OpCodes.Brfalse_S || codes[i + 5].opcode == OpCodes.Brfalse)) // 1593
                 {
                     startIndex = i;
                     break;
@@ -94,6 +97,7 @@ namespace LethalBots.Patches.EnemiesPatches
                 codes[startIndex + 3].operand = PatchesUtil.FieldInfoTargetPlayer;
                 codes[startIndex + 4].opcode = OpCodes.Call;
                 codes[startIndex + 4].operand = PatchesUtil.IsPlayerLocalOrLethalBotOwnerLocalMethod;
+                codes[startIndex + 5].opcode = codes[startIndex + 5].opcode == OpCodes.Brfalse ? OpCodes.Brtrue : OpCodes.Brtrue_S;
                 startIndex = -1;
             }
             else
@@ -119,13 +123,14 @@ namespace LethalBots.Patches.EnemiesPatches
             MethodInfo opInequalityMethod = AccessTools.Method(typeof(UnityEngine.Object), "op_Inequality");
 
             // ------------------------------------------------
-            for (var i = 0; i < codes.Count - 4; i++)
+            for (var i = 0; i < codes.Count - 5; i++)
             {
                 if (codes[i].IsLdarg(0) // 1588
                     && codes[i + 1].LoadsField(PatchesUtil.FieldInfoTargetPlayer) // 1589
                     && codes[i + 2].Calls(getGameNetworkManagerInstance)
                     && codes[i + 3].LoadsField(localPlayerControllerField) // 1591
-                    && codes[i + 4].Calls(opInequalityMethod)) // 1593
+                    && codes[i + 4].Calls(opInequalityMethod)
+                    && (codes[i + 5].opcode == OpCodes.Brfalse_S || codes[i + 5].opcode == OpCodes.Brfalse)) // 1593
                 {
                     startIndex = i;
                     break;
@@ -148,6 +153,7 @@ namespace LethalBots.Patches.EnemiesPatches
                 codes[startIndex + 3].operand = PatchesUtil.FieldInfoTargetPlayer;
                 codes[startIndex + 4].opcode = OpCodes.Call;
                 codes[startIndex + 4].operand = PatchesUtil.IsPlayerLocalOrLethalBotOwnerLocalMethod;
+                codes[startIndex + 5].opcode = codes[startIndex + 5].opcode == OpCodes.Brfalse ? OpCodes.Brtrue : OpCodes.Brtrue_S;
                 startIndex = -1;
             }
             else

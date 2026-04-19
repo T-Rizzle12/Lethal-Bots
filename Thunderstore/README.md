@@ -40,8 +40,7 @@ The number of ~~bots that spawn~~ players that join depend on how many player sl
 
 ## How to use the mod
 - Bots will take up player slots that are open, if you have a full server this addon won't do anything.
-- Bots leave after the ship returns to orbit, don't worry they will come back next time you land! </br>
-This is done so other players can join if you have some kind of late join mod! </br>
+- Bots will join you in orbit, you can kick them from the lobby if you want to make room for friends! </br>
 - Bots automatically revive after returning to orbit. </br>
 - You can revive bots and bots can revive you with other mods like 'Revive company', 'Bunkbed revives' and 'Zaprillator'</br>
 - Bots can sell scrap at the company. You can configure if they sell everything, or only to quota </br>
@@ -110,6 +109,7 @@ Please note that these commands are not case sensitive, so you can use any combi
 2. The day ends
 
 **I will transfer loot** - This tells bots that you will be transferring loot! NOTE: All it does is add you to the LootTransferPlayers list. This causes the drop loot outside of entrances code to run!
+</br>**/addbots** - This tells my mod to spawn bots on the ship. This command only works while the ship is in orbit and you must have **Allow bots in orbit** set to true. (YOU MUST HAVE NavmeshInCompany AS WELL!)
 
 ## How the bots work
 The bots take one of the player objects in the game and I attach an EnemyAI to it for the pathfinding code.

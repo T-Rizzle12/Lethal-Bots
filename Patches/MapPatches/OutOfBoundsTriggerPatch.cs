@@ -44,12 +44,13 @@ namespace LethalBots.Patches.MapPatches
 
                 // Make sure we only do this for bots that are active!
                 PlayerControllerB component = other.GetComponent<PlayerControllerB>();
-                if (!LethalBotManager.Instance.IsPlayerLethalBotControlledAndOwner(component))
+                LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAIIfLocalIsOwner(component);
+                if (lethalBotAI == null)
                 {
                     return;
                 }
                 component.ResetFallGravity();
-                if (!(component != null))
+                if (component == null)
                 {
                     return;
                 }
@@ -58,6 +59,7 @@ namespace LethalBots.Patches.MapPatches
                     // Copied from LethalBotManager.CountAliveAndDisableLethalBots!
                     component.isInElevator = true;
                     component.isInHangarShipRoom = true;
+                    lethalBotAI.isInsidePlayerShip = true;
                     Vector3 shipPos = StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, (int)component.playerClientId, false);
                     component.thisController.enabled = false;
                     component.TeleportPlayer(shipPos);

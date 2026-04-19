@@ -29,17 +29,23 @@ namespace LethalBots.Patches.MapPatches
                 return;
             }
 
+            // Bot is dead do nothing!
+            if (lethalBotAI.isEnemyDead
+                || playerScript.isPlayerDead)
+            {
+                return;
+            }
+
             if (playerScript.shipTeleporterId == 1
                 && teleporterId == -1)
             {
                 // The bot is being teleported to the ship
                 playerScript.ResetFallGravity(); // Found out the hard way gravity wasn't reset on the bots......poor Felix....
                 lethalBotAI.InitStateToSearchingNoTarget();
-                AudioReverbPresets audioReverbPresets = UnityEngine.Object.FindObjectOfType<AudioReverbPresets>();
-                if ((bool)audioReverbPresets)
-                {
-                    audioReverbPresets.audioPresets[3].ChangeAudioReverbForPlayer(playerScript);
-                }
+
+                // Fix bots falling out of the ship if its taking off or landing when teleported
+                playerScript.parentedToElevatorLastFrame = true;
+                lethalBotAI.ReParentLethalBot(playerScript.playersManager.elevatorTransform);
             }
         }
 

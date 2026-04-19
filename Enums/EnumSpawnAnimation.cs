@@ -4,6 +4,7 @@
     {
         None = 0,
         OnlyPlayerSpawnAnimation,
-        OnlyPlayerSpawnAnimationIfDead
+        OnlyPlayerSpawnAnimationIfDead,
+        ReinitializePlayer
     }
 }
