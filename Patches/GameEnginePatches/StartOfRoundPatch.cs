@@ -190,10 +190,11 @@ namespace LethalBots.Patches.GameEnginePatches
         [HarmonyPostfix]
         static void SceneManager_OnLoadComplete1_Postfix(StartOfRound __instance, ulong clientId, string sceneName)
         {
+            // Only mark the bots as ready when the host is ready!
             __instance.ClientPlayerList.TryGetValue(clientId, out var player);
             if (player == 0)
             {
-                LethalBotManager.Instance?.MarkBotsAsLoaded();
+                LethalBotManager.Instance?.MarkBotsAsLoadedDelayed();
             }
         }
 
@@ -209,10 +210,11 @@ namespace LethalBots.Patches.GameEnginePatches
         {
             if (sceneName == __instance.currentLevel.sceneName)
             {
+                // Only mark the bots as ready when the host is ready!
                 __instance.ClientPlayerList.TryGetValue(clientId, out var player);
                 if (player == 0)
                 {
-                    LethalBotManager.Instance?.MarkBotsAsLoaded();
+                    LethalBotManager.Instance?.MarkBotsAsLoadedDelayed();
                 }
             }
         }

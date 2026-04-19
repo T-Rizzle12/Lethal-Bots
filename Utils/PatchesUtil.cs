@@ -27,6 +27,7 @@ namespace LethalBots.Utils
         public static readonly AccessTools.FieldRef<Terminal, bool> broadcastedCodeThisFrameField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "broadcastedCodeThisFrame");
         public static readonly AccessTools.FieldRef<Terminal, bool> hasGottenNounField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "hasGottenNoun");
         public static readonly AccessTools.FieldRef<Terminal, bool> hasGottenVerbField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "hasGottenVerb");
+        public static readonly AccessTools.FieldRef<Terminal, InteractTrigger> terminalTriggerField = AccessTools.FieldRefAccess<InteractTrigger>(typeof(Terminal), "terminalTrigger");
 
         public static readonly AccessTools.FieldRef<ItemDropship, List<int>> itemsToDeliverField = AccessTools.FieldRefAccess<List<int>>(typeof(ItemDropship), "itemsToDeliver");
 

@@ -15,11 +15,13 @@ namespace LethalBots.Constants
 
         public const string STRING_HELP = "help"; // Helper string to show the help command section
         public const string STRING_STORE = "store"; // Helper string to show the store command section
+        public const string STRING_MOONS = "moons"; // Helper string to show the moons section
         public const string STRING_OTHER_HELP = "other"; // Helper string to show the other command section
         public const string STRING_BUY_COMMAND = "buy {0} {1}"; // Helper string to purchase an item
         public const string STRING_ROUTE_COMMAND = "route {0}"; // Helper string to route to the given moon
         public const string STRING_CONFIRM_COMMAND = "confirm"; // Helper string to confirm an option
         public const string STRING_CANCEL_COMMAND = "deny"; // Helper string to deny an option
         public const string STRING_TRANSMIT_COMMAND = "transmit {0}"; // Helper string for the transmit command
+        public const string STRING_COMPANY_BUILDING = "The Company building"; // Helper string to help with routing to the company building
     }
 }

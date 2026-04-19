@@ -232,6 +232,8 @@ namespace LethalBots.Managers
         private Coroutine? spawnLethalBotsAtShipCoroutine = null;
         private Coroutine BeamOutLethalBotsCoroutine = null!;
         private Coroutine? trappedPlayerCheckCoroutine = null;
+        private Coroutine? disableNavMeshCoroutine = null;
+        private Coroutine? markBotsAsLoadedCoroutine = null;
         /// <summary>
         /// Returns if the inverse teleporter is active or not.<br/>
         /// Used by the <see cref="LethalBotAI"/> to check if they should use it to teleport in or not.
@@ -658,7 +660,7 @@ namespace LethalBots.Managers
                         livingPlayerCount++;
                     }
                 }
-                SendNewPlayerCountServerRpc(instanceSOR.connectedPlayersAmount, livingPlayerCount, AllRealPlayersCount);
+                SendNewPlayerCountServerRpc(instanceSOR.connectedPlayersAmount, livingPlayerCount, GameNetworkManager.Instance.connectedPlayers);
             }
 
             // Start checking for trapped player once the ship has landed
@@ -2470,7 +2472,7 @@ namespace LethalBots.Managers
         /// </summary>
         /// <param name="checkOrbit">Should we make sure we are not in orbit?</param>
         /// <returns>
-        /// true: if we are at the company, false: if we are not
+        /// <see langword="true"/>: if we are at the company, <see langword="false"/>: if we are not
         /// </returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool AreWeAtTheCompanyBuilding(bool checkOrbit = true)
@@ -2932,7 +2934,7 @@ namespace LethalBots.Managers
             // Mark the bots as loaded if we were asked to do so!
             if (markBotsAsLoaded)
             {
-                MarkBotsAsLoaded();
+                MarkBotsAsLoadedDelayed();
             }
 
             spawnLethalBotsAtShipCoroutine = null;
@@ -3009,24 +3011,31 @@ namespace LethalBots.Managers
             Plugin.LogInfo($"[Client] Real Players Count: {AllRealPlayersCount}");
         }
 
+        /// <summary>
+        /// This sends the new human player count to all clients
+        /// </summary>
+        /// <param name="clientId"></param>
         [ServerRpc(RequireOwnership = false)]
         public void RequestPlayerCountServerRpc(ulong clientId)
         {
-            Plugin.LogInfo($"Client {clientId} ask server/host {NetworkManager.LocalClientId} to sync number of real players.");
+            Plugin.LogInfo($"Client {clientId} ask server/host {NetworkManager.LocalClientId} to update number of real players.");
+
+            // Update the number of connected human players
+            AllRealPlayersCount = GameNetworkManager.Instance.connectedPlayers;
             Plugin.LogInfo($"[Server] Real Players Count: {AllRealPlayersCount}");
-
-            // Send only to the player requesting
-            ClientRpcParams.Send = new ClientRpcSendParams()
-            {
-                TargetClientIds = new ulong[] { clientId }
-            };
-
-            RequestPlayerCountClientRpc(AllRealPlayersCount, ClientRpcParams);
+            RequestPlayerCountClientRpc(AllRealPlayersCount);
         }
 
         [ClientRpc]
-        private void RequestPlayerCountClientRpc(int numRealPlayers, ClientRpcParams rpcParams = default)
+        private void RequestPlayerCountClientRpc(int numRealPlayers)
         {
+            // The host already updated these values, no need to do it again
+            if (IsServer || IsHost)
+            {
+                return;
+            }
+
+            // Update for the clients
             Plugin.LogInfo("[Client] Received updated player counts!");
             AllRealPlayersCount = numRealPlayers;
             Plugin.LogInfo($"[Client] Real Players Count: {AllRealPlayersCount}");
@@ -4161,8 +4170,7 @@ namespace LethalBots.Managers
         /// </summary>
         public void MarkBotsAsLoaded()
         {
-            // FIXME: This can cause issues if connected clients are not ready.
-            // I should move this into a Coroutine that waits until all other players are ready!
+            // Go through every bot and mark them as ready!
             StartOfRound instanceSOR = StartOfRound.Instance;
             LethalBotAI[] lethalBotAIs = GetLethalBotAIs();
             foreach (LethalBotAI lethalBotAI in lethalBotAIs)
@@ -4172,9 +4180,34 @@ namespace LethalBots.Managers
                     && (lethalBotController.isPlayerControlled
                     || lethalBotController.isPlayerDead))
                 {
+                    // This will network to all players that the bot is "ready"
                     PatchesUtil.PlayerLoadedServerRpcMethod.Invoke(instanceSOR, new object[] { lethalBotController.actualClientId });
                 }
             }
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="MarkBotsAsLoaded"/>
+        /// </summary>
+        /// <remarks>
+        /// This waits until all human players have loaded before marking the bots as loaded
+        /// </remarks>
+        public void MarkBotsAsLoadedDelayed()
+        {
+            if (markBotsAsLoadedCoroutine != null)
+            {
+                StopCoroutine(markBotsAsLoadedCoroutine);
+                markBotsAsLoadedCoroutine = null;
+            }
+            markBotsAsLoadedCoroutine = StartCoroutine(MarkBotsAsLoadedWhenHumanPlayersReady());
+        }
+
+        private IEnumerator MarkBotsAsLoadedWhenHumanPlayersReady()
+        {
+            yield return null;
+            yield return new WaitUntil(() => StartOfRound.Instance.fullyLoadedPlayers.Count >= AllRealPlayersCount);
+            MarkBotsAsLoaded();
+            markBotsAsLoadedCoroutine = null;
         }
 
         #region Ship NavMesh
@@ -4255,8 +4288,18 @@ namespace LethalBots.Managers
             Plugin.LogDebug($"Enabling ship NavMeshSurface object. Reason: {reason}");
             shipNavMeshInstance?.SetActive(true);
             shipNavMeshSurface.enabled = true;
-            landingShipNavObstacle.height = Const.EPSILON;
-            landingShipNavObstacle.radius = Const.EPSILON;
+            shipNavMeshSurface.AddData();
+
+            // No need to do this anymore!
+            if (disableNavMeshCoroutine != null)
+            {
+                StopCoroutine(disableNavMeshCoroutine);
+                disableNavMeshCoroutine = null;
+            }
+
+            // "Disable" the ship NavObstacle
+            landingShipNavObstacle?.height = Const.EPSILON;
+            landingShipNavObstacle?.radius = Const.EPSILON;
             shipNavMeshActive = true;
         }
 
@@ -4265,11 +4308,57 @@ namespace LethalBots.Managers
             if (!shipNavMeshBuilt || !shipNavMeshActive) return;
 
             Plugin.LogDebug($"Disabling ship NavMeshSurface object. Reason: {reason}");
+            shipNavMeshSurface.RemoveData();
             shipNavMeshInstance?.SetActive(false);
             shipNavMeshSurface.enabled = false;
-            landingShipNavObstacle.height = landingShipNavObstacleInfo.height;
-            landingShipNavObstacle.radius = landingShipNavObstacleInfo.radius;
+            
+            // Renable the navmesh blocker after a delay
+            if (disableNavMeshCoroutine != null)
+            {
+                StopCoroutine(disableNavMeshCoroutine);
+            }
+            disableNavMeshCoroutine = StartCoroutine(ReenableNavMeshBlockerDelayed());
+
+            // Mark mesh as inactive
             shipNavMeshActive = false;
+
+            // There us a rare chance that the OffTheMesh links connect to the ship's navmesh.
+            // I force update the links to fix this issue.
+            NavMeshLink[] navMeshLinks = Object.FindObjectsOfType<NavMeshLink>();
+            Plugin.LogInfo($"Updating all NavMeshLinks! Count: {navMeshLinks.Length}");
+            foreach (NavMeshLink link in navMeshLinks)
+            {
+                if (link != null)
+                {
+                    link.UpdateLink();
+                }
+            }
+
+            // NOTE: Remove this once Lethal Company stops using OffMeshLinks!
+            #pragma warning disable CS0618 // Type or member is obsolete
+            OffMeshLink[] offMeshLinks = Object.FindObjectsOfType<OffMeshLink>();
+            Plugin.LogInfo($"Updating all OffMeshLinks! Count: {offMeshLinks.Length}");
+            foreach (OffMeshLink link in offMeshLinks)
+            {
+                if (link != null)
+                {
+                    link.UpdatePositions();
+                }
+            }
+            #pragma warning restore CS0618 // Type or member is obsolete
+        }
+
+        private IEnumerator ReenableNavMeshBlockerDelayed()
+        {
+            // Wait until the ship begins the landing sequence.
+            yield return null;
+            yield return new WaitUntil(() => StartOfRound.Instance == null || StartOfRound.Instance.shipDoorsEnabled);
+            yield return null;
+
+            // Use our cached ship NavObstacle data.
+            landingShipNavObstacle?.height = landingShipNavObstacleInfo.height;
+            landingShipNavObstacle?.radius = landingShipNavObstacleInfo.radius;
+            disableNavMeshCoroutine = null;
         }
 
         #endregion

@@ -69,6 +69,17 @@ namespace LethalBots.Patches.GameEnginePatches
         }
 
         /// <summary>
+        /// If this level generates a Navmesh, we need to disable the ships NavMesh now!
+        /// </summary>
+        [HarmonyPatch("BakeDunGenNavMesh")]
+        [HarmonyPrefix]
+        static void BakeDunGenNavMesh_PreFix()
+        {
+            // Disable the NavMesh before BakeDunGenNavMesh is called!
+            LethalBotManager.Instance?.DisableShipNavMesh("Landing on a moon.");
+        }
+
+        /// <summary>
         /// This spawns the bots right as the ship starts to land!
         /// </summary>
         [HarmonyPatch("FinishGeneratingNewLevelClientRpc")]
@@ -94,8 +105,10 @@ namespace LethalBots.Patches.GameEnginePatches
         static void RefreshEnemiesList_PostFix(RoundManager __instance)
         {
             // RefreshEnemiesList catches the bots since they use EnemyAI objects, this removes them from the list!
+            int oldSpawnedEnemiesCount = __instance.SpawnedEnemies.Count;
             __instance.SpawnedEnemies.RemoveAll(enemy => enemy is LethalBotAI);
             __instance.numberOfEnemiesInScene = __instance.SpawnedEnemies.Count;
+            Plugin.LogDebug($"Removed LethalBotAI objects from RoundManager.SpawnedEnemies. Old {oldSpawnedEnemiesCount} -> New {__instance.numberOfEnemiesInScene}");
         }
 
         [HarmonyPatch("UnloadSceneObjectsEarly")]

@@ -25,7 +25,7 @@ namespace LethalBots.AI.AIStates
             StartOfRound instanceSOR = StartOfRound.Instance;
             if (hasVotedToLeave 
                 || LethalBotManager.AreWeInOrbit(instanceSOR)
-                || instanceSOR.shipIsLeaving 
+                || LethalBotManager.IsTheShipLeaving(instanceSOR)
                 || TimeOfDay.Instance.shipLeavingAlertCalled)
             {
                 return;

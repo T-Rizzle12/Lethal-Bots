@@ -110,9 +110,10 @@ namespace LethalBots.AI.AIStates
                     return;
                 }
                 // If there is no mission controller, or its dead, we should be it!
-                else if (!StartOfRound.Instance.shipIsLeaving)
+                else if (Plugin.Config.AllowBotsInOrbit.Value || !StartOfRound.Instance.shipIsLeaving)
                 {
                     if ((missionController == null || !missionController.isPlayerControlled || missionController.isPlayerDead) 
+                        && (Plugin.Config.AllowBotsInOrbit.Value || !LethalBotManager.AreWeInOrbit())
                         && Plugin.Config.AutoMissionControl.Value)
                     {
                         LethalBotManager.Instance.MissionControlPlayer = npcController.Npc;
@@ -156,132 +157,26 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
-            bool areWeAtTheCompany = LethalBotManager.AreWeAtTheCompanyBuilding();
-            float waitAtShipTime = areWeAtTheCompany ? Const.TIMER_CHILL_AT_SHIP_AT_COMPANY : Const.TIMER_CHILL_AT_SHIP;
-            if (chillAtShipTimer > waitAtShipTime)
+            // Run logic based on what phase of the game we are in.
+            if (LethalBotManager.AreWeAtTheCompanyBuilding())
             {
-                // If we are at the company building, we should sell!
-                if (areWeAtTheCompany)
+                if (DoCompanyBuildingLogic())
                 {
-                    if(ai.LookingForObjectsToSell(true) != null || LethalBotManager.AreThereItemsOnDesk())
-                    {
-                        ai.State = new CollectScrapToSellState(this);
-                        return;
-                    }
-                    else if (LethalBotManager.Instance.AreAllHumanPlayersDead()
-                    && LethalBotManager.Instance.AreAllPlayersOnTheShip())
-                    {
-                        if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET)
-                        {
-                            StartOfRound instanceSOR = npcController.Npc.playersManager;
-                            if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
-                                && !LethalBotManager.IsTheShipLeaving(instanceSOR))
-                            {
-                                StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
-                                if (startMatchLever != null)
-                                {
-                                    ai.PullShipLever(startMatchLever);
-                                }
-                                //npcController.Npc.playersManager.ShipLeaveAutomatically(true);
-                            }
-                        }
-                        else
-                        {
-                            leavePlanetTimer += ai.AIIntervalTime;
-                        }
-                    }
-                    else
-                    {
-                        leavePlanetTimer = 0f;
-                    }
                     return;
                 }
-
-                // Try to find the closest player to target
-                PlayerControllerB? player = ai.CheckLOSForClosestPlayer(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
-                if (player != null 
-                    && !LethalBotManager.Instance.IsPlayerLethalBot(player) 
-                    && player != LethalBotManager.Instance.MissionControlPlayer
-                    && !GroupManager.Instance.IsPlayerGroupLeader(npcController.Npc, out _)) // new target
+            }
+            else if (LethalBotManager.AreWeInOrbit())
+            {
+                if (DoOrbitLogic())
                 {
-                    // Don't compromise the ship by being loud!
-                    if (!ai.CheckProximityForEyelessDogs())
-                    {
-                        // Play voice
-                        ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
-                        {
-                            VoiceState = EnumVoicesState.LostAndFound,
-                            CanTalkIfOtherLethalBotTalk = true,
-                            WaitForCooldown = false,
-                            CutCurrentVoiceStateToTalk = true,
-                            CanRepeatVoiceState = false,
-
-                            ShouldSync = true,
-                            IsLethalBotInside = npcController.Npc.isInsideFactory,
-                            AllowSwearing = Plugin.Config.AllowSwearing.Value
-                        });
-                    }
-
-                    // We are following a human player, leave our current group or join theirs!
-                    GroupManager.Instance.CreateOrJoinGroupWithMembersAndSync(player, new PlayerControllerB[] { npcController.Npc });
-
-                    // Assign to new target
-                    ai.SyncAssignTargetAndSetMovingTo(player);
-                    if (Plugin.Config.ChangeSuitAutoBehaviour.Value)
-                    {
-                        ai.ChangeSuitLethalBotServerRpc(npcController.Npc.playerClientId, player.currentSuitID);
-                    }
                     return;
                 }
-
-                // If its getting late out, we should stay at the ship!
-                if (!ShouldReturnToShip())
+            }
+            else
+            {
+                if (DoStandardLogic())
                 {
-                    // So, we are done chilling and didn't find a player to follow, so lets go in by ourselves
-                    // A player can press their +use key on us to make us follow them!
-                    if (chillAtShipTimer > Const.TIMER_CHILL_AT_SHIP + 2f)
-                    {
-                        // Last time we were looking for scrap there was a trapped player,
-                        // we should grab a key so we can potentially free them!
-                        if (LethalBotManager.IsThereATrappedPlayer 
-                            && !ai.HasKeyInInventory())
-                        {
-                            GrabbableObject? key = ai.FindItemOnShip(foundItem => foundItem is KeyItem) ?? ai.FindItemOnShip(foundItem => foundItem is LockPicker);
-                            if (key != null)
-                            {
-                                ai.State = new FetchingObjectState(this, key, EnumGrabbableObjectCall.Default, new SearchingForScrapState(this));
-                                return;
-                            }
-                        }
-                        ai.State = new SearchingForScrapState(this);
-                        return;
-                    }
-                }
-                else if (LethalBotManager.Instance.AreAllHumanPlayersDead()
-                && LethalBotManager.Instance.AreAllPlayersOnTheShip())
-                {
-                    if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET)
-                    {
-                        StartOfRound instanceSOR = npcController.Npc.playersManager;
-                        if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
-                            && !LethalBotManager.IsTheShipLeaving(instanceSOR))
-                        {
-                            StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
-                            if (startMatchLever != null)
-                            {
-                                ai.PullShipLever(startMatchLever);
-                            }
-                            //npcController.Npc.playersManager.ShipLeaveAutomatically(true);
-                        }
-                    }
-                    else
-                    {
-                        leavePlanetTimer += ai.AIIntervalTime;
-                    }
-                }
-                else
-                {
-                    leavePlanetTimer = 0f;
+                    return;
                 }
             }
 
@@ -330,6 +225,158 @@ namespace LethalBots.AI.AIStates
             {
                 return true;
             }));
+        }
+
+        /// <summary>
+        /// Runs the default logic for this state.
+        /// </summary>
+        /// <returns></returns>
+        private bool DoStandardLogic()
+        {
+            if (chillAtShipTimer > Const.TIMER_CHILL_AT_SHIP)
+            {
+                // Try to find the closest player to target
+                PlayerControllerB? player = ai.CheckLOSForClosestPlayer(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
+                if (player != null
+                    && !LethalBotManager.Instance.IsPlayerLethalBot(player)
+                    && player != LethalBotManager.Instance.MissionControlPlayer
+                    && !GroupManager.Instance.IsPlayerGroupLeader(npcController.Npc, out _)) // new target
+                {
+                    // Don't compromise the ship by being loud!
+                    if (!ai.CheckProximityForEyelessDogs())
+                    {
+                        // Play voice
+                        ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
+                        {
+                            VoiceState = EnumVoicesState.LostAndFound,
+                            CanTalkIfOtherLethalBotTalk = true,
+                            WaitForCooldown = false,
+                            CutCurrentVoiceStateToTalk = true,
+                            CanRepeatVoiceState = false,
+
+                            ShouldSync = true,
+                            IsLethalBotInside = npcController.Npc.isInsideFactory,
+                            AllowSwearing = Plugin.Config.AllowSwearing.Value
+                        });
+                    }
+
+                    // We are following a human player, leave our current group or join theirs!
+                    GroupManager.Instance.CreateOrJoinGroupWithMembersAndSync(player, new PlayerControllerB[] { npcController.Npc });
+
+                    // Assign to new target
+                    ai.SyncAssignTargetAndSetMovingTo(player);
+                    if (Plugin.Config.ChangeSuitAutoBehaviour.Value)
+                    {
+                        ai.ChangeSuitLethalBotServerRpc(npcController.Npc.playerClientId, player.currentSuitID);
+                    }
+                    return true;
+                }
+
+                // If its getting late out, we should stay at the ship!
+                if (!ShouldReturnToShip())
+                {
+                    // So, we are done chilling and didn't find a player to follow, so lets go in by ourselves
+                    // A player can press their +use key on us to make us follow them!
+                    if (chillAtShipTimer > Const.TIMER_CHILL_AT_SHIP + 2f)
+                    {
+                        // Last time we were looking for scrap there was a trapped player,
+                        // we should grab a key so we can potentially free them!
+                        if (LethalBotManager.IsThereATrappedPlayer
+                            && !ai.HasKeyInInventory())
+                        {
+                            GrabbableObject? key = ai.FindItemOnShip(foundItem => foundItem is KeyItem) ?? ai.FindItemOnShip(foundItem => foundItem is LockPicker);
+                            if (key != null)
+                            {
+                                ai.State = new FetchingObjectState(this, key, EnumGrabbableObjectCall.Default, new SearchingForScrapState(this));
+                                return true;
+                            }
+                        }
+                        ai.State = new SearchingForScrapState(this);
+                        return true;
+                    }
+                }
+                else if (LethalBotManager.Instance.AreAllHumanPlayersDead()
+                && LethalBotManager.Instance.AreAllPlayersOnTheShip())
+                {
+                    if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET)
+                    {
+                        StartOfRound instanceSOR = npcController.Npc.playersManager;
+                        if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
+                            && !LethalBotManager.IsTheShipLeaving(instanceSOR))
+                        {
+                            StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
+                            if (startMatchLever != null)
+                            {
+                                ai.PullShipLever(startMatchLever);
+                            }
+                            //npcController.Npc.playersManager.ShipLeaveAutomatically(true);
+                        }
+                    }
+                    else
+                    {
+                        leavePlanetTimer += ai.AIIntervalTime;
+                    }
+                }
+                else
+                {
+                    leavePlanetTimer = 0f;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Runs the orbit logic for this state
+        /// </summary>
+        /// <returns></returns>
+        private bool DoOrbitLogic()
+        {
+            // Not really much for the bots to do here at the moment.
+            // This will probably be changed in the future.
+            return false;
+        }
+
+        /// <summary>
+        /// Runs the company building logic for this state
+        /// </summary>
+        /// <returns></returns>
+        private bool DoCompanyBuildingLogic()
+        {
+            if (chillAtShipTimer > Const.TIMER_CHILL_AT_SHIP_AT_COMPANY)
+            {
+                // If we are at the company building, we should sell!
+                if (ai.LookingForObjectsToSell(true) != null || LethalBotManager.AreThereItemsOnDesk())
+                {
+                    ai.State = new CollectScrapToSellState(this);
+                    return true;
+                }
+                else if (LethalBotManager.Instance.AreAllHumanPlayersDead()
+                && LethalBotManager.Instance.AreAllPlayersOnTheShip())
+                {
+                    if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET)
+                    {
+                        StartOfRound instanceSOR = npcController.Npc.playersManager;
+                        if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
+                            && !LethalBotManager.IsTheShipLeaving(instanceSOR))
+                        {
+                            StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
+                            if (startMatchLever != null)
+                            {
+                                ai.PullShipLever(startMatchLever);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        leavePlanetTimer += ai.AIIntervalTime;
+                    }
+                }
+                else
+                {
+                    leavePlanetTimer = 0f;
+                }
+            }
+            return false;
         }
     }
 }

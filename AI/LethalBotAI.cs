@@ -8931,42 +8931,6 @@ namespace LethalBots.AI
             return closest;
         }
 
-        /// <summary>
-        /// Recreation of <see cref="PlayerControllerB.NearOtherPlayers"/>, but better!
-        /// </summary>
-        /// <remarks>
-        /// Please not that this is "slightly" diffrent from the origninal, so take that into consideration!
-        /// </remarks>
-        /// <param name="player"></param>
-        /// <param name="checkRadius"></param>
-        /// <returns></returns>
-        internal static bool NearOtherPlayers(PlayerControllerB player, float checkRadius = 10f)
-        {
-            // Must be valid!
-            if (player == null)
-            {
-                return false;
-            }
-            Vector3 playerPosition = player.transform.position;
-            foreach (PlayerControllerB playerController in StartOfRound.Instance.allPlayerScripts)
-            {
-                if (playerController != null 
-                    && player != playerController 
-                    && playerController.isPlayerControlled 
-                    && !playerController.isPlayerDead)
-                {
-                    float playerDistSqr = (playerController.transform.position - playerPosition).sqrMagnitude;
-                    if (playerDistSqr <= checkRadius)
-                    {
-                        return true;
-                    }
-
-                }
-            }
-
-            return false;
-        }
-
         // T-Rizzle: What was the purpose of this function?
         private Vector3 GetRandomPushForce(Vector3 origin, Vector3 point, float forceMean)
         {

@@ -96,6 +96,13 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // We are on the ship in orbit, just pick a spot and chill!
+            if (LethalBotManager.AreWeInOrbit())
+            {
+                ai.State = new ReturnToShipState(this);
+                return;
+            }
+
             // Make sure to grab our loadout before leaving!
             if (!grabbedLoadout)
             {
@@ -365,8 +372,8 @@ namespace LethalBots.AI.AIStates
                                 Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
                                 lethalBotAI.SyncTeleportLethalBot(entranceTeleportPos.Value, !entrance?.isEntranceToBuilding ?? !lethalBotAI.isOutside, entrance);
                             }, skipOriginalInteract: true);
+                            entranceAttempts++;
                         }
-                        entranceAttempts++;
                     }
                     else
                     {
