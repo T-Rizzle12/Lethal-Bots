@@ -2,6 +2,8 @@
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.Utils;
+using LethalBots.Utils.Helpers;
 using System.Collections;
 using UnityEngine;
 
@@ -119,11 +121,18 @@ namespace LethalBots.AI.AIStates
                     Vector3? entranceTeleportPos = ai.GetTeleportPosOfEntrance(entrance);
                     if (entranceTeleportPos.HasValue)
                     {
-                        Plugin.LogDebug($"======== TeleportLethalBotAndSync {ai.NpcController.Npc.playerUsername} !!!!!!!!!!!!!!! ");
                         ai.StopMoving();
-                        ai.SyncTeleportLethalBot(entranceTeleportPos.Value, !entrance?.isEntranceToBuilding ?? !ai.isOutside, entrance);
-                        targetLastKnownPosition = ai.targetPlayer.transform.position;
-                        ai.State = new GetCloseToPlayerState(this); // Just in case we enter around the same time as the player!
+                        if (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)
+                        {
+                            ref InteractTrigger interactTrigger = ref PatchesUtil.triggerScriptField.Invoke(entrance!);
+                            LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
+                            {
+                                Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
+                                ai.SyncTeleportLethalBot(entranceTeleportPos.Value, !entrance?.isEntranceToBuilding ?? !lethalBotAI.isOutside, entrance);
+                                targetLastKnownPosition = lethalBotAI.targetPlayer.transform.position;
+                                lethalBotAI.State = new GetCloseToPlayerState(this); // Just in case we enter around the same time as the player!
+                            }, skipOriginalInteract: true);
+                        }
                         return;
                     }
                     else
@@ -200,7 +209,19 @@ namespace LethalBots.AI.AIStates
             targetLastKnownPosition = !updateTargetLastKnownPosition ? targetLastKnownPosition : ai.destination;
             if (updateTargetLastKnownPosition && !ai.IsValidPathToTarget(targetLastKnownPosition.Value))
             {
-                targetLastKnownPosition = null;
+                Vector3? newLastKnownPosition = null;
+                bool isTargetInside = ai.targetPlayer.isInsideFactory;
+                bool areWeInside = !ai.isOutside;
+                if (isTargetInside != areWeInside)
+                {
+                    EntranceTeleport? entrance = ai.IsEntranceCloseForBoth(targetLastKnownPosition.Value, ai.targetPlayer.transform.position) ?? FindClosestEntrance();
+                    if (entrance != null && entrance != targetEntrance)
+                    {
+                        targetEntrance = entrance;
+                        newLastKnownPosition = entrance.entrancePoint.position;
+                    }
+                }
+                targetLastKnownPosition = newLastKnownPosition;
             }
         }
 

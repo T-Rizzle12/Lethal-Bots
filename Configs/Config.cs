@@ -25,6 +25,7 @@ namespace LethalBots.Configs
     {
         // Bot settings
         [SyncedEntryField] public SyncedEntry<int> MaxBotsAllowedToSpawn;
+        [SyncedEntryField] public SyncedEntry<bool> AllowBotsInOrbit;
         public ConfigEntry<bool> DisableNameBillBoards;
 
         // Identity  
@@ -39,6 +40,7 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> AllowMissionControlTeleport;
         [SyncedEntryField] public SyncedEntry<bool> StartShipChatCommandProtection;
         [SyncedEntryField] public SyncedEntry<bool> AutoMissionControl;
+        [SyncedEntryField] public SyncedEntry<bool> AutoRouteToCompany;
         [SyncedEntryField] public SyncedEntry<int> RestockEcoLimit;
         [SyncedEntryField] public SyncedEntry<float> ReturnToShipTime;
         [SyncedEntryField] public SyncedEntry<bool> TeleportWhenUsingLadders;
@@ -81,6 +83,11 @@ namespace LethalBots.Configs
                                            defaultValue: ConfigConst.DEFAULT_MAX_BOTS_AVAILABLE,
                                            new ConfigDescription("Be aware of possible performance problems when more than ~16 bots spawned",
                                                                  new AcceptableValueRange<int>(ConfigConst.MIN_BOTS_AVAILABLE, ConfigConst.MAX_BOTS_AVAILABLE)));
+
+            AllowBotsInOrbit = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMain,
+                                            "Allow bots in orbit (YOU MUST HAVE NavmeshInCompany!)",
+                                            defaultVal: true,
+                                            "Are bots allowed to stay on the ship while its in orbit? If false, bots will automatically leave and rejoin between rounds.");
 
             DisableNameBillBoards = cfg.Bind(ConfigConst.ConfigSectionMain,
                                             "Should bots have their name tags disabled (Client only)",
@@ -133,6 +140,11 @@ namespace LethalBots.Configs
                                                 "Allow automatic mission control assignment",
                                                 defaultVal: true,
                                                 "Should bots that are chilling at the ship automatically assume the mission control state if the current mission controller is not set or dead?");
+
+            AutoRouteToCompany = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                                "Auto Route To Company",
+                                                defaultVal: true,
+                                                "Should the bot who is the active mission controller automatically route to the company building when there are 0 days left in the profit quota?");
 
             RestockEcoLimit = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                 "Bot restock spending limit",

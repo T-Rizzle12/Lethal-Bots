@@ -12,6 +12,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
 namespace LethalBots.Patches.GameEnginePatches
@@ -98,6 +99,18 @@ namespace LethalBots.Patches.GameEnginePatches
             LethalBotManager.Instance.SyncEndOfRoundLethalBots();
         }
 
+        /// <summary>
+        /// Patch to create the NavMesh on the ship for the bots.
+        /// </summary>
+        [HarmonyPatch("SetShipReadyToLand")]
+        [HarmonyPostfix]
+        static void SetShipReadyToLand_Postfix()
+        {
+            Plugin.LogDebug("Creating and Enabling ship NavMeshSurface object");
+            LethalBotManager.Instance.EnsureShipNavMeshBuilt();
+            LethalBotManager.Instance.EnableShipNavMesh("Now in orbit!");
+        }
+
         [HarmonyPatch("SyncAlreadyHeldObjectsClientRpc")]
         [HarmonyPostfix]
         static void SyncAlreadyHeldObjectsClientRpc_PostFix(StartOfRound __instance)
@@ -118,6 +131,39 @@ namespace LethalBots.Patches.GameEnginePatches
             }
         }
 
+        [HarmonyPatch("SuckLocalPlayerOutOfShipDoor")]
+        [HarmonyPostfix]
+        static void SuckLocalPlayerOutOfShipDoor_PostFix(StartOfRound __instance)
+        {
+            foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal())
+            {
+                PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
+                if (lethalBotController != null)
+                {
+                    lethalBotController.fallValue = 0f;
+                    lethalBotController.fallValueUncapped = 0f;
+                    if ((lethalBotController.transform.position - __instance.middleOfShipNode.position).sqrMagnitude < 25f * 25f)
+                    {
+                        if (Physics.Linecast(lethalBotController.transform.position, __instance.shipDoorNode.position, __instance.collidersAndRoomMask))
+                        {
+                            lethalBotController.externalForces = Vector3.Normalize(__instance.middleOfShipNode.position - lethalBotController.transform.position) * 350f;
+                        }
+                        else
+                        {
+                            lethalBotController.externalForces = Vector3.Normalize(__instance.middleOfSpaceNode.position - lethalBotController.transform.position) * (350f / Vector3.Distance(__instance.moveAwayFromShipNode.position, lethalBotController.transform.position)) * (__instance.suckingPower / 2.25f);
+                        }
+                        continue;
+                    }
+                    if (!lethalBotAI.choseRandomFlyDirForPlayer)
+                    {
+                        lethalBotAI.choseRandomFlyDirForPlayer = true;
+                        lethalBotAI.randomFlyDir = new Vector3(-1f, 0f, UnityEngine.Random.Range(-0.7f, 0.7f));
+                    }
+                    lethalBotController.externalForces = Vector3.Scale(Vector3.one, lethalBotAI.randomFlyDir) * 70f;
+                }
+            }
+        }
+
         /// <summary>
         /// Patch to update the bot's xp since the game does not do it for bots
         /// </summary>
@@ -131,6 +177,45 @@ namespace LethalBots.Patches.GameEnginePatches
             if (__instance.currentLevel.planetHasTime)
             { 
                 LethalBotManager.Instance.UpdateLethalBotsXP(__instance, __instance.gameStats, ___localPlayerWasMostProfitableThisRound); 
+            }
+        }
+
+        /// <summary>
+        /// Patch to mark bots as "fully loaded" when the host fully loads!
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="clientId"></param>
+        /// <param name="sceneName"></param>
+        [HarmonyPatch("SceneManager_OnLoadComplete1")]
+        [HarmonyPostfix]
+        static void SceneManager_OnLoadComplete1_Postfix(StartOfRound __instance, ulong clientId, string sceneName)
+        {
+            // Only mark the bots as ready when the host is ready!
+            __instance.ClientPlayerList.TryGetValue(clientId, out var player);
+            if (player == 0)
+            {
+                LethalBotManager.Instance?.MarkBotsAsLoadedDelayed();
+            }
+        }
+
+        /// <summary>
+        /// Patch to mark bots as "fully loaded" when the host fully loads!
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="clientId"></param>
+        /// <param name="sceneName"></param>
+        [HarmonyPatch("SceneManager_OnUnloadComplete")]
+        [HarmonyPostfix]
+        static void SceneManager_OnUnloadComplete_Postfix(StartOfRound __instance, ulong clientId, string sceneName)
+        {
+            if (sceneName == __instance.currentLevel.sceneName)
+            {
+                // Only mark the bots as ready when the host is ready!
+                __instance.ClientPlayerList.TryGetValue(clientId, out var player);
+                if (player == 0)
+                {
+                    LethalBotManager.Instance?.MarkBotsAsLoadedDelayed();
+                }
             }
         }
 
@@ -627,9 +712,12 @@ namespace LethalBots.Patches.GameEnginePatches
                 && !__instance.IsHost
                 && __instance.NetworkManager.LocalClientId == clientId)
             {
-                LethalBotManager.Instance.SyncLoadedJsonLoadoutsServerRpc(clientId);
-                LethalBotManager.Instance.SyncLoadedJsonIdentitiesServerRpc(clientId);
-                LethalBotManager.Instance.SyncLoadedJsonStockRequirementsServerRpc(clientId);
+                LethalBotManager lethalBotManager = LethalBotManager.Instance;
+                lethalBotManager.SyncLoadedJsonLoadoutsServerRpc(clientId);
+                lethalBotManager.SyncLoadedJsonIdentitiesServerRpc(clientId);
+                lethalBotManager.SyncLoadedJsonStockRequirementsServerRpc(clientId);
+                lethalBotManager.SyncLethalBotsToJoiningPlayerServerRpc(clientId);
+                lethalBotManager.RequestPlayerCountServerRpc(clientId);
                 SaveManager.Instance.SyncCurrentValuesServerRpc(clientId);
             }
         }

@@ -1,6 +1,7 @@
 ﻿using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.AI;
+using LethalBots.AI.AIStates;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
@@ -148,25 +149,12 @@ namespace LethalBots.Patches.NpcPatches
         }
 
         /// <summary>
-        /// Patch to disabling the base game awake method for the lethalBot
-        /// </summary>
-        /// <param name="__instance"></param>
-        /// <returns></returns>
-        [HarmonyPatch("Awake")]
-        [HarmonyPrefix]
-        static bool Awake_PreFix(PlayerControllerB __instance)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
         /// Patch for calling the right method to damage lethalBot
         /// </summary>
+        /// <remarks>
+        /// TODO: Potentially use a transpiler here and allow the base damage player function to run.
+        /// This would make Lethal Bots much more compatable with other mods.
+        /// </remarks>
         /// <returns></returns>
         [HarmonyPatch("DamagePlayer")]
         [HarmonyPrefix]
@@ -196,29 +184,6 @@ namespace LethalBots.Patches.NpcPatches
                 Plugin.LogDebug($"Bootleg invulnerability (return false)");
                 return false;
             }
-            return true;
-        }
-
-        /// <summary>
-        /// Patch to call the right method to damage lethalBot from other player
-        /// </summary>
-        /// <returns></returns>
-        [HarmonyPatch("DamagePlayerFromOtherClientServerRpc")]
-        [HarmonyPrefix]
-        static bool DamagePlayerFromOtherClientServerRpc_PreFix(PlayerControllerB __instance,
-                                                                int damageAmount, Vector3 hitDirection, int playerWhoHit)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                Plugin.LogDebug($"DamagePlayerFromOtherClientServerRpc called from game code on LOCAL client #{lethalBotAI.NetworkManager.LocalClientId}, lethalBot object: Bot #{lethalBotAI.BotId}");
-                //lethalBotAI.DamageLethalBotFromOtherClientServerRpc(damageAmount, hitDirection, playerWhoHit);
-
-                // Send vanilla damage player, for other mods prefixes (ex: peepers)
-                // The damage function will be ignored because the lethalBot playerController is not owned because not spawned
-                return true;
-            }
-
             return true;
         }
 
@@ -274,23 +239,33 @@ namespace LethalBots.Patches.NpcPatches
         /// <returns></returns>
         [HarmonyPatch("KillPlayer")]
         [HarmonyPrefix]
+        [HarmonyPriority(Priority.Last)]
         static bool KillPlayer_PreFix(PlayerControllerB __instance,
+                                      bool __runOriginal,
                                       Vector3 bodyVelocity,
                                       bool spawnBody = true,
                                       CauseOfDeath causeOfDeath = CauseOfDeath.Unknown,
                                       int deathAnimation = 0,
-                                      Vector3 positionOffset = default(Vector3))
+                                      Vector3 positionOffset = default(Vector3),
+                                      bool setOverrideDropItems = false)
         {
+            // If other mods block this call, we don't do anything!
+            if (!__runOriginal)
+            {
+                return true; // Let the base game not run........
+            }
+
             // Try to kill an lethalBot ?
             LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
             if (lethalBotAI != null)
             {
                 Plugin.LogDebug($"SyncKillLethalBot called from game code on LOCAL client #{lethalBotAI.NetworkManager.LocalClientId}, Bot #{lethalBotAI.BotId}");
-                lethalBotAI.SyncKillLethalBot(bodyVelocity, spawnBody, causeOfDeath, deathAnimation, positionOffset);
+                lethalBotAI.KillLethalBot(bodyVelocity, spawnBody, causeOfDeath, deathAnimation, positionOffset, setOverrideDropItems);
 
-                // Block vanilla kill player!
-                // Other mods prefixes such as (ex: peepers) will not be ignored since HarmonyX calls them anyway!
-                return false;
+                // We don't need to block the vanilla kill player!
+                // We change the isPlayerDead flag to true in the function call above,
+                // this stops the base game from doing anything while allowing Postfixes to still run!
+                return true;
             }
 
             // A player is killed 
@@ -310,6 +285,51 @@ namespace LethalBots.Patches.NpcPatches
             }*/
 
             return true;
+        }
+
+        [HarmonyPatch("KillPlayerClientRpc")]
+        [HarmonyPostfix]
+        static void KillPlayerClientRpc_Postfix(PlayerControllerB __instance, 
+            ref int playerId, 
+            ref bool spawnBody, 
+            ref Vector3 bodyVelocity, 
+            ref int causeOfDeath, 
+            ref int deathAnimation, 
+            ref Vector3 positionOffset, 
+            ref bool setOverrideDropItems)
+        {
+            // We do nothing here for human players
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
+            if (lethalBotAI == null)
+            {
+                return;
+            }
+
+            // Sigh, if the death animation is set to 9 the body has a chance to be null!
+            if (__instance.deadBody != null)
+            {
+                // Replace body position or else disappear with shotgun or knife (don't know why)
+                __instance.deadBody.transform.position = __instance.transform.position + Vector3.up + positionOffset;
+                lethalBotAI.LethalBotIdentity.DeadBody = __instance.deadBody;
+
+                // Lets make sure the bots don't attempt to grab dead bodies as soon as a player is killed!
+                GrabbableObject? deadBody = __instance.deadBody?.grabBodyObject;
+                if (deadBody != null)
+                {
+                    LethalBotAI.DictJustDroppedItems[deadBody] = Time.realtimeSinceStartup;
+                }
+            }
+            else if (spawnBody && !__instance.overrideDontSpawnBody)
+            {
+                Plugin.LogWarning($"Bot {__instance.playerUsername} dead body was not spawned. This is probably a bug with another mod or the base game itself!");
+            }
+
+            lethalBotAI.NpcController.CurrentLethalBotPhysicsRegions.Clear();
+            lethalBotAI.isEnemyDead = true;
+            lethalBotAI.LethalBotIdentity.Hp = 0;
+            lethalBotAI.SetAgent(enabled: false);
+            //this.LethalBotIdentity.Voice.StopAudioFadeOut();
+            lethalBotAI.State = new BrainDeadState(lethalBotAI);
         }
 
         /// <summary>
@@ -580,6 +600,25 @@ namespace LethalBots.Patches.NpcPatches
             }
 
             return true;
+        }
+
+        [HarmonyPatch("SpawnPlayerAnimation")]
+        [HarmonyPrefix]
+        static bool SpawnPlayerAnimation_PreFix(PlayerControllerB __instance)
+        {
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
+            if (lethalBotAI == null)
+            {
+                return true;
+            }
+
+            if (lethalBotAI.spawnAnimationCoroutine != null)
+            {
+                lethalBotAI.StopCoroutine(lethalBotAI.spawnAnimationCoroutine);
+            }
+
+            lethalBotAI.spawnAnimationCoroutine = lethalBotAI.BeginLethalBotSpawnAnimation(EnumSpawnAnimation.OnlyPlayerSpawnAnimation);
+            return false;
         }
 
         [HarmonyPatch("TeleportPlayer")]

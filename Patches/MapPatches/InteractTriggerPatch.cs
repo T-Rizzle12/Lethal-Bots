@@ -474,6 +474,11 @@ namespace LethalBots.Patches.MapPatches
                     return false;
                 }
                 __instance.currentCooldownValue = __instance.cooldownTime;
+                bool isBeingHeldByPlayer = lethalBot.State?.LethalBotInteraction?.isBeingHeldByPlayer ?? false;
+                if (isBeingHeldByPlayer)
+                {
+                    lethalBot.State?.LethalBotInteraction?.isBeingHeldByPlayer = false;
+                }
             }
             if (!__instance.specialCharacterAnimation && !__instance.isLadder)
             {
@@ -588,7 +593,11 @@ namespace LethalBots.Patches.MapPatches
                 __instance.currentCooldownValue = __instance.cooldownTime;
                 __instance.onInteract.Invoke(null);
                 Plugin.LogDebug("Stop special animation G");
-                lethalBotAI.StopCoroutine(lethalBotAI.useInteractTriggerCoroutine);
+                lethalBotAI.State?.LethalBotInteraction?.StopHoldInteractionOnTrigger();
+                if (lethalBotAI.useInteractTriggerCoroutine != null)
+                {
+                    lethalBotAI.StopCoroutine(lethalBotAI.useInteractTriggerCoroutine);
+                }
                 lethalBotAI.useInteractTriggerCoroutine = null;
                 /*if (player.isHoldingObject && player.currentlyHeldObjectServer != null)
                 {

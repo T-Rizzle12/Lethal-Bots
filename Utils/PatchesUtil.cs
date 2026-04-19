@@ -27,14 +27,21 @@ namespace LethalBots.Utils
         public static readonly AccessTools.FieldRef<Terminal, bool> broadcastedCodeThisFrameField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "broadcastedCodeThisFrame");
         public static readonly AccessTools.FieldRef<Terminal, bool> hasGottenNounField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "hasGottenNoun");
         public static readonly AccessTools.FieldRef<Terminal, bool> hasGottenVerbField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "hasGottenVerb");
+        public static readonly AccessTools.FieldRef<Terminal, InteractTrigger> terminalTriggerField = AccessTools.FieldRefAccess<InteractTrigger>(typeof(Terminal), "terminalTrigger");
 
         public static readonly AccessTools.FieldRef<ItemDropship, List<int>> itemsToDeliverField = AccessTools.FieldRefAccess<List<int>>(typeof(ItemDropship), "itemsToDeliver");
 
         public static readonly AccessTools.FieldRef<PlayerControllerB, Vector3> positionOfDeathField = AccessTools.FieldRefAccess<Vector3>(typeof(PlayerControllerB), "positionOfDeath");
         public static readonly AccessTools.FieldRef<PlayerControllerB, float> timeSinceSwitchingSlotsField = AccessTools.FieldRefAccess<float>(typeof(PlayerControllerB), "timeSinceSwitchingSlots");
-        public static readonly AccessTools.FieldRef<PlayerControllerB, float> slimeSlipAudioVolumeSyncFiled = AccessTools.FieldRefAccess<float>(typeof(PlayerControllerB), "slimeSlipAudioVolumeSync");
+        public static readonly AccessTools.FieldRef<PlayerControllerB, float> slimeSlipAudioVolumeSyncField = AccessTools.FieldRefAccess<float>(typeof(PlayerControllerB), "slimeSlipAudioVolumeSync");
+        public static readonly AccessTools.FieldRef<EntranceTeleport, InteractTrigger> triggerScriptField = AccessTools.FieldRefAccess<InteractTrigger>(typeof(EntranceTeleport), "triggerScript");
 
         #endregion
+
+        #region Method Infos
+
+        public static readonly MethodInfo PlayerLoadedServerRpcMethod = AccessTools.Method(typeof(StartOfRound), "PlayerLoadedServerRpc");
+        public static readonly MethodInfo KillPlayerServerRpcMethod = AccessTools.Method(typeof(PlayerControllerB), "KillPlayerServerRpc");
 
         public static readonly MethodInfo AllEntitiesCountMethod = SymbolExtensions.GetMethodInfo(() => AllEntitiesCount());
         public static readonly MethodInfo AllRealPlayersCountMethod = SymbolExtensions.GetMethodInfo(() => AllRealPlayersCount());
@@ -54,6 +61,7 @@ namespace LethalBots.Utils
         public static readonly MethodInfo SyncJumpMethod = SymbolExtensions.GetMethodInfo(() => SyncJump(new ulong()));
         public static readonly MethodInfo SyncLandFromJumpMethod = SymbolExtensions.GetMethodInfo(() => SyncLandFromJump(new ulong(), new bool()));
 
+        #endregion
 
         public static List<CodeInstruction> InsertIsPlayerLethalBotInstructions(List<CodeInstruction> codes,
                                                                              ILGenerator generator,

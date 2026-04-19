@@ -33,8 +33,8 @@ namespace LethalBots.AI.AIStates
         {
             if (!hasBeenStarted)
             {
-                // We are at the company building, change back to previous state
-                if (LethalBotManager.AreWeAtTheCompanyBuilding())
+                // We are at the company building or in orbit, change back to previous state
+                if (LethalBotManager.AreWeAtTheCompanyBuilding() || LethalBotManager.AreWeInOrbit())
                 {
                     if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
                     {
@@ -71,8 +71,8 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
-            // We are at the company building, change back to previous state
-            if (LethalBotManager.AreWeAtTheCompanyBuilding())
+            // We are at the company building or in orbit, change back to previous state
+            if (LethalBotManager.AreWeAtTheCompanyBuilding() || LethalBotManager.AreWeInOrbit())
             {
                 if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
                 {

@@ -5,6 +5,7 @@ using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.NetworkSerializers;
 using LethalBots.Patches.EnemiesPatches;
+using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using System;
 using System.Collections;
@@ -67,6 +68,7 @@ namespace LethalBots.AI
         protected Coroutine? panikCoroutine;
         protected Coroutine? safePathCoroutine;
         protected Coroutine? lookingAroundCoroutine;
+        public LethalBotInteraction? LethalBotInteraction { protected set; get; }
         protected Vector3 safePathPos; // The closest point to targetShipPos that is safe
         protected CancellationTokenSource? pathfindCancellationToken = null; // For use in the async danger pathfinder
         protected EntranceTeleport? targetEntrance = null;
@@ -281,7 +283,7 @@ namespace LethalBots.AI
                     if (groupID != GroupManager.INVALID_GROUP_INDEX 
                     && !GroupManager.Instance.ArePlayersInSameGroup(lethalBotController, playerWhoSentMessage))
                     {
-                        lethalBotAI.SendChatMessage($"Yes, you may join our group!");
+                        lethalBotAI.SendChatMessage("Yes, you may join our group!");
                         GroupManager.Instance.AddToGroupAndSync(groupID, playerWhoSentMessage);
                     }
                 }
@@ -568,8 +570,9 @@ namespace LethalBots.AI
         /// Checks if the given position is covered in quicksand
         /// </summary>
         /// <param name="targetPos"></param>
+        /// <param name="checkClosestNode">If the quicksand is water, should the bot check if the closest node is out of water as well?</param>
         /// <returns></returns>
-        protected bool IsPositionCoveredInQuickSand(Vector3 targetPos)
+        protected bool IsPositionCoveredInQuickSand(Vector3 targetPos, bool checkClosestNode = true)
         {
             // Check to make sure that the quicksand array is not null or empty
             if (LethalBotAI.QuicksandArray == null || LethalBotAI.QuicksandArray.Length == 0)
@@ -577,14 +580,14 @@ namespace LethalBots.AI
                 return false;
             }
 
-            // Check if the entrance is covered in quicksand
+            // Check if the position is covered in quicksand
             RoundManager instanceRM = RoundManager.Instance;
             float headOffset = npcController.Npc.gameplayCamera.transform.position.y - npcController.Npc.transform.position.y;
             if (targetPos != null)
             {
                 Vector3 entrancePos = instanceRM.GetNavMeshPosition(targetPos, instanceRM.navHit, 2.7f, ai.agent.areaMask);
                 float quicksandBuffer = 2f;
-                Plugin.LogDebug($"Testing quicksand safety for exit {targetPos}");
+                Plugin.LogDebug($"Testing quicksand safety for pos {targetPos}");
                 foreach (var quicksand in LethalBotAI.QuicksandArray)
                 {
                     if (!quicksand.isActiveAndEnabled)
@@ -624,6 +627,13 @@ namespace LethalBots.AI
                         Vector3 simulatedHead = entrancePos + Vector3.up * headOffset;
                         if (collider.bounds.Contains(simulatedHead))
                         {
+                            // Ignore the closest node, this position is underwater!
+                            if (!checkClosestNode)
+                            {
+                                Plugin.LogDebug("Simulated head intersects water!");
+                                return true;
+                            }
+
                             // We might be able to walk through the water, lets check the closest node to the entrance
                             // FIXME: This isn't the best way to do this, but it works for now
                             // We should probably get the closest node that is not in the water and check that instead
@@ -1128,6 +1138,7 @@ namespace LethalBots.AI
             }
             StopSafePathCoroutine();
             StopLookingAroundCoroutine();
+            StopLethalBotInteraction();
         }
 
         /// <summary>
@@ -1520,6 +1531,18 @@ namespace LethalBots.AI
             {
                 ai.StopCoroutine(this.lookingAroundCoroutine);
                 this.lookingAroundCoroutine = null;
+            }
+        }
+
+        public void StopLethalBotInteraction()
+        {
+            if (this.LethalBotInteraction != null)
+            {
+                if (!LethalBotInteraction.IsCompleted)
+                {
+                    LethalBotInteraction.StopHoldInteractionOnTrigger();
+                }
+                LethalBotInteraction = null;
             }
         }
 

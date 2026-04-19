@@ -1,8 +1,10 @@
+using DunGen;
 using GameNetcodeStuff;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Patches.GameEnginePatches;
+using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using System;
 using System.Collections;
@@ -305,15 +307,23 @@ namespace LethalBots.AI.AIStates
                         Vector3? entranceTeleportPos = ai.GetTeleportPosOfEntrance(targetEntrance);
                         if (entranceTeleportPos.HasValue)
                         {
-                            Plugin.LogDebug($"======== TeleportLethalBotAndSync {ai.NpcController.Npc.playerUsername} !!!!!!!!!!!!!!! ");
                             ai.StopMoving();
-                            ai.SyncTeleportLethalBot(entranceTeleportPos.Value, !this.targetEntrance?.isEntranceToBuilding ?? !ai.isOutside, this.targetEntrance);
-                            calmDownTimer = ai.AIIntervalTime;
-                            if (ai.targetPlayer != null && ai.targetPlayer.isInsideFactory)
+                            if (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)
                             {
-                                // If we use the entrance to go outside, we should set the last known position to the entrance teleport position
-                                // This makes us use the entrance again so we can follow the player back inside
-                                previousStateUpdate.TargetLastKnownPosition = entranceTeleportPos.Value;
+                                EntranceTeleport entrance = targetEntrance;
+                                ref InteractTrigger interactTrigger = ref PatchesUtil.triggerScriptField.Invoke(entrance);
+                                LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
+                                {
+                                    Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
+                                    lethalBotAI.SyncTeleportLethalBot(entranceTeleportPos.Value, !entrance?.isEntranceToBuilding ?? !lethalBotAI.isOutside, entrance);
+                                    calmDownTimer = lethalBotAI.AIIntervalTime;
+                                    if (lethalBotAI.targetPlayer != null && lethalBotAI.targetPlayer.isInsideFactory)
+                                    {
+                                        // If we use the entrance to go outside, we should set the last known position to the entrance teleport position
+                                        // This makes us use the entrance again so we can follow the player back inside
+                                        previousStateUpdate.TargetLastKnownPosition = entranceTeleportPos.Value;
+                                    }
+                                }, skipOriginalInteract: true);
                             }
                         }
                         else
@@ -518,10 +528,23 @@ namespace LethalBots.AI.AIStates
         /// <returns><see langword="true"/> if we should skip movement logic; otherwise <see langword="false"/></returns>
         private bool CounterEnemy(EnemyAI CurrentEnemy)
         {
-            // Look at the enemy if they are a coil head!
-            if (CurrentEnemy is SpringManAI || CurrentEnemy is FlowermanAI)
+            // Look at the enemy if they are a coil head, bracken, or feiopars!
+            if (CurrentEnemy is SpringManAI || CurrentEnemy is FlowermanAI || CurrentEnemy is PumaAI)
             {
                 npcController.OrderToLookAtPosition(CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
+            }
+            // We can save ourself if we have a weapon nearby us!
+            else if (CurrentEnemy is CentipedeAI || CurrentEnemy is MaskedPlayerEnemy || CurrentEnemy is BushWolfEnemy)
+            {
+                // This is good if we have a weapon on us, or dropped nearby us!
+                float maxRange = CurrentEnemy is MaskedPlayerEnemy ? Const.LETHAL_BOT_OBJECT_AWARNESS : Const.LETHAL_BOT_OBJECT_RANGE;
+                GrabbableObject? weapon = FindNearbyWeapon(maxRange);
+                if (weapon != null)
+                {
+                    // Try to grab it!
+                    ai.State = new FetchingObjectState(this, weapon, ignoreEnemies: true);
+                    return true;
+                }
             }
             // Ok, there are three state indexes for nutcrackers to date!
             // 0. Patroling
@@ -533,6 +556,44 @@ namespace LethalBots.AI.AIStates
                 return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// A function to have the bot attempt to grab to grab a nearby weapon on the ground!
+        /// </summary>
+        /// <param name="maxRange">The max range the bot will search</param>
+        /// <returns>The found weapon that is nearby us</returns>
+        private GrabbableObject? FindNearbyWeapon(float maxRange = Const.LETHAL_BOT_OBJECT_RANGE)
+        {
+            // Lets check the ship for our target item!
+            GrabbableObject? closestFoundItem = null;
+            float closestFoundItemSqr = maxRange * maxRange;
+            for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
+            {
+                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
+                if (gameObject == null)
+                {
+                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
+                    continue;
+                }
+
+                GrabbableObject? foundItem = gameObject.GetComponent<GrabbableObject>();
+                if (foundItem != null
+                    && foundItem.isInShipRoom
+                    && ai.HasAmmoForWeapon(foundItem))
+                {
+                    // Ignore the just dropped item timer, we are already in DANGER!
+                    LethalBotAI.DictJustDroppedItems.Remove(foundItem);
+                    float foundItemSqr = (foundItem.transform.position - npcController.Npc.transform.position).sqrMagnitude;
+                    if (foundItemSqr < closestFoundItemSqr
+                        && ai.IsGrabbableObjectGrabbable(foundItem)) // NOTE: IsGrabbableObjectGrabbable has a pathfinding check, so we run it last since it can be expensive!
+                    {
+                        closestFoundItemSqr = foundItemSqr;
+                        closestFoundItem = foundItem;
+                    }
+                }
+            }
+            return closestFoundItem;
         }
 
         /// <summary>
@@ -714,14 +775,6 @@ namespace LethalBots.AI.AIStates
         private IEnumerator ChooseFleeingNodeFromPosition(EnemyAI enemy, float fearRange)
         {
             Plugin.LogDebug($"Start panik coroutine for {npcController.Npc.playerUsername}!");
-            // FIXME: This relies on Elucian Distance rather than travel distance, this should be fixed!
-            /*var nodes = ai.allAINodes.OrderBy(node =>
-            {
-                float distanceToNode = (node.transform.position - this.ai.transform.position).sqrMagnitude;
-                float distanceToEnemy = (node.transform.position - enemyTransform.position).sqrMagnitude;
-                return distanceToNode - distanceToEnemy; // Minimize distance to node, maximize distance to enemy
-            }).ToArray();*/
-            //yield return null;
 
             /// This is mostly the same as the <see cref="FlowermanAI.maxAsync"/>
             /// This makes bots much more responsive when picking a spot to flee to

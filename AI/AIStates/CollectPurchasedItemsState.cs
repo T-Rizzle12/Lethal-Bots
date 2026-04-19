@@ -12,16 +12,15 @@ namespace LethalBots.AI.AIStates
     public class CollectPurchasedItemsState : AIState
     {
         private float waitNoItemTimer = 0f;
-        private static ItemDropship? _itemDropship;
         internal static ItemDropship? ItemDropship
         {
             get
             {
-                if (_itemDropship == null)
+                if (field == null)
                 {
-                    _itemDropship = Object.FindObjectOfType<ItemDropship>();
+                    field = Object.FindObjectOfType<ItemDropship>();
                 }
-                return _itemDropship;
+                return field;
             }
         }
 

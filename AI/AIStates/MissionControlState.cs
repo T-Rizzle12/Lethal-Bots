@@ -12,6 +12,7 @@ using Scoops.gameobjects;
 using Scoops.misc;
 using Scoops.service;
 using Steamworks;
+using Steamworks.Ugc;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -52,48 +53,46 @@ namespace LethalBots.AI.AIStates
         private Coroutine? monitorCrew;
         private Coroutine? useSignalTranslator;
         private Coroutine? restockShip;
+        private Coroutine? orbitLogic;
         private float leavePlanetTimer;
         private static Dictionary<Turret, TerminalAccessibleObject> turrets = new Dictionary<Turret, TerminalAccessibleObject>();
         private static Dictionary<Landmine, TerminalAccessibleObject> landmines = new Dictionary<Landmine, TerminalAccessibleObject>();
         private static Dictionary<SpikeRoofTrap, TerminalAccessibleObject> spikeRoofTraps = new Dictionary<SpikeRoofTrap, TerminalAccessibleObject>();
         private Dictionary<string, float> calledOutEnemies = new Dictionary<string, float>(); // Should this be an enemy name rather than the AI itself?
-        private PriorityMessageQueue messageQueue = new PriorityMessageQueue();
+        private PriorityQueue<string> messageQueue = new PriorityQueue<string>();
         private static readonly AccessTools.FieldRef<TerminalAccessibleObject, bool> isDoorOpen = AccessTools.FieldRefAccess<bool>(typeof(TerminalAccessibleObject), "isDoorOpen");
         private static readonly AccessTools.FieldRef<TerminalAccessibleObject, bool> inCooldown = AccessTools.FieldRefAccess<bool>(typeof(TerminalAccessibleObject), "inCooldown");
-        private static ShipTeleporter? _shipTeleporter;
         private static ShipTeleporter? ShipTeleporter
         {
             get
             {
-                if (_shipTeleporter == null)
+                if (field == null)
                 {
-                    _shipTeleporter = LethalBotAI.FindTeleporter();
+                    field = LethalBotAI.FindTeleporter();
                 }
-                return _shipTeleporter;
+                return field;
             }
         }
-        private static SignalTranslator? _signalTranslator;
         internal static SignalTranslator? SignalTranslator
         {
             get
             {
-                if (_signalTranslator == null)
+                if (field == null)
                 {
-                    _signalTranslator = UnityEngine.Object.FindObjectOfType<SignalTranslator>();
+                    field = UnityEngine.Object.FindObjectOfType<SignalTranslator>();
                 }
-                return _signalTranslator;
+                return field;
             }
         }
-        private static ShipAlarmCord? _shipHorn;
         private static ShipAlarmCord? ShipHorn
         {
             get
             {
-                if (_shipHorn == null)
+                if (field == null)
                 {
-                    _shipHorn = UnityEngine.Object.FindObjectOfType<ShipAlarmCord>();
+                    field = UnityEngine.Object.FindObjectOfType<ShipAlarmCord>();
                 }
-                return _shipHorn;
+                return field;
             }
         }
 
@@ -153,10 +152,10 @@ namespace LethalBots.AI.AIStates
         {
             // If we are not the mission controller or the ship is leaving, we should not be in this state
             if (LethalBotManager.Instance.MissionControlPlayer != npcController.Npc 
-                || StartOfRound.Instance.shipIsLeaving)
+                || (!Plugin.Config.AllowBotsInOrbit.Value && StartOfRound.Instance.shipIsLeaving))
             {
                 GetOffTerminal();
-                if (StartOfRound.Instance.shipIsLeaving)
+                if (!Plugin.Config.AllowBotsInOrbit.Value && StartOfRound.Instance.shipIsLeaving)
                 {
                     LethalBotManager.Instance.MissionControlPlayer = null;
                 }
@@ -309,14 +308,15 @@ namespace LethalBots.AI.AIStates
                         {
                             return;
                         }
-                        if (npcController.Npc.playersManager.shipHasLanded
-                            && !npcController.Npc.playersManager.shipIsLeaving
-                            && !npcController.Npc.playersManager.shipLeftAutomatically)
+                        StartOfRound instanceSOR = npcController.Npc.playersManager;
+                        if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
+                            && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
                             StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
                             if (startMatchLever != null)
                             {
                                 ai.PullShipLever(startMatchLever);
+                                playerRequestLeave = false;
                             }
                             //npcController.Npc.playersManager.ShipLeaveAutomatically(true);
                         }
@@ -348,14 +348,15 @@ namespace LethalBots.AI.AIStates
                         {
                             return;
                         }
-                        if (npcController.Npc.playersManager.shipHasLanded
-                            && !npcController.Npc.playersManager.shipIsLeaving
-                            && !npcController.Npc.playersManager.shipLeftAutomatically)
+                        StartOfRound instanceSOR = npcController.Npc.playersManager;
+                        if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
+                            && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
                             StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
                             if (startMatchLever != null)
                             {
                                 ai.PullShipLever(startMatchLever);
+                                playerRequestLeave = false;
                             }
                             //npcController.Npc.playersManager.ShipLeaveAutomatically(true);
                         }
@@ -490,7 +491,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // If we are not at the ship or terminal, we should move there now!
-            InteractTrigger terminalTrigger = ourTerminal.gameObject.GetComponent<InteractTrigger>();
+            ref InteractTrigger terminalTrigger = ref PatchesUtil.terminalTriggerField.Invoke(ourTerminal);
             float sqrDistFromTerminal = (terminalTrigger.playerPositionNode.position - npcController.Npc.transform.position).sqrMagnitude;
             if (sqrDistFromTerminal > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {
@@ -569,9 +570,25 @@ namespace LethalBots.AI.AIStates
                     {
                         // FIXME: This blocks out some of the chat commands.
                         // It may be a good idea to have some kind of flag to allow the default stuff when needed.
+                        StopMonitoringCrew();
+                        StopUsingSignalTranslator();
+                        StopOrbitLogic();
                         if (restockShip == null)
                         {
                             restockShip = ai.StartCoroutine(RestockTheShip());
+                        }
+                        return;
+                    }
+                    // We are in orbit, we have different logic!
+                    else if (LethalBotManager.AreWeInOrbit())
+                    {
+                        // TODO: Add a way for players to tell the bot to route to moons!
+                        StopMonitoringCrew();
+                        StopUsingSignalTranslator();
+                        StopRestockingTheShip();
+                        if (orbitLogic == null)
+                        {
+                            orbitLogic = ai.StartCoroutine(UseTerminalInOrbit());
                         }
                         return;
                     }
@@ -579,6 +596,8 @@ namespace LethalBots.AI.AIStates
                     // TODO: Implement AI for monitoring players, opening and closing blast doors, teleporting players,
                     // using the signal translator, buying a walkie-talkie to distract eyeless dogs, using the ship horn,
                     // and more I can't think of at the time.....
+                    StopRestockingTheShip();
+                    StopOrbitLogic();
                     if (monitorCrew == null)
                     {
                         monitorCrew = ai.StartCoroutine(MissionSurveillanceRoutine());
@@ -608,6 +627,7 @@ namespace LethalBots.AI.AIStates
             StopMonitoringCrew();
             StopUsingSignalTranslator();
             StopRestockingTheShip();
+            StopOrbitLogic();
         }
 
         private IEnumerator MissionSurveillanceRoutine()
@@ -905,7 +925,7 @@ namespace LethalBots.AI.AIStates
                         if ((fearRange.HasValue || IsEnemy(spawnedEnemy)) && (spawnedEnemy.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                         {
                             calledOutEnemies[enemyName] = Time.timeSinceLevelLoad;
-                            MessagePriority messagePriority = spawnedEnemy is JesterAI ? MessagePriority.Critical : MessagePriority.Low; // If we see a jester, that is an immediate callout!
+                            QueuePriority messagePriority = spawnedEnemy is JesterAI ? QueuePriority.Critical : QueuePriority.Low; // If we see a jester, that is an immediate callout!
                             SendMessageUsingSignalTranslator(enemyName, messagePriority);
                         }
                     }
@@ -920,7 +940,7 @@ namespace LethalBots.AI.AIStates
                     if (LethalBotManager.lastReportedTimeOfDay != newDayMode)
                     {
                         LethalBotManager.Instance.SetLastReportedTimeOfDayAndSync(newDayMode);
-                        SendMessageUsingSignalTranslator(GetCurrentTime(timeOfDay.normalizedTimeOfDay, timeOfDay.numberOfHours, createNewLine: false), MessagePriority.Normal);
+                        SendMessageUsingSignalTranslator(GetCurrentTime(timeOfDay.normalizedTimeOfDay, timeOfDay.numberOfHours, createNewLine: false), QueuePriority.Normal);
                     }
                 }
                 yield return null;
@@ -934,7 +954,7 @@ namespace LethalBots.AI.AIStates
         /// This queues a message to be sent by the bot using the signal translator!
         /// </summary>
         /// <param name="message"></param>
-        public void SendMessageUsingSignalTranslator(string message, MessagePriority priority = MessagePriority.Low)
+        public void SendMessageUsingSignalTranslator(string message, QueuePriority priority = QueuePriority.Low)
         {
             if (!string.IsNullOrWhiteSpace(message))
             {
@@ -949,7 +969,7 @@ namespace LethalBots.AI.AIStates
         private string GetNextMessageToSend()
         {
             // Sanity check, make sure everything is valid!
-            if (!messageQueue.TryDequeue(out var message))
+            if (!messageQueue.TryDequeue(out var message) || string.IsNullOrEmpty(message))
             {
                 return string.Empty;
             }
@@ -1237,6 +1257,150 @@ namespace LethalBots.AI.AIStates
             return false;
         }
 
+        // TODO: Think of a better name for this function
+        private IEnumerator UseTerminalInOrbit()
+        {
+            yield return null;
+            while (ai.State != null
+                && ai.State == this
+                && npcController.Npc.inTerminalMenu
+                && LethalBotManager.AreWeInOrbit())
+            {
+                yield return new WaitForSeconds(1f); // One second cooldown on this!
+
+                if (Plugin.Config.AutoRouteToCompany.Value)
+                {
+                    TimeOfDay instanceTOD = TimeOfDay.Instance;
+                    if (instanceTOD != null
+                        && instanceTOD.daysUntilDeadline <= 0
+                        && StartOfRound.Instance.currentLevel.planetHasTime // So bots don't auto route if on a "company building" like moon
+                        && !LethalBotManager.AreWeAtTheCompanyBuilding(checkOrbit: false))
+                    {
+                        yield return RouteToMoon(TerminalConst.STRING_COMPANY_BUILDING);
+                    }
+                }
+
+                // Give the map a chance to update!
+                float startTime = Time.timeSinceLevelLoad;
+                yield return new WaitUntil(() => targetedPlayer != StartOfRound.Instance.mapScreen.targetedPlayer || (Time.timeSinceLevelLoad - startTime) > 1f);
+                targetPlayerUpdated = true;
+
+                // Get the next queued message!
+                if (HasMessageToSend()
+                    && SignalTranslator != null
+                    && Time.realtimeSinceStartup - SignalTranslator.timeLastUsingSignalTranslator >= 8f)
+                {
+                    // Make sure the message is vaild
+                    string messageToSend = GetNextMessageToSend();
+                    if (!string.IsNullOrWhiteSpace(messageToSend))
+                    {
+                        yield return SendCommandToTerminal(string.Format(TerminalConst.STRING_TRANSMIT_COMMAND, messageToSend));
+                    }
+                }
+
+                // Update our "vision" to the targeted player on the monitor
+                targetedPlayer = StartOfRound.Instance.mapScreen.targetedPlayer;
+                if (playersRequstedTeleport.TryDequeue(out PlayerControllerB playerControllerB))
+                {
+                    // If someone requested we teleport them we need to do it first!
+                    if (playerControllerB == null)
+                    {
+                        continue;
+                    }
+
+                    // Check if we need to switch targets!
+                    if (playerControllerB != targetedPlayer)
+                    {
+                        // Switch to the requested player first
+                        yield return SwitchRadarTarget(playerControllerB);
+
+                        // Wait until the teleport target is updated
+                        startTime = Time.timeSinceLevelLoad; // Reuse start time variable, just in case we fail to update the target somehow.
+                        yield return new WaitUntil(() => StartOfRound.Instance.mapScreen.targetedPlayer == playerControllerB || (Time.timeSinceLevelLoad - startTime) > 3f);
+                    }
+
+                    // Beam them up Scotty!
+                    yield return TryTeleportPlayer(skipPostCheck: true);
+                    continue;
+                }
+
+                // Someone requested we watch them
+                if (IsValidRadarTarget(monitoredPlayer))
+                {
+                    if (targetedPlayer != monitoredPlayer)
+                    {
+                        yield return SwitchRadarTarget(monitoredPlayer);
+                    }
+                    else
+                    {
+                        yield return HandlePlayerMonitorLogic(monitoredPlayer);
+                    }
+                }
+            }
+            StopOrbitLogic();
+        }
+
+        private IEnumerator RouteToMoon(string moonName)
+        {
+            // Make sure we have a moon here!
+            // Should never happen, but you never know.....
+            Terminal terminal = TerminalManager.Instance.GetTerminal();
+            if (terminal == null || string.IsNullOrWhiteSpace(moonName))
+            {
+                yield break;
+            }
+
+            // Make sure we can actually route the ship!
+            StartOfRound instanceSOR = StartOfRound.Instance;
+            if (!instanceSOR.inShipPhase || instanceSOR.travellingToNewLevel)
+            {
+                yield break;
+            }
+
+            // Make sure we were given a valid moon
+            //bool foundMoon = false;
+            //SelectableLevel[] selectableLevels = instanceSOR.levels;
+            //foreach (SelectableLevel level in selectableLevels)
+            //{
+            //    if (level.PlanetName == moonName)
+            //    {
+            //        foundMoon = true;
+            //        break;
+            //    }
+            //}
+
+            //// No Moon?
+            //if (!foundMoon)
+            //{
+            //    yield break;
+            //}
+
+            // Alright, lets make a purchase
+            if (terminal.currentNode != terminal.terminalNodes.specialNodes[TerminalConst.INDEX_DEFAULT_TERMINALNODE])
+            {
+                // Ok, so we are not on the start page. Lets head over there now!
+                if (terminal.currentNode.isConfirmationNode)
+                {
+                    yield return SendCommandToTerminal(TerminalConst.STRING_CANCEL_COMMAND); // Just decline whatever is presented!
+                }
+                yield return SendCommandToTerminal(TerminalConst.STRING_HELP);
+            }
+
+            // Alright, to the moons page
+            yield return SendCommandToTerminal(TerminalConst.STRING_MOONS);
+
+            // And now we make the purchase
+            yield return SendCommandToTerminal(string.Format(TerminalConst.STRING_ROUTE_COMMAND, moonName));
+
+            // Accept at the confirmation page
+            if (!terminal.currentNode.isConfirmationNode)
+            {
+                Plugin.LogWarning($"Bot {npcController.Npc.playerUsername} attempted to route to {moonName}, but it failed?");
+                yield break; // Huh, how did this happen?!
+            }
+            yield return SendCommandToTerminal(TerminalConst.STRING_CONFIRM_COMMAND);
+        }
+
         /// <summary>
         /// Checks if the entered player is valid for monitoring!
         /// </summary>
@@ -1382,6 +1546,15 @@ namespace LethalBots.AI.AIStates
             }
         }
 
+        private void StopOrbitLogic()
+        {
+            if (orbitLogic != null)
+            {
+                ai.StopCoroutine(orbitLogic);
+                orbitLogic = null;
+            }
+        }
+
         /// <summary>
         /// Checks if we should teleport the dead body of the player!
         /// </summary>
@@ -1394,7 +1567,7 @@ namespace LethalBots.AI.AIStates
                 && !deadBodyInfo.isInShip
                 && !deadBodyInfo.grabBodyObject.isHeld
                 && !RescueAndReviveState.CanRevivePlayer(ai, player, true)
-                && (!RescueAndReviveState.IsAnyReviveModInstalled() || !LethalBotAI.NearOtherPlayers(player, 17f))
+                && (!RescueAndReviveState.IsAnyReviveModInstalled() || !npcController.Npc.NearOtherPlayers(17f))
                 && !StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position)
                 && !ai.CheckProximityForEyelessDogs())
             {
@@ -1703,30 +1876,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // So, we don't have a walkie-talkie in our inventory, lets check the ship!
-            float closestWalkieSqr = float.MaxValue;
-            for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
-            {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
-                GrabbableObject? walkieTalkie = gameObject.GetComponent<GrabbableObject>();
-                if (walkieTalkie != null
-                    && walkieTalkie is WalkieTalkie walkieTalkieObj 
-                    && walkieTalkieObj.isInShipRoom)
-                {
-                    float walkieSqr = (walkieTalkieObj.transform.position - npcController.Npc.transform.position).sqrMagnitude;
-                    if (walkieSqr < closestWalkieSqr 
-                        && ai.IsGrabbableObjectGrabbable(walkieTalkieObj)) // NOTE: IsGrabbableObjectGrabbable has a pathfinding check, so we run it last since it can be expensive!
-                    {
-                        closestWalkieSqr = walkieSqr;
-                        this.walkieTalkie = walkieTalkieObj;
-                    }
-                }
-            }
+            this.walkieTalkie = ai.FindItemOnShip(foundItem => foundItem is WalkieTalkie) as WalkieTalkie;
         }
 
         /// <summary>
@@ -1766,29 +1916,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // So, we don't have a weapon in our inventory, lets check the ship!
-            float closestWeaponSqr = float.MaxValue;
-            for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
-            {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
-                GrabbableObject? weapon = gameObject.GetComponent<GrabbableObject>();
-                if (ai.HasAmmoForWeapon(weapon)
-                    && weapon.isInShipRoom)
-                {
-                    float weaponSqr = (weapon.transform.position - npcController.Npc.transform.position).sqrMagnitude;
-                    if (weaponSqr < closestWeaponSqr
-                        && ai.IsGrabbableObjectGrabbable(weapon)) // NOTE: IsGrabbableObjectGrabbable has a pathfinding check, so we run it last since it can be expensive!
-                    {
-                        closestWeaponSqr = weaponSqr;
-                        this.weapon = weapon;
-                    }
-                }
-            }
+            this.weapon = ai.FindItemOnShip(foundItem => ai.HasAmmoForWeapon(foundItem));
         }
 
         /// <summary>
@@ -2072,7 +2200,7 @@ namespace LethalBots.AI.AIStates
                 lethalBotAI.SendChatMessage($"Alright, I will relay, {messageToTransmit} to the rest of the crew.");
 
                 // Queue the message to be sent!
-                missionControlState.SendMessageUsingSignalTranslator(messageToTransmit, MessagePriority.High);
+                missionControlState.SendMessageUsingSignalTranslator(messageToTransmit, QueuePriority.High);
                 return true;
             }));
         }
@@ -2172,76 +2300,6 @@ namespace LethalBots.AI.AIStates
                 return false;
             }
             return base.FindObject(item); // Everything else can go!
-        }
-
-        /// <summary>
-        /// This is basicially <see cref="Queue{T}"/>, but its designed to allow me to set the priority of messages!
-        /// </summary>
-        private sealed class PriorityMessageQueue
-        {
-            private readonly Dictionary<MessagePriority, Queue<string>> _queues;
-            public PriorityMessageQueue()
-            {
-                _queues = new Dictionary<MessagePriority, Queue<string>>()
-                {
-                    { MessagePriority.Critical, new Queue<string>() },
-                    { MessagePriority.High, new Queue<string>() },
-                    { MessagePriority.Normal, new Queue<string>() },
-                    { MessagePriority.Low, new Queue<string>() }
-                };
-            }
-
-            /// <inheritdoc cref="Queue{T}.Enqueue(T)"/>
-            public void Enqueue(string message, MessagePriority priority = MessagePriority.Low)
-            {
-                _queues[priority].Enqueue(message);
-            }
-
-            /// <inheritdoc cref="Queue{T}.TryDequeue(out T)"/>
-            public bool TryDequeue(out string message)
-            {
-                for (var priority = MessagePriority.Critical; priority <= MessagePriority.Low; priority++)
-                {
-                    var q = _queues[priority];
-                    if (q.TryDequeue(out message))
-                    {
-                        return true;
-                    }
-                }
-
-                message = string.Empty;
-                return false;
-            }
-
-            /// <inheritdoc cref="Queue{T}.TryPeek(out T)"/>
-            public bool TryPeek(out string message)
-            {
-                for (var priority = MessagePriority.Critical; priority <= MessagePriority.Low; priority++)
-                {
-                    var q = _queues[priority];
-                    if (q.TryPeek(out message))
-                    {
-                        return true;
-                    }
-                }
-
-                message = string.Empty;
-                return false;
-            }
-
-            /// <inheritdoc cref="Queue{T}.Count"/>
-            public int Count
-            {
-                get
-                {
-                    int total = 0;
-                    foreach (var q in _queues.Values)
-                    {
-                        total += q.Count;
-                    }
-                    return total;
-                }
-            }
         }
     }
 }

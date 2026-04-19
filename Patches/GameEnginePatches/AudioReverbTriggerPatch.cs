@@ -42,7 +42,7 @@ namespace LethalBots.Patches.GameEnginePatches
 
         [HarmonyPatch("ChangeAudioReverbForPlayer")]
         [HarmonyPrefix]
-        public static bool ChangeAudioReverbForPlayer_Prefix(AudioReverbFilter __instance, PlayerControllerB pScript, bool __runOriginal)
+        public static bool ChangeAudioReverbForPlayer_Prefix(AudioReverbTrigger __instance, PlayerControllerB pScript, bool __runOriginal)
         {
             // Only do this if the original logic is run!
             if (!__runOriginal)
@@ -53,6 +53,18 @@ namespace LethalBots.Patches.GameEnginePatches
             {
                 return true;
             }
+
+            // HACKHACK: This is a horrible way to fix the bug where the bots can sometimes "fall" out of the ship,
+            // but I don't have any other solution at the moment. The bug started happening after the V80 update.
+            // It only really happens on moons like Vow, Adamance, and March. This may be due to some changes made by Zeekerss!
+            if (__instance.elevatorTriggerForProps
+                && LethalBotManager.Instance.IsPlayerLethalBot(pScript) 
+                && LethalBotManager.IsTheShipLanding()
+                && (pScript.isInElevator || pScript.isInHangarShipRoom))
+            {
+                return false;
+            }
+
             Plugin.LogDebug($"AudioReverbTrigger::ChangeAudioReverbForPlayer called by Player {pScript.playerUsername}!");
             return true;
         }
