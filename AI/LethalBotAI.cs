@@ -5447,7 +5447,7 @@ namespace LethalBots.AI
 
         internal static bool IsGrabbableObjectHeldByPikminMod(GrabbableObject grabbableObject)
         {
-            List<LethalMin.PikminItem> listPickMinItems = LethalMin.PikminManager.GetPikminItemsInMap();
+            HashSet<LethalMin.PikminItem>? listPickMinItems = LethalMin.PikminManager.instance?.PikminItems;
             if (listPickMinItems == null
                 || listPickMinItems.Count == 0)
             {
@@ -5457,8 +5457,8 @@ namespace LethalBots.AI
             foreach (var item in listPickMinItems)
             {
                 if(item != null
-                    && item.Root == grabbableObject
-                    && item.PikminOnItem > 0)
+                    && item.ItemScript == grabbableObject
+                    && item.PikminOnItem.Count > 0)
                 {
                     return true;
                 }
