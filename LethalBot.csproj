@@ -156,7 +156,7 @@
       <HintPath>lib\mods\NoteBoxz.LethalMin.dll</HintPath>
     </Reference>
     <Reference Include="OPJosMod">
-      <HintPath>lib\mods\ReviveCompany.dll</HintPath>
+      <HintPath>lib\mods\Erksmit.LethalRevives.dll</HintPath>
     </Reference>
     <Reference Include="Peepers">
       <HintPath>lib\mods\Peepers.dll</HintPath>
