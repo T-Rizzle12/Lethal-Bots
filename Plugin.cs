@@ -1,6 +1,8 @@
 ﻿using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
+using Dawn;
+using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Inputs;
@@ -13,7 +15,9 @@ using LethalBots.Patches.ModPatches.AdditionalNetworking;
 using LethalBots.Patches.ModPatches.BetterEmotes;
 using LethalBots.Patches.ModPatches.BunkbedRevive;
 using LethalBots.Patches.ModPatches.ButteryFixes;
+using LethalBots.Patches.ModPatches.DawnLib;
 using LethalBots.Patches.ModPatches.LCAlwaysHearActiveWalkie;
+using LethalBots.Patches.ModPatches.LCVR;
 using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.ModPatches.LethalProgression;
 using LethalBots.Patches.ModPatches.ModelRplcmntAPI;
@@ -36,8 +40,6 @@ using System.Text;
 using Unity.Netcode;
 using UnityEngine;
 using Object = UnityEngine.Object;
-using GameNetcodeStuff;
-using LethalBots.Patches.ModPatches.LCVR;
 
 namespace LethalBots
 {
@@ -70,6 +72,7 @@ namespace LethalBots
     [BepInDependency(Const.NAVMESHINCOMPANY_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(Const.LETHALINTERNS_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LCVR.Plugin.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(DawnLib.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         // Please don't use the MyPluginInfo class for the GUID, my mod is
@@ -103,6 +106,7 @@ namespace LethalBots
         internal static bool IsModReservedItemSlotCoreLoaded = false;
         internal static bool IsModLethalPhonesLoaded = false;
         internal static bool IsModGeneralImprovementsLoaded = false;
+        internal static bool IsModDawnLibLoaded = false;
         private readonly Harmony _harmony = new(ModGUID);
 
         private void Awake()
@@ -297,6 +301,7 @@ namespace LethalBots
             IsModReservedItemSlotCoreLoaded = IsModLoaded(Const.RESERVEDITEMSLOTCORE_GUID);
             IsModLethalPhonesLoaded = IsModLoaded(Const.LETHALPHONES_GUID);
             IsModGeneralImprovementsLoaded = IsModLoaded(Const.GENERAL_IMPROVEMENTS_GUID);
+            IsModDawnLibLoaded = IsModLoaded(DawnLib.PLUGIN_GUID);
 
             bool isModMoreEmotesLoaded = IsModLoaded(Const.MOREEMOTES_GUID);
             bool isModBetterEmotesLoaded = IsModLoaded(Const.BETTEREMOTES_GUID);
@@ -374,10 +379,6 @@ namespace LethalBots
             if (IsModReviveCompanyLoaded)
             {
                 _harmony.PatchAll(typeof(ReviveCompanyGeneralUtilPatch));
-                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("OPJosMod.ReviveCompany.Patches.PlayerControllerBPatch"), "setHoverTipAndCurrentInteractTriggerPatch"),
-                               null,
-                               null,
-                               new HarmonyMethod(typeof(ReviveCompanyPlayerControllerBPatchPatch), nameof(ReviveCompanyPlayerControllerBPatchPatch.SetHoverTipAndCurrentInteractTriggerPatch_Transpiler)));
             }
             if (IsModBunkbedReviveLoaded)
             {
@@ -428,6 +429,10 @@ namespace LethalBots
                                new HarmonyMethod(typeof(LCVRPatchesPatch), nameof(LCVRPatchesPatch.DisplaySafetyPatch_Prefix)));
                 _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCVR.Patches.PlayerControllerPatches"), "AfterDamagePlayer"),
                                new HarmonyMethod(typeof(LCVRPatchesPatch), nameof(LCVRPatchesPatch.AfterDamagePlayer_Prefix)));
+            }
+            if (IsModDawnLibLoaded)
+            {
+                _harmony.PatchAll(typeof(DawnMoonNetworkerPatch));
             }
         }
 

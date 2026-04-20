@@ -185,6 +185,18 @@
 	<Reference Include="ReservedItemSlotCore">
 	  <HintPath>lib\mods\ReservedItemSlotCore.dll</HintPath>
 	</Reference>
+	<Reference Include="DawnLib">
+		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.dll</HintPath>
+	</Reference>
+	<Reference Include="DawnLib-Dusk">
+		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.dusk.dll</HintPath>
+	</Reference>
+	<Reference Include="DawnLib-Interfaces">
+		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.interfaces.dll</HintPath>
+	</Reference>
+	<Reference Include="DawnLib-Compatability">
+		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.compatibility.dll</HintPath>
+	</Reference>
     <Reference Include="Unity.Animation.Rigging">
       <HintPath>lib\Unity.Animation.Rigging.dll</HintPath>
     </Reference>
