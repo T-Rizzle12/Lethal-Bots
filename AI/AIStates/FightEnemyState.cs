@@ -13,9 +13,6 @@ using System.Reflection;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
-using UnityEngine.InputSystem.HID;
-using static UnityEngine.InputSystem.InputRemoting;
-using static UnityEngine.SendMouseEvents;
 
 namespace LethalBots.AI.AIStates
 {
@@ -169,7 +166,7 @@ namespace LethalBots.AI.AIStates
             float sqrMagDistanceEnemy = (this.CurrentEnemy.transform.position - npcController.Npc.transform.position).sqrMagnitude;
             float maxEnemyDistance = GetAttackRangeForWeapon(ai.HeldItem) + enemySize;
             float fallBackDistance = maxEnemyDistance * 0.75f;
-            float giveupRange = fearRange.Value * 2;
+            float giveupRange = fearRange.Value * 1.5f;
             Vector3 targetPos = EnemyCollision != null ? EnemyCollision.bounds.center : this.CurrentEnemy.eye.position;
             if (sqrMagDistanceEnemy < maxEnemyDistance * maxEnemyDistance && canHitTarget)
             {
@@ -213,7 +210,7 @@ namespace LethalBots.AI.AIStates
             if (!Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, targetPos + Vector3.up * 0.2f, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault)
                 || hitInfo.collider.gameObject.GetComponentInParent<EnemyAI>() == this.CurrentEnemy)
             {
-                npcController.OrderToLookAtPosition(this.CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime, true, maxBodyFOV: attackFOV);
+                npcController.OrderToLookAtPosition(this.CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f, true, maxBodyFOV: attackFOV);
             }
             else
             {

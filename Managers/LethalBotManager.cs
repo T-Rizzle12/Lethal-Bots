@@ -4657,6 +4657,7 @@ namespace LethalBots.Managers
                         LethalBotReference = lethalBotAI.NetworkObject,
                         IndexNextLethalBot = i,
                         IndexNextPlayerObject = i, // i should be (int)lethalBotAI.NpcController.Npc.playerClientId if everything is working correctly
+                        SpawnPosition = lethalBotAI.NpcController?.Npc.transform.position ?? null,
                         LethalBotIdentityID = lethalBotAI.LethalBotIdentity.IdIdentity,
                         enumSpawnAnimation = EnumSpawnAnimation.ReinitializePlayer,
                         SuitID = lethalBotAI.LethalBotIdentity.SuitID ?? 0,
@@ -4672,19 +4673,53 @@ namespace LethalBots.Managers
         private void SyncLethalBotsToJoiningPlayerClientRpc(SpawnLethalBotParamsNetworkSerializable[] spawnLethalBotParamsNetworkSerializable,
                                                        ClientRpcParams clientRpcParams = default)
         {
-            if (IsOwner)
+            if (IsServer || IsHost)
             {
                 return;
             }
 
+            // Makes sure bots can pathfind for late joining players!
+            if (AreWeInOrbit())
+            {
+                EnsureShipNavMeshBuilt();
+                EnableShipNavMesh();
+            }
+
+            // We use a coroutine to guarantee the bot objects had time to be created over the network
+            StartCoroutine(SyncLethalBotsToJoiningPlayer(spawnLethalBotParamsNetworkSerializable));
+        }
+
+        private IEnumerator SyncLethalBotsToJoiningPlayer(SpawnLethalBotParamsNetworkSerializable[] spawnLethalBotParamsNetworkSerializable)
+        {
+            yield return null;
             for (int i = 0; i < spawnLethalBotParamsNetworkSerializable.Length; i++)
             {
                 // Make sure the this is a valid struct. The host will send structs without a LethalBotReference
                 // to indicate that there is no bot in that player slot.
                 var lethalBotData = spawnLethalBotParamsNetworkSerializable[i];
-                if (!lethalBotData.LethalBotReference.HasValue || !lethalBotData.LethalBotReference.Value.TryGet(out NetworkObject networkObject))
+                if (!lethalBotData.LethalBotReference.HasValue)
                 {
                     Plugin.LogInfo($"No bot data found for index {i}!");
+                    continue;
+                }
+
+                // The client just joined, they need some time to load all of the Network objects
+                NetworkObject? networkObject = null;
+                float startTime = Time.realtimeSinceStartup;
+                while ((Time.realtimeSinceStartup - startTime) < 5f)
+                {
+                    // Keep trying until it finally loads
+                    if (lethalBotData.LethalBotReference.Value.TryGet(out networkObject))
+                    {
+                        break;
+                    }
+                    yield return new WaitForSeconds(0.2f);
+                }
+
+                // Well, did it spawn?
+                if (networkObject == null)
+                {
+                    Plugin.LogError($"Bot at index {i} network object took too long to load!");
                     continue;
                 }
 

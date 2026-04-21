@@ -27,6 +27,7 @@ namespace LethalBots.AI.AIStates
         private static readonly AccessTools.FieldRef<PatcherTool, bool> isScanning = AccessTools.FieldRefAccess<bool>(typeof(PatcherTool), "isScanning");
 
         private PlayerControllerB playerToRevive;
+        private GrabbableObject? neededReviveTool;
         private ReviveMethod reviveMethod = ReviveMethod.None;
         private Coroutine? fallbackCoroutine;
         private Coroutine? reviveCoroutine;
@@ -122,6 +123,15 @@ namespace LethalBots.AI.AIStates
                         return;
                     }
                 }
+            }
+
+            // One of our revive methods request we grab the needed tool
+            GrabbableObject? neededReviveTool = this.neededReviveTool;
+            if (neededReviveTool != null)
+            {
+                this.neededReviveTool = null; // Clear the tool!
+                ai.State = new FetchingObjectState(this, neededReviveTool);
+                return;
             }
 
             switch (reviveMethod)
@@ -298,9 +308,20 @@ namespace LethalBots.AI.AIStates
         {
             // FIXME: This doesn't consider ANY of the config options,
             // this is due to Zaprillator being marked as Internal! 
-            if (Plugin.IsModZaprillatorLoaded && !isMissionController)
+            if (Plugin.IsModZaprillatorLoaded)
             {
-                return lethalBotAI.HasGrabbableObjectInInventory(FindZapGun, out _);
+                // Do we have the zap gun in our inventory
+                if (lethalBotAI.HasGrabbableObjectInInventory(FindZapGun, out _))
+                {
+                    return true;
+                }
+
+                // Are we on the ship, where we could potentially grab one?
+                PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
+                if (lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom)
+                {
+                    return lethalBotAI.FindItemOnShip(FindZapGun) != null;
+                }
             }
 
             return false;
@@ -814,6 +835,18 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // Lets go and revive a player
+            if (!ai.HasGrabbableObjectInInventory(FindZapGun, out _))
+            {
+                shouldPickupBody = true;
+                neededReviveTool = ai.FindItemOnShip(FindZapGun);
+                if (neededReviveTool == null || !ai.HasSpaceInInventory(neededReviveTool))
+                {
+                    ChangeBackToPreviousState(); // Odd, we can't find the weedkiller, just give up!
+                }
+                return;
+            }
+
             // Move towards our fallback position via safe path
             float sqrDistToFallback = (fallbackPos.Value - npcController.Npc.transform.position).sqrMagnitude;
             if (sqrDistToFallback >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
@@ -1011,7 +1044,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         private static bool FindZapGun(GrabbableObject item)
         {
-            return item is PatcherTool zapGun && LethalBotAI.IsItemPowered(zapGun); // For anyone wondering PatcherTool is the internal class name for the Zap Gun!
+            return item is PatcherTool zapGun && (zapGun.isInElevator || zapGun.isInShipRoom || LethalBotAI.IsItemPowered(zapGun)); // For anyone wondering PatcherTool is the internal class name for the Zap Gun!
         }
 
         private void StopReviveCoroutine()

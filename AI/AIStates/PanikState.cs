@@ -531,7 +531,7 @@ namespace LethalBots.AI.AIStates
             // Look at the enemy if they are a coil head, bracken, or feiopars!
             if (CurrentEnemy is SpringManAI || CurrentEnemy is FlowermanAI || CurrentEnemy is PumaAI)
             {
-                npcController.OrderToLookAtPosition(CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
+                npcController.OrderToLookAtPosition(CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f);
             }
             // We can save ourself if we have a weapon nearby us!
             else if (CurrentEnemy is CentipedeAI || CurrentEnemy is CrawlerAI || CurrentEnemy is MaskedPlayerEnemy || CurrentEnemy is BushWolfEnemy)

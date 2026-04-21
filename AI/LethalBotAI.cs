@@ -6199,6 +6199,8 @@ namespace LethalBots.AI
             if (!lethalBotController.disableSyncInAnimation && !lethalBotController.inVehicleAnimation)
             {
                 lethalBotController.serverPlayerPosition = newPos;
+                this.serverPosition = newPos;
+                this.transform.position = newPos;
             }
             if (lethalBotController.overridePhysicsParent != null)
             {

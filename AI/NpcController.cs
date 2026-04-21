@@ -78,18 +78,17 @@ namespace LethalBots.AI
         {
             get
             {
-                if (_lethalBotAIController == null)
+                if (field == null)
                 {
-                    _lethalBotAIController = LethalBotManager.Instance.GetLethalBotAI(Npc);
-                    if (_lethalBotAIController == null)
+                    field = LethalBotManager.Instance.GetLethalBotAI(Npc);
+                    if (field == null)
                     {
                         throw new NullReferenceException($"{MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION}: error no lethalBotAI attached to NpcController playerClientId {Npc.playerClientId}.");
                     }
                 }
-                return _lethalBotAIController;
+                return field;
             }
         }
-        private LethalBotAI? _lethalBotAIController;
 
         private int movementHinderedPrev;
         private float sprintMultiplier = 1f;

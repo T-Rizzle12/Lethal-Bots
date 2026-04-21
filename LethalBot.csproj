@@ -197,6 +197,9 @@
 	<Reference Include="DawnLib-Compatability">
 		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.compatibility.dll</HintPath>
 	</Reference>
+	<Reference Include="UsualScrap.dll">
+		<HintPath>lib\mods\UsualScrap.dll</HintPath>
+	</Reference>
     <Reference Include="Unity.Animation.Rigging">
       <HintPath>lib\Unity.Animation.Rigging.dll</HintPath>
     </Reference>

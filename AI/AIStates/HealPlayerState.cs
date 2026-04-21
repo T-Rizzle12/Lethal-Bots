@@ -17,7 +17,7 @@ namespace LethalBots.AI.AIStates
         private static readonly AccessTools.FieldRef<SprayPaintItem, bool> isSpraying = AccessTools.FieldRefAccess<bool>(typeof(SprayPaintItem), "isSpraying");
 
         private PlayerControllerB healTarget;
-        protected GrabbableObject? neededMedicalTool;
+        private GrabbableObject? neededMedicalTool;
         private HealMethod healMethod = HealMethod.None;
         private Coroutine? healCoroutine;
         private static readonly UpdateLimiter nextCadaverGrowthCheck = new UpdateLimiter();
@@ -257,7 +257,7 @@ namespace LethalBots.AI.AIStates
         private IEnumerator healUsingWeedKiller()
         {
             // Alright, look at our heal target
-            npcController.OrderToLookAtPosition(this.healTarget.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY);
+            npcController.OrderToLookAtPosition(this.healTarget.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f);
             yield return null;
             yield return new WaitUntil(() => npcController.LookAtTarget.IsHeadAimingOnTarget() && npcController.LookAtTarget.hasBeenSightedIn);
 
