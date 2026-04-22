@@ -107,6 +107,7 @@ namespace LethalBots
         internal static bool IsModLethalPhonesLoaded = false;
         internal static bool IsModGeneralImprovementsLoaded = false;
         internal static bool IsModDawnLibLoaded = false;
+        internal static bool IsModUsualScrapLoaded = false;
         private readonly Harmony _harmony = new(ModGUID);
 
         private void Awake()
@@ -302,6 +303,7 @@ namespace LethalBots
             IsModLethalPhonesLoaded = IsModLoaded(Const.LETHALPHONES_GUID);
             IsModGeneralImprovementsLoaded = IsModLoaded(Const.GENERAL_IMPROVEMENTS_GUID);
             IsModDawnLibLoaded = IsModLoaded(DawnLib.PLUGIN_GUID);
+            IsModUsualScrapLoaded = IsModLoaded(UsualScrap.Plugin.PLUGIN_GUID);
 
             bool isModMoreEmotesLoaded = IsModLoaded(Const.MOREEMOTES_GUID);
             bool isModBetterEmotesLoaded = IsModLoaded(Const.BETTEREMOTES_GUID);

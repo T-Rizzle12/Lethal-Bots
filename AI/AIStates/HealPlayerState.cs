@@ -18,6 +18,7 @@ namespace LethalBots.AI.AIStates
 
         private PlayerControllerB healTarget;
         private GrabbableObject? neededMedicalTool;
+        private bool allowRecharging;
         private HealMethod healMethod = HealMethod.None;
         private Coroutine? healCoroutine;
         private static readonly UpdateLimiter nextCadaverGrowthCheck = new UpdateLimiter();
@@ -60,6 +61,7 @@ namespace LethalBots.AI.AIStates
             {
                 healMethod = DetermineBestHealMethod();
             }
+            allowRecharging = true;
             base.OnEnterState();
         }
 
@@ -110,6 +112,15 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // If our tool needs to be charged, lets charge it
+            if (allowRecharging
+                && (npcController.Npc.isInElevator || npcController.Npc.isInHangarShipRoom)
+                && ChargeHeldItemState.HasItemToCharge(ai, out _))
+            {
+                ai.State = new ChargeHeldItemState(this, true);
+                return;
+            }
+
             switch (healMethod)
             {
                 case HealMethod.WeedKiller:
@@ -139,7 +150,7 @@ namespace LethalBots.AI.AIStates
         /// Well you see Timmy, this enum is only used by one class and it is very specific to that class.
         /// All the other enums are used by multiple classes and have a broader purpose.
         /// </remarks>
-        private enum HealMethod
+        public enum HealMethod
         {
             None,
             WeedKiller // Yes, we can heal with weed killer, its only for the Cadaver infection.

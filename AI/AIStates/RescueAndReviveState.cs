@@ -12,11 +12,13 @@ using OPJosMod.ReviveCompany.CustomRpc;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.InputSystem.HID;
+using UsualScrap.Behaviors;
 
 namespace LethalBots.AI.AIStates
 {
@@ -33,6 +35,7 @@ namespace LethalBots.AI.AIStates
         private Coroutine? reviveCoroutine;
         private Vector3? fallbackPos;
         private bool shouldPickupBody;
+        private bool allowRecharging;
         private bool movedFromFallback;
 
         public RescueAndReviveState(AIState oldState, PlayerControllerB playerToRevive) : base(oldState)
@@ -61,6 +64,7 @@ namespace LethalBots.AI.AIStates
                 reviveMethod = DetermineBestReviveMethod();
             }
             shouldPickupBody = true; // If we were interrupted, we should pickup the body and try again
+            allowRecharging = true; // Make sure our equipment is charged
             StartFallbackCoroutine(); // Always keep our fallback spot updated
             base.OnEnterState();
         }
@@ -134,6 +138,15 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // If our tool needs to be charged, lets charge it
+            if (allowRecharging 
+                && (npcController.Npc.isInElevator || npcController.Npc.isInHangarShipRoom)
+                && ChargeHeldItemState.HasItemToCharge(ai, out _))
+            {
+                ai.State = new ChargeHeldItemState(this, true);
+                return;
+            }
+
             switch (reviveMethod)
             {
                 case ReviveMethod.ModReviveCompany:
@@ -150,6 +163,9 @@ namespace LethalBots.AI.AIStates
                     DoBunkBedReviveLogic();
                     break;
                 }
+                case ReviveMethod.ModUsualScrap:
+                    DoUsualScrapLogic();
+                    break;
                 default:
                     break;
             }
@@ -180,12 +196,13 @@ namespace LethalBots.AI.AIStates
         /// Well you see Timmy, this enum is only used by one class and it is very specific to that class.
         /// All the other enums are used by multiple classes and have a broader purpose.
         /// </remarks>
-        private enum ReviveMethod
+        public enum ReviveMethod
         {
             None,
             ModReviveCompany,
             ModBunkbedRevive,
-            ModZaprillator
+            ModZaprillator,
+            ModUsualScrap
         }
 
         /// <summary>
@@ -206,6 +223,10 @@ namespace LethalBots.AI.AIStates
             else if (Plugin.IsModBunkbedReviveLoaded && BunkbedReviveCanRevivePlayer(ai, this.playerToRevive))
             {
                 return ReviveMethod.ModBunkbedRevive;
+            }
+            else if (Plugin.IsModUsualScrapLoaded && UsualScrapCanRevivePlayer(ai, this.playerToRevive))
+            {
+                return ReviveMethod.ModUsualScrap;
             }
 
             return ReviveMethod.None;
@@ -377,6 +398,35 @@ namespace LethalBots.AI.AIStates
         }
 
         /// <summary>
+        /// Determines whether the specified player can be revived using Usual Scrap defibrillator.
+        /// </summary>
+        /// <param name="lethalBotAI">The bot who is thinking about reviving <paramref name="playerToRevive"/></param>
+        /// <param name="playerToRevive">The player <paramref name="lethalBotAI"/> is thinking about reviving</param>
+        /// <param name="isMissionController">Is <paramref name="lethalBotAI"/> who is thinking about teleporting this player's dead body</param>
+        /// <returns>true if the player can be revived using Usual Scrap defibrillator; otherwise, false.</returns>
+        private static bool UsualScrapCanRevivePlayer(LethalBotAI lethalBotAI, PlayerControllerB playerToRevive, bool isMissionController = false)
+        {
+            // Check if the player can be revived using Usual Scrap defibrillator
+            if (Plugin.IsModUsualScrapLoaded)
+            {
+                // Do we have the defibrillator in our inventory
+                if (lethalBotAI.HasGrabbableObjectInInventory(FindDefibUnit, out _))
+                {
+                    return true;
+                }
+
+                // Are we on the ship, where we could potentially grab one?
+                PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
+                if (lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom)
+                {
+                    return lethalBotAI.FindItemOnShip(FindDefibUnit) != null;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Helper function to check if the bot can revive the player with the selected method.
         /// </summary>
         /// <returns></returns>
@@ -390,6 +440,8 @@ namespace LethalBots.AI.AIStates
                     return BunkbedReviveCanRevivePlayer(ai, this.playerToRevive);
                 case ReviveMethod.ModZaprillator:
                     return ZaprillatorCanRevivePlayer(ai, this.playerToRevive);
+                case ReviveMethod.ModUsualScrap:
+                    return UsualScrapCanRevivePlayer(ai, this.playerToRevive);
                 default:
                     return false;
             }
@@ -405,7 +457,8 @@ namespace LethalBots.AI.AIStates
         {
             return Plugin.IsModReviveCompanyLoaded
                     || Plugin.IsModBunkbedReviveLoaded
-                    || Plugin.IsModZaprillatorLoaded;
+                    || Plugin.IsModZaprillatorLoaded
+                    || Plugin.IsModUsualScrapLoaded;
         }
 
         /// <summary>
@@ -424,12 +477,16 @@ namespace LethalBots.AI.AIStates
                 return false;
             }
 
-            // Alright, we prefer Revive Company, then Zaprillator, then Bunkbed Revive.
+            // Alright, we prefer Revive Company, then Zaprillator, Usual Scrap, then Bunkbed Revive.
             if (Plugin.IsModReviveCompanyLoaded && ReviveCompanyCanRevivePlayer(lethalBotAI, playerController, isMissionController))
             {
                 return true;
             }
             else if (Plugin.IsModZaprillatorLoaded && ZaprillatorCanRevivePlayer(lethalBotAI, playerController, isMissionController))
+            {
+                return true;
+            }
+            else if (Plugin.IsModUsualScrapLoaded && UsualScrapCanRevivePlayer(lethalBotAI, playerController, isMissionController))
             {
                 return true;
             }
@@ -601,6 +658,7 @@ namespace LethalBots.AI.AIStates
 
         private IEnumerator reviveUsingReviveCompany()
         {
+            allowRecharging = false;
             RagdollGrabbableObject? playerBody = this.playerToRevive.deadBody.grabBodyObject as RagdollGrabbableObject;
             if (playerBody == null)
             {
@@ -654,7 +712,7 @@ namespace LethalBots.AI.AIStates
         /// Helper function that handles reviving our target player
         /// </summary>
         /// <remarks>
-        /// This is done so if revive company isn't installed, my mod won't error out!
+        /// This is done so if the mod isn't installed, my mod won't error out!
         /// </remarks>
         private void DoReviveCompanyLogic()
         {
@@ -678,7 +736,7 @@ namespace LethalBots.AI.AIStates
                 float sqrMagDistanceToSafePos = (this.safePathPos - npcController.Npc.transform.position).sqrMagnitude;
                 if (sqrMagDistanceToSafePos >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                 {
-                    // Alright lets go outside!
+                    // Alright lets go!
                     ai.SetDestinationToPositionLethalBotAI(this.safePathPos);
 
                     // Sprint if far enough
@@ -695,7 +753,7 @@ namespace LethalBots.AI.AIStates
                 }
                 else
                 {
-                    // Wait here until its safe to move to the entrance
+                    // Wait here until its safe to move
                     ai.StopMoving();
                     npcController.OrderToStopSprint();
                 }
@@ -725,6 +783,7 @@ namespace LethalBots.AI.AIStates
 
         private IEnumerator reviveUsingZaprillator()
         {
+            allowRecharging = false;
             RagdollGrabbableObject? playerBody = this.playerToRevive.deadBody.grabBodyObject as RagdollGrabbableObject;
             if (playerBody == null)
             {
@@ -824,7 +883,7 @@ namespace LethalBots.AI.AIStates
         /// Helper function that handles reviving our target player
         /// </summary>
         /// <remarks>
-        /// This is done so if revive company isn't installed, my mod won't error out!
+        /// This is done so if the mod isn't installed, my mod won't error out!
         /// </remarks>
         private void DoZaprillatorLogic()
         {
@@ -842,7 +901,7 @@ namespace LethalBots.AI.AIStates
                 neededReviveTool = ai.FindItemOnShip(FindZapGun);
                 if (neededReviveTool == null || !ai.HasSpaceInInventory(neededReviveTool))
                 {
-                    ChangeBackToPreviousState(); // Odd, we can't find the weedkiller, just give up!
+                    ChangeBackToPreviousState(); // Odd, we can't find the zap gun, just give up!
                 }
                 return;
             }
@@ -860,7 +919,7 @@ namespace LethalBots.AI.AIStates
                 float sqrMagDistanceToSafePos = (this.safePathPos - npcController.Npc.transform.position).sqrMagnitude;
                 if (sqrMagDistanceToSafePos >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                 {
-                    // Alright lets go outside!
+                    // Alright lets go!
                     ai.SetDestinationToPositionLethalBotAI(this.safePathPos);
 
                     // Sprint if far enough
@@ -877,7 +936,7 @@ namespace LethalBots.AI.AIStates
                 }
                 else
                 {
-                    // Wait here until its safe to move to the entrance
+                    // Wait here until its safe to move
                     ai.StopMoving();
                     npcController.OrderToStopSprint();
                 }
@@ -901,6 +960,167 @@ namespace LethalBots.AI.AIStates
                 if (reviveCoroutine == null)
                 {
                     reviveCoroutine = ai.StartCoroutine(reviveUsingZaprillator());
+                }
+            }
+        }
+
+        private IEnumerator reviveUsualScrapLogic()
+        {
+            allowRecharging = false;
+            RagdollGrabbableObject? playerBody = this.playerToRevive.deadBody.grabBodyObject as RagdollGrabbableObject;
+            if (playerBody == null)
+            {
+                Plugin.LogError($"[{npcController.Npc.playerUsername}] Tried to revive player {playerToRevive.playerUsername} using Usual Scrap but their body is not a RagdollGrabbableObject!");
+                StopReviveCoroutine();
+                yield break;
+            }
+
+            // Alright, look at the body first
+            npcController.OrderToLookAtPosition(playerBody.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY);
+            yield return null;
+            yield return new WaitUntil(() => npcController.LookAtTarget.IsHeadAimingOnTarget() && npcController.LookAtTarget.hasBeenSightedIn);
+
+            if (!ai.HasGrabbableObjectInInventory(FindDefibUnit, out int itemSlot))
+            {
+                Plugin.LogWarning($"[{npcController.Npc.playerUsername}] Tried to revive player {playerToRevive.playerUsername} using Usual Scrap but they don't have a defibrillator!");
+                StopReviveCoroutine();
+                yield break;
+            }
+
+            // If we are somehow holding a two handed item, drop it first!
+            if (!ai.AreHandsFree()
+                && !IsUsualScrapDefibUnit(ai.HeldItem)
+                && ai.HeldItem.itemProperties.twoHanded)
+            {
+                ai.DropItem();
+                yield return null;
+            }
+
+            // Swap to defibrillator and give time for the weapon switch to happen!
+            float startTime = Time.timeSinceLevelLoad;
+            ai.SwitchItemSlotsAndSync(itemSlot);
+            yield return new WaitUntil(() => npcController.Npc.currentItemSlot == itemSlot || (Time.timeSinceLevelLoad - startTime) > 1f); // One second to allow RPC to got to server and back to us!
+
+            // Alright, are we holding the defibrillator?
+            GrabbableObject? heldItem = ai.HeldItem;
+            if (!IsUsualScrapDefibUnit(heldItem))
+            {
+                Plugin.LogWarning($"[{npcController.Npc.playerUsername}] Tried to revive player {playerToRevive.playerUsername} using Usual Scrap but they either don't have a defibrillator or item switch failed!");
+                StopReviveCoroutine();
+                yield break;
+            }
+
+            // Revive them now!
+            FieldInfo timeToHoldField = AccessTools.Field(typeof(DefibrillatorScript), "timeToHold");
+            const int defaultHoldTime = 2; // Its around 2 to 3 seconds
+            heldItem.UseItemOnClient(true); // Start charging
+            yield return null;
+
+            // Wait a bit
+            startTime = Time.timeSinceLevelLoad;
+            while ((Time.timeSinceLevelLoad - startTime) < defaultHoldTime + 2 
+                && CanUsualScrapDefibUnitBeUsed(heldItem)) // Add a buffer
+            {
+                float timeToHold = (int)timeToHoldField.GetValue(heldItem);
+                if (timeToHold <= 0)
+                    break;
+                yield return null;
+            }
+
+            // Just in case wait just a little more before releasing
+            yield return new WaitForSeconds(UnityEngine.Random.Range(0.00f, 0.5f) + 0.05f);
+            yield return null;
+
+            // RISE, MY DEAD FRIEND, RISE!
+            heldItem.UseItemOnClient(false); // Stop holding our LMB
+
+            // Alright, we are no longer charging the defib unit, but the revive is done through an RPC.
+            // This means we need to wait a bit before terminating the coroutine. Incase we have to do this again.
+            yield return new WaitForSeconds(1f); // One second to allow RPC to got to server and back to us!
+            StopReviveCoroutine();
+        }
+
+        /// <summary>
+        /// Helper function that handles reviving our target player
+        /// </summary>
+        /// <remarks>
+        /// This is done so if the mod isn't installed, my mod won't error out!
+        /// </remarks>
+        private void DoUsualScrapLogic()
+        {
+            // Wait for fallback to be caculated
+            if (!fallbackPos.HasValue || !ai.IsValidPathToTarget(fallbackPos.Value))
+            {
+                StartFallbackCoroutine(); // Just in case the coroutine failed somehow!
+                return;
+            }
+
+            // Lets go and revive a player
+            if (!ai.HasGrabbableObjectInInventory(FindDefibUnit, out _))
+            {
+                shouldPickupBody = true;
+                neededReviveTool = ai.FindItemOnShip(FindDefibUnit);
+                if (neededReviveTool == null || !ai.HasSpaceInInventory(neededReviveTool))
+                {
+                    ChangeBackToPreviousState(); // Odd, we can't find the Defib unit, just give up!
+                }
+                return;
+            }
+
+            // Move towards our fallback position via safe path
+            float sqrDistToFallback = (fallbackPos.Value - npcController.Npc.transform.position).sqrMagnitude;
+            if (sqrDistToFallback >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
+            {
+                // Find a safe path to our fallback spot
+                StartSafePathCoroutine();
+
+                // Select and use items based on our current situation, if needed
+                SelectBestItemFromInventory();
+
+                float sqrMagDistanceToSafePos = (this.safePathPos - npcController.Npc.transform.position).sqrMagnitude;
+                if (sqrMagDistanceToSafePos >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
+                {
+                    // Alright lets go!
+                    ai.SetDestinationToPositionLethalBotAI(this.safePathPos);
+
+                    // Sprint if far enough
+                    if (!npcController.WaitForFullStamina && sqrMagDistanceToSafePos > Const.DISTANCE_START_RUNNING * Const.DISTANCE_START_RUNNING) // NEEDTOVALIDATE: Should we use the distance to the ship or the safe position?
+                    {
+                        npcController.OrderToSprint();
+                    }
+                    else
+                    {
+                        npcController.OrderToStopSprint();
+                    }
+
+                    ai.OrderMoveToDestination();
+                }
+                else
+                {
+                    // Wait here until its safe to move
+                    ai.StopMoving();
+                    npcController.OrderToStopSprint();
+                }
+
+            }
+            else
+            {
+                // Alright we are close enough to the fallback position, stop moving
+                ai.StopMoving();
+                npcController.OrderToStopSprint();
+                StopSafePathCoroutine(); // Don't need this anymore
+
+                // We need to set down the body before reviving
+                shouldPickupBody = false; // Don't try to pick up the body again, we need it on the ground for the revive
+                if (!ai.AreHandsFree() && ai.HeldItem is not DefibrillatorScript)
+                {
+                    ai.DropItem();
+                    return;
+                }
+
+                if (reviveCoroutine == null)
+                {
+                    reviveCoroutine = ai.StartCoroutine(reviveUsualScrapLogic());
                 }
             }
         }
@@ -1047,8 +1267,58 @@ namespace LethalBots.AI.AIStates
             return item is PatcherTool zapGun && (zapGun.isInElevator || zapGun.isInShipRoom || LethalBotAI.IsItemPowered(zapGun)); // For anyone wondering PatcherTool is the internal class name for the Zap Gun!
         }
 
+        /// <summary>
+        /// Checks if the bot has the Usual Scrap defibrillator in its inventory!
+        /// </summary>
+        /// <remarks>
+        /// Can't use the default FindObject since its a member function not static!
+        /// </remarks>
+        /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
+        private static bool FindDefibUnit(GrabbableObject item)
+        {
+            return item is DefibrillatorScript defibrillator && CanUsualScrapDefibUnitBeUsed(defibrillator) && (defibrillator.isInElevator || defibrillator.isInShipRoom || LethalBotAI.IsItemPowered(defibrillator));
+        }
+
+        /// <summary>
+        /// Another helper function to make sure Unity doesn't attempt to 
+        /// load Usual Scrap if the mod isn't installed
+        /// </summary>
+        /// <remarks>
+        /// Checks if the defib unit can actually be used
+        /// </remarks>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        private static bool CanUsualScrapDefibUnitBeUsed(GrabbableObject item)
+        {
+            if (item is not DefibrillatorScript defibrillator)
+            {
+                return false;
+            }
+
+            FieldInfo usesLimitedField = AccessTools.Field(typeof(DefibrillatorScript), "UsesLimited");
+            if ((bool)usesLimitedField.GetValue(defibrillator) == false)
+            {
+                return true;
+            }
+
+            FieldInfo useLimitField = AccessTools.Field(typeof(DefibrillatorScript), "useLimit");
+            return (int)useLimitField.GetValue(defibrillator) > 0;
+        }
+
+        /// <summary>
+        /// Helper function to make sure Unity doesn't attempt to 
+        /// load Usual Scrap if the mod isn't installed
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        private static bool IsUsualScrapDefibUnit([NotNullWhen(true)] GrabbableObject? item)
+        {
+            return item is DefibrillatorScript;
+        }
+
         private void StopReviveCoroutine()
         {
+            allowRecharging = true;
             if (reviveCoroutine != null)
             {
                 ai.StopCoroutine(reviveCoroutine);
