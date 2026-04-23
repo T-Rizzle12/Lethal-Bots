@@ -1,5 +1,43 @@
 # Changelog
 
+## 6.1.0 2026-4-23
+There was reported a bug with the bots causing infinite loading loops when trying to change moons if you had DawnLib installed. This has been fixed along with a few other bugs with some other mods as well. I also added #36 since it was no longer blocked by a pending update to Usual Scrap.
+
+## New Features
+As I stated earlier, I gave the bots the knowledge on how to use some of Usual Scraps tools. There are more items in the mod, but I will work on that later.
+- Bots now know how to use the Usual Scrap Defibrillator to revive dead players. This closes #36.
+- Bots now know how to use the Usual Scrap Bandages to heal themself
+- Bots now know how to use the Usual Scrap Medkit to heal themself and other players
+- Bots can now grab required tools to revive dead players, just like HealPlayerState, this is only done while on the ship
+- Bots will now charge their chosen medical and revival tools as needed
+
+## Bug Fixes
+Now for the part some of you have been waiting for, the bug fixes!
+- Fixed DawnLib breaking when bots are in orbit and you choose to route to a new moon. Fixes #87 and Fixes #84 as well.
+- Fixed LethalMin Support
+- Also updated LethalMin dll and mod version number
+- Fixed ReviveCompany support
+- Fixed some issues where the mission controller bot would fail to teleport back dead bodies if a supported revive mod was installed
+- Fixed a field having the wrong protection level in HealPlayerState
+- Fixed bots not updating their LethalBotAI's postion on other clients
+- Fixed the ship's NavMesh not being generated for late joining clients while the ship is in orbit
+- Fixed Ghost Girl being too aggressive if she chose to haunt a bot
+- Fixed a logic error in LethalBotAI.CanEnemyBeKilled that caused bots not to rescue players being dragged by the kidnapper fox
+- Updated LethalPhones dll file
+
+## Miscellaneous Changes
+There are some other changes that are not new features or bugs that were fixed.
+- Bots now consider paths through water to be three times as expensive. Was twice as expensive.
+- Updated NpcController.LethalBotAIController to use the internal field reference variable
+- Changed some of the OrderToLookAtPosition calls' look at times
+- Decreased the max chase range for bots in the FightEnemyState
+- Removed old and unused Revive Company patch. The bots get revived just fine without it.
+- Publicied ReviveMethod and HealMethod, I have no idea why they were private before.
+- Added a helper function LethalBotAI.GetItemAtSlot to help me reduce duplicated code
+- Added a helper function LethalBotAI.IsItemKey
+- Removed the dead body hacks left over from Lethal Internship. The base game now handles it. 
+- Added a helper function LethalBotManager.GetShipNavPrefab, this was made to help modders replace the default ship navmesh with their own custom one
+
 ## 6.0.0 2026-4-19
 Hello again, this update adds a long requested feature of letting the bots join you while the ship is in orbit. This fixes SO MANY BUGS. You see, when I had the bots "leave" the lobby, some mods thought the bots were still active in the game and could cause the game to enter an infinite loop of waiting for the bot to send the ready RPC. Now that the bots don't automatically "leave," I fixed up my bots to send that ready RPC. This should fix that infinite loading loop now that the game thinks all players have loaded. Now then, onto the patch notes! 
 
