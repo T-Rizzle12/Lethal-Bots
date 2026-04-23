@@ -467,6 +467,10 @@ namespace LethalBots.AI.AIStates
             // Pick from the list in a random order until we find one we can path to!
             while (ourShip.Count > 0)
             {
+                // TODO: Work on having the bot pick a spot that is not inside of an object
+                //const int playerSpawnPositionsMask = 67108864;
+                //&& (!Physics.CheckSphere(shipPos, radius: 0.2f, playerSpawnPositionsMask, QueryTriggerInteraction.Ignore) 
+                        //|| !Physics.CheckSphere(shipPos + Vector3.up, radius: 0.2f, playerSpawnPositionsMask, QueryTriggerInteraction.Ignore))
                 int index = Random.Range(0, ourShip.Count - 1);
                 Transform shipTransform = ourShip[index];
                 ourShip.RemoveAt(index);

@@ -34,11 +34,24 @@ namespace LethalBots.Patches.EnemiesPatches
         //}
 
         /// <summary>
+        /// Fixes a bug where ghost girl is too aggressive after haunting a bot
+        /// </summary>
+        [HarmonyPatch("ChoosePlayerToHaunt")]
+        [HarmonyPostfix]
+        public static void ChoosePlayerToHaunt_Postfix(ref int ___timesSeenByPlayer, ref int ___timesStared)
+        {
+            // Normally in the base game, these only get incremented for the local player.
+            // Since the bots are in play, they also increment this. So, we reset them if Ghost Girl picks another player
+            ___timesSeenByPlayer = 0;
+            ___timesStared = 0;
+        }
+
+        /// <summary>
         /// Patch Update to check for player and bot
         /// </summary>
         /// <remarks>
         /// The AI changes its owner to hauntingPlayer, but the default AI only checks __instance.hauntingPlayer != GameNetworkManager.Instance.localPlayerController.
-        /// As a result, this causes the default AI to contantly try to change its owner if its target is a bot as the bot doesn't have a client.
+        /// As a result, this causes the default AI to constantly try to change its owner if its target is a bot as the bot doesn't have a client.
         /// So this patch overrides it to check if the local player owns the bot to allow the default AI to run!
         /// </remarks>
         /// <param name="instructions"></param>

@@ -1008,7 +1008,7 @@ namespace LethalBots.AI
                 && ai.TryFindItemInInventory(SelectBestItemFromInventoryFilter, SelectBetterItemFromInventory, out int bestItemSlot) 
                 && bestItemSlot != Const.INVALID_ITEM_SLOT)
             {
-                GrabbableObject item = bestItemSlot == Const.RESERVED_EQUIPMENT_SLOT ? npcController.Npc.ItemOnlySlot : npcController.Npc.ItemSlots[bestItemSlot];
+                GrabbableObject? item = ai.GetItemAtSlot(bestItemSlot);
                 if (npcController.Npc.currentItemSlot != bestItemSlot || ai.HeldItem != item)
                 {
                     ai.SwitchItemSlotsAndSync(bestItemSlot);
