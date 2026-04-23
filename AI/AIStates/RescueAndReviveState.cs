@@ -12,6 +12,7 @@ using OPJosMod.ReviveCompany.CustomRpc;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
@@ -410,19 +411,46 @@ namespace LethalBots.AI.AIStates
             if (Plugin.IsModUsualScrapLoaded)
             {
                 // Do we have the defibrillator in our inventory
-                if (lethalBotAI.HasGrabbableObjectInInventory(FindDefibUnit, out _))
+                if (lethalBotAI.HasGrabbableObjectInInventory(FindDefibUnit, out int defibSlot))
                 {
-                    return true;
+                    GrabbableObject? defibUnit = lethalBotAI.GetItemAtSlot(defibSlot);
+                    if (UsualScrapCanBodyBeRevived(defibUnit, playerToRevive))
+                    {
+                        return true;
+                    }
                 }
 
                 // Are we on the ship, where we could potentially grab one?
                 PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
                 if (lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom)
                 {
-                    return lethalBotAI.FindItemOnShip(FindDefibUnit) != null;
+                    return lethalBotAI.FindItemOnShip(FindDefibUnit) is GrabbableObject defibUnit && UsualScrapCanBodyBeRevived(defibUnit, playerToRevive);
                 }
             }
 
+            return false;
+        }
+
+        /// <summary>
+        /// Another helper function to check if the body is valid for revivial
+        /// </summary>
+        /// <param name="defibUnit"></param>
+        /// <returns></returns>
+        private static bool UsualScrapCanBodyBeRevived(GrabbableObject? defibUnit, PlayerControllerB playerToRevive)
+        {
+            if (defibUnit is DefibrillatorScript defibrillator)
+            {
+                FieldInfo permaDeathRuleField = AccessTools.Field(typeof(DefibrillatorScript), "PermaDeathRule");
+                if ((bool)permaDeathRuleField.GetValue(defibrillator) == false)
+                {
+                    return true;
+                }
+                DeadBodyInfo deadBodyInfo = playerToRevive.deadBody;
+                if (deadBodyInfo != null)
+                {
+                    return deadBodyInfo.causeOfDeath != CauseOfDeath.Snipping && !deadBodyInfo.detachedHead;
+                }
+            }
             return false;
         }
 

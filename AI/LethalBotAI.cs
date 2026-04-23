@@ -2094,9 +2094,9 @@ namespace LethalBots.AI
                 agent.enabled = enabled;
                 if (enabled)
                 {
-                    // Double the pathing cost to be double for water!
+                    // Triple the pathing cost for water!
                     int waterArea = NavMesh.GetAreaFromName("Water");
-                    agent.SetAreaCost(waterArea, 2f);
+                    agent.SetAreaCost(waterArea, 3f);
                 }
             }
         }
@@ -2780,8 +2780,7 @@ namespace LethalBots.AI
             }
             else if (enemy is FlowermanAI 
                 || enemy is SandSpiderAI
-                || enemy is BaboonBirdAI
-                || enemy is BushWolfEnemy)
+                || enemy is BaboonBirdAI)
             {
                 return hasRangedWeapon || isHumanPlayer || isEnemyStunned;
             }
@@ -3679,11 +3678,7 @@ namespace LethalBots.AI
         [MemberNotNullWhen(true, nameof(HeldItem))]
         public bool IsHoldingKey(bool keyOnly = false)
         {
-            if (AreHandsFree())
-            {
-                return false;
-            }
-            return HeldItem is KeyItem || (!keyOnly && HeldItem is LockPicker);
+            return IsItemKey(HeldItem, keyOnly);
         }
 
         /// <summary>
@@ -3754,13 +3749,13 @@ namespace LethalBots.AI
                 return true;
             }
             GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
-            if (itemOnlySlot != null && (itemOnlySlot is KeyItem || (!keyOnly && itemOnlySlot is LockPicker)))
+            if (IsItemKey(itemOnlySlot, keyOnly))
             {
                 return true;
             }
             foreach (var item in NpcController.Npc.ItemSlots)
             {
-                if (item != null && (item is KeyItem || (!keyOnly && item is LockPicker)))
+                if (IsItemKey(item, keyOnly))
                 {
                     return true;
                 }
@@ -3825,6 +3820,25 @@ namespace LethalBots.AI
                 return false;
             }
             return item.itemProperties.isScrap && item.scrapValue > 0;
+        }
+
+        /// <summary>
+        /// Is the given item a key or lockpicker ?
+        /// </summary>
+        /// <param name="keyOnly">Should we only consider "actual" keys</param>
+        /// <returns>I mean come on</returns>
+        public static bool IsItemKey([NotNullWhen(true)] GrabbableObject? item, bool keyOnly = false)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            if (item is KeyItem)
+            {
+                return true;
+            }
+            return !keyOnly && item is LockPicker;
         }
 
         /// <summary>
@@ -4083,6 +4097,34 @@ namespace LethalBots.AI
                 index++;
             }
             return bestItem != null;
+        }
+
+        /// <summary>
+        /// Returns the item stored in the given inventory slot
+        /// </summary>
+        /// <remarks>
+        /// This exists since the new reserved equipment slot uses a field rather than a slot in the inventory
+        /// </remarks>
+        /// <param name="slot"></param>
+        /// <param name="lethalBotController">The bot's <see cref="PlayerControllerB"/>. Only exists as an optimization!</param>
+        /// <param name="itemSlots">The bot's inventory. Only exists as an optimization!</param>
+        /// <returns></returns>
+        public GrabbableObject? GetItemAtSlot(int slot, PlayerControllerB? lethalBotController = null, GrabbableObject[]? itemSlots = null)
+        {
+            lethalBotController ??= NpcController.Npc;
+            if (slot == Const.RESERVED_EQUIPMENT_SLOT)
+            {
+                return lethalBotController.ItemOnlySlot;
+            }
+
+            itemSlots ??= lethalBotController.ItemSlots;
+            if (slot < 0 || slot >= itemSlots.Length)
+            {
+                Plugin.LogWarning($"LethalBotAI.GetItemAtSlot was given a slot out of range {slot}. Returning null!");
+                return null;
+            }
+
+            return itemSlots[slot];
         }
 
         /// <summary>
@@ -8431,7 +8473,7 @@ namespace LethalBots.AI
                 if (lethalBotController.deadBody != null)
                 {
                     // Replace body position or else disappear with shotgun or knife (don't know why)
-                    lethalBotController.deadBody.transform.position = lethalBotController.transform.position + Vector3.up + positionOffset;
+                    //lethalBotController.deadBody.transform.position = lethalBotController.transform.position + Vector3.up + positionOffset;
                     this.LethalBotIdentity.DeadBody = lethalBotController.deadBody;
 
                     // Lets make sure the bots don't attempt to grab dead bodies as soon as a player is killed!

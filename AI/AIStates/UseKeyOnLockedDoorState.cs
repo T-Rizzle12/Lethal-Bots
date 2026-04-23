@@ -296,7 +296,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         protected override bool FindObject(GrabbableObject item)
         {
-            return item is KeyItem || item is LockPicker;
+            return LethalBotAI.IsItemKey(item);
         }
 
         /// <summary>

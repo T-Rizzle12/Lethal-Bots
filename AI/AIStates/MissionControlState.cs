@@ -1570,11 +1570,35 @@ namespace LethalBots.AI.AIStates
                 && !deadBodyInfo.isInShip
                 && !deadBodyInfo.grabBodyObject.isHeld
                 && !RescueAndReviveState.CanRevivePlayer(ai, player, true)
-                && (!RescueAndReviveState.IsAnyReviveModInstalled() || !npcController.Npc.NearOtherPlayers(17f))
+                && (!RescueAndReviveState.IsAnyReviveModInstalled() || !IsBodyNearbyLivingPlayers(deadBodyInfo, 17f))
                 && !StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position)
                 && !ai.CheckProximityForEyelessDogs())
             {
                 return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Helper function that checks if a dead body is nearby a living player
+        /// </summary>
+        /// <param name="deadBody"></param>
+        /// <param name="checkRadius"></param>
+        /// <returns></returns>
+        private bool IsBodyNearbyLivingPlayers(DeadBodyInfo deadBody, float checkRadius = 10f)
+        {
+            // Go through each active player and check how close are they to the body
+            foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
+            {
+                if (player != null
+                    && player != npcController.Npc
+                    && player != deadBody.playerScript
+                    && player.isPlayerControlled
+                    && !player.isPlayerDead
+                    && (deadBody.transform.position - player.transform.position).sqrMagnitude < checkRadius * checkRadius)
+                {
+                    return true;
+                }
             }
             return false;
         }
@@ -1862,14 +1886,7 @@ namespace LethalBots.AI.AIStates
             {
                 // Check for the reserved equipment slot
                 // TODO: Add helper function to get grabbable object from inventory slot index, since this is used in multiple places now!
-                if (walkieSlot == Const.RESERVED_EQUIPMENT_SLOT)
-                {
-                    this.walkieTalkie = npcController.Npc.ItemOnlySlot as WalkieTalkie;
-                }
-                else
-                {
-                    this.walkieTalkie = npcController.Npc.ItemSlots[walkieSlot] as WalkieTalkie;
-                }
+                this.walkieTalkie = ai.GetItemAtSlot(walkieSlot) as WalkieTalkie;
 
                 // Make sure its valid!
                 if (walkieTalkie != null)
@@ -1902,14 +1919,7 @@ namespace LethalBots.AI.AIStates
             {
                 // Check for the reserved equipment slot
                 // TODO: Add helper function to get grabbable object from inventory slot index, since this is used in multiple places now!
-                if (weaponSlot == Const.RESERVED_EQUIPMENT_SLOT)
-                {
-                    this.weapon = npcController.Npc.ItemOnlySlot;
-                }
-                else
-                {
-                    this.weapon = npcController.Npc.ItemSlots[weaponSlot];
-                }
+                this.weapon = ai.GetItemAtSlot(weaponSlot);
 
                 // Make sure its valid!
                 if (weapon != null)

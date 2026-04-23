@@ -26,6 +26,7 @@ using LethalBots.Patches.ModPatches.Peepers;
 using LethalBots.Patches.ModPatches.ReviveCompany;
 using LethalBots.Patches.ModPatches.ShowCapacity;
 using LethalBots.Patches.ModPatches.TooManyEmotes;
+using LethalBots.Patches.ModPatches.UsualScrap;
 using LethalBots.Patches.ModPatches.Zaprillator;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Patches.ObjectsPatches;
@@ -435,6 +436,10 @@ namespace LethalBots
             if (IsModDawnLibLoaded)
             {
                 _harmony.PatchAll(typeof(DawnMoonNetworkerPatch));
+            }
+            if (IsModUsualScrapLoaded)
+            {
+                _harmony.PatchAll(typeof(DefibrillatorScriptPatch));
             }
         }
 
