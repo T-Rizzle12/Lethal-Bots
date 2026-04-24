@@ -124,5 +124,28 @@ namespace LethalBots.AI
 
             return indexesSpawnedUnlockables[randomIndex];
         }
+
+        /// <summary>
+        /// Helper function that checks if the crew owns the given suit!
+        /// </summary>
+        /// <param name="suitID"></param>
+        /// <returns></returns>
+        public bool IsSuitOwned(int suitID)
+        {
+            // Check if the crew already unlocked the suit
+            UnlockableItem unlockableItem = StartOfRound.Instance.unlockablesList.unlockables[suitID];
+            if (!unlockableItem.hasBeenUnlockedByPlayer
+                && !unlockableItem.alreadyUnlocked
+                && (!StartOfRound.Instance.isChallengeFile || !unlockableItem.unlockedInChallengeFile))
+            {
+                // Some custom suit mods just add a spawned unlockable, check if it exists!
+                if (!StartOfRound.Instance.SpawnedShipUnlockables.TryGetValue(suitID, out var gameObject) 
+                    || gameObject == null)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 }

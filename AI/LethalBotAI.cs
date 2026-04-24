@@ -467,6 +467,16 @@ namespace LethalBots.AI
                     State = new BrainDeadState(this);
                 }
 
+                // If the bot is using a terminal and is not in a state that needs it,
+                // they should leave the terminal
+                if (!State.CheckAllowsTerminalUse())
+                {
+                    if (NpcController.Npc.inTerminalMenu)
+                    {
+                        LeaveTerminal();
+                    }
+                }
+
                 // No AI calculation if in special animation if climbing ladder or inSpecialInteractAnimation
                 if (!NpcController.Npc.isClimbingLadder && !NpcController.Npc.inTerminalMenu
                     && (NpcController.Npc.inSpecialInteractAnimation || NpcController.Npc.enteringSpecialAnimation))
@@ -9570,9 +9580,8 @@ namespace LethalBots.AI
                 suitID = 0;
             }
 
-            UnlockableItem unlockableItem = StartOfRound.Instance.unlockablesList.unlockables[suitID];
-            if (!unlockableItem.hasBeenUnlockedByPlayer 
-                && !unlockableItem.alreadyUnlocked)
+            // Do we own the suit?
+            if (!LethalBotIdentity.IsSuitOwned(suitID))
             {
                 return;
             }

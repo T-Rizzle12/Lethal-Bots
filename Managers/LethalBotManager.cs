@@ -1385,8 +1385,10 @@ namespace LethalBots.Managers
             //lethalBotAI.transform.parent = objectParent.transform;
             //lethalBotAI.NetworkObject.AutoObjectParentSync = true;
             lethalBotAI.enabled = true;
-
-            objectParent.SetActive(true);
+            if (clientJoining && lethalBotController.currentlyHeldObject != null)
+            {
+                lethalBotAI.HeldItem = lethalBotController.currentlyHeldObject;
+            }
 
             // Unsuscribe from events to prevent double trigger
             PlayerControllerBPatch.OnDisable_ReversePatch(lethalBotController);
@@ -1726,8 +1728,8 @@ namespace LethalBots.Managers
                     lethalBotAI.State = new BrainDeadState(lethalBotAI);
                 }
 
-                lethalBotController.TeleportPlayer(lethalBotController.playersManager.notSpawnedPosition.position);
-                lethalBotController.localVisor.position = lethalBotController.playersManager.notSpawnedPosition.position;
+                lethalBotController.TeleportPlayer(instanceSOR.notSpawnedPosition.position);
+                lethalBotController.localVisor.position = instanceSOR.notSpawnedPosition.position;
                 lethalBotController.DisablePlayerModel(lethalBotController.gameObject, enable: true, disableLocalArms: true);
 
                 // Reset the animator state
@@ -1738,7 +1740,7 @@ namespace LethalBots.Managers
                     lethalBotAnimator.Update(0f);
                 }
 
-                lethalBotController.transform.position = lethalBotController.playersManager.notSpawnedPosition.position;
+                lethalBotController.transform.position = instanceSOR.notSpawnedPosition.position;
                 lethalBotController.thisController.enabled = false;
                 if (!NetworkManager.Singleton.ShutdownInProgress && base.IsServer)
                 {
@@ -1751,8 +1753,6 @@ namespace LethalBots.Managers
                 {
                     quickMenuManager.RemoveUserFromPlayerList((int)lethalBotController.playerClientId);
                 }
-
-                instanceSOR.allPlayerObjects[lethalBotController.playerClientId].SetActive(false);
 
                 // Finished kicking
                 // HACKHACK: If the bot being kicked was the last living player, the game would softlock since end of round only
@@ -1818,6 +1818,15 @@ namespace LethalBots.Managers
                 if (RoundManager.Instance.playersFinishedGeneratingFloor.Contains(clientId))
                 {
                     RoundManager.Instance.playersFinishedGeneratingFloor.Remove(clientId);
+                }
+
+                // Set the name back to the default for LAN players
+                if (GameNetworkManager.Instance.disableSteam)
+                {
+                    string defaultName = $"Player #{lethalBotController.playerClientId}";
+                    lethalBotController.playerUsername = defaultName;
+                    lethalBotController.usernameBillboardText.text = defaultName;
+                    StartOfRound.Instance.mapScreen.radarTargets[(int)lethalBotController.playerClientId].name = defaultName;
                 }
 
                 // Delete now unused bot object
@@ -3941,9 +3950,9 @@ namespace LethalBots.Managers
                 }
 
                 lethalBotController.isPlayerControlled = false;
-                lethalBotController.TeleportPlayer(lethalBotController.playersManager.notSpawnedPosition.position);
-                lethalBotController.localVisor.position = lethalBotController.playersManager.notSpawnedPosition.position;
-                lethalBotController.DisablePlayerModel(lethalBotController.gameObject, enable: true, disableLocalArms: true);
+                lethalBotController.TeleportPlayer(instanceSOR.notSpawnedPosition.position);
+                lethalBotController.localVisor.position = instanceSOR.notSpawnedPosition.position;
+                lethalBotController.DisablePlayerModel(instanceSOR.allPlayerObjects[lethalBot] ?? lethalBotController.gameObject, enable: true, disableLocalArms: true);
 
                 // HACKHACK: ModelReplacementAPI recreates the body replacement even on disabled player controllers,
                 // we have to mimic what the base game does and switch back to the default suit here!
@@ -3959,7 +3968,7 @@ namespace LethalBots.Managers
                     lethalBotAnimator.Update(0f);
                 }
 
-                lethalBotController.transform.position = lethalBotController.playersManager.notSpawnedPosition.position;
+                lethalBotController.transform.position = instanceSOR.notSpawnedPosition.position;
                 lethalBotController.thisController.enabled = false;
                 if (!NetworkManager.Singleton.ShutdownInProgress && base.IsServer)
                 {
@@ -3984,10 +3993,17 @@ namespace LethalBots.Managers
                 {
                     RoundManager.Instance.playersFinishedGeneratingFloor.Remove(clientId);
                 }
-
-                instanceSOR.allPlayerObjects[lethalBotController.playerClientId].SetActive(false);
                 //instanceSOR.connectedPlayersAmount -= 1;
                 //instanceSOR.livingPlayers -= 1;
+
+                // Set the name back to the default for LAN players
+                if (GameNetworkManager.Instance.disableSteam)
+                {
+                    string defaultName = $"Player #{lethalBot}";
+                    lethalBotController.playerUsername = defaultName;
+                    lethalBotController.usernameBillboardText.text = defaultName;
+                    StartOfRound.Instance.mapScreen.radarTargets[lethalBot].name = defaultName;
+                }
             }
 
             // Clear out the table in case this is called again somehow

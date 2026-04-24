@@ -932,6 +932,30 @@ namespace LethalBots.Patches.NpcPatches
         //    });
         //}
 
+        [HarmonyPatch("SendNewPlayerValuesClientRpc")]
+        [HarmonyPostfix]
+        static void SendNewPlayerValuesClientRpc_PostFix(PlayerControllerB __instance)
+        {
+            if (LethalBotManager.Instance == null)
+            {
+                return; // No manager means no bots
+            }
+
+            // Update lethal bots names back to the way they were
+            foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotAIs())
+            {
+                PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
+                if (lethalBotController != null && lethalBotAI.LethalBotIdentity != null)
+                {
+                    string botName = lethalBotAI.LethalBotIdentity.Name;
+                    lethalBotController.playerUsername = botName;
+                    lethalBotController.usernameBillboardText.text = botName;
+                    lethalBotController.quickMenuManager.AddUserToPlayerList(0ul, botName, (int)lethalBotController.playerClientId);
+                    StartOfRound.Instance.mapScreen.radarTargets[(int)lethalBotController.playerClientId].name = botName;
+                }
+            }
+        }
+
         [HarmonyPatch("KillPlayer")]
         [HarmonyPostfix]
         static void KillPlayer_PostFix(PlayerControllerB __instance)
