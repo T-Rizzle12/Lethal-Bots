@@ -1,5 +1,20 @@
 # Changelog
 
+## 6.1.1 2026-4-24
+Hello, I'm just making some bug fixes for issues that were reported.
+
+Change Log:
+- Updated suit code to also check if the suit Interactable Trigger is spawned just in case it doesn't properly set the appropriate flags
+- Fixed a rare bug where a player who joins late could tell the terminal bot to follow them which would break the terminal for other players. Kicking the bot was on the only way to fix this before this patch.
+- Fixed bot names being changed to Unnamed if a player joins the lobby while there are active bots
+- Added another safeguard for the bots held item not being set for player who join in late.
+- Fixed player names not being reset when a bot disconnects in a LAN lobby
+- Fixed bots controlled by disconnecting players not changing their ownership back to the host
+- Fixed bots in the BrainDeadState not changing to another AI state if the ship was in orbit and they were revived
+- Adjusted LethalBotAI.LeaveTerminal to allow the server to force the bot off of the terminal
+- Singleton_OnClientDisconnectCallback now properly updates the real player count after a human player disconnects
+- Made some minor optimizations
+
 ## 6.1.0 2026-4-23
 There was reported a bug with the bots causing infinite loading loops when trying to change moons if you had DawnLib installed. This has been fixed along with a few other bugs with some other mods as well. I also added #36 since it was no longer blocked by a pending update to Usual Scrap.
 
