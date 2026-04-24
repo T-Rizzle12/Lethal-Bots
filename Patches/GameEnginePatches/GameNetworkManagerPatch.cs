@@ -1,8 +1,10 @@
-﻿using HarmonyLib;
+﻿using GameNetcodeStuff;
+using HarmonyLib;
+using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Managers;
+using LethalBots.Utils;
 using Unity.Netcode;
-using GameNetcodeStuff;
 
 namespace LethalBots.Patches.GameEnginePatches
 {
@@ -20,6 +22,57 @@ namespace LethalBots.Patches.GameEnginePatches
         public static void SaveGame_Postfix()
         {
             SaveManager.Instance.SavePluginInfos();
+        }
+
+        /// <summary>
+        /// If a player leaves the game, have the bots swap their ownership back to the host!
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="clientId"></param>
+        [HarmonyPatch("Singleton_OnClientDisconnectCallback")]
+        [HarmonyPrefix]
+        static void Singleton_OnClientDisconnectCallback_Prefix(GameNetworkManager __instance, ulong clientId)
+        {
+            // Don't do this if the host disconnects
+            if (NetworkManager.Singleton == null 
+                || clientId == NetworkManager.Singleton.LocalClientId)
+            {
+                return;
+            }
+
+            // Only do this on the server
+            if (NetworkManager.Singleton.IsServer)
+            {
+                // Update the player counts!
+                LethalBotManager.Instance.sendPlayerCountUpdate.Value = true;
+
+                // Change the bot's ownership to the host
+                int playerClientId = -1;
+                if (StartOfRound.Instance.ClientPlayerList.TryGetValue(clientId, out var value))
+                {
+                    playerClientId = (int)StartOfRound.Instance.allPlayerScripts[value].playerClientId;
+                }
+
+                Terminal terminal = TerminalManager.Instance.GetTerminal();
+                InteractTrigger terminalInteractTrigger = PatchesUtil.terminalTriggerField.Invoke(terminal);
+                foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotAIs())
+                {
+                    // Check to see if the bot is owned by the disconnecting client
+                    if (lethalBotAI != null 
+                        && (lethalBotAI.OwnerClientId == clientId 
+                            || lethalBotAI.currentOwnershipOnThisClient == playerClientId))
+                    {
+                        // Change the ownership
+                        lethalBotAI.ChangeOwnershipOfEnemy(NetworkManager.ServerClientId);
+
+                        // To prevent desyncs, make the bot leave the terminal
+                        if (lethalBotAI.NpcController.Npc.currentTriggerInAnimationWith == terminalInteractTrigger)
+                        {
+                            lethalBotAI.LeaveTerminal(syncTerminalInUse: true, forceEndUse: true);
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>

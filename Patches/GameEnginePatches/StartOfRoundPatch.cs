@@ -722,47 +722,6 @@ namespace LethalBots.Patches.GameEnginePatches
             }
         }
 
-        /// <summary>
-        /// If a player leaves the game, have the bots swap their ownership back to the host!
-        /// </summary>
-        /// <param name="__instance"></param>
-        /// <param name="clientId"></param>
-        [HarmonyPatch("OnPlayerDC")]
-        [HarmonyPrefix]
-        static void OnPlayerDC_Postfix(StartOfRound __instance, ulong clientId)
-        {
-            // Don't do this if the host disconnects
-            if (clientId == NetworkManager.ServerClientId)
-            {
-                return;
-            }
-
-            // Only run this for the server and the player disconnecting
-            if (!__instance.IsServer && clientId != GameNetworkManager.Instance.localPlayerController.actualClientId)
-            {
-                return;
-            }
-
-            // Change the bot's ownership to the host
-            foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotAIs())
-            {
-                // Check to see if the bot is owned by the disconnecting client
-                if (lethalBotAI != null && lethalBotAI.OwnerClientId == clientId)
-                {
-                    // Change the ownership
-                    if (__instance.IsServer)
-                    {
-                        lethalBotAI.ChangeOwnershipOfEnemy(NetworkManager.ServerClientId);
-                    }
-                    // To prevent desyncs, make the bot leave the terminal
-                    else if (lethalBotAI.NpcController.Npc.inTerminalMenu)
-                    {
-                        lethalBotAI.LeaveTerminal();
-                    }
-                }
-            }
-        }
-
         [HarmonyPatch("LateUpdate")]
         [HarmonyPostfix]
         static void LateUpdate_PostFix(StartOfRound __instance)

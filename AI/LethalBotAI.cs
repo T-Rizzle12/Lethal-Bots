@@ -8078,7 +8078,7 @@ namespace LethalBots.AI
         /// Makes the bot leave the terminal, this has proper support for animations!
         /// </summary>
         /// <param name="syncTerminalInUse">Should the terminal update its status on all clients?</param>
-        public void LeaveTerminal(bool syncTerminalInUse = true)
+        public void LeaveTerminal(bool syncTerminalInUse = true, bool forceEndUse = false)
         {
             // Terminal is invalid for some reason, report the error!
             Terminal ourTerminal = Managers.TerminalManager.Instance.GetTerminal();
@@ -8091,7 +8091,7 @@ namespace LethalBots.AI
             }
 
             PlayerControllerB localPlayerController = NpcController.Npc;
-            if (!localPlayerController.inTerminalMenu)
+            if (!localPlayerController.inTerminalMenu && !forceEndUse)
             {
                 Plugin.LogWarning($"Bot {localPlayerController.playerUsername} was told to leave a terminal when they were not using it!");
                 return;

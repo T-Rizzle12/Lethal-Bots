@@ -24,7 +24,6 @@ namespace LethalBots.AI.AIStates
             // Don't need to do the rest of the logic if we already voted to leave!
             StartOfRound instanceSOR = StartOfRound.Instance;
             if (hasVotedToLeave 
-                || LethalBotManager.AreWeInOrbit(instanceSOR)
                 || LethalBotManager.IsTheShipLeaving(instanceSOR)
                 || TimeOfDay.Instance.shipLeavingAlertCalled)
             {
@@ -49,6 +48,12 @@ namespace LethalBots.AI.AIStates
                 {
                     ai.State = ai.GetDesiredAIState();
                 }
+                return;
+            }
+
+            // Don't run our voting code if we are in orbit
+            if (LethalBotManager.AreWeInOrbit(instanceSOR))
+            {
                 return;
             }
 
