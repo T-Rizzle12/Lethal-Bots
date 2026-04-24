@@ -1,5 +1,9 @@
 # Changelog
 
+## 6.1.2 2026-4-24
+Hello, 6.1.1 had an issue where certian mods could cause the bots player controller to be disabled.
+I have now restored the part of the code that enables the player controllers when a bot spawns which should fix the issue.
+
 ## 6.1.1 2026-4-24
 Hello, I'm just making some bug fixes for issues that were reported.
 

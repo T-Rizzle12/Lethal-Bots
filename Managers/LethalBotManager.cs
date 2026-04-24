@@ -1385,6 +1385,7 @@ namespace LethalBots.Managers
             //lethalBotAI.transform.parent = objectParent.transform;
             //lethalBotAI.NetworkObject.AutoObjectParentSync = true;
             lethalBotAI.enabled = true;
+            objectParent.SetActive(true); // Think that some optimization mods disable the player controller, we need to force renable them here
             if (clientJoining && lethalBotController.currentlyHeldObject != null)
             {
                 lethalBotAI.HeldItem = lethalBotController.currentlyHeldObject;
