@@ -76,7 +76,7 @@ namespace LethalBots.AI.AIStates
             {
                 sprayPaintItem.UseItemOnClient(false);
             }
-            else if (FindUsualScrapMedkit(heldItem))
+            else if (Plugin.IsModUsualScrapLoaded && FindUsualScrapMedkit(heldItem))
             {
                 heldItem.UseItemOnClient(false);
             }
@@ -185,11 +185,11 @@ namespace LethalBots.AI.AIStates
             {
                 return HealMethod.WeedKiller;
             }
-            else if (CanHealPlayerWithUsualScrapMedkit(ai, this.healTarget))
+            else if (Plugin.IsModUsualScrapLoaded && CanHealPlayerWithUsualScrapMedkit(ai, this.healTarget))
             {
                 return HealMethod.ModUsualScrapMedkit;
             }
-            else if (CanHealPlayerWithUsualScrapBandage(ai, this.healTarget))
+            else if (Plugin.IsModUsualScrapLoaded && CanHealPlayerWithUsualScrapBandage(ai, this.healTarget))
             {
                 return HealMethod.ModUsualScrapBandage;
             }
@@ -361,11 +361,11 @@ namespace LethalBots.AI.AIStates
             {
                 return true;
             }
-            else if (CanHealPlayerWithUsualScrapMedkit(lethalBotAI, healTarget))
+            else if (Plugin.IsModUsualScrapLoaded && CanHealPlayerWithUsualScrapMedkit(lethalBotAI, healTarget))
             {
                 return true;
             }
-            else if (CanHealPlayerWithUsualScrapBandage(lethalBotAI, healTarget))
+            else if (Plugin.IsModUsualScrapLoaded && CanHealPlayerWithUsualScrapBandage(lethalBotAI, healTarget))
             {
                 return true;
             }
