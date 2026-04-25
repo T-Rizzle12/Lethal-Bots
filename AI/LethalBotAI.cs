@@ -2169,6 +2169,9 @@ namespace LethalBots.AI
                     // Triple the pathing cost for water!
                     int waterArea = NavMesh.GetAreaFromName("Water");
                     agent.SetAreaCost(waterArea, 3f);
+
+                    // High path cost for quicksand
+                    //agent.SetAreaCost(Const.LETHAL_BOT_QUICKSAND_NAVAREA, 10f);
                 }
             }
         }

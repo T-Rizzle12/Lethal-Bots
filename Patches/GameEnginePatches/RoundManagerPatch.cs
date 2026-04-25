@@ -4,18 +4,93 @@ using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Managers;
 using LethalBots.Utils;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using Unity.AI.Navigation;
 using Unity.Netcode;
+using UnityEngine;
 
 namespace LethalBots.Patches.GameEnginePatches
 {
     [HarmonyPatch(typeof(RoundManager))]
     public class RoundManagerPatch
     {
+        //private static Coroutine? overrideQuicksandCoroutine = null;
+
+        //[HarmonyPatch("Awake")]
+        //[HarmonyPrefix]
+        //static void Awake_Prefix(RoundManager __instance)
+        //{
+        //    // Override the NavArea for the Quicksand
+        //    if (overrideQuicksandCoroutine != null)
+        //    {
+        //        __instance.StopCoroutine(overrideQuicksandCoroutine);
+        //    }
+        //    overrideQuicksandCoroutine = __instance.StartCoroutine(OverrideQuicksandPrefab());
+        //}
+
+        //private static IEnumerator OverrideQuicksandPrefab()
+        //{
+        //    // Override the NavArea for the Quicksand
+        //    while (RoundManager.Instance == null || RoundManager.Instance.quicksandPrefab == null)
+        //    {
+        //        yield return null;
+        //    }
+        //    yield return null;
+
+        //    // Log what we are about to do!
+        //    Plugin.LogInfo("Adding NavMeshModifierVolume to the quicksand prefab to override its path cost for bots!");
+
+        //    GameObject quicksandPrefab = RoundManager.Instance.quicksandPrefab;
+        //    if (quicksandPrefab != null)
+        //    {
+        //        // Add the NavMeshVolume
+        //        NavMeshModifierVolume navMeshModifier = quicksandPrefab.gameObject.GetComponent<NavMeshModifierVolume>() ?? quicksandPrefab.gameObject.AddComponent<NavMeshModifierVolume>();
+        //        navMeshModifier.area = Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+
+        //        // Change the bounds to contain where the quicksand is.
+        //        Bounds quicksandBounds = default;
+        //        bool foundCollider = false;
+        //        foreach (BoxCollider collider in quicksandPrefab.gameObject.GetComponentsInChildren<BoxCollider>())
+        //        {
+        //            if (collider != null)
+        //            {
+        //                // convert local box to world-ish space using transform
+        //                Vector3 worldCenter = collider.transform.TransformPoint(collider.center);
+
+        //                Vector3 worldSize = Vector3.Scale(collider.size, collider.transform.lossyScale);
+
+        //                Bounds bounds = new Bounds(worldCenter, worldSize);
+        //                if (!foundCollider)
+        //                {
+        //                    quicksandBounds = bounds;
+        //                    foundCollider = true;
+        //                }
+        //                else
+        //                {
+        //                    quicksandBounds.Encapsulate(bounds);
+        //                }
+        //            }
+        //        }
+
+        //        // Update the center and size!
+        //        if (foundCollider)
+        //        {
+        //            navMeshModifier.center = quicksandPrefab.transform.InverseTransformPoint(quicksandBounds.center);
+        //            navMeshModifier.size = quicksandBounds.size;
+        //            Plugin.LogInfo($"Added NavMeshModifierVolume to quicksand prefab with center {quicksandBounds.center} and size {quicksandBounds.size}");
+        //        }
+        //        else
+        //        {
+        //            Plugin.LogWarning("Added NavMeshModifierVolume to quicksand prefab, but failed to find collider's center and size. This may cause issues!");
+        //        }
+        //    }
+        //    overrideQuicksandCoroutine = null;
+        //}
+
         /// <summary>
         /// Patch for debug spawn bush spawn point
         /// </summary>
