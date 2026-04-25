@@ -1,5 +1,11 @@
 # Changelog
 
+## 6.1.3 2026-4-24
+Sigh, I only discovered this bug because I died because of it.........Bots were unable to cure players if the mod Usual Scrap was not installed. 
+This was caused by a logic error that caused my mod to not check if it was installed or not in the HealPlayerState.
+
+Bots are now able to cure players again without spaming the console with TypeLoadExceptions
+
 ## 6.1.2 2026-4-24
 Hello, 6.1.1 had an issue where certian mods could cause the bots player controller to be disabled.
 I have now restored the part of the code that enables the player controllers when a bot spawns which should fix the issue.
