@@ -4,6 +4,7 @@ using LethalBots.NetworkSerializers;
 using LethalBots.SaveAdapter;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 
 namespace LethalBots.Managers
@@ -16,8 +17,7 @@ namespace LethalBots.Managers
         private const string SAVE_DATA_KEY = "LETHAL_BOTS_SAVE_DATA";
 
         public static SaveManager Instance { get; private set; } = null!;
-
-        private SaveFile Save = null!;
+        public SaveFile Save { get; private set; } = null!;
         private ClientRpcParams ClientRpcParams = new ClientRpcParams();
 
         /// <summary>
@@ -66,18 +66,18 @@ namespace LethalBots.Managers
 
             try
             {
-                if (Plugin.Config.ResetIdentities.Value)
-                {
-                    Plugin.Config.ResetIdentities.Value = false; // Reset config value so this is only applied once the save file is opened.
-                    Save = new SaveFile(); // Clear save data by creating new one, as the config is set to reset identities at the start of the round
-                    return;
-                }
-
                 string json = (string)ES3.Load(key: SAVE_DATA_KEY, defaultValue: null, filePath: saveFile);
                 if (json != null)
                 {
                     Plugin.LogInfo($"Loading save file.");
                     Save = JsonConvert.DeserializeObject<SaveFile>(json) ?? new SaveFile();
+                    if (Plugin.Config.ResetIdentities.Value)
+                    {
+                        Plugin.Config.ResetIdentities.Value = false; // Reset config value so this is only applied once the save file is opened.
+                        Save.IdentitiesSaveFiles = new IdentitySaveFile[0]; // Clear save data by creating new one, as the config is set to reset identities at the start of the round
+                        return;
+                    }
+
                     if (Plugin.Config.SpawnIdentitiesRandomly)
                     {
                         Plugin.LogInfo($"Plugin config set to spawn identities randomly, setting all identities to available in save file.");
@@ -153,11 +153,40 @@ namespace LethalBots.Managers
                 Plugin.LogDebug($"Saving identity {lethalBotIdentity.ToString()}");
                 Save.IdentitiesSaveFiles[i] = identitySaveFile;
             }
+
+            List<LethalBotBlacklistedItem> BlacklistedItems = new List<LethalBotBlacklistedItem>();
+            for (int i = 0; i < LethalBotManager.Instance.blacklistedItems.Count; i++)
+            {
+                // Validate the network object first
+                // NOTE: We want the most accurate version of the list, so we grab the NetworkList instead of the HashSet
+                NetworkObjectReference blacklistedItem = LethalBotManager.Instance.blacklistedNetworkList[i];
+                if (!blacklistedItem.TryGet(out NetworkObject item))
+                {
+                    Plugin.LogError($"SaveManager.SaveInfosInSave: Failed to resolve NetworkObjectReference at index {i} (likely despawned).");
+                    continue;
+                }
+
+                // Make sure this is a valid grabbable object
+                GrabbableObject? grabbableObject = item.gameObject.GetComponent<GrabbableObject>();
+                if (grabbableObject == null)
+                {
+                    Plugin.LogError($"SaveManager.SaveInfosInSave: Failed to resolve GrabbableObject component from network object at index {i}");
+                    continue;
+                }
+
+                LethalBotBlacklistedItem botBlacklistedItem = new LethalBotBlacklistedItem(grabbableObject);
+                BlacklistedItems.Add(botBlacklistedItem);
+                Plugin.LogDebug($"Saving blacklisted item {botBlacklistedItem}");
+            }
+            Save.BlacklistedItems = BlacklistedItems.ToArray();
         }
 
         /// <summary>
         /// Load data into managers from save data
         /// </summary>
+        /// <remarks>
+        /// Blacklisted item data is loaded when the <see cref="StartOfRound.LoadShipGrabbableItems"/> is called!
+        /// </remarks>
         public void LoadAllDataFromSave()
         {
             if (Save.IdentitiesSaveFiles == null)

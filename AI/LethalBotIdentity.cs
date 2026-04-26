@@ -21,6 +21,7 @@ namespace LethalBots.AI
         public int? SuitID { get; set; }
         public LethalBotVoice Voice { get; set; }
         public LethalBotLoadout Loadout { get; set; }
+        public string MoreCompanyCosmetics { get; set; }
         public int GroupID { get; set; }
         public DeadBodyInfo? DeadBody { get; set; }
         public object? BodyReplacementBase { get; set; }
@@ -56,13 +57,14 @@ namespace LethalBots.AI
             }
         }
 
-        public LethalBotIdentity(int idIdentity, string name, int? suitID, LethalBotVoice voice, LethalBotLoadout loadout, int groupID, EnumDefaultAIState defaultAIState = EnumDefaultAIState.FollowPlayer, int? Xp = null)
+        public LethalBotIdentity(int idIdentity, string name, int? suitID, LethalBotVoice voice, LethalBotLoadout loadout, string moreCompanyCosmetics, int groupID, EnumDefaultAIState defaultAIState = EnumDefaultAIState.FollowPlayer, int? Xp = null)
         {
             IdIdentity = idIdentity;
             Name = name;
             SuitID = suitID;
             Voice = voice;
             Loadout = loadout;
+            MoreCompanyCosmetics = moreCompanyCosmetics;
             GroupID = groupID;
             HpMax = 100;
             Hp = HpMax;
@@ -84,7 +86,7 @@ namespace LethalBots.AI
 
         public override string ToString()
         {
-            return $"IdIdentity: {IdIdentity}, name: {Name}, suit {Suit}, Hp {Hp}/{HpMax}, XP {XP}, Level {Level}, Internal Group ID {GroupID}, Status {(int)Status} '{Status}', Voice : {{{Voice.ToString()}}}, Loadout : {{{Loadout.ToString()}}}";
+            return $"IdIdentity: {IdIdentity}, name: {Name}, suit {Suit}, Hp {Hp}/{HpMax}, XP {XP}, Level {Level}, More Company Cosmetics {MoreCompanyCosmetics}, Internal Group ID {GroupID}, Status {(int)Status} '{Status}', Voice : {{{Voice.ToString()}}}, Loadout : {{{Loadout.ToString()}}}";
         }
 
         public int GetRandomSuitID()

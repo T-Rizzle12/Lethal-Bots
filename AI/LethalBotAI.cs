@@ -212,7 +212,7 @@ namespace LethalBots.AI
         private Vector3 previousWantedDestination;
         private bool hasDestinationChanged = true;
         private float updateDestinationIntervalLethalBotAI;
-        private float updateDestinationTimer;
+        private CountdownTimer updateDestinationTimer = new CountdownTimer();
         private float healthRegenerateTimerMax;
         private float timerCheckDoor;
         private float timerCheckLockedDoor;
@@ -2201,7 +2201,8 @@ namespace LethalBots.AI
             NpcController.OrderToMove();
 
             if (!hasDestinationChanged 
-                && (Time.timeSinceLevelLoad - updateDestinationTimer) <= 1f)
+                && updateDestinationTimer.HasStarted()
+                && !updateDestinationTimer.Elapsed())
             {
                 return;
             }
@@ -2228,7 +2229,7 @@ namespace LethalBots.AI
                 }
                 this.SetDestinationToPosition(destination);
                 agent.SetDestination(destination);
-                updateDestinationTimer = Time.timeSinceLevelLoad;
+                updateDestinationTimer.Start(1f); // One second cooldown!
                 hasDestinationChanged = false;
             }
         }
@@ -5233,10 +5234,16 @@ namespace LethalBots.AI
             {
                 // Welp, are we desperate for cash?
                 int valueOfScrapInShip = LethalBotManager.GetValueOfAllScrapOnShip(this);
-                if (valueOfScrapInShip <= 0)
+                if (valueOfScrapInShip > 0)
                 {
                     return false;
                 }
+            }
+
+            // Is the object blacklisted from being sold
+            if (LethalBotManager.Instance.blacklistedItems.Contains(grabbableObject))
+            {
+                return false;
             }
 
             // Ignore drop cooldowns when selling!
