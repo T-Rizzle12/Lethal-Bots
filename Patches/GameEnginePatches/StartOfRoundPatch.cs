@@ -117,15 +117,18 @@ namespace LethalBots.Patches.GameEnginePatches
             LethalBotBlacklistedItem[] blacklistedItems = SaveManager.Instance.Save.BlacklistedItems;
             foreach (var blacklistedItem in blacklistedItems)
             {
+                // Load our saved item's position
                 Vector3 blacklistedItemPos = blacklistedItem.SavedPosition;
                 if (!instanceSOR.shipBounds.bounds.Contains(blacklistedItemPos))
                 {
+                    // Mimic the code used by the base game for out of bounds items
                     blacklistedItemPos = instanceSOR.playerSpawnPositions[1].position;
                     blacklistedItemPos.x += UnityEngine.Random.Range(-0.7f, 0.7f);
                     blacklistedItemPos.z += UnityEngine.Random.Range(-2f, 2f);
                     blacklistedItemPos.y += 0.5f;
                 }
 
+                // Find the best object that matches our given grabbable object
                 GrabbableObject? closestObject = null;
                 float closestObjectDistSqr = float.MaxValue;
                 foreach (var grabbableObject in grabbableObjects)
@@ -149,12 +152,14 @@ namespace LethalBots.Patches.GameEnginePatches
                     }
                 }
 
+                // Check if we actually found the target item
                 if (closestObject != null)
                 {
                     Plugin.LogInfo($"Found grabbable object {closestObject}, for blacklisted item {blacklistedItem}");
                     alreadyBlacklistedItems.Add(closestObject);
                     LethalBotManager.Instance.RegisterItemAsBlacklisted(closestObject.NetworkObject);
                 }
+                // Log if we failed for some reason
                 else
                 {
                     Plugin.LogWarning($"Failed to find grabbable object for blacklisted item {blacklistedItem}");

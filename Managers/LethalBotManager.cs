@@ -601,25 +601,62 @@ namespace LethalBots.Managers
             return false;
         }
 
-        [Rpc(SendTo.Server, RequireOwnership = false)]
-        public void RegisterItemAsBlacklistedRpc(NetworkObjectReference itemToBlacklist)
+        /// <summary>
+        /// Helper rpc to display a tip to the given clients
+        /// </summary>
+        /// <param name="headerText"></param>
+        /// <param name="bodyText"></param>
+        /// <param name="clientRpcParams"></param>
+        [ClientRpc]
+        private void DisplayTipClientRpc(string headerText, string bodyText, ClientRpcParams clientRpcParams = default)
         {
-            RegisterItemAsBlacklisted(itemToBlacklist);
+            HUDManager.Instance.DisplayTip(headerText, bodyText);
         }
 
-        public void RegisterItemAsBlacklisted(NetworkObjectReference itemToBlacklist)
+        /// <summary>
+        /// Rpc to register an item to the sell blacklist
+        /// </summary>
+        /// <param name="itemToBlacklist"></param>
+        /// <param name="rpcParams"></param>
+        [Rpc(SendTo.Server, RequireOwnership = false)]
+        public void RegisterItemAsBlacklistedRpc(NetworkObjectReference itemToBlacklist, RpcParams rpcParams = default)
         {
-            if (!IsServer && !IsHost)
+            ClientRpcParams.Send = new ClientRpcSendParams() 
+            { 
+                TargetClientIds = new ulong[] { rpcParams.Receive.SenderClientId } 
+            };
+            if (RegisterItemAsBlacklisted(itemToBlacklist))
+            {
+                string headerText = "Success!";
+                string bodyText = "Held Item successfully added to sell blacklist.";
+                DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
+            }
+            else
+            {
+                string headerText = "Error!";
+                string bodyText = "Failed to add Held Item to sell blacklist.";
+                DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
+            }
+        }
+
+        /// <summary>
+        /// Registers the given item to the sell blacklist
+        /// </summary>
+        /// <param name="itemToBlacklist"></param>
+        /// <returns></returns>
+        public bool RegisterItemAsBlacklisted(NetworkObjectReference itemToBlacklist)
+        {
+            if (!IsServer)
             {
                 Plugin.LogWarning($"LethalBotManager.RegisterItemAsBlacklisted was called on a non-host or non-server client. Aborting!");
-                return;
+                return false;
             }
 
             // Validate the network object first
             if (!itemToBlacklist.TryGet(out NetworkObject item))
             {
                 Plugin.LogWarning("LethalBotManager.RegisterItemAsBlacklisted: Failed to resolve NetworkObjectReference (likely despawned).");
-                return;
+                return false;
             }
 
             // Make sure this is a valid grabbable object
@@ -627,32 +664,60 @@ namespace LethalBots.Managers
             if (grabbableObject == null)
             {
                 Plugin.LogError("LethalBotManager.RegisterItemAsBlacklisted: Failed to resolve GrabbableObject component from network object");
-                return;
+                return false;
             }
 
             if (!blacklistedNetworkList.Contains(itemToBlacklist))
+            {
                 blacklistedNetworkList.Add(itemToBlacklist);
+            }
+            return true;
         }
 
+        /// <summary>
+        /// Rpc to remove an item from the sell blacklist
+        /// </summary>
+        /// <param name="itemToBlacklist"></param>
+        /// <param name="rpcParams"></param>
         [Rpc(SendTo.Server, RequireOwnership = false)]
-        public void RemoveItemFromBlacklistedRpc(NetworkObjectReference itemToBlacklist)
+        public void RemoveItemFromBlacklistedRpc(NetworkObjectReference itemToBlacklist, RpcParams rpcParams = default)
         {
-            RemoveItemFromBlacklist(itemToBlacklist);
+            ClientRpcParams.Send = new ClientRpcSendParams()
+            {
+                TargetClientIds = new ulong[] { rpcParams.Receive.SenderClientId }
+            };
+            if (RemoveItemFromBlacklist(itemToBlacklist))
+            {
+                string headerText = "Success!";
+                string bodyText = "Held Item successfully removed sell blacklist.";
+                DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
+            }
+            else
+            {
+                string headerText = "Error!";
+                string bodyText = "Failed to remove Held Item from sell blacklist.";
+                DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
+            }
         }
 
-        public void RemoveItemFromBlacklist(NetworkObjectReference itemToBlacklist)
+        /// <summary>
+        /// Removes the given item from the sell blacklist
+        /// </summary>
+        /// <param name="itemToBlacklist"></param>
+        /// <returns></returns>
+        public bool RemoveItemFromBlacklist(NetworkObjectReference itemToBlacklist)
         {
-            if (!IsServer && !IsHost)
+            if (!IsServer)
             {
                 Plugin.LogWarning($"LethalBotManager.RemoveItemFromBlacklist was called on a non-host or non-server client. Aborting!");
-                return;
+                return false;
             }
 
             // Validate the network object first
             if (!itemToBlacklist.TryGet(out NetworkObject item))
             {
                 Plugin.LogWarning("LethalBotManager.RemoveItemFromBlacklist: Failed to resolve NetworkObjectReference (likely despawned).");
-                return;
+                return false;
             }
 
             // Make sure this is a valid grabbable object
@@ -660,11 +725,12 @@ namespace LethalBots.Managers
             if (grabbableObject == null)
             {
                 Plugin.LogError("LethalBotManager.RemoveItemFromBlacklist: Failed to resolve GrabbableObject component from network object");
-                return;
+                return false;
             }
 
             // Remove the item
             blacklistedNetworkList.Remove(itemToBlacklist);
+            return true;
         }
 
         /// <summary>
