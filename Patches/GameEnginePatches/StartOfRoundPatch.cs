@@ -171,7 +171,7 @@ namespace LethalBots.Patches.GameEnginePatches
             if (failedToBlacklist > 0)
             {
                 yield return new WaitForSeconds(5.5f); // Wait for player to load in!
-                HUDManager.Instance.DisplayTip("WARNING!", $"Lethal Bots failed to find {failedToBlacklist} items in the sell blacklist. You should manually readd all items you don't want the bots to sell!!!!");
+                HUDManager.Instance.DisplayTip("WARNING!", $"Lethal Bots failed to find {failedToBlacklist} items in the sell blacklist. You should manually readd all items you don't want the bots to sell!!!!", isWarning: true);
             }
             loadBlacklistedItemsCoroutine = null;
         }
