@@ -5763,6 +5763,14 @@ namespace LethalBots.AI
                     occludeAudio.lowPassOverride = 4000f;
                     audioLowPassFilter.lowpassResonanceQ = 3f;
                 }
+                if (GameNetworkManager.Instance.localPlayerController.isPlayerDead)
+                {
+                    this.creatureVoice.volume = this.LethalBotIdentity.Voice.Volume * 0.8f;
+                }
+                else
+                {
+                    this.creatureVoice.volume = this.LethalBotIdentity.Voice.Volume;
+                }
             }
         }
 

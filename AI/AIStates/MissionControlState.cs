@@ -1050,11 +1050,27 @@ namespace LethalBots.AI.AIStates
                     int numToPurchase = requiredStock - totalOwned;
                     if (numToPurchase > 0)
                     {
-                        // Check, do we have the required item?
-                        if (string.IsNullOrWhiteSpace(stockRequirement.RequiredItemName) 
-                            || FindItemWithName(stockRequirement.RequiredItemName))
+                        // Check, do we have the required items?
+                        bool canPurchase = true;
+                        if (stockRequirement.RequiredItems.Count > 0)
                         {
-                            yield return PurchaseItem(item, numToPurchase); // Make the purchase
+                            foreach (var requiredItem in stockRequirement.RequiredItems)
+                            {
+                                // Is this a valid item and do we have the required amount of this item in the crews possession?
+                                if (requiredItem.Item != null 
+                                    && (!FindItemWithName(requiredItem.Name, out int numFound)
+                                        || numFound < requiredItem.RequiredStock))
+                                {
+                                    canPurchase = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Can we make the purchase?
+                        if (canPurchase)
+                        {
+                            yield return PurchaseItem(item, numToPurchase, stockRequirement.OverrideEcoLimit, stockRequirement.EcoLimit); // Make the purchase
                         }
                     }
                 }
@@ -1068,8 +1084,10 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         /// <param name="item"></param>
         /// <param name="numToPurchase"></param>
+        /// <param name="overrideEcoLimit"></param>
+        /// <param name="ecoLimit"></param>
         /// <returns></returns>
-        private IEnumerator PurchaseItem(Item item, int numToPurchase = 1)
+        private IEnumerator PurchaseItem(Item item, int numToPurchase = 1, bool overrideEcoLimit = false, int ecoLimit = 0)
         {
             // Should never happen, but you never know.....
             Terminal terminal = TerminalManager.Instance.GetTerminal();
@@ -1091,8 +1109,8 @@ namespace LethalBots.AI.AIStates
             }
 
             // Lets check if there is space on the drop ship......
-            const int dropshipMaxmimumSpace = 12;
-            int spaceLeft = dropshipMaxmimumSpace - terminal.numberOfItemsInDropship;
+            const int dropshipMaximumSpace = 12;
+            int spaceLeft = dropshipMaximumSpace - terminal.numberOfItemsInDropship;
             if (spaceLeft <= 0)
             {
                 yield break; // Yeah, its out of space.....
@@ -1107,8 +1125,10 @@ namespace LethalBots.AI.AIStates
             int itemCost = unitCost * numToPurchase;
             if (itemCost > 0)
             {
+                // Check if we should override the RestockEcoLimit config option
+                int effectiveEcoLimit = overrideEcoLimit ? ecoLimit : Plugin.Config.RestockEcoLimit.Value;
                 int groupCredits = terminal.groupCredits;
-                int availableCredits = groupCredits - Plugin.Config.RestockEcoLimit.Value;
+                int availableCredits = groupCredits - effectiveEcoLimit;
                 if (availableCredits <= 0)
                 {
                     yield break; // We don't have the money!
@@ -1235,10 +1255,12 @@ namespace LethalBots.AI.AIStates
         /// on the ship, if one exists on the ship.
         /// </summary>
         /// <param name="name">The <see cref="GrabbableObject.itemProperties"/>'s <see cref="Item.itemName"/> to search for!</param>
+        /// <param name="numFound">The number of objects that had the same <see cref="Item.itemName"/> as <paramref name="name"/> we found.</param>
         /// <returns>We found an object that had the same <see cref="Item.itemName"/> as <paramref name="name"/></returns>
-        private bool FindItemWithName(string name)
+        private bool FindItemWithName(string name, out int numFound)
         {
             // Do we at least have one instance of the given item?
+            numFound = 0;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
                 GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
@@ -1251,10 +1273,10 @@ namespace LethalBots.AI.AIStates
                 GrabbableObject? item = gameObject.GetComponent<GrabbableObject>();
                 if (item != null && item.itemProperties.itemName == name)
                 {
-                    return true;
+                    numFound++;
                 }
             }
-            return false;
+            return numFound > 0;
         }
 
         // TODO: Think of a better name for this function

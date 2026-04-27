@@ -32,6 +32,7 @@ namespace LethalBots.Patches.GameEnginePatches
         //    overrideQuicksandCoroutine = __instance.StartCoroutine(OverrideQuicksandPrefab());
         //}
 
+        // FIXME: This doesn't work since it marks ALL quicksand objects as quicksand when some could be water.
         //private static IEnumerator OverrideQuicksandPrefab()
         //{
         //    // Override the NavArea for the Quicksand
