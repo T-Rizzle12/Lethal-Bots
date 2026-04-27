@@ -112,6 +112,7 @@ namespace LethalBots.Patches.GameEnginePatches
             yield return null;
 
             // Load the saved blacklisted items
+            int failedToBlacklist = 0;
             HashSet<GrabbableObject> alreadyBlacklistedItems = new HashSet<GrabbableObject>();
             GrabbableObject[] grabbableObjects = Object.FindObjectsOfType<GrabbableObject>();
             LethalBotBlacklistedItem[] blacklistedItems = SaveManager.Instance.Save.BlacklistedItems;
@@ -163,7 +164,14 @@ namespace LethalBots.Patches.GameEnginePatches
                 else
                 {
                     Plugin.LogWarning($"Failed to find grabbable object for blacklisted item {blacklistedItem}");
+                    failedToBlacklist++;
                 }
+            }
+            // Let the host know some of the items failed to be added!
+            if (failedToBlacklist > 0)
+            {
+                yield return new WaitForSeconds(5.5f); // Wait for player to load in!
+                HUDManager.Instance.DisplayTip("WARNING!", $"Lethal Bots failed to find {failedToBlacklist} items in the sell blacklist. You should manually readd all items you don't want the bots to sell!!!!");
             }
             loadBlacklistedItemsCoroutine = null;
         }
