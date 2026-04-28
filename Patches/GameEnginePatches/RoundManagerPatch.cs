@@ -93,6 +93,83 @@ namespace LethalBots.Patches.GameEnginePatches
         //}
 
         /// <summary>
+        /// Patch to mark quicksand as well quicksand
+        /// </summary>
+        /// <param name="__instance"></param>
+        [HarmonyPatch("SpawnOutsideHazards")]
+        [HarmonyPostfix]
+        static void SpawnOutsideHazards_Postfix(RoundManager __instance)
+        {
+            // Log what we are about to do!
+            Plugin.LogInfo("Adding NavMeshModifierVolume to the quicksand objects to override its path cost for bots!");
+
+            bool shouldUpdateNavmesh = false;
+            Vector3 colliderBuffer = new Vector3(0.8f, 0.2f, 0.8f); // Add a slight buffer to keep the bots from walking too close!
+            //List<NavMeshModifierVolume> modifiers = new List<NavMeshModifierVolume>();
+            QuicksandTrigger[] quicksandArray = Object.FindObjectsOfType<QuicksandTrigger>(includeInactive: true);
+            foreach (var quicksand in quicksandArray)
+            {
+                // Make sure its valid
+                if (quicksand == null || quicksand.isWater) continue;
+
+                // Change the bounds to contain where the quicksand is.
+                BoxCollider[] boxColliders = quicksand.gameObject.GetComponentsInChildren<BoxCollider>();
+                for (int i = 0; i < boxColliders.Length; i++)
+                {
+                    BoxCollider boxCollider = boxColliders[i];
+                    if (boxCollider != null)
+                    {
+                        // Add our proxy gameobject
+                        shouldUpdateNavmesh = true;
+                        GameObject navMeshModifierGameObject = new GameObject($"NavMeshModifier{i}");
+                        navMeshModifierGameObject.transform.SetParent(boxCollider.transform, worldPositionStays: true);
+                        navMeshModifierGameObject.transform.localPosition = Vector3.zero;
+                        navMeshModifierGameObject.transform.localRotation = Quaternion.identity;
+                        navMeshModifierGameObject.layer = LayerMask.GetMask("NavigationSurface");
+
+                        // Add the NavMeshVolume
+                        NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();
+                        navMeshModifier.area = Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+                        navMeshModifier.center = boxCollider.center;
+                        navMeshModifier.size = boxCollider.size + colliderBuffer;
+                        Plugin.LogInfo($"Added NavMeshModifierVolume to quicksand with center {navMeshModifier.center} and size {navMeshModifier.size}.");
+                        //Plugin.LogInfo($"Game Object Proxy Pos: {quicksand.transform.position}");
+                        //Plugin.LogInfo($"Game Object Proxy Rotation: {quicksand.transform.rotation}");
+                        //Plugin.LogInfo($"Quicksand Pos: {quicksand.transform.position}");
+                        //Plugin.LogInfo($"Quicksand Rotation: {quicksand.transform.rotation}");
+                        //Plugin.LogInfo($"Collider Pos: {boxCollider.transform.position}");
+                        //Plugin.LogInfo($"Collider Rotation: {boxCollider.transform.rotation}");
+                        //Plugin.LogInfo($"Modifier Pos: {navMeshModifier.transform.position}");
+                        //Plugin.LogInfo($"Modifier Rotation: {navMeshModifier.transform.rotation}");
+                        //Plugin.LogInfo($"isEnabled {navMeshModifier.isActiveAndEnabled}");
+                        //modifiers.Add(navMeshModifier);
+                    }
+                }
+            }
+
+            // Don't update the mesh unless we have to
+            if (shouldUpdateNavmesh)
+            {
+                GameObject outsideNavMesh = GameObject.FindGameObjectWithTag("OutsideLevelNavMesh");
+                if (outsideNavMesh != null)
+                {
+                    NavMeshSurface navMeshSurface = outsideNavMesh.GetComponent<NavMeshSurface>();
+                    //foreach (var modifier in navMeshSurface.GetComponentsInChildren<NavMeshModifierVolume>())
+                    //{
+                    //    if (modifier != null)
+                    //    {
+                    //        Plugin.LogInfo($"Modifier: {modifier} Rotation: {modifier.transform.rotation} Area: {modifier.area}");
+                    //    }
+                    //}
+                    //navMeshSurface.BuildNavMesh();
+                    // Since we are only adding NavMeshModifiers, no need to rebuild the mesh.
+                    // Just force the game to update the NavMeshAttributes!
+                    navMeshSurface.UpdateNavMesh(navMeshSurface.navMeshData);
+                }
+            }
+        }
+
+        /// <summary>
         /// Patch for debug spawn bush spawn point
         /// </summary>
         [HarmonyPatch("LoadNewLevel")]

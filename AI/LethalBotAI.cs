@@ -2171,7 +2171,7 @@ namespace LethalBots.AI
                     agent.SetAreaCost(waterArea, 3f);
 
                     // High path cost for quicksand
-                    //agent.SetAreaCost(Const.LETHAL_BOT_QUICKSAND_NAVAREA, 10f);
+                    agent.SetAreaCost(Const.LETHAL_BOT_QUICKSAND_NAVAREA, 50f);
                 }
             }
         }

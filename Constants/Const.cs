@@ -263,7 +263,7 @@ namespace LethalBots.Constants
         public const float LETHAL_BOT_DROWN_TIME = 12f; // Makes it easier to update how long a bot has until it drowns! // Was 10, but was buffed to 12 in v80
 
         // NavMesh Related
-        //public const int LETHAL_BOT_QUICKSAND_NAVAREA = 26; // Just one above Pathfinding Lib
+        public const int LETHAL_BOT_QUICKSAND_NAVAREA = 26; // Just one above Pathfinding Lib
 
         // Mod specific
         public const short LETHAL_PHONES_NO_CALLER_ID = -1; // Lethal Phones uses this to indicate that there is no caller.

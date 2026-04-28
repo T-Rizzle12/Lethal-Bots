@@ -2295,7 +2295,7 @@ namespace LethalBots.Managers
                 }
                 //else if (message.Contains("get navarea"))
                 //{
-                //    if (NavMesh.SamplePosition(playerWhoSentMessage.transform.position, out RoundManager.Instance.navHit, 2.7f, NavMesh.AllAreas))
+                //    if (NavMesh.SamplePosition(playerWhoSentMessage.transform.position, out RoundManager.Instance.navHit, 30f, 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA))
                 //    {
                 //        HUDManager.Instance.AddTextToChatOnServer($"Found NavArea: {RoundManager.Instance.navHit.position}. Distance to Player {Vector3.Distance(playerWhoSentMessage.transform.position, RoundManager.Instance.navHit.position)}");
                 //        HUDManager.Instance.AddTextToChatOnServer($"Area mask: {RoundManager.Instance.navHit.mask}");
@@ -2304,17 +2304,17 @@ namespace LethalBots.Managers
                 //    {
                 //        HUDManager.Instance.AddTextToChatOnServer($"Didn't find a NavArea.");
                 //    }
-                //    LethalBotAI? lethalBotAI = GetLethalBotAI(1);
-                //    if (lethalBotAI != null)
-                //    {
-                //        Plugin.LogInfo($"Bot Position: {lethalBotAI.transform.position}");
-                //        Plugin.LogInfo($"Agent Position: {lethalBotAI.agent.transform.position}");
-                //        Plugin.LogInfo($"Agent AreaMask: {lethalBotAI.agent.areaMask}");
-                //        Plugin.LogInfo($"Controller Position: {lethalBotAI.NpcController.Npc.transform.position}");
-                //        Plugin.LogInfo($"Ship Elevator Position: {lethalBotAI.NpcController.Npc.playersManager.elevatorTransform.position}");
-                //        Plugin.LogInfo($"Old Ship Elevator Position: {lethalBotAI.NpcController.Npc.previousElevatorPosition}");
-                //        lethalBotAI.TeleportLethalBot(playerWhoSentMessage.transform.position, true);
-                //    }
+                //    //LethalBotAI? lethalBotAI = GetLethalBotAI(1);
+                //    //if (lethalBotAI != null)
+                //    //{
+                //    //    Plugin.LogInfo($"Bot Position: {lethalBotAI.transform.position}");
+                //    //    Plugin.LogInfo($"Agent Position: {lethalBotAI.agent.transform.position}");
+                //    //    Plugin.LogInfo($"Agent AreaMask: {lethalBotAI.agent.areaMask}");
+                //    //    Plugin.LogInfo($"Controller Position: {lethalBotAI.NpcController.Npc.transform.position}");
+                //    //    Plugin.LogInfo($"Ship Elevator Position: {lethalBotAI.NpcController.Npc.playersManager.elevatorTransform.position}");
+                //    //    Plugin.LogInfo($"Old Ship Elevator Position: {lethalBotAI.NpcController.Npc.previousElevatorPosition}");
+                //    //    lethalBotAI.TeleportLethalBot(playerWhoSentMessage.transform.position, true);
+                //    //}
                 //}
                 //else if (message.Contains("get navsettings"))
                 //{
@@ -3919,7 +3919,7 @@ namespace LethalBots.Managers
         /// </summary>
         /// <remarks>
         /// Used by the patches for deciding if the behaviour of the code still applies if the original game code encounters a 
-        /// <c>PlayerControllerB</c> that is an bot
+        /// <c>PlayerControllerB</c> that is the local player
         /// </remarks>
         /// <param name="player"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
