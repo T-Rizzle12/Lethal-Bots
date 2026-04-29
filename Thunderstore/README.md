@@ -110,6 +110,8 @@ Please note that these commands are not case sensitive, so you can use any combi
 
 **I will transfer loot** - This tells bots that you will be transferring loot! NOTE: All it does is add you to the LootTransferPlayers list. This causes the drop loot outside of entrances code to run!
 </br>**/addbots** - This tells my mod to spawn bots on the ship. This command only works while the ship is in orbit and you must have **Allow bots in orbit** set to true. (YOU MUST HAVE NavmeshInCompany AS WELL!)
+</br>**/blacklistitem** - This tells my mod to add the current item you are holding to the sell blacklist. Bots will refuse to sell the held item in particular. This ONLY applies to the HELD ITEM, you must do this for EACH ITEM!
+</br>**/unblacklistitem** - This tells my mod to remove the current item you are holding from the sell blacklist. Bots will be allowed to sell the held item in particular. This ONLY applies to the HELD ITEM, you must do this for EACH ITEM!
 
 ## How the bots work
 The bots take one of the player objects in the game and I attach an EnemyAI to it for the pathfinding code.

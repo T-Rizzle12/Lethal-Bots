@@ -1,5 +1,41 @@
 # Changelog
 
+## 7.0.0 2026-4-28
+It time for another update. This more focused around reworking some of the bot's AI itself. Now then lets get right onto it!
+
+## Selling Item Blacklist
+Ever wanted to stop the bot from selling certain items. Well guess what, your wish has been granted. The sell item blacklist is here! This was a HIGHLY requested feature so I'm glad to finally get this out of the way!
+- You can now blacklist specific grabbable objects from being sold by using the `/blacklistitem` chat command. You can remove an item from the blacklist using the `/unblacklistitem` chat command. These commands only apply to the object you are currently holding.
+- The sell blacklist gives feedback on if the item was added or removed from the blacklist
+- The save manager now handles the saving of blacklisted items. Items you blacklist will persist for that save file.
+- The host will get a warning if my mod fails to reblacklist an item when the save file is loaded
+
+## Restock Rework and More Company Cosmetics
+Yep, the restock system has been reworked to give you more control over when items are purchased. I also gave bots support for More Company Cosmetics, "including modded," so you can deck out your bots! This closes #61 
+- You can now specify multiple items that are required before the bot will buy an item. You can also specify how much of each required item is needed in the crew's possession.
+- You can now override the EcoLimit for each item to stock as well.
+- Bots can now be assigned more company cosmetics that they will automatically equip. For Example: builtin.tophat,builtin.gunholster,builtin.watch would give the bot the built in tophat, gun holster, and wrist watch. cosmetics. You must separate each cosmetic with a comma.
+- Updated default ConfigIdentities.json file with the new identity parameter `moreCompanyCosmetics`
+
+## Better Water and Quicksand detection
+I finally figured out how to add custom NavMesh attributes at runtime. This means I can control how the bots path better without affecting the base game enemies. I have updated my code to apply a custom `Quicksand` attribute which makes my bots dislike pathing over them. This works even if the bot isn't using Safe Path.
+- Add Quicksand NavMesh attribute
+- Apparently, QuicksandTriggers have more than 1 collider. Which caused some cases where the bots would fail to detect water and quicksand at times.
+- Bots now consider paths through quicksand to be 50 times as expensive
+- My mod now adds NavMesh modifier volumes to all QuicksandTrigger objects to modify the NavMesh around them.
+- The NavMesh will be updated, not rebaked, when Quicksand is detected to update the NavMesh Attributes.
+
+## Bug fixes and Miscellaneous changes
+To end this update, there are some minor changes and more bugs fixes.
+- Changed the loadout config file to be inline with the other files. YOU MUST MOVE YOUR LOADOUTS TO THE NEW FILE!
+- Improved the LethalBotThreat constructor
+- Remove RagdollInternBody.cs, it was unusued by Lethal Bots
+- Updated LethalBotInfection to override the == and != operators
+- Also fixed a logic error with bots and selling dead bodies
+- Fixed bots losing their voice if they die and the human player didn't die that round.
+- Fixed DunGenTileTracker not being consitent with the base game at times
+- Removed some redundant comments
+
 ## 6.1.3 2026-4-24
 Sigh, I only discovered this bug because I died because of it.........Bots were unable to cure players if the mod Usual Scrap was not installed. 
 This was caused by a logic error that caused my mod to not check if it was installed or not in the HealPlayerState.
