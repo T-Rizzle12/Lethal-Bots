@@ -1,9 +1,11 @@
-﻿using GameNetcodeStuff;
+﻿using DunGen;
+using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Managers;
 using LethalBots.Utils;
+using LethalBots.Utils.Helpers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -242,7 +244,24 @@ namespace LethalBots.Patches.GameEnginePatches
         {
             // Only run this on the server
             if (__instance.IsServer || __instance.IsHost)
-                LethalBotManager.Instance?.MarkBotsAsGeneratedFloorDelayed();
+            { 
+                LethalBotManager.Instance.MarkBotsAsGeneratedFloorDelayed(); 
+            }
+
+            // Update the dungeon for the newly added level!
+            Dungeon dungeon = Object.FindObjectOfType<Dungeon>();
+            foreach (var lethalBotAI in LethalBotManager.Instance.GetLethalBotAIs())
+            {
+                PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
+                if (lethalBotController != null 
+                    && (lethalBotController.isPlayerControlled
+                        || lethalBotController.isPlayerDead))
+                {
+                    DunGenTileTracker tileTracker = lethalBotAI.DunGenTileTracker;
+                    tileTracker.SetDungeon(dungeon);
+                    tileTracker.AdjacentTileDepth = __instance.dungeonFlowTypes[__instance.currentDungeonType].cullingTileDepth;
+                }
+            }
         }
 
         /// <summary>
