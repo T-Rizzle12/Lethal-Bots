@@ -1,21 +1,176 @@
-﻿using GameNetcodeStuff;
+﻿using DunGen;
+using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Managers;
 using LethalBots.Utils;
+using LethalBots.Utils.Helpers;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using Unity.AI.Navigation;
 using Unity.Netcode;
+using UnityEngine;
 
 namespace LethalBots.Patches.GameEnginePatches
 {
     [HarmonyPatch(typeof(RoundManager))]
     public class RoundManagerPatch
     {
+        //private static Coroutine? overrideQuicksandCoroutine = null;
+
+        //[HarmonyPatch("Awake")]
+        //[HarmonyPrefix]
+        //static void Awake_Prefix(RoundManager __instance)
+        //{
+        //    // Override the NavArea for the Quicksand
+        //    if (overrideQuicksandCoroutine != null)
+        //    {
+        //        __instance.StopCoroutine(overrideQuicksandCoroutine);
+        //    }
+        //    overrideQuicksandCoroutine = __instance.StartCoroutine(OverrideQuicksandPrefab());
+        //}
+
+        // FIXME: This doesn't work since it marks ALL quicksand objects as quicksand when some could be water.
+        //private static IEnumerator OverrideQuicksandPrefab()
+        //{
+        //    // Override the NavArea for the Quicksand
+        //    while (RoundManager.Instance == null || RoundManager.Instance.quicksandPrefab == null)
+        //    {
+        //        yield return null;
+        //    }
+        //    yield return null;
+
+        //    // Log what we are about to do!
+        //    Plugin.LogInfo("Adding NavMeshModifierVolume to the quicksand prefab to override its path cost for bots!");
+
+        //    GameObject quicksandPrefab = RoundManager.Instance.quicksandPrefab;
+        //    if (quicksandPrefab != null)
+        //    {
+        //        // Add the NavMeshVolume
+        //        NavMeshModifierVolume navMeshModifier = quicksandPrefab.gameObject.GetComponent<NavMeshModifierVolume>() ?? quicksandPrefab.gameObject.AddComponent<NavMeshModifierVolume>();
+        //        navMeshModifier.area = Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+
+        //        // Change the bounds to contain where the quicksand is.
+        //        Bounds quicksandBounds = default;
+        //        bool foundCollider = false;
+        //        foreach (BoxCollider collider in quicksandPrefab.gameObject.GetComponentsInChildren<BoxCollider>())
+        //        {
+        //            if (collider != null)
+        //            {
+        //                // convert local box to world-ish space using transform
+        //                Vector3 worldCenter = collider.transform.TransformPoint(collider.center);
+
+        //                Vector3 worldSize = Vector3.Scale(collider.size, collider.transform.lossyScale);
+
+        //                Bounds bounds = new Bounds(worldCenter, worldSize);
+        //                if (!foundCollider)
+        //                {
+        //                    quicksandBounds = bounds;
+        //                    foundCollider = true;
+        //                }
+        //                else
+        //                {
+        //                    quicksandBounds.Encapsulate(bounds);
+        //                }
+        //            }
+        //        }
+
+        //        // Update the center and size!
+        //        if (foundCollider)
+        //        {
+        //            navMeshModifier.center = quicksandPrefab.transform.InverseTransformPoint(quicksandBounds.center);
+        //            navMeshModifier.size = quicksandBounds.size;
+        //            Plugin.LogInfo($"Added NavMeshModifierVolume to quicksand prefab with center {quicksandBounds.center} and size {quicksandBounds.size}");
+        //        }
+        //        else
+        //        {
+        //            Plugin.LogWarning("Added NavMeshModifierVolume to quicksand prefab, but failed to find collider's center and size. This may cause issues!");
+        //        }
+        //    }
+        //    overrideQuicksandCoroutine = null;
+        //}
+
+        /// <summary>
+        /// Patch to mark quicksand as well quicksand
+        /// </summary>
+        /// <param name="__instance"></param>
+        [HarmonyPatch("SpawnOutsideHazards")]
+        [HarmonyPostfix]
+        static void SpawnOutsideHazards_Postfix(RoundManager __instance)
+        {
+            // Log what we are about to do!
+            Plugin.LogInfo("Adding NavMeshModifierVolume to the quicksand objects to override its path cost for bots!");
+
+            bool shouldUpdateNavmesh = false;
+            Vector3 colliderBuffer = new Vector3(0.8f, 0.2f, 0.8f); // Add a slight buffer to keep the bots from walking too close!
+            //List<NavMeshModifierVolume> modifiers = new List<NavMeshModifierVolume>();
+            QuicksandTrigger[] quicksandArray = Object.FindObjectsOfType<QuicksandTrigger>(includeInactive: true);
+            foreach (var quicksand in quicksandArray)
+            {
+                // Make sure its valid
+                if (quicksand == null || quicksand.isWater) continue;
+
+                // Change the bounds to contain where the quicksand is.
+                BoxCollider[] boxColliders = quicksand.gameObject.GetComponentsInChildren<BoxCollider>();
+                for (int i = 0; i < boxColliders.Length; i++)
+                {
+                    BoxCollider boxCollider = boxColliders[i];
+                    if (boxCollider != null)
+                    {
+                        // Add our proxy gameobject
+                        shouldUpdateNavmesh = true;
+                        GameObject navMeshModifierGameObject = new GameObject($"NavMeshModifier{i}");
+                        navMeshModifierGameObject.transform.SetParent(boxCollider.transform, worldPositionStays: true);
+                        navMeshModifierGameObject.transform.localPosition = Vector3.zero;
+                        navMeshModifierGameObject.transform.localRotation = Quaternion.identity;
+                        navMeshModifierGameObject.layer = LayerMask.GetMask("NavigationSurface");
+
+                        // Add the NavMeshVolume
+                        NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();
+                        navMeshModifier.area = Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+                        navMeshModifier.center = boxCollider.center;
+                        navMeshModifier.size = boxCollider.size + colliderBuffer;
+                        Plugin.LogInfo($"Added NavMeshModifierVolume to quicksand with center {navMeshModifier.center} and size {navMeshModifier.size}.");
+                        //Plugin.LogInfo($"Game Object Proxy Pos: {quicksand.transform.position}");
+                        //Plugin.LogInfo($"Game Object Proxy Rotation: {quicksand.transform.rotation}");
+                        //Plugin.LogInfo($"Quicksand Pos: {quicksand.transform.position}");
+                        //Plugin.LogInfo($"Quicksand Rotation: {quicksand.transform.rotation}");
+                        //Plugin.LogInfo($"Collider Pos: {boxCollider.transform.position}");
+                        //Plugin.LogInfo($"Collider Rotation: {boxCollider.transform.rotation}");
+                        //Plugin.LogInfo($"Modifier Pos: {navMeshModifier.transform.position}");
+                        //Plugin.LogInfo($"Modifier Rotation: {navMeshModifier.transform.rotation}");
+                        //Plugin.LogInfo($"isEnabled {navMeshModifier.isActiveAndEnabled}");
+                        //modifiers.Add(navMeshModifier);
+                    }
+                }
+            }
+
+            // Don't update the mesh unless we have to
+            if (shouldUpdateNavmesh)
+            {
+                GameObject outsideNavMesh = GameObject.FindGameObjectWithTag("OutsideLevelNavMesh");
+                if (outsideNavMesh != null)
+                {
+                    NavMeshSurface navMeshSurface = outsideNavMesh.GetComponent<NavMeshSurface>();
+                    //foreach (var modifier in navMeshSurface.GetComponentsInChildren<NavMeshModifierVolume>())
+                    //{
+                    //    if (modifier != null)
+                    //    {
+                    //        Plugin.LogInfo($"Modifier: {modifier} Rotation: {modifier.transform.rotation} Area: {modifier.area}");
+                    //    }
+                    //}
+                    //navMeshSurface.BuildNavMesh();
+                    // Since we are only adding NavMeshModifiers, no need to rebuild the mesh.
+                    // Just force the game to update the NavMeshAttributes!
+                    navMeshSurface.UpdateNavMesh(navMeshSurface.navMeshData);
+                }
+            }
+        }
+
         /// <summary>
         /// Patch for debug spawn bush spawn point
         /// </summary>
@@ -89,7 +244,24 @@ namespace LethalBots.Patches.GameEnginePatches
         {
             // Only run this on the server
             if (__instance.IsServer || __instance.IsHost)
-                LethalBotManager.Instance?.MarkBotsAsGeneratedFloorDelayed();
+            { 
+                LethalBotManager.Instance.MarkBotsAsGeneratedFloorDelayed(); 
+            }
+
+            // Update the dungeon for the newly added level!
+            Dungeon dungeon = Object.FindObjectOfType<Dungeon>();
+            foreach (var lethalBotAI in LethalBotManager.Instance.GetLethalBotAIs())
+            {
+                PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
+                if (lethalBotController != null 
+                    && (lethalBotController.isPlayerControlled
+                        || lethalBotController.isPlayerDead))
+                {
+                    DunGenTileTracker tileTracker = lethalBotAI.DunGenTileTracker;
+                    tileTracker.SetDungeon(dungeon);
+                    tileTracker.AdjacentTileDepth = __instance.dungeonFlowTypes[__instance.currentDungeonType].cullingTileDepth;
+                }
+            }
         }
 
         /// <summary>

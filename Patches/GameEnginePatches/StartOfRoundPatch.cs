@@ -4,8 +4,10 @@ using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Managers;
 using LethalBots.Patches.EnemiesPatches;
+using LethalBots.SaveAdapter;
 using LethalBots.Utils;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -23,6 +25,8 @@ namespace LethalBots.Patches.GameEnginePatches
     [HarmonyPatch(typeof(StartOfRound))]
     public class StartOfRoundPatch
     {
+        private static Coroutine? loadBlacklistedItemsCoroutine = null;
+
         /// <summary>
         /// Load the managers if the client is host/server
         /// </summary>
@@ -77,6 +81,99 @@ namespace LethalBots.Patches.GameEnginePatches
             }
 
             Plugin.LogDebug("... Managers started");
+        }
+
+        /// <summary>
+        /// Patch to restore blacklisted items!
+        /// </summary>
+        [HarmonyPatch("LoadShipGrabbableItems")]
+        [HarmonyPrefix]
+        static void LoadShipGrabbableItems_PreFix(StartOfRound __instance)
+        {
+            if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
+            {
+                if (loadBlacklistedItemsCoroutine != null)
+                {
+                    __instance.StopCoroutine(loadBlacklistedItemsCoroutine);
+                }
+                loadBlacklistedItemsCoroutine = __instance.StartCoroutine(LoadBlacklistedItemsCoroutine(__instance));
+            }
+        }
+
+        /// <summary>
+        /// Loads the blacklisted items from our save file and adds them to the <see cref="LethalBotManager.blacklistedNetworkList"/>
+        /// </summary>
+        /// <param name="instanceSOR"></param>
+        /// <returns></returns>
+        private static IEnumerator LoadBlacklistedItemsCoroutine(StartOfRound instanceSOR)
+        {
+            yield return null;
+            yield return new WaitUntil(() => LethalBotManager.Instance != null && LethalBotManager.Instance.IsSpawned);
+            yield return null;
+
+            // Load the saved blacklisted items
+            int failedToBlacklist = 0;
+            HashSet<GrabbableObject> alreadyBlacklistedItems = new HashSet<GrabbableObject>();
+            GrabbableObject[] grabbableObjects = Object.FindObjectsOfType<GrabbableObject>();
+            LethalBotBlacklistedItem[] blacklistedItems = SaveManager.Instance.Save.BlacklistedItems;
+            foreach (var blacklistedItem in blacklistedItems)
+            {
+                // Load our saved item's position
+                Vector3 blacklistedItemPos = blacklistedItem.SavedPosition;
+                if (!instanceSOR.shipBounds.bounds.Contains(blacklistedItemPos))
+                {
+                    // Mimic the code used by the base game for out of bounds items
+                    blacklistedItemPos = instanceSOR.playerSpawnPositions[1].position;
+                    blacklistedItemPos.x += UnityEngine.Random.Range(-0.7f, 0.7f);
+                    blacklistedItemPos.z += UnityEngine.Random.Range(-2f, 2f);
+                    blacklistedItemPos.y += 0.5f;
+                }
+
+                // Find the best object that matches our given grabbable object
+                GrabbableObject? closestObject = null;
+                float closestObjectDistSqr = float.MaxValue;
+                foreach (var grabbableObject in grabbableObjects)
+                {
+                    // Make sure we have a valid items and we didn't already blacklist it
+                    if (grabbableObject == null || alreadyBlacklistedItems.Contains(grabbableObject)) continue;
+
+                    // Make sure its the same "type" of item
+                    Item itemProperties = grabbableObject.itemProperties;
+                    if (itemProperties.itemName != blacklistedItem.itemName) continue;
+
+                    // Make sure we pick the same object with the same scrap value
+                    if (blacklistedItem.hasScrapValue && grabbableObject.scrapValue != blacklistedItem.scrapValue) continue;
+
+                    // Pick the closest valid object
+                    float objectDistSqr = (grabbableObject.transform.position - blacklistedItemPos).sqrMagnitude;
+                    if (objectDistSqr < closestObjectDistSqr)
+                    {
+                        closestObject = grabbableObject;
+                        closestObjectDistSqr = objectDistSqr;
+                    }
+                }
+
+                // Check if we actually found the target item
+                if (closestObject != null)
+                {
+                    Plugin.LogInfo($"Found grabbable object {closestObject}, for blacklisted item {blacklistedItem}");
+                    alreadyBlacklistedItems.Add(closestObject);
+                    LethalBotManager.Instance.RegisterItemAsBlacklisted(closestObject.NetworkObject);
+                }
+                // Log if we failed for some reason
+                else
+                {
+                    Plugin.LogWarning($"Failed to find grabbable object for blacklisted item {blacklistedItem}");
+                    failedToBlacklist++;
+                }
+            }
+            // Let the host know some of the items failed to be added!
+            if (failedToBlacklist > 0)
+            {
+                yield return new WaitForSeconds(5.5f); // Wait for player to load in!
+                HUDManager.Instance.DisplayTip("WARNING!", $"Lethal Bots failed to find {failedToBlacklist} items in the sell blacklist. You should manually readd all items you don't want the bots to sell!!!!", isWarning: true);
+            }
+            loadBlacklistedItemsCoroutine = null;
         }
 
         /// <summary>

@@ -3,40 +3,64 @@
     {
       "__comment_itemName": "The name of the item the bot should check the stock of, 'THIS IS CASE SENSITIVE!' (This should be the exact name as shown on the terminal store page!)",
       "__comment_desiredStock": "The amount of the item that the bot will try to keep in the crew's possession",
-      "__comment_requiredItemName": "The following item must be in the crew's possession before the bot will consider restocking this. 'THIS IS CASE SENSITIVE!' (This should be the exact name as shown on the terminal store page!)",
-      "__comment_comment": "Some examples have been provided, just create a custom config to change them as desired!"
+      "__comment_overrideEcoLimit": "Should we use the eco limit as defined here instead of the one in the Lethal Bots config",
+      "__comment_ecoLimit": "How much money should the bot keep in reserve when thinking about purchasing this item.",
+      "__comment_requiredItems": "The following items must be in the crew's possession before the bot will consider restocking this.",
+      "__comment_requiredItemsExample": [
+        {
+          "itemName": "Shovel",
+          "requiredStock": 1
+        },
+        {
+          "itemName": "Zap gun",
+          "requiredStock": 2
+        }
+      ],
+      "__comment_comment": "Some examples have been provided, feel free to change them as desired! If you ever want the default file back, just delete this one!"
     }
   ],
   "configStockRequirements": [
     {
       "itemName": "Shovel",
       "desiredStock": 0,
-      "requiredItemName": "None"
+      "overrideEcoLimit": false,
+      "ecoLimit": 0,
+      "requiredItems": []
     },
     {
       "itemName": "Shotgun",
       "desiredStock": 0,
-      "requiredItemName": "None"
+      "overrideEcoLimit": false,
+      "ecoLimit": 0,
+      "requiredItems": []
     },
     {
       "itemName": "Zap gun",
       "desiredStock": 0,
-      "requiredItemName": "None"
+      "overrideEcoLimit": false,
+      "ecoLimit": 0,
+      "requiredItems": []
     },
     {
       "itemName": "Pro-flashlight",
       "desiredStock": 0,
-      "requiredItemName": "None"
+      "overrideEcoLimit": false,
+      "ecoLimit": 0,
+      "requiredItems": []
     },
     {
       "itemName": "Walkie-talkie",
       "desiredStock": 0,
-      "requiredItemName": "None"
+      "overrideEcoLimit": false,
+      "ecoLimit": 0,
+      "requiredItems": []
     },
     {
       "itemName": "Weed killer",
       "desiredStock": 4,
-      "requiredItemName": "None"
+      "overrideEcoLimit": false,
+      "ecoLimit": 0,
+      "requiredItems": []
     }
   ]
 }

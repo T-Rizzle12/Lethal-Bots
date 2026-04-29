@@ -188,6 +188,11 @@ namespace LethalBots.AI.AIStates
                 else
                 {
                     // Swap to our next item!
+                    if (!ai.AreHandsFree() && ai.HeldItem.itemProperties.twoHanded)
+                    {
+                        ai.DropItem();
+                        return;
+                    }
                     if (ai.HasGrabbableObjectInInventory(FindObject, out int itemSlot))
                     {
                         ai.SwitchItemSlotsAndSync(itemSlot);

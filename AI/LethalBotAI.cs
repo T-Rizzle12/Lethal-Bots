@@ -212,7 +212,7 @@ namespace LethalBots.AI
         private Vector3 previousWantedDestination;
         private bool hasDestinationChanged = true;
         private float updateDestinationIntervalLethalBotAI;
-        private float updateDestinationTimer;
+        private CountdownTimer updateDestinationTimer = new CountdownTimer();
         private float healthRegenerateTimerMax;
         private float timerCheckDoor;
         private float timerCheckLockedDoor;
@@ -1295,20 +1295,39 @@ namespace LethalBots.AI
                     }
 
                     // Define a distance threshold (buffer) to avoid paths too close to quicksand
-                    float quicksandBuffer = 3f;
+                    const float quicksandBuffer = 3f;
                     Plugin.LogDebug($"Testing quicksand safety between current node {nodePos} and previous node {previousNode}");
                     foreach (var quicksand in QuicksandArray)
                     {
                         if (!quicksand.isActiveAndEnabled)
                             continue;
 
-                        Collider? collider = quicksand.gameObject.GetComponent<Collider>();
-                        if (collider == null)
+                        Bounds quicksandBounds = default;
+                        bool foundCollider = false;
+                        foreach (Collider colldier in quicksand.gameObject.GetComponents<Collider>())
+                        {
+                            if (colldier != null)
+                            {
+                                if (!foundCollider)
+                                {
+                                    quicksandBounds = colldier.bounds;
+                                    foundCollider = true;
+                                }
+                                else
+                                {
+                                    quicksandBounds.Encapsulate(colldier.bounds);
+                                }
+                            }
+                        }
+
+                        if (!foundCollider)
+                        {
                             continue;
+                        }
 
                         Vector3 a = previousNode;
                         Vector3 b = nodePos;
-                        Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(a, b, collider.bounds.center), RoundManager.Instance.navHit, 2.7f, agent.areaMask);
+                        Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(a, b, quicksandBounds.center), RoundManager.Instance.navHit, 2.7f, agent.areaMask);
 
                         if (!quicksand.isWater)
                         {
@@ -1333,8 +1352,7 @@ namespace LethalBots.AI
                             }*/
 
                             // Check if the closest point is within or on the collider
-                            Vector3 testPoint = Physics.ClosestPoint(closestPoint, collider, collider.transform.position, collider.transform.rotation);
-                            if ((testPoint - closestPoint).sqrMagnitude < quicksandBuffer * quicksandBuffer)
+                            if (quicksandBounds.Contains(closestPoint))
                             {
                                 Plugin.LogDebug("Segment intersects solid quicksand!");
                                 return true;
@@ -1347,7 +1365,7 @@ namespace LethalBots.AI
                             // For some reason this works really well like this unlike the code above
                             Vector3 simulatedHead = closestPoint + Vector3.up * headOffset;
                             //if ((testPoint - simulatedHead).sqrMagnitude < quicksandBuffer * quicksandBuffer)
-                            if (collider.bounds.Contains(simulatedHead))
+                            if (quicksandBounds.Contains(simulatedHead))
                             {
                                 // Test the amount of time we would spend underwater to get here
                                 Plugin.LogDebug("Simulated head intersects water!");
@@ -1442,20 +1460,39 @@ namespace LethalBots.AI
                     }
 
                     // Define a distance threshold (buffer) to avoid paths too close to quicksand
-                    float quicksandBuffer = 3f;
+                    const float quicksandBuffer = 3f;
                     Plugin.LogDebug($"Testing quicksand safety between current node {nodePos} and previous node {previousNode}");
                     foreach (var quicksand in QuicksandArray)
                     {
                         if (!quicksand.isActiveAndEnabled)
                             continue;
 
-                        Collider? collider = quicksand.gameObject.GetComponent<Collider>();
-                        if (collider == null)
+                        Bounds quicksandBounds = default;
+                        bool foundCollider = false;
+                        foreach (Collider colldier in quicksand.gameObject.GetComponents<Collider>())
+                        {
+                            if (colldier != null)
+                            {
+                                if (!foundCollider)
+                                {
+                                    quicksandBounds = colldier.bounds;
+                                    foundCollider = true;
+                                }
+                                else
+                                {
+                                    quicksandBounds.Encapsulate(colldier.bounds);
+                                }
+                            }
+                        }
+
+                        if (!foundCollider)
+                        {
                             continue;
+                        }
 
                         Vector3 a = previousNode;
                         Vector3 b = nodePos;
-                        Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(a, b, collider.bounds.center), RoundManager.Instance.navHit, 2.7f, agent.areaMask);
+                        Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(a, b, quicksandBounds.center), RoundManager.Instance.navHit, 2.7f, agent.areaMask);
 
                         if (!quicksand.isWater)
                         {
@@ -1469,7 +1506,7 @@ namespace LethalBots.AI
                                 arraySize = Physics.OverlapSphereNonAlloc(closestPoint, quicksandBuffer, hitColliders);
                             }
                             //Collider[] hitColliders = Physics.OverlapSphere(closestPoint, quicksandBuffer);
-                            for (int i = 0; i < arraySize; i++)
+                            for(int i = 0; i < arraySize; i++)
                             {
                                 var hitCollider = hitColliders[i];
                                 if (hitCollider == collider)
@@ -1480,8 +1517,7 @@ namespace LethalBots.AI
                             }*/
 
                             // Check if the closest point is within or on the collider
-                            Vector3 testPoint = Physics.ClosestPoint(closestPoint, collider, collider.transform.position, collider.transform.rotation);
-                            if ((testPoint - closestPoint).sqrMagnitude < quicksandBuffer * quicksandBuffer)
+                            if (quicksandBounds.Contains(closestPoint))
                             {
                                 Plugin.LogDebug("Segment intersects solid quicksand!");
                                 return true;
@@ -1493,7 +1529,8 @@ namespace LethalBots.AI
 
                             // For some reason this works really well like this unlike the code above
                             Vector3 simulatedHead = closestPoint + Vector3.up * headOffset;
-                            if (collider.bounds.Contains(simulatedHead))
+                            //if ((testPoint - simulatedHead).sqrMagnitude < quicksandBuffer * quicksandBuffer)
+                            if (quicksandBounds.Contains(simulatedHead))
                             {
                                 // Test the amount of time we would spend underwater to get here
                                 Plugin.LogDebug("Simulated head intersects water!");
@@ -1832,7 +1869,7 @@ namespace LethalBots.AI
             }
 
             // Define a distance threshold (buffer) to avoid paths too close to quicksand
-            float quicksandBuffer = 2.5f; // Was 1.5f, now testing 2.5f
+            //const float quicksandBuffer = 2.5f; // Was 1.5f, now testing 2.5f
             //Collider[] hitColliders = new Collider[10];
             Plugin.LogDebug($"{NpcController.Npc.playerUsername} is testing quicksand safety between previous node {from} and current node {to}");
             for (int i = 0; i < QuicksandArray.Length; i++)
@@ -1853,12 +1890,31 @@ namespace LethalBots.AI
                 if (quicksand == null || !quicksand.isActiveAndEnabled)
                     continue;
 
-                Collider? collider = quicksand.gameObject.GetComponent<Collider>();
-                if (collider == null)
+                Bounds quicksandBounds = default;
+                bool foundCollider = false;
+                foreach (Collider colldier in quicksand.gameObject.GetComponents<Collider>())
+                {
+                    if (colldier != null)
+                    {
+                        if (!foundCollider)
+                        {
+                            quicksandBounds = colldier.bounds;
+                            foundCollider = true;
+                        }
+                        else
+                        {
+                            quicksandBounds.Encapsulate(colldier.bounds);
+                        }
+                    }
+                }
+
+                if (!foundCollider)
+                {
                     continue;
+                }
 
                 float modifiedMoveSpeed = moveSpeed / (2f * (1f * quicksand.movementHinderance));
-                Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(from, to, collider.bounds.center), RoundManager.Instance.navHit, 2.7f, agent.areaMask);
+                Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(from, to, quicksandBounds.center), RoundManager.Instance.navHit, 2.7f, agent.areaMask);
                 if (!quicksand.isWater)
                 {
                     Plugin.LogDebug("This is quicksand!");
@@ -1882,8 +1938,14 @@ namespace LethalBots.AI
                     }*/
 
                     // Check if the closest point is within or on the collider
-                    Vector3 testPoint = Physics.ClosestPoint(closestPoint, collider, collider.transform.position, collider.transform.rotation);
-                    if ((testPoint - closestPoint).sqrMagnitude < quicksandBuffer * quicksandBuffer)
+                    //Vector3 testPoint = quicksandBounds.ClosestPoint(closestPoint);
+                    //if ((testPoint - closestPoint).sqrMagnitude < quicksandBuffer * quicksandBuffer)
+                    //{
+                    //    Plugin.LogDebug("Segment intersects solid quicksand!");
+                    //    return (true, predictedDrownTimer);
+                    //}
+
+                    if (quicksandBounds.Contains(closestPoint))
                     {
                         Plugin.LogDebug("Segment intersects solid quicksand!");
                         return (true, predictedDrownTimer);
@@ -1896,7 +1958,7 @@ namespace LethalBots.AI
                     // For some reason this works really well like this unlike the code above
                     Vector3 simulatedHead = closestPoint + Vector3.up * headOffset;
                     //if ((testPoint - simulatedHead).sqrMagnitude < quicksandBuffer * quicksandBuffer)
-                    if (collider.bounds.Contains(simulatedHead))
+                    if (quicksandBounds.Contains(simulatedHead))
                     {
                         // Test the amount of time we would spend underwater to get here
                         Plugin.LogDebug("Simulated head intersects water!");
@@ -2107,6 +2169,9 @@ namespace LethalBots.AI
                     // Triple the pathing cost for water!
                     int waterArea = NavMesh.GetAreaFromName("Water");
                     agent.SetAreaCost(waterArea, 3f);
+
+                    // High path cost for quicksand
+                    agent.SetAreaCost(Const.LETHAL_BOT_QUICKSAND_NAVAREA, 50f);
                 }
             }
         }
@@ -2136,7 +2201,8 @@ namespace LethalBots.AI
             NpcController.OrderToMove();
 
             if (!hasDestinationChanged 
-                && (Time.timeSinceLevelLoad - updateDestinationTimer) <= 1f)
+                && updateDestinationTimer.HasStarted()
+                && !updateDestinationTimer.Elapsed())
             {
                 return;
             }
@@ -2163,7 +2229,7 @@ namespace LethalBots.AI
                 }
                 this.SetDestinationToPosition(destination);
                 agent.SetDestination(destination);
-                updateDestinationTimer = Time.timeSinceLevelLoad;
+                updateDestinationTimer.Start(1f); // One second cooldown!
                 hasDestinationChanged = false;
             }
         }
@@ -5168,10 +5234,16 @@ namespace LethalBots.AI
             {
                 // Welp, are we desperate for cash?
                 int valueOfScrapInShip = LethalBotManager.GetValueOfAllScrapOnShip(this);
-                if (valueOfScrapInShip <= 0)
+                if (valueOfScrapInShip > 0)
                 {
                     return false;
                 }
+            }
+
+            // Is the object blacklisted from being sold
+            if (LethalBotManager.Instance.blacklistedItems.Contains(grabbableObject))
+            {
+                return false;
             }
 
             // Ignore drop cooldowns when selling!
@@ -5690,6 +5762,14 @@ namespace LethalBots.AI
                     }
                     occludeAudio.lowPassOverride = 4000f;
                     audioLowPassFilter.lowpassResonanceQ = 3f;
+                }
+                if (GameNetworkManager.Instance.localPlayerController.isPlayerDead)
+                {
+                    this.creatureVoice.volume = this.LethalBotIdentity.Voice.Volume * 0.8f;
+                }
+                else
+                {
+                    this.creatureVoice.volume = this.LethalBotIdentity.Voice.Volume;
                 }
             }
         }

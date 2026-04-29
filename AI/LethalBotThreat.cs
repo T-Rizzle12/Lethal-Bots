@@ -8,13 +8,8 @@ namespace LethalBots.AI
     /// </summary>
     public class LethalBotThreat
     {
-        public LethalBotThreat(EnemyAI enemyAI, Func<LethalBotFearQuery, float?> pankFunc, Func<LethalBotFearQuery, float?> missionControlFunc, Func<LethalBotFearQuery, float?> pathfindFunc)
-        {
-            ThreatType = enemyAI.GetType();
-            panikFearRange = pankFunc;
-            missionControlFearRange = missionControlFunc;
-            pathfindingFearRange = pathfindFunc;
-        }
+        public LethalBotThreat(EnemyAI enemyAI, Func<LethalBotFearQuery, float?> pankFunc, Func<LethalBotFearQuery, float?> missionControlFunc, Func<LethalBotFearQuery, float?> pathfindFunc) : this(enemyAI.GetType(), pankFunc, missionControlFunc, pathfindFunc) { }
+
         public LethalBotThreat(Type threatType, Func<LethalBotFearQuery, float?> pankFunc, Func<LethalBotFearQuery, float?> missionControlFunc, Func<LethalBotFearQuery, float?> pathfindFunc)
         {
             ThreatType = threatType;

@@ -13,6 +13,7 @@ using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using LethalLib.Modules;
+using MoreCompany;
 using Scoops.customization;
 using Scoops.gameobjects;
 using Scoops.misc;
@@ -27,6 +28,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Unity.AI.Navigation;
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
@@ -92,6 +94,8 @@ namespace LethalBots.Managers
             }
         }
 
+        #region Network Variables and Network Lists
+
         /// <summary>
         /// BotSpawnState used to check when a bot spawns, so living and connected players can update!
         /// </summary>
@@ -106,6 +110,18 @@ namespace LethalBots.Managers
         /// Bool used when the inital bot spawn happens so we don't spam the clients with updates!
         /// </summary>
         public NetworkVariable<bool> isSpawningBots = new NetworkVariable<bool>(false);
+
+        /// <summary>
+        /// The networked list that holds all of the blacklisted items that bots should NEVER SELL!
+        /// </summary>
+        internal NetworkList<NetworkObjectReference> blacklistedNetworkList = new NetworkList<NetworkObjectReference>(writePerm: NetworkVariableWritePermission.Server);
+
+        /// <summary>
+        /// A list that holds all of the blacklisted items that bots should NEVER SELL!
+        /// </summary>
+        public HashSet<GrabbableObject> blacklistedItems = new HashSet<GrabbableObject>();
+
+        #endregion
 
         private static PlayerControllerB? _hostPlayerScript;
 
@@ -306,6 +322,8 @@ namespace LethalBots.Managers
         {
             base.OnNetworkSpawn();
 
+            blacklistedNetworkList.OnListChanged += OnBlacklistChanged;
+
             if (!base.NetworkManager.IsServer)
             {
                 if (Instance != null && Instance != this)
@@ -315,6 +333,12 @@ namespace LethalBots.Managers
                 }
                 Instance = this;
             }
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            base.OnNetworkDespawn();
+            blacklistedNetworkList.OnListChanged -= OnBlacklistChanged;
         }
 
         // If we get destroyed for some reason destory the NavMesh object we created as well!
@@ -575,6 +599,196 @@ namespace LethalBots.Managers
                 }
             }
             return false;
+        }
+
+        /// <summary>
+        /// Helper rpc to display a tip to the given clients
+        /// </summary>
+        /// <param name="headerText"></param>
+        /// <param name="bodyText"></param>
+        /// <param name="clientRpcParams"></param>
+        [ClientRpc]
+        private void DisplayTipClientRpc(string headerText, string bodyText, ClientRpcParams clientRpcParams = default)
+        {
+            HUDManager.Instance.DisplayTip(headerText, bodyText);
+        }
+
+        /// <summary>
+        /// Rpc to register an item to the sell blacklist
+        /// </summary>
+        /// <param name="itemToBlacklist"></param>
+        /// <param name="rpcParams"></param>
+        [Rpc(SendTo.Server, RequireOwnership = false)]
+        public void RegisterItemAsBlacklistedRpc(NetworkObjectReference itemToBlacklist, RpcParams rpcParams = default)
+        {
+            ClientRpcParams.Send = new ClientRpcSendParams() 
+            { 
+                TargetClientIds = new ulong[] { rpcParams.Receive.SenderClientId } 
+            };
+            if (RegisterItemAsBlacklisted(itemToBlacklist))
+            {
+                string headerText = "Success!";
+                string bodyText = "Held Item successfully added to sell blacklist.";
+                DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
+            }
+            else
+            {
+                string headerText = "Error!";
+                string bodyText = "Failed to add Held Item to sell blacklist.";
+                DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
+            }
+        }
+
+        /// <summary>
+        /// Registers the given item to the sell blacklist
+        /// </summary>
+        /// <param name="itemToBlacklist"></param>
+        /// <returns></returns>
+        public bool RegisterItemAsBlacklisted(NetworkObjectReference itemToBlacklist)
+        {
+            if (!IsServer)
+            {
+                Plugin.LogWarning($"LethalBotManager.RegisterItemAsBlacklisted was called on a non-host or non-server client. Aborting!");
+                return false;
+            }
+
+            // Validate the network object first
+            if (!itemToBlacklist.TryGet(out NetworkObject item))
+            {
+                Plugin.LogWarning("LethalBotManager.RegisterItemAsBlacklisted: Failed to resolve NetworkObjectReference (likely despawned).");
+                return false;
+            }
+
+            // Make sure this is a valid grabbable object
+            GrabbableObject? grabbableObject = item.gameObject.GetComponent<GrabbableObject>();
+            if (grabbableObject == null)
+            {
+                Plugin.LogError("LethalBotManager.RegisterItemAsBlacklisted: Failed to resolve GrabbableObject component from network object");
+                return false;
+            }
+
+            if (!blacklistedNetworkList.Contains(itemToBlacklist))
+            {
+                blacklistedNetworkList.Add(itemToBlacklist);
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Rpc to remove an item from the sell blacklist
+        /// </summary>
+        /// <param name="itemToBlacklist"></param>
+        /// <param name="rpcParams"></param>
+        [Rpc(SendTo.Server, RequireOwnership = false)]
+        public void RemoveItemFromBlacklistedRpc(NetworkObjectReference itemToBlacklist, RpcParams rpcParams = default)
+        {
+            ClientRpcParams.Send = new ClientRpcSendParams()
+            {
+                TargetClientIds = new ulong[] { rpcParams.Receive.SenderClientId }
+            };
+            if (RemoveItemFromBlacklist(itemToBlacklist))
+            {
+                string headerText = "Success!";
+                string bodyText = "Held Item successfully removed sell blacklist.";
+                DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
+            }
+            else
+            {
+                string headerText = "Error!";
+                string bodyText = "Failed to remove Held Item from sell blacklist.";
+                DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
+            }
+        }
+
+        /// <summary>
+        /// Removes the given item from the sell blacklist
+        /// </summary>
+        /// <param name="itemToBlacklist"></param>
+        /// <returns></returns>
+        public bool RemoveItemFromBlacklist(NetworkObjectReference itemToBlacklist)
+        {
+            if (!IsServer)
+            {
+                Plugin.LogWarning($"LethalBotManager.RemoveItemFromBlacklist was called on a non-host or non-server client. Aborting!");
+                return false;
+            }
+
+            // Validate the network object first
+            if (!itemToBlacklist.TryGet(out NetworkObject item))
+            {
+                Plugin.LogWarning("LethalBotManager.RemoveItemFromBlacklist: Failed to resolve NetworkObjectReference (likely despawned).");
+                return false;
+            }
+
+            // Make sure this is a valid grabbable object
+            GrabbableObject? grabbableObject = item.gameObject.GetComponent<GrabbableObject>();
+            if (grabbableObject == null)
+            {
+                Plugin.LogError("LethalBotManager.RemoveItemFromBlacklist: Failed to resolve GrabbableObject component from network object");
+                return false;
+            }
+
+            // Remove the item
+            blacklistedNetworkList.Remove(itemToBlacklist);
+            return true;
+        }
+
+        /// <summary>
+        /// Called when we recevive an update from the server that the <see cref="blacklistedNetworkList"/> has been modified
+        /// </summary>
+        /// <param name="change"></param>
+        private void OnBlacklistChanged(NetworkListEvent<NetworkObjectReference> change)
+        {
+            switch (change.Type)
+            {
+                case NetworkListEvent<NetworkObjectReference>.EventType.Add:
+                case NetworkListEvent<NetworkObjectReference>.EventType.Insert:
+                {
+                    // Validate the network object first
+                    if (!change.Value.TryGet(out NetworkObject item))
+                    {
+                        Plugin.LogWarning("LethalBotManager.OnBlacklistChanged: Failed to resolve NetworkObjectReference (likely despawned).");
+                        return;
+                    }
+
+                    // Make sure this is a valid grabbable object
+                    GrabbableObject? grabbableObject = item.gameObject.GetComponent<GrabbableObject>();
+                    if (grabbableObject == null)
+                    {
+                        Plugin.LogError("LethalBotManager.OnBlacklistChanged: Failed to resolve GrabbableObject component from network object");
+                        return;
+                    }
+                    blacklistedItems.Add(grabbableObject);
+                    break;
+                }
+                case NetworkListEvent<NetworkObjectReference>.EventType.Remove:
+                case NetworkListEvent<NetworkObjectReference>.EventType.RemoveAt:
+                {
+                    // Validate the network object first
+                    if (!change.Value.TryGet(out NetworkObject item))
+                    {
+                        Plugin.LogWarning("LethalBotManager.RegisterItemAsBlacklisted: Failed to resolve NetworkObjectReference (likely despawned).");
+                        return;
+                    }
+
+                    // Make sure this is a valid grabbable object
+                    GrabbableObject? grabbableObject = item.gameObject.GetComponent<GrabbableObject>();
+                    if (grabbableObject == null)
+                    {
+                        Plugin.LogError("LethalBotManager.RegisterItemAsBlacklisted: Failed to resolve GrabbableObject component from network object");
+                        return;
+                    }
+                    blacklistedItems.Remove(grabbableObject);
+                    break;
+                }
+                case NetworkListEvent<NetworkObjectReference>.EventType.Clear:
+                {
+                    blacklistedItems.Clear();
+                    break;
+                }
+                default:
+                    break;
+            }
         }
 
         #endregion
@@ -1464,6 +1678,12 @@ namespace LethalBots.Managers
                 }
             }
 
+            // More company cosmetics!
+            if (Plugin.IsModMoreCompanyLoaded)
+            {
+                SetupMoreCompanyCosmetics(lethalBotIdentity, lethalBotController);
+            }
+
             // Direct access to avoid looping
             // Exactly how the game does it in PlayerControllerB.SendNewPlayerValuesClientRpc!
             instance.mapScreen.radarTargets[(int)lethalBotController.playerClientId].name = lethalBotController.playerUsername;
@@ -1662,6 +1882,38 @@ namespace LethalBots.Managers
         private void CleanupLethalPhoneForBot(PlayerControllerB lethalBotController)
         {
             CleanupLethalPhoneForBot((int)lethalBotController.playerClientId);
+        }
+
+        /// <summary>
+        /// Helper function that sends the bot's cosmetics to all other players!
+        /// </summary>
+        /// <param name="lethalBotController"></param>
+        private void SetupMoreCompanyCosmetics(LethalBotIdentity lethalBotIdentity, PlayerControllerB lethalBotController)
+        {
+            // HACKHACK: This should only be called for the owning player, we only need to send our cosmetics once!
+            // Doing this congests the network with no benefits whatsoever!
+            if (!lethalBotController.IsOwner)
+            {
+                return;
+            }
+
+            // Unlike how More Company stores its cosmetics, we store the bots cosmetics as single string seperated by a comma: ,
+            // FIXME: This is stupid and hard to maintain, could we change this to a string array instead?
+            string cosmeticsStr = lethalBotIdentity.MoreCompanyCosmetics;
+            string[] cosmeticsArray = cosmeticsStr.Split(','); 
+            int writeSize = FastBufferWriter.GetWriteSize(lethalBotController.playerClientId) + FastBufferWriter.GetWriteSize(cosmeticsStr) + FastBufferWriter.GetWriteSize(false);
+            var writer = new FastBufferWriter(writeSize, Allocator.Temp);
+            using (writer)
+            {
+                writer.WriteValueSafe(lethalBotController.playerClientId);
+                writer.WriteValueSafe(cosmeticsStr);
+                writer.WriteValueSafe(false);
+                NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("MC_SV_SyncCosmetics", NetworkManager.ServerClientId, writer, writer.Capacity > 1300
+                    ? NetworkDelivery.ReliableFragmentedSequenced
+                    : NetworkDelivery.Reliable);
+            }
+            Plugin.LogInfo($"Lethal Bot: {lethalBotController.playerUsername} is sending cosmetics to the server.");
+            MainClass.StaticLogger.LogInfo($"Sending {cosmeticsArray.Length} cosmetics to the server | Request All: {false}");
         }
 
         /// <summary>
@@ -1992,6 +2244,35 @@ namespace LethalBots.Managers
                         string failMessage = Plugin.Config.AllowBotsInOrbit.Value ? "You can only manually add bots in orbit!" : "You have disabled bots in orbit!";
                         HUDManager.Instance.AddTextToChatOnServer(failMessage);
                     }
+                    return;
+                }
+                else if (message.StartsWith("/blacklistitem"))
+                {
+                    // HACKHACK: Only network this once, since LethalBotsRespondToChatMessage is called for all players,
+                    // we can check this here!
+                    if (IsPlayerLocal(playerWhoSentMessage))
+                    {
+                        NetworkObject? heldItem = playerWhoSentMessage.currentlyHeldObjectServer?.NetworkObject;
+                        if (heldItem != null && heldItem.IsSpawned)
+                        {
+                            RegisterItemAsBlacklistedRpc(heldItem);
+                        }
+                    }
+                    return;
+                }
+                else if (message.StartsWith("/unblacklistitem"))
+                {
+                    // HACKHACK: Only network this once, since LethalBotsRespondToChatMessage is called for all players,
+                    // we can check this here!
+                    if (IsPlayerLocal(playerWhoSentMessage))
+                    {
+                        NetworkObject? heldItem = playerWhoSentMessage.currentlyHeldObjectServer?.NetworkObject;
+                        if (heldItem != null && heldItem.IsSpawned)
+                        {
+                            RemoveItemFromBlacklistedRpc(heldItem);
+                        }
+                    }
+                    return;
                 }
                 else if (message.Contains(Const.CREATE_GROUP_COMMAND))
                 {
@@ -2014,7 +2295,7 @@ namespace LethalBots.Managers
                 }
                 //else if (message.Contains("get navarea"))
                 //{
-                //    if (NavMesh.SamplePosition(playerWhoSentMessage.transform.position, out RoundManager.Instance.navHit, 2.7f, NavMesh.AllAreas))
+                //    if (NavMesh.SamplePosition(playerWhoSentMessage.transform.position, out RoundManager.Instance.navHit, 30f, 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA))
                 //    {
                 //        HUDManager.Instance.AddTextToChatOnServer($"Found NavArea: {RoundManager.Instance.navHit.position}. Distance to Player {Vector3.Distance(playerWhoSentMessage.transform.position, RoundManager.Instance.navHit.position)}");
                 //        HUDManager.Instance.AddTextToChatOnServer($"Area mask: {RoundManager.Instance.navHit.mask}");
@@ -2023,17 +2304,17 @@ namespace LethalBots.Managers
                 //    {
                 //        HUDManager.Instance.AddTextToChatOnServer($"Didn't find a NavArea.");
                 //    }
-                //    LethalBotAI? lethalBotAI = GetLethalBotAI(1);
-                //    if (lethalBotAI != null)
-                //    {
-                //        Plugin.LogInfo($"Bot Position: {lethalBotAI.transform.position}");
-                //        Plugin.LogInfo($"Agent Position: {lethalBotAI.agent.transform.position}");
-                //        Plugin.LogInfo($"Agent AreaMask: {lethalBotAI.agent.areaMask}");
-                //        Plugin.LogInfo($"Controller Position: {lethalBotAI.NpcController.Npc.transform.position}");
-                //        Plugin.LogInfo($"Ship Elevator Position: {lethalBotAI.NpcController.Npc.playersManager.elevatorTransform.position}");
-                //        Plugin.LogInfo($"Old Ship Elevator Position: {lethalBotAI.NpcController.Npc.previousElevatorPosition}");
-                //        lethalBotAI.TeleportLethalBot(playerWhoSentMessage.transform.position, true);
-                //    }
+                //    //LethalBotAI? lethalBotAI = GetLethalBotAI(1);
+                //    //if (lethalBotAI != null)
+                //    //{
+                //    //    Plugin.LogInfo($"Bot Position: {lethalBotAI.transform.position}");
+                //    //    Plugin.LogInfo($"Agent Position: {lethalBotAI.agent.transform.position}");
+                //    //    Plugin.LogInfo($"Agent AreaMask: {lethalBotAI.agent.areaMask}");
+                //    //    Plugin.LogInfo($"Controller Position: {lethalBotAI.NpcController.Npc.transform.position}");
+                //    //    Plugin.LogInfo($"Ship Elevator Position: {lethalBotAI.NpcController.Npc.playersManager.elevatorTransform.position}");
+                //    //    Plugin.LogInfo($"Old Ship Elevator Position: {lethalBotAI.NpcController.Npc.previousElevatorPosition}");
+                //    //    lethalBotAI.TeleportLethalBot(playerWhoSentMessage.transform.position, true);
+                //    //}
                 //}
                 //else if (message.Contains("get navsettings"))
                 //{
@@ -3638,7 +3919,7 @@ namespace LethalBots.Managers
         /// </summary>
         /// <remarks>
         /// Used by the patches for deciding if the behaviour of the code still applies if the original game code encounters a 
-        /// <c>PlayerControllerB</c> that is an bot
+        /// <c>PlayerControllerB</c> that is the local player
         /// </remarks>
         /// <param name="player"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

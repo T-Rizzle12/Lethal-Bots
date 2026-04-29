@@ -1,6 +1,7 @@
 ﻿using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.NetworkSerializers;
+using Steamworks.Ugc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,7 +31,7 @@ namespace LethalBots.Managers
             }
 
             Instance = this;
-            Plugin.LogDebug("=============== awake ShoppingManager =====================");
+            Plugin.LogDebug("=============== awake RestockManager =====================");
         }
 
         public void InitStockRequirements(ConfigStockRequirement[] configStockRequirements)
@@ -50,7 +51,6 @@ namespace LethalBots.Managers
         {
             // Get a config stock requirement
             string name;
-            string requiredName;
             ConfigStockRequirement configStockRequirement;
             if (idStockRequirement >= this.configStockRequirements.Length)
             {
@@ -61,48 +61,80 @@ namespace LethalBots.Managers
                 configStockRequirement = this.configStockRequirements[idStockRequirement];
             }
 
-            name = configStockRequirement.itemName;
-            requiredName = configStockRequirement.requiredItemName;
-
-            // Find actual item in game using the given ID!
-            // NOTE: We don't actually check if the item can be purchased here,
-            // since that could be changed through other mods config settings!
-            Item? foundItem = null;
-            Item? foundRequiredItem = null;
+            // Instead of looping through itemsList multiple times, we do it once
+            // and put the item names in a dictionary for quick lookups
+            var itemLookup = new Dictionary<string, Item>();
             foreach (var item in StartOfRound.Instance.allItemsList.itemsList)
             {
-                if (foundItem != null && foundRequiredItem != null)
+                if (item == null) continue;
+
+                if (!itemLookup.ContainsKey(item.itemName))
                 {
-                    break;
+                    itemLookup[item.itemName] = item;
                 }
-                if (item != null)
+                else
                 {
-                    string itemName = item.itemName;
-                    if (itemName == name)
-                    { 
-                        foundItem = item; 
-                    }
-                    if (itemName == requiredName)
-                    {
-                        foundRequiredItem = item;
-                    }
+                    Plugin.LogWarning($"Duplicate item name detected: {item.itemName}");
                 }
             }
 
-            // If we didn't find the required item, mark it as null!
-            if (foundRequiredItem == null)
+            // Find actual item in game using the given name!
+            // NOTE: We don't actually check if the item can be purchased here,
+            // since that could be changed through other mods config settings!
+            name = configStockRequirement.itemName;
+            Plugin.LogInfo($"RestockManager attempting to register stock requirement for item {name}");
+            if (!itemLookup.TryGetValue(name, out Item? foundItem))
             {
-                requiredName = string.Empty;
+                foundItem = null; // Force it null!
             }
 
+            // Lets find all of the required items!
+            // Also null check here to maintain backwards compatability
+            List<LethalBotStockRequiredItem> requiredItems = new List<LethalBotStockRequiredItem>();
+            if (configStockRequirement.requiredItems != null)
+            {
+                foreach (var requiredItem in configStockRequirement.requiredItems)
+                {
+                    string requiredItemName = requiredItem.itemName;
+                    if (itemLookup.TryGetValue(requiredItemName, out Item item))
+                    {
+                        requiredItems.Add(new LethalBotStockRequiredItem(item, requiredItem.requiredStock));
+                    }
+                    else
+                    {
+                        Plugin.LogWarning($"Failed to find required item with name {requiredItemName}! Is the name misspelled or has the wrong letter case?");
+                    }
+                }
+            }
+
+            // Legacy support for the old requiredItemName.
+            #pragma warning disable CS0618 // Type or member is obsolete
+            if (!string.IsNullOrWhiteSpace(configStockRequirement.requiredItemName))
+            {
+                string requiredItemName = configStockRequirement.requiredItemName;
+                if (itemLookup.TryGetValue(requiredItemName, out Item item))
+                {
+                    requiredItems.Add(new LethalBotStockRequiredItem(item, 1));
+                }
+                else
+                {
+                    Plugin.LogWarning($"Failed to find required item with name {requiredItemName}! Is the name misspelled or has the wrong letter case?");
+                }
+            }
+            #pragma warning restore CS0618 // Type or member is obsolete
+
+            // Check if the eco limit has an override set
+            bool overrideEcoLimit = configStockRequirement.overrideEcoLimit;
+            int ecoLimit = configStockRequirement.ecoLimit;
             if (foundItem == null)
             {
                 Plugin.LogWarning($"Failed to find item with name {name}! Is the name misspelled or has the wrong letter case?");
-                return new LethalBotStockRequirement(idStockRequirement, null, 0, requiredName); // Give an invalid stock requirement!
+                return new LethalBotStockRequirement(idStockRequirement, null, 0, overrideEcoLimit, ecoLimit, requiredItems); // Give an invalid stock requirement!
             }
 
-            // LethalBotLoadout
-            return new LethalBotStockRequirement(idStockRequirement, foundItem, configStockRequirement.desiredStock, requiredName);
+            // LethalBotStockRequirement
+            Plugin.LogInfo($"RestockManager successfully registered stock requirement for item {name}");
+            return new LethalBotStockRequirement(idStockRequirement, foundItem, configStockRequirement.desiredStock, overrideEcoLimit, ecoLimit, requiredItems);
         }
 
         /// <summary>

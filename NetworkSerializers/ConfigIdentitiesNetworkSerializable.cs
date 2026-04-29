@@ -17,6 +17,7 @@ namespace LethalBots.NetworkSerializers
         public float volume;
         public float voicePitch;
         public string loadoutName;
+        public string moreCompanyCosmetics;
         public int groupID;
 
         // Constructor with default values
@@ -29,12 +30,13 @@ namespace LethalBots.NetworkSerializers
             volume = 0.5f;
             defaultAIState = (int)EnumDefaultAIState.Dynamic;
             loadoutName = "Empty";
+            moreCompanyCosmetics = string.Empty;
             groupID = GroupManager.INVALID_GROUP_INDEX;
             // voice pitch set after
         }
 
         // Constructor with parameters
-        public ConfigIdentity(string name, int suitID, int suitConfigOption, int defaultAIState, string voiceFolder, float volume, float voicePitch, string loadoutName, int groupID)
+        public ConfigIdentity(string name, int suitID, int suitConfigOption, int defaultAIState, string voiceFolder, float volume, float voicePitch, string loadoutName, string moreCompanyCosmetics, int groupID)
         {
             this.name = name;
             this.suitID = suitID;
@@ -44,6 +46,7 @@ namespace LethalBots.NetworkSerializers
             this.volume = volume;
             this.voicePitch = voicePitch;
             this.loadoutName = loadoutName;
+            this.moreCompanyCosmetics = moreCompanyCosmetics;
             this.groupID = groupID;
         }
 
@@ -57,12 +60,13 @@ namespace LethalBots.NetworkSerializers
             serializer.SerializeValue(ref volume);
             serializer.SerializeValue(ref voicePitch);
             serializer.SerializeValue(ref loadoutName);
+            serializer.SerializeValue(ref moreCompanyCosmetics);
             serializer.SerializeValue(ref groupID);
         }
 
         public override string ToString()
         {
-            return $"name: {name}, suitID {suitID}, suitConfigOption {suitConfigOption} {(EnumOptionSuitConfig)suitConfigOption}, defaultAIState {defaultAIState} {(EnumDefaultAIState)defaultAIState} voiceFolder {voiceFolder}, volume {volume}, voicePitch {voicePitch}, loadoutName {loadoutName}, internal groupID: {groupID}";
+            return $"name: {name}, suitID {suitID}, suitConfigOption {suitConfigOption} {(EnumOptionSuitConfig)suitConfigOption}, defaultAIState {defaultAIState} {(EnumDefaultAIState)defaultAIState} voiceFolder {voiceFolder}, volume {volume}, voicePitch {voicePitch}, loadoutName {loadoutName}, more company cosmetics {moreCompanyCosmetics} internal groupID: {groupID}";
         }
     }
 

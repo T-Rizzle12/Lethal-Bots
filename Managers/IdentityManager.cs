@@ -137,8 +137,16 @@ namespace LethalBots.Managers
             // Loadout
             LethalBotLoadout loadout = LoadoutManager.Instance.GetLethalBotLoadoutWithName(configIdentity.loadoutName ?? string.Empty);
 
+            // More Company Cosmetics
+            string moreCompanyCosmetics = configIdentity.moreCompanyCosmetics;
+            if (string.IsNullOrWhiteSpace(moreCompanyCosmetics))
+            {
+                // Make sure we have a valid string
+                moreCompanyCosmetics = string.Empty;
+            }
+
             // LethalBotIdentity
-            return new LethalBotIdentity(idIdentity, name, suitID, voice, loadout, internalGroupID.Value, defaultAIState);
+            return new LethalBotIdentity(idIdentity, name, suitID, voice, loadout, moreCompanyCosmetics, internalGroupID.Value, defaultAIState);
         }
 
         public string[] GetIdentitiesNamesLowerCaseWithoutSpace()

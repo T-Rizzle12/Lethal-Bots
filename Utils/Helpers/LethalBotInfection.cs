@@ -54,5 +54,17 @@ namespace LethalBots.Utils.Helpers
         {
             return HashCode.Combine(showSignsMeter, timeAtLastHealing, setPoison, sprayOnPlayerMeter, totalTimeSpentInPlants, stoodInWeedsLastCheck, localPlayerImmunityTimer);
         }
+
+        public static bool operator ==(LethalBotInfection? left, LethalBotInfection? right)
+        {
+            if (ReferenceEquals(left, right)) return true;
+            if (left is null || right is null) return false;
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(LethalBotInfection? left, LethalBotInfection? right)
+        {
+            return !(left == right);
+        }
     }
 }
