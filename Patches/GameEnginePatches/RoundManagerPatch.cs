@@ -127,7 +127,7 @@ namespace LethalBots.Patches.GameEnginePatches
                         navMeshModifierGameObject.transform.SetParent(boxCollider.transform, worldPositionStays: true);
                         navMeshModifierGameObject.transform.localPosition = Vector3.zero;
                         navMeshModifierGameObject.transform.localRotation = Quaternion.identity;
-                        navMeshModifierGameObject.layer = LayerMask.GetMask("NavigationSurface");
+                        navMeshModifierGameObject.layer = LayerMask.NameToLayer("NavigationSurface");
 
                         // Add the NavMeshVolume
                         NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();
@@ -168,6 +168,22 @@ namespace LethalBots.Patches.GameEnginePatches
                     // Just force the game to update the NavMeshAttributes!
                     navMeshSurface.UpdateNavMesh(navMeshSurface.navMeshData);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Make sure to include our custom quicksand mask to enemies!
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="supplyExistingMask"></param>
+        /// <param name="__result"></param>
+        [HarmonyPatch("GetLayermaskForEnemySizeLimit")]
+        [HarmonyPostfix]
+        static void GetLayermaskForEnemySizeLimit_Postfix(RoundManager __instance, bool supplyExistingMask, ref int __result)
+        {
+            if (supplyExistingMask)
+            {
+                __result |= 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA;
             }
         }
 

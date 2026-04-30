@@ -1,5 +1,23 @@
 # Changelog
 
+## 7.0.1 2026-4-30
+Hello again, I just have some minor bug fixes for some issues that were found after the 7.0.0 Update.
+
+Change Log:
+- Fixed bots in the Panik state not grabbing nearby weapons if said weapon wasn't on the ship
+- Fixed Safe Path considering underwater nodes as a good fallback spot
+- Fixed a potential desync between the bot's player controller and its NavMeshAgent
+- Changed bots to use PlayerControllerB.PlayFootstepSound which fixed the scrap jiggle audio to not playing
+- Made a minor optimization to LethalBotManager.HostPlayerScript
+- Fixed some issues with the Quicksand NavMeshAttribute causing some enemies to fail to path over quicksand.
+- Fixed a bug with late joining players where a bot could be selected to die in SpawnExplosion causing the local player to not take any kind of damage from said explosion.
+- Forced all EnemyAI objects to include my quicksand NavMeshAttribute in their areaMask
+- Fixed some logic errors in KillPlayerClientRpc_Postfix
+- Changed how player damage is handled for bots
+  - Lethal Bots no longer blocks the orignal damage player function from running for bots.
+  - A transpiler was used to make the orignal DamagePlayer function return early if its called on a bot
+  - This allows mod added Postfixes for DamagePlayer to properly run for bots
+
 ## 7.0.0 2026-4-28
 It time for another update. This more focused around reworking some of the bot's AI itself. Now then lets get right onto it!
 

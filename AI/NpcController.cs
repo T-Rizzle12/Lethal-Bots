@@ -1478,7 +1478,7 @@ namespace LethalBots.AI
                 }
                 if ((localPlayerPos - Npc.transform.position).sqrMagnitude < 20f * 20f)
                 {
-                    PlayFootstepSound();
+                    Npc.PlayFootstepSound();
                 }
             }
         }
@@ -1518,28 +1518,6 @@ namespace LethalBots.AI
                 Plugin.LogDebug($"{Npc.playerUsername} Play audible noise for {enemyAI.name}");
                 enemyAINoiseListener.Value.DetectNoise(noisePosition, noiseLoudness, timesPlayedInSameSpot, noiseID);
             }
-        }
-
-        private void PlayFootstepSound()
-        {
-            AudioClip[] currentFootstepAudioClips = StartOfRound.Instance.footstepSurfaces[Npc.currentFootstepSurfaceIndex].clips;
-            int currentFootstepAudioClip = Random.Range(0, currentFootstepAudioClips.Length);
-            if (currentFootstepAudioClip == this.previousFootstepClip)
-            {
-                currentFootstepAudioClip = (currentFootstepAudioClip + 1) % currentFootstepAudioClips.Length;
-            }
-            Npc.movementAudio.pitch = Random.Range(0.93f, 1.07f);
-
-            bool flag = LethalBotAIController.IsOwner ? Npc.isSprinting : Npc.playerBodyAnimator.GetCurrentAnimatorStateInfo(0).IsTag(Const.PLAYER_ANIMATION_BOOL_SPRINTING);
-            float volumeScale = 0.9f;
-            if (!flag)
-            {
-                volumeScale = 0.6f;
-            }
-
-            Npc.movementAudio.PlayOneShot(currentFootstepAudioClips[currentFootstepAudioClip], volumeScale);
-            this.previousFootstepClip = currentFootstepAudioClip;
-            WalkieTalkie.TransmitOneShotAudio(Npc.movementAudio, StartOfRound.Instance.footstepSurfaces[Npc.currentFootstepSurfaceIndex].clips[currentFootstepAudioClip], volumeScale);
         }
 
         #endregion

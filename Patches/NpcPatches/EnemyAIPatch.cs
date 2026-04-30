@@ -88,7 +88,13 @@ namespace LethalBots.Patches.NpcPatches
         static void Start_Postfix(EnemyAI __instance)
         {
             if (__instance.IsServer && __instance is not LethalBotAI && !RoundManager.Instance.SpawnedEnemies.Contains(__instance))
+            {
                 RoundManager.Instance.SpawnedEnemies.Add(__instance);
+            }
+
+            // Make sure to include our custom quicksand mask to enemies!
+            __instance.agentMask |= 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+            __instance.agent.areaMask |= 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA;
         }
 
         #region Transpilers
