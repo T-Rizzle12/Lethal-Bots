@@ -1333,7 +1333,7 @@ namespace LethalBots.AI
                         }
 
                         // Node is either covered in quicksand or is underwater! Pick another one!
-                        if (IsPositionCoveredInQuickSand(nodePos))
+                        if (IsPositionCoveredInQuickSand(nodePos, checkClosestNode: false))
                         {
                             continue;
                         }

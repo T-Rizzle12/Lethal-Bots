@@ -88,7 +88,29 @@ namespace LethalBots.Patches.NpcPatches
         static void Start_Postfix(EnemyAI __instance)
         {
             if (__instance.IsServer && __instance is not LethalBotAI && !RoundManager.Instance.SpawnedEnemies.Contains(__instance))
+            {
                 RoundManager.Instance.SpawnedEnemies.Add(__instance);
+            }
+
+            // Make sure to include our custom quicksand mask to enemies!
+            __instance.agentMask |= 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+            __instance.agent.areaMask |= 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+        }
+
+        /// <summary>
+        /// Make sure to include our custom quicksand mask to enemies!
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="supplyExistingMask"></param>
+        /// <param name="__result"></param>
+        [HarmonyPatch("GetLayermaskForEnemySizeLimit")]
+        [HarmonyPostfix]
+        static void GetLayermaskForEnemySizeLimit_Postfix(EnemyAI __instance, bool supplyExistingMask, ref int __result)
+        {
+            if (supplyExistingMask)
+            {
+                __result |= 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+            }
         }
 
         #region Transpilers

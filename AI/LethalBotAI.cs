@@ -556,6 +556,8 @@ namespace LethalBots.AI
                     NpcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
                 }
                 SetAgent(enabled: false);
+                this.transform.position = NpcController.Npc.transform.position;
+                this.serverPosition = NpcController.Npc.transform.position;
                 return;
             }
 
@@ -6535,30 +6537,6 @@ namespace LethalBots.AI
 
         #endregion
 
-        #region SyncDeadBodyPosition RPC
-
-        /// <summary>
-        /// Server side, call the clients to update the dead body of the lethalBot
-        /// </summary>
-        /// <param name="newBodyPosition">New dead body position</param>
-        [ServerRpc(RequireOwnership = false)]
-        public void SyncDeadBodyPositionServerRpc(Vector3 newBodyPosition)
-        {
-            SyncDeadBodyPositionClientRpc(newBodyPosition);
-        }
-
-        /// <summary>
-        /// Client side, update the dead body of the lethalBot
-        /// </summary>
-        /// <param name="newBodyPosition">New dead body position</param>
-        [ClientRpc]
-        private void SyncDeadBodyPositionClientRpc(Vector3 newBodyPosition)
-        {
-            PlayerControllerBPatch.SyncBodyPositionClientRpc_ReversePatch(NpcController.Npc, newBodyPosition);
-        }
-
-        #endregion
-
         #region SyncFaceUnderwater
 
         [ServerRpc(RequireOwnership = false)]
@@ -9825,7 +9803,7 @@ namespace LethalBots.AI
             isTouchingGround = Physics.Raycast(new Ray(lethalBotPosition + Vector3.up, Vector3.down),
                                                out groundHit,
                                                2.5f,
-                                               StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore);
+                                               StartOfRound.Instance.walkableSurfacesMask, QueryTriggerInteraction.Ignore);
         }
     }
 }

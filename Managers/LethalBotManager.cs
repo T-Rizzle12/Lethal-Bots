@@ -123,8 +123,6 @@ namespace LethalBots.Managers
 
         #endregion
 
-        private static PlayerControllerB? _hostPlayerScript;
-
         /// <summary>
         /// Public property used to return the host player object!
         /// </summary>
@@ -132,18 +130,18 @@ namespace LethalBots.Managers
         { 
             get
             {
-                if (_hostPlayerScript == null || !_hostPlayerScript.isHostPlayerObject)
+                if (field == null || !field.isHostPlayerObject)
                 {
                     foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
                     {
                         if (player != null && player.isHostPlayerObject)
                         {
-                            _hostPlayerScript = player;
+                            field = player;
                             break;
                         }
                     }
                 }
-                return _hostPlayerScript;
+                return field;
             }
         }
 

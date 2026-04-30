@@ -579,7 +579,6 @@ namespace LethalBots.AI.AIStates
 
                 GrabbableObject? foundItem = gameObject.GetComponent<GrabbableObject>();
                 if (foundItem != null
-                    && foundItem.isInShipRoom
                     && ai.HasAmmoForWeapon(foundItem))
                 {
                     // Ignore the just dropped item timer, we are already in DANGER!

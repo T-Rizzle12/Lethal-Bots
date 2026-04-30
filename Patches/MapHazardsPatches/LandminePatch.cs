@@ -3,8 +3,13 @@ using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.Utils;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace LethalBots.Patches.MapHazardsPatches
@@ -220,6 +225,67 @@ namespace LethalBots.Patches.MapHazardsPatches
 
                 lethalBotsAlreadyExploded.Add(lethalBotController.playerClientId);
             }
+        }
+
+        /// <summary>
+        /// This fixes a rare bug where bots could die in place of the local player..........
+        /// </summary>
+        /// <param name="instructions"></param>
+        /// <param name="generator"></param>
+        /// <returns></returns>
+        [HarmonyPatch("SpawnExplosion")]
+        [HarmonyTranspiler]
+        static IEnumerable<CodeInstruction> SpawnExplosion_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            /*Plugin.LogDebug("Before patching IL instructions:");
+            foreach (var instruction in codes)
+            {
+                Plugin.LogDebug(instruction.ToString());
+            }*/
+
+            // Target property: IsOwner
+            MethodInfo isOwnerGetter = AccessTools.PropertyGetter(typeof(NetworkBehaviour), "IsOwner");
+
+            // Lets us know that the patching has begun!
+            Plugin.LogDebug("Beginning to patch Landmine.SpawnExplosion!");
+
+            // ---------- Step 1: Replace 'playerControllerB.IsOwner' ----------
+            for (var i = 0; i < codes.Count; i++)
+            {
+                // Look for occurrences of "IsOwner"
+                if (codes[i].Calls(isOwnerGetter))
+                {
+                    // Replace with IsPlayerLocal
+                    startIndex = i;
+                    break;
+                }
+            }
+
+            if (startIndex != -1)
+            {
+                // Replace the old instruction to call the replacement method.
+                codes[startIndex].opcode = OpCodes.Call;
+                codes[startIndex].operand = PatchesUtil.IsPlayerLocalMethod; // Call our replacement method
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.MapHazardsPatches.Landmine.SpawnExplosion_Transpiler could not find the IsOwner call!");
+            }
+
+            // Let the user know that we finished
+            Plugin.LogDebug("Finished patching Landmine.SpawnExplosion!");
+
+            /*Plugin.LogDebug("After patching IL instructions:");
+            foreach (var instruction in codes)
+            {
+                Plugin.LogDebug(instruction.ToString());
+            }*/
+
+            return codes.AsEnumerable();
         }
     }
 }

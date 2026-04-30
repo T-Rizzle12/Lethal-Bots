@@ -127,7 +127,7 @@ namespace LethalBots.Patches.GameEnginePatches
                         navMeshModifierGameObject.transform.SetParent(boxCollider.transform, worldPositionStays: true);
                         navMeshModifierGameObject.transform.localPosition = Vector3.zero;
                         navMeshModifierGameObject.transform.localRotation = Quaternion.identity;
-                        navMeshModifierGameObject.layer = LayerMask.GetMask("NavigationSurface");
+                        navMeshModifierGameObject.layer = LayerMask.NameToLayer("NavigationSurface");
 
                         // Add the NavMeshVolume
                         NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();

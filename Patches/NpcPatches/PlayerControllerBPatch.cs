@@ -309,7 +309,7 @@ namespace LethalBots.Patches.NpcPatches
             if (__instance.deadBody != null)
             {
                 // Replace body position or else disappear with shotgun or knife (don't know why)
-                __instance.deadBody.transform.position = __instance.transform.position + Vector3.up + positionOffset;
+                //__instance.deadBody.transform.position = __instance.transform.position + Vector3.up + positionOffset;
                 lethalBotAI.LethalBotIdentity.DeadBody = __instance.deadBody;
 
                 // Lets make sure the bots don't attempt to grab dead bodies as soon as a player is killed!
@@ -329,7 +329,11 @@ namespace LethalBots.Patches.NpcPatches
             lethalBotAI.LethalBotIdentity.Hp = 0;
             lethalBotAI.SetAgent(enabled: false);
             //this.LethalBotIdentity.Voice.StopAudioFadeOut();
-            lethalBotAI.State = new BrainDeadState(lethalBotAI);
+            if (lethalBotAI.State == null || lethalBotAI.State.GetAIState() != EnumAIStates.BrainDead)
+            {
+                // If the bot was not in the BrainDead state, we set it to it so it doesn't do anything after this!
+                lethalBotAI.State = new BrainDeadState(lethalBotAI);
+            }
         }
 
         /// <summary>
@@ -463,26 +467,6 @@ namespace LethalBots.Patches.NpcPatches
                 __instance.currentTriggerInAnimationWith.StopSpecialAnimation();
             }
             return false;
-        }
-
-        /// <summary>
-        /// Patch to call the right the right method for sync dead body if the lethalBot is calling it
-        /// </summary>
-        /// <returns></returns>
-        [HarmonyPatch("SyncBodyPositionClientRpc")]
-        [HarmonyPrefix]
-        static bool SyncBodyPositionClientRpc_PreFix(PlayerControllerB __instance, Vector3 newBodyPosition)
-        {
-            // send to server if lethalBot from controller
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                Plugin.LogDebug($"NetworkManager {__instance.NetworkManager}, newBodyPosition {newBodyPosition}, this.deadBody {__instance.deadBody}");
-                lethalBotAI.SyncDeadBodyPositionServerRpc(newBodyPosition);
-                return false;
-            }
-
-            return true;
         }
 
         ///// <summary>
@@ -772,50 +756,6 @@ namespace LethalBots.Patches.NpcPatches
         [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
         [HarmonyPriority(Priority.Last)]
         public static void IsInSpecialAnimationClientRpc_ReversePatch(object instance, bool specialAnimation, float timed, bool climbingLadder) => throw new NotImplementedException("Stub LethalBot.Patches.NpcPatches.PlayerControllerBPatch.IsInSpecialAnimationClientRpc_ReversePatch");
-
-        /// <summary>
-        /// Reverse patch to be able to call <c>SyncBodyPositionClientRpc</c>
-        /// </summary>
-        /// <remarks>
-        /// Bypassing all rpc condition, because the lethalBot is not owner of his body, no one is, the body <c>PlayerControllerB</c> of lethalBot is not spawned.<br/>
-        /// </remarks>
-        [HarmonyPatch("SyncBodyPositionClientRpc")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static void SyncBodyPositionClientRpc_ReversePatch(object instance, Vector3 newBodyPosition)
-        {
-            /*IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
-            {
-                var startIndex = -1;
-                List<CodeInstruction> codes = new List<CodeInstruction>(instructions);
-
-                // ----------------------------------------------------------------------
-                for (var i = 0; i < codes.Count - 6; i++)
-                {
-                    if (codes[i].ToString().StartsWith("nop NULL")// 53
-                        && codes[i + 9].ToString().StartsWith("call static float UnityEngine.Vector3::Distance(UnityEngine.Vector3 a, UnityEngine.Vector3 b)"))// 62
-                    {
-                        startIndex = i;
-                        break;
-                    }
-                }
-                if (startIndex > -1)
-                {
-                    codes.Insert(0, new CodeInstruction(OpCodes.Br, codes[startIndex].labels[0]));
-                    startIndex = -1;
-                }
-                else
-                {
-                    Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.SyncBodyPositionClientRpc_ReversePatch could not bypass rpc stuff");
-                }
-
-                return codes.AsEnumerable();
-            }
-
-#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
-            _ = Transpiler(null);
-#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.*/
-        }
 
         [HarmonyPatch("SetSpecialGrabAnimationBool")]
         [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
