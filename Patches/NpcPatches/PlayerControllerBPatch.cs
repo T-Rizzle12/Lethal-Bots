@@ -158,7 +158,9 @@ namespace LethalBots.Patches.NpcPatches
         /// <returns></returns>
         [HarmonyPatch("DamagePlayer")]
         [HarmonyPrefix]
+        [HarmonyPriority(Priority.Last)]
         static bool DamagePlayer_PreFix(PlayerControllerB __instance,
+                                        bool __runOriginal,
                                         int damageNumber,
                                         bool hasDamageSFX = true,
                                         bool callRPC = true,
@@ -167,6 +169,12 @@ namespace LethalBots.Patches.NpcPatches
                                         bool fallDamage = false,
                                         Vector3 force = default(Vector3))
         {
+            // If other mods block this call, we don't do anything!
+            if (!__runOriginal)
+            {
+                return true; // Let the base game not run........
+            }
+
             LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
             if (lethalBotAI != null)
             {
@@ -174,8 +182,8 @@ namespace LethalBots.Patches.NpcPatches
                 lethalBotAI.DamageLethalBot(damageNumber, hasDamageSFX, callRPC, causeOfDeath, deathAnimation, fallDamage, force);
                 
                 // Still do the vanilla damage player, for other mods prefixes (ex: peepers)
-                // The damage will be ignored because the lethalBot playerController is not owned because not spawned
-                return false;
+                // The damage will be ignored because of the transpiler patch I made to skip all damage logic for LethalBots!
+                return true;
             }
 
             if (DebugConst.NO_DAMAGE)
@@ -826,6 +834,44 @@ namespace LethalBots.Patches.NpcPatches
             {
                 Plugin.LogDebug($"Patched out timeAtMakingLastPersonalMovement for bots in Crouch {timesPatched} times!");
             }
+
+            return codes.AsEnumerable();
+        }
+
+        /// <summary>
+        /// So you might ask, why do we need to transpile the damage player method when we have a prefix for it?
+        /// You see unlike the KillPlayer function, I can't just skip it by changing the isPlayerDead flag to true.
+        /// My solution, I patch this function to check if the player is a bot.
+        /// If so, I force the function to return early and let my prefix handle the damage logic instead.
+        /// This allows Postfixes from other mods to still run and not break compatibility, while also allowing the lethalBot to take damage
+        /// </summary>
+        /// <param name="instructions"></param>
+        /// <param name="generator"></param>
+        /// <returns></returns>
+        [HarmonyPatch("DamagePlayer")]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> DamagePlayer_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            // The start index is 0 since we want to insert our check at the very start of the method to skip all the
+            // damage logic for bots and let our prefix handle it instead!
+            const int startIndex = 0;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // Create our label's destination....
+            Label skipSnapshot = generator.DefineLabel();
+            codes[startIndex].labels.Add(skipSnapshot);
+
+            // Insert new method call to return early if this is a bot controller
+            List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+            {
+                new CodeInstruction(OpCodes.Ldarg_0),
+                new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLethalBotMethod),
+                new CodeInstruction(OpCodes.Brfalse, skipSnapshot),
+                new CodeInstruction(OpCodes.Ret)
+            };
+
+            // Insert the new instruction to call the replacement method.
+            codes.InsertRange(startIndex, codesToAdd);
 
             return codes.AsEnumerable();
         }
