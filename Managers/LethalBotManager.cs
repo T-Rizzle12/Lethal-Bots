@@ -227,14 +227,14 @@ namespace LethalBots.Managers
         public VehicleController? VehicleController;
 
         // Variables that handle the ship's NavMesh
-        private NavMeshSurface shipNavMeshSurface = null!;
-        private GameObject? shipNavMeshInstance = null!;
-        private bool shipNavMeshBuilt => shipNavMeshSurface != null
+        public NavMeshSurface shipNavMeshSurface = null!;
+        public GameObject? shipNavMeshInstance = null!;
+        public bool shipNavMeshBuilt => shipNavMeshSurface != null
                                     && shipNavMeshSurface.navMeshData != null
                                     && shipNavMeshInstance != null;
-        private bool shipNavMeshActive = false;
-        private NavMeshObstacle landingShipNavObstacle = null!;
-        private (float height, float radius) landingShipNavObstacleInfo = (0f, 0f);
+        public bool shipNavMeshActive = false;
+        public NavMeshObstacle landingShipNavObstacle = null!;
+        public (float height, float radius) landingShipNavObstacleInfo = (0f, 0f);
 
         public Dictionary<EnemyAI, INoiseListener> DictEnemyAINoiseListeners = new Dictionary<EnemyAI, INoiseListener>();
 
