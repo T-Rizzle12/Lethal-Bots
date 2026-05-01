@@ -112,10 +112,15 @@ namespace LethalBots.Patches.GameEnginePatches
             yield return null;
 
             // Load the saved blacklisted items
+            LethalBotBlacklistedItem[]? blacklistedItems = SaveManager.Instance?.Save?.BlacklistedItems;
+            if (blacklistedItems == null || blacklistedItems.Length == 0)
+            {
+                yield break;
+            }
+
             int failedToBlacklist = 0;
             HashSet<GrabbableObject> alreadyBlacklistedItems = new HashSet<GrabbableObject>();
             GrabbableObject[] grabbableObjects = Object.FindObjectsOfType<GrabbableObject>();
-            LethalBotBlacklistedItem[] blacklistedItems = SaveManager.Instance.Save.BlacklistedItems;
             foreach (var blacklistedItem in blacklistedItems)
             {
                 // Load our saved item's position
