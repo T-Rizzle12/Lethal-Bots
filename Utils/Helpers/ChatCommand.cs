@@ -9,7 +9,7 @@ namespace LethalBots.Utils.Helpers
     /// </summary>
     public class ChatCommand
     {
-        public string Keyword;
+        public string[] Keywords;
         public Func<AIState, LethalBotAI, PlayerControllerB, string, bool, bool> Execute;
 
         /// <summary>
@@ -24,7 +24,28 @@ namespace LethalBots.Utils.Helpers
             string keyword,
             Func<AIState, LethalBotAI, PlayerControllerB, string, bool, bool> execute)
         {
-            Keyword = keyword.ToLower();
+            Keywords = new string[] { keyword.ToLower() };
+            Execute = execute;
+        }
+
+        /// <summary>
+        /// Creates a new chat command
+        /// </summary>
+        /// <remarks>
+        /// WARNING: <paramref name="keywords"/> will be forced into lower case!
+        /// </remarks>
+        /// <param name="keywords"></param>
+        /// <param name="execute"></param>
+
+        public ChatCommand(
+            string[] keywords,
+            Func<AIState, LethalBotAI, PlayerControllerB, string, bool, bool> execute)
+        {
+            for (int i = 0; i < keywords.Length; i++)
+            {
+                keywords[i] = keywords[i].ToLower();
+            }
+            Keywords = keywords;
             Execute = execute;
         }
     }

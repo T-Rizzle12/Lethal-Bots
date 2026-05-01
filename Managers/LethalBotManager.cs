@@ -279,7 +279,7 @@ namespace LethalBots.Managers
         private LethalBotAI[] lethalBotsInFOV = null!; // new LethalBotAI[50]
 
         private float timerRegisterAINoiseListener;
-        private List<EnemyAI> ListEnemyAINonNoiseListeners = new List<EnemyAI>();
+        private HashSet<EnemyAI> ListEnemyAINonNoiseListeners = new HashSet<EnemyAI>();
         private static Dictionary<Type, LethalBotThreat> DictionaryLethalBotThreats = new Dictionary<Type, LethalBotThreat>();
         public static List<GameObject> grabbableObjectsInMap = new List<GameObject>();
         private float timerUpdateLightsOnMap;
@@ -616,8 +616,8 @@ namespace LethalBots.Managers
         /// </summary>
         /// <param name="itemToBlacklist"></param>
         /// <param name="rpcParams"></param>
-        [Rpc(SendTo.Server, RequireOwnership = false)]
-        public void RegisterItemAsBlacklistedRpc(NetworkObjectReference itemToBlacklist, RpcParams rpcParams = default)
+        [ServerRpc(RequireOwnership = false)]
+        public void RegisterItemAsBlacklistedServerRpc(NetworkObjectReference itemToBlacklist, ServerRpcParams rpcParams = default)
         {
             ClientRpcParams.Send = new ClientRpcSendParams() 
             { 
@@ -633,6 +633,44 @@ namespace LethalBots.Managers
             {
                 string headerText = "Error!";
                 string bodyText = "Failed to add Held Item to sell blacklist.";
+                DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
+            }
+        }
+
+        /// <summary>
+        /// Rpc to register a list of items to the sell blacklist
+        /// </summary>
+        /// <param name="itemsToBlacklist"></param>
+        /// <param name="rpcParams"></param>
+        [ServerRpc(RequireOwnership = false)]
+        public void RegisterItemsAsBlacklistedServerRpc(NetworkObjectReference[] itemsToBlacklist, ServerRpcParams rpcParams = default)
+        {
+            ClientRpcParams.Send = new ClientRpcSendParams()
+            {
+                TargetClientIds = new ulong[] { rpcParams.Receive.SenderClientId }
+            };
+
+            // Loop and add each item to the blacklist
+            int successCount = 0;
+            foreach (var itemToBlacklist in itemsToBlacklist)
+            {
+                // Register the item
+                if (RegisterItemAsBlacklisted(itemToBlacklist))
+                {
+                    successCount++; // Keep track if we succeeded in adding the item or not.
+                }
+            }
+
+            if (successCount >= itemsToBlacklist.Length)
+            {
+                string headerText = "Success!";
+                string bodyText = $"{successCount} Item(s) successfully added to sell blacklist.";
+                DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
+            }
+            else
+            {
+                string headerText = "Error!";
+                string bodyText = $"Failed to add {itemsToBlacklist.Length - successCount} Item(s) to sell blacklist.";
                 DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
             }
         }
@@ -677,8 +715,8 @@ namespace LethalBots.Managers
         /// </summary>
         /// <param name="itemToBlacklist"></param>
         /// <param name="rpcParams"></param>
-        [Rpc(SendTo.Server, RequireOwnership = false)]
-        public void RemoveItemFromBlacklistedRpc(NetworkObjectReference itemToBlacklist, RpcParams rpcParams = default)
+        [ServerRpc(RequireOwnership = false)]
+        public void RemoveItemFromBlacklistServerRpc(NetworkObjectReference itemToBlacklist, ServerRpcParams rpcParams = default)
         {
             ClientRpcParams.Send = new ClientRpcSendParams()
             {
@@ -694,6 +732,44 @@ namespace LethalBots.Managers
             {
                 string headerText = "Error!";
                 string bodyText = "Failed to remove Held Item from sell blacklist.";
+                DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
+            }
+        }
+
+        /// <summary>
+        /// Rpc to remove a list of items from the sell blacklist
+        /// </summary>
+        /// <param name="itemsToBlacklist"></param>
+        /// <param name="rpcParams"></param>
+        [ServerRpc(RequireOwnership = false)]
+        public void RemoveItemsFromBlacklistServerRpc(NetworkObjectReference[] itemsToBlacklist, ServerRpcParams rpcParams = default)
+        {
+            ClientRpcParams.Send = new ClientRpcSendParams()
+            {
+                TargetClientIds = new ulong[] { rpcParams.Receive.SenderClientId }
+            };
+
+            // Loop and remove each item from the blacklist
+            int successCount = 0;
+            foreach (var itemToBlacklist in itemsToBlacklist)
+            {
+                // Remove the item
+                if (RemoveItemFromBlacklist(itemToBlacklist))
+                {
+                    successCount++; // Keep track if we succeeded in removing the item or not.
+                }
+            }
+
+            if (successCount >= itemsToBlacklist.Length)
+            {
+                string headerText = "Success!";
+                string bodyText = $"{successCount} Item(s) successfully removed from sell blacklist.";
+                DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
+            }
+            else
+            {
+                string headerText = "Error!";
+                string bodyText = $"Failed to remove {itemsToBlacklist.Length - successCount} Item(s) from sell blacklist.";
                 DisplayTipClientRpc(headerText, bodyText, ClientRpcParams);
             }
         }
@@ -765,7 +841,7 @@ namespace LethalBots.Managers
                     // Validate the network object first
                     if (!change.Value.TryGet(out NetworkObject item))
                     {
-                        Plugin.LogWarning("LethalBotManager.RegisterItemAsBlacklisted: Failed to resolve NetworkObjectReference (likely despawned).");
+                        Plugin.LogWarning("LethalBotManager.OnBlacklistChanged: Failed to resolve NetworkObjectReference (likely despawned).");
                         return;
                     }
 
@@ -773,7 +849,7 @@ namespace LethalBots.Managers
                     GrabbableObject? grabbableObject = item.gameObject.GetComponent<GrabbableObject>();
                     if (grabbableObject == null)
                     {
-                        Plugin.LogError("LethalBotManager.RegisterItemAsBlacklisted: Failed to resolve GrabbableObject component from network object");
+                        Plugin.LogError("LethalBotManager.OnBlacklistChanged: Failed to resolve GrabbableObject component from network object");
                         return;
                     }
                     blacklistedItems.Remove(grabbableObject);
@@ -2222,7 +2298,7 @@ namespace LethalBots.Managers
                     }
                     return;
                 }
-                else if (message.StartsWith("/addbots"))
+                else if (message.StartsWith("!lb addbots"))
                 {
                     // Lets the host have bots join the game
                     if (HostPlayerScript != playerWhoSentMessage)
@@ -2244,30 +2320,84 @@ namespace LethalBots.Managers
                     }
                     return;
                 }
-                else if (message.StartsWith("/blacklistitem"))
+                else if (message.StartsWith("!lb blacklistitem"))
                 {
                     // HACKHACK: Only network this once, since LethalBotsRespondToChatMessage is called for all players,
                     // we can check this here!
                     if (IsPlayerLocal(playerWhoSentMessage))
                     {
-                        NetworkObject? heldItem = playerWhoSentMessage.currentlyHeldObjectServer?.NetworkObject;
-                        if (heldItem != null && heldItem.IsSpawned)
+                        GrabbableObject? heldItem = playerWhoSentMessage.currentlyHeldObjectServer;
+                        NetworkObject? heldNetworkObject = heldItem?.NetworkObject;
+                        if (heldItem != null && heldNetworkObject != null && heldNetworkObject.IsSpawned)
                         {
-                            RegisterItemAsBlacklistedRpc(heldItem);
+                            // Check if we were told to register only the held item, or all items of the same type as the held item
+                            if (message.Contains("all"))
+                            {
+                                // Register all items with the same internal name as the held item as blacklisted!
+                                List<NetworkObjectReference> itemsToBlacklist = new List<NetworkObjectReference>();
+                                string itemName = heldItem.itemProperties.itemName;
+                                foreach (var gameObject in grabbableObjectsInMap)
+                                {
+                                    // grabbableObjectsInMap is a list of GameObjects, we need to get the GrabbableObject component first.
+                                    GrabbableObject? grabbableObject = gameObject?.GetComponent<GrabbableObject>();
+                                    if (grabbableObject != null 
+                                        && grabbableObject.itemProperties.itemName == itemName)
+                                    {
+                                        // Make sure the item has a network object and is spawned before we try to blacklist it!
+                                        NetworkObject? networkObject = grabbableObject?.NetworkObject;
+                                        if (networkObject != null && networkObject.IsSpawned && !itemsToBlacklist.Contains(networkObject))
+                                        {
+                                            itemsToBlacklist.Add(networkObject);
+                                        }
+                                    }
+                                }
+                                RegisterItemsAsBlacklistedServerRpc(itemsToBlacklist.ToArray());
+                            }
+                            else
+                            {
+                                RegisterItemAsBlacklistedServerRpc(heldNetworkObject);
+                            }
                         }
                     }
                     return;
                 }
-                else if (message.StartsWith("/unblacklistitem"))
+                else if (message.StartsWith("!lb unblacklistitem"))
                 {
                     // HACKHACK: Only network this once, since LethalBotsRespondToChatMessage is called for all players,
                     // we can check this here!
                     if (IsPlayerLocal(playerWhoSentMessage))
                     {
-                        NetworkObject? heldItem = playerWhoSentMessage.currentlyHeldObjectServer?.NetworkObject;
-                        if (heldItem != null && heldItem.IsSpawned)
+                        GrabbableObject? heldItem = playerWhoSentMessage.currentlyHeldObjectServer;
+                        NetworkObject? heldNetworkObject = heldItem?.NetworkObject;
+                        if (heldItem != null && heldNetworkObject != null && heldNetworkObject.IsSpawned)
                         {
-                            RemoveItemFromBlacklistedRpc(heldItem);
+                            // Check if we were told to register only the held item, or all items of the same type as the held item
+                            if (message.Contains("all"))
+                            {
+                                // Register all items with the same internal name as the held item as blacklisted!
+                                List<NetworkObjectReference> itemsToBlacklist = new List<NetworkObjectReference>();
+                                string itemName = heldItem.itemProperties.itemName;
+                                foreach (var gameObject in grabbableObjectsInMap)
+                                {
+                                    // grabbableObjectsInMap is a list of GameObjects, we need to get the GrabbableObject component first.
+                                    GrabbableObject? grabbableObject = gameObject?.GetComponent<GrabbableObject>();
+                                    if (grabbableObject != null
+                                        && grabbableObject.itemProperties.itemName == itemName)
+                                    {
+                                        // Make sure the item has a network object and is spawned before we try to blacklist it!
+                                        NetworkObject? networkObject = grabbableObject?.NetworkObject;
+                                        if (networkObject != null && networkObject.IsSpawned && !itemsToBlacklist.Contains(networkObject))
+                                        {
+                                            itemsToBlacklist.Add(networkObject);
+                                        }
+                                    }
+                                }
+                                RemoveItemsFromBlacklistServerRpc(itemsToBlacklist.ToArray());
+                            }
+                            else
+                            {
+                                RemoveItemFromBlacklistServerRpc(heldNetworkObject);
+                            }
                         }
                     }
                     return;

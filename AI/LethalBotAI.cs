@@ -2168,9 +2168,9 @@ namespace LethalBots.AI
                 agent.enabled = enabled;
                 if (enabled)
                 {
-                    // Triple the pathing cost for water!
+                    // 5 times the pathing cost for water!
                     int waterArea = NavMesh.GetAreaFromName("Water");
-                    agent.SetAreaCost(waterArea, 3f);
+                    agent.SetAreaCost(waterArea, 5f);
 
                     // High path cost for quicksand
                     agent.SetAreaCost(Const.LETHAL_BOT_QUICKSAND_NAVAREA, 50f);
@@ -5339,12 +5339,6 @@ namespace LethalBots.AI
                         bool isInElevator = shipBounds.Contains(playerPos + Vector3.up * 0.25f);
                         if (lethalBotController.isInElevator != isInElevator)
                         {
-                            // HACKHACK: This is a horrible way to fix the bug where the bots can sometimes "fall" out of the ship,
-                            // but I don't have any other solution at the moment. The bug started happening after the V80 update.
-                            if (LethalBotManager.IsTheShipLanding(instanceSOR))
-                            {
-                                Plugin.LogDebug("Ship is landing, but bot is no longer in ship?");
-                            }
                             lethalBotController.isInElevator = isInElevator;
                             if (!isInElevator)
                             {

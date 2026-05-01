@@ -80,11 +80,16 @@ namespace LethalBots.Managers
         /// <returns></returns>
         public static string[] GetAllRegisteredChatCommandKeywords()
         {
+            // Add all of the keywords together
             HashSet<string> keywords = new HashSet<string>();
             ChatCommand[] allChatCommands = GetAllRegisteredChatCommands();
             foreach (var chatCommand in allChatCommands)
             {
-                keywords.Add(chatCommand.Keyword);
+                // Some commands have mulitple keywords, so we need to add them all!
+                foreach (var keyword in chatCommand.Keywords)
+                {
+                    keywords.Add(keyword);
+                }
             }
             return keywords.ToArray();
         }
@@ -122,13 +127,19 @@ namespace LethalBots.Managers
             // Check for state specific overrides or custom commands.
             if (stateCommands.TryGetValue(stateType, out var list))
             {
+                // Go through each command.
                 foreach (var command in list)
                 {
-                    if (message.Contains(command.Keyword))
+                    // Some commands have mulitple keywords, so we need to check them all!
+                    foreach (var keyword in command.Keywords)
                     {
-                        if (command.Execute(state, lethalBotAI, playerWhoSentMessage, message, isVoice))
+                        // If the message contains the keyword, execute the command!
+                        if (message.Contains(keyword))
                         {
-                            return true;
+                            if (command.Execute(state, lethalBotAI, playerWhoSentMessage, message, isVoice))
+                            {
+                                return true; // If the command tells us that it wants to stop processing, then we stop processing!
+                            }
                         }
                     }
                 }
@@ -143,11 +154,16 @@ namespace LethalBots.Managers
             // Check for the default chat commands.
             foreach (var command in globalCommands)
             {
-                if (message.Contains(command.Keyword))
+                // Some commands have mulitple keywords, so we need to check them all!
+                foreach (var keyword in command.Keywords)
                 {
-                    if (command.Execute(state, lethalBotAI, playerWhoSentMessage, message, isVoice))
+                    // If the message contains the keyword, execute the command!
+                    if (message.Contains(keyword))
                     {
-                        return true;
+                        if (command.Execute(state, lethalBotAI, playerWhoSentMessage, message, isVoice))
+                        {
+                            return true; // If the command tells us that it wants to stop processing, then we stop processing!
+                        }
                     }
                 }
             }
