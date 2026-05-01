@@ -1,5 +1,8 @@
 # Changelog
 
+## 7.0.2 2026-5-1
+Just a minor patch to publicize some ship navmesh fields to help modders add support for their custom ship sizes!
+
 ## 7.0.1 2026-4-30
 Hello again, I just have some minor bug fixes for some issues that were found after the 7.0.0 Update.
 
