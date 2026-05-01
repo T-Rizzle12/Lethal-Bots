@@ -21,11 +21,19 @@ namespace LethalBots.Patches.MapPatches
         /// <returns></returns>
         [HarmonyPatch("Start")]
         [HarmonyFinalizer]
-        static Exception Start_PostFix(Exception __exception)
+        static Exception Start_Finalizer(Exception __exception)
         {
             // Run our code
             LethalBotManager.Instance.VehicleHasLanded();
             return __exception; // Let the original exception propagate!
+        }
+
+        [HarmonyPatch("Start")]
+        [HarmonyPostfix]
+        static void Start_PostFix()
+        {
+            // Run our code
+            LethalBotManager.Instance.VehicleHasLanded();
         }
 
         /// <summary>

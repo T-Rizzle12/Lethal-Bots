@@ -282,6 +282,50 @@ namespace LethalBots.Patches.GameEnginePatches
             }
         }
 
+        [HarmonyPatch("DetectVoiceChatAmplitude")]
+        [HarmonyPostfix]
+        static void DetectVoiceChatAmplitude_Postfix(StartOfRound __instance)
+        {
+            // Just like the base game, we need to broadcast the bot's voice amplitude!
+            foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal())
+            {
+                PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
+                if (lethalBotController != null)
+                {
+                    // Sanity check, make sure our voice is valid.
+                    LethalBotVoice? voice = lethalBotAI.LethalBotIdentity?.Voice;
+                    if (voice == null)
+                    {
+                        continue;
+                    }
+
+                    // Just like the base game, we need to average out the amplitude over a few frames to get a more stable value.
+                    float voiceAmplitude = voice.GetVoiceAmplitude();
+                    voice.averageCount++;
+                    if (voice.averageCount > __instance.movingAverageLength)
+                    {
+                        voice.averageVoiceAmplitude += (voiceAmplitude - voice.averageVoiceAmplitude) / (float)(__instance.movingAverageLength + 1);
+                    }
+                    else
+                    {
+                        voice.averageVoiceAmplitude += voiceAmplitude;
+                        if (voice.averageCount == __instance.movingAverageLength)
+                        {
+                            voice.averageVoiceAmplitude /= voice.averageCount;
+                        }
+                    }
+
+                    float num = voiceAmplitude / Mathf.Clamp(voice.averageVoiceAmplitude, 0.008f, 0.5f);
+                    if (voice.IsTalking() && voice.voiceChatNoiseCooldown <= 0f && num > 3f)
+                    {
+                        LethalBotVoice.lethalBotTalkEvent.Invoke(voice, Mathf.Clamp(num / 14f, 0.4f, 1f));
+                        LethalBotManager.Instance.PlayAudibleNoiseForLethalBot(voice.BotID, lethalBotController.transform.position, Mathf.Clamp(3f * num, 3f, 36f), Mathf.Clamp(num / 7f, 0.6f, 0.9f), 5);
+                        voice.voiceChatNoiseCooldown = 0.2f;
+                    }
+                }
+            }
+        }
+
         /// <summary>
         /// Patch to mark bots as "fully loaded" when the host fully loads!
         /// </summary>

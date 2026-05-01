@@ -4,7 +4,6 @@ using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Managers;
 using LethalBots.Utils.Helpers;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,6 +23,31 @@ namespace LethalBots.Patches.EnemiesPatches
         private static MethodInfo increaseBackFlowersMethod = AccessTools.Method(typeof(CadaverGrowthAI), "IncreaseBackFlowers");
         private static MethodInfo healPlayerSporeEffectMethod = AccessTools.Method(typeof(CadaverGrowthAI), "HealPlayerSporeEffect");
 
+        // Cache the reference to the CadaverGrowthAI since we need it for multiple patches
+        // and it's a pretty expensive call to do Object.FindObjectOfType every time we need it.
+        private static readonly UpdateLimiter nextCadaverGrowthCheck = new UpdateLimiter();
+        internal static CadaverGrowthAI? CadaverGrowthAI
+        {
+            set => field = value;
+            get
+            {
+                if (field == null && nextCadaverGrowthCheck.CanUpdate())
+                {
+                    nextCadaverGrowthCheck.Invalidate();
+                    field = Object.FindObjectOfType<CadaverGrowthAI>();
+                }
+                return field;
+            }
+        }
+
+        [HarmonyPatch("OnEnable")]
+        [HarmonyPostfix]
+        public static void OnEnable_Postfix(CadaverGrowthAI __instance)
+        {
+            CadaverGrowthAI = __instance;
+            LethalBotVoice.lethalBotTalkEvent.AddListener(OnLethalBotTalk);
+        }
+
         /// <summary>
         /// Simple patch that makes sure that the movement hindering effect of the infection is removed for bots
         /// just like how it is for other players when the AI is disabled.
@@ -33,6 +57,9 @@ namespace LethalBots.Patches.EnemiesPatches
         [HarmonyPostfix]
         public static void OnDisable_Postfix(CadaverGrowthAI __instance)
         {
+            CadaverGrowthAI = null;
+            LethalBotVoice.lethalBotTalkEvent.RemoveListener(OnLethalBotTalk);
+
             PlayerControllerB localPlayerController = GameNetworkManager.Instance.localPlayerController;
             for (int i = 0; i < __instance.playerInfections.Length; i++)
             {
@@ -49,6 +76,43 @@ namespace LethalBots.Patches.EnemiesPatches
                         playerController.overridePoisonValue = false;
                     }
                     playerInfection.hinderingPlayerMovement = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// This is a carbon copy of <see cref="CadaverGrowthAI.OnLocalPlayerTalk(float)"/>, but made for bots!
+        /// </summary>
+        /// <param name="botVoice"></param>
+        /// <param name="loudness"></param>
+        private static void OnLethalBotTalk(LethalBotVoice botVoice, float loudness)
+        {
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(botVoice.BotID);
+            if (lethalBotAI == null || CadaverGrowthAI == null)
+            {
+                return;
+            }
+
+            PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
+            PlayerInfection playerInfection = CadaverGrowthAI.playerInfections[lethalBotController.playerClientId];
+            Plugin.LogDebug($"On Lethal Bot talk {lethalBotController.playerUsername}!");
+            if (!playerInfection.infected)
+            {
+                return;
+            }
+            Plugin.LogDebug($"On Lethal Bot talk! B ; {playerInfection.infectionMeter} ; {playerInfection.emittingSpores}!");
+            if (playerInfection.infectionMeter > 0.6f && (playerInfection.emittingSpores || Random.Range(0, 1000) < 10))
+            {
+                Plugin.LogDebug($"On Lethal Bot talk! C {playerInfection.backFlowers == null}; {playerInfection.faceSpores == null}!");
+                if (playerInfection.backFlowers != null && playerInfection.faceSpores != null)
+                {
+                    playerInfection.faceSpores.SetFloat("BurstAmount", Mathf.Lerp(370f, 700f, loudness));
+                    playerInfection.faceSporesOutput = 0.16f;
+                    playerInfection.faceSpores.transform.position = lethalBotController.gameplayCamera.transform.position;
+                    Plugin.LogDebug($"Face spore object position: {lethalBotController.gameplayCamera.transform.position}; {lethalBotController.gameplayCamera.transform.position + lethalBotController.gameplayCamera.transform.forward * 0.25f}");
+                    playerInfection.faceSpores.transform.rotation = lethalBotController.gameplayCamera.transform.rotation;
+                    playerInfection.faceSpores.Play();
+                    CadaverGrowthAI.CoughSporesRpc(loudness, (int)lethalBotController.playerClientId);
                 }
             }
         }

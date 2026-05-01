@@ -2816,9 +2816,9 @@ namespace LethalBots.AI
         /// Returns true if the given EnemyAI can be killed!
         /// </summary>
         /// <inheritdoc cref="LethalBotAI.CanEnemyBeKilled(EnemyAI, bool, bool)"/>
-        public bool CanEnemyBeKilled(EnemyAI enemy)
+        public bool CanEnemyBeKilled(EnemyAI enemy, bool isMissionController = false)
         {
-            return CanEnemyBeKilled(enemy, HasRangedWeapon(), false);
+            return CanEnemyBeKilled(enemy, HasRangedWeapon(), false, isMissionController);
         }
 
         /// <summary>
@@ -2830,7 +2830,7 @@ namespace LethalBots.AI
         /// </remarks>
         /// <param name="enemy"></param>
         /// <returns>Can the enemy be killed?</returns>
-        public static bool CanEnemyBeKilled(EnemyAI enemy, bool hasRangedWeapon = false, bool isHumanPlayer = false)
+        public static bool CanEnemyBeKilled(EnemyAI enemy, bool hasRangedWeapon = false, bool isHumanPlayer = false, bool isMissionController = false)
         {
             // If you turn this on.....just know what you are getting yourself into......
             // After all, the bots can't tell if you are outmatched here...........
@@ -2876,7 +2876,12 @@ namespace LethalBots.AI
                 }
                 return hasRangedWeapon || isHumanPlayer || isEnemyStunned || enemy.isInsidePlayerShip;
             }
-            else if (enemy is CadaverBloomAI || enemy is PumaAI)
+            else if (enemy is PumaAI)
+            {
+                // The mission controller bot should only protect the ship, not give chase to the fieopar!
+                return !isMissionController || enemy.isInsidePlayerShip;
+            }
+            else if (enemy is CadaverBloomAI)
             {
                 // Slightly special in that the mission controller bot will give their life to protect the ship!
                 return hasRangedWeapon || isHumanPlayer || isEnemyStunned || enemy.isInsidePlayerShip;

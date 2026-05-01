@@ -2062,7 +2062,7 @@ namespace LethalBots.AI.AIStates
             {
                 // Only check for alive and invading enemies!
                 if (spawnedEnemy.isEnemyDead 
-                    || (onlyKillable && !ai.CanEnemyBeKilled(spawnedEnemy)))
+                    || (onlyKillable && !ai.CanEnemyBeKilled(spawnedEnemy, true)))
                 {
                     continue;
                 }

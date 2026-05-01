@@ -121,8 +121,6 @@ namespace LethalBots.Managers
         /// </summary>
         public HashSet<GrabbableObject> blacklistedItems = new HashSet<GrabbableObject>();
 
-        #endregion
-
         /// <summary>
         /// Public property used to return the host player object!
         /// </summary>
@@ -193,6 +191,8 @@ namespace LethalBots.Managers
         /// This is the last reported time of day from the last <see cref="MissionControlPlayer"/>.
         /// </summary>
         public static DayMode lastReportedTimeOfDay = DayMode.Dawn;
+
+        #endregion
 
         /// <summary>
         /// Returns the <see cref="DepositItemsDesk"/> instance in the scene, if it exists.<br/>

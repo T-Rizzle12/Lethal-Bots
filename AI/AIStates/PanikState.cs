@@ -74,7 +74,7 @@ namespace LethalBots.AI.AIStates
                 if (fearRange.HasValue)
                 {
                     // Why run when we can fight back!
-                    if (ai.HasCombatWeapon() && ai.CanEnemyBeKilled(this.CurrentEnemy))
+                    if (ai.HasCombatWeapon() && ai.CanEnemyBeKilled(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
                     {
                         ai.State = new FightEnemyState(this, this.CurrentEnemy, this.previousAIState);
                         return;
@@ -264,7 +264,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Why run when we can fight back!
-            if (ai.HasCombatWeapon() && ai.CanEnemyBeKilled(this.CurrentEnemy))
+            if (ai.HasCombatWeapon() && ai.CanEnemyBeKilled(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
             {
                 ai.State = new FightEnemyState(this, this.CurrentEnemy, this.previousAIState);
                 return;
@@ -528,16 +528,40 @@ namespace LethalBots.AI.AIStates
         /// <returns><see langword="true"/> if we should skip movement logic; otherwise <see langword="false"/></returns>
         private bool CounterEnemy(EnemyAI CurrentEnemy)
         {
-            // Look at the enemy if they are a coil head, bracken, or feiopars!
-            if (CurrentEnemy is SpringManAI || CurrentEnemy is FlowermanAI || CurrentEnemy is PumaAI)
+            // Look at the enemy if they are a coil head or bracken.
+            if (CurrentEnemy is SpringManAI || CurrentEnemy is FlowermanAI)
             {
                 npcController.OrderToLookAtPosition(CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f);
             }
             // We can save ourself if we have a weapon nearby us!
-            else if (CurrentEnemy is CentipedeAI || CurrentEnemy is CrawlerAI || CurrentEnemy is MaskedPlayerEnemy || CurrentEnemy is BushWolfEnemy)
+            else if (CurrentEnemy is CentipedeAI 
+                || CurrentEnemy is CrawlerAI 
+                || CurrentEnemy is MaskedPlayerEnemy 
+                || CurrentEnemy is BushWolfEnemy
+                || (CurrentEnemy is CadaverBloomAI && CurrentEnemy.isInsidePlayerShip))
             {
                 // This is good if we have a weapon on us, or dropped nearby us!
                 float maxRange = CurrentEnemy is MaskedPlayerEnemy || CurrentEnemy is CrawlerAI ? Const.LETHAL_BOT_OBJECT_AWARNESS : Const.LETHAL_BOT_OBJECT_RANGE;
+                GrabbableObject? weapon = FindNearbyWeapon(maxRange);
+                if (weapon != null)
+                {
+                    // Try to grab it!
+                    ai.State = new FetchingObjectState(this, weapon, ignoreEnemies: true);
+                    return true;
+                }
+            }
+            // Stare at the feiopars to scare them away.
+            else if (CurrentEnemy is PumaAI pumaAI)
+            {
+                // If the feiopar stops moving towards us, we can assume its scared and we should assert dominance to scare it away!
+                npcController.OrderToLookAtPosition(CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f);
+                if (PatchesUtil.stalkingFrozenField(pumaAI))
+                {
+                    return true;
+                }
+
+                // This is good if we have a weapon on us, or dropped nearby us!
+                float maxRange = Const.LETHAL_BOT_OBJECT_AWARNESS;
                 GrabbableObject? weapon = FindNearbyWeapon(maxRange);
                 if (weapon != null)
                 {

@@ -66,7 +66,7 @@ namespace LethalBots.AI.AIStates
                 }
                 float? fearRange = ai.GetFearRangeForEnemies(this.CurrentEnemy);
                 if (!fearRange.HasValue
-                    || !ai.CanEnemyBeKilled(this.CurrentEnemy)
+                    || !ai.CanEnemyBeKilled(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc)
                     || !ai.HasCombatWeapon())
                 {
                     ChangeBackToPreviousState();
@@ -98,7 +98,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Kinda hard to kill an enemy without a weapon
-            if (!ai.CanEnemyBeKilled(CurrentEnemy) || !ai.HasCombatWeapon())
+            if (!ai.CanEnemyBeKilled(CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc) || !ai.HasCombatWeapon())
             {
                 ChangeBackToPreviousState(); 
                 return;
@@ -117,7 +117,7 @@ namespace LethalBots.AI.AIStates
             if (newEnemyAI != null && newEnemyAI != this.CurrentEnemy)
             {
                 float? newFearRange = ai.GetFearRangeForEnemies(newEnemyAI);
-                if (newFearRange.HasValue && ai.CanEnemyBeKilled(newEnemyAI))
+                if (newFearRange.HasValue && ai.CanEnemyBeKilled(newEnemyAI, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
                 {
                     this.CurrentEnemy = newEnemyAI;
                     fearRange = newFearRange.Value;
