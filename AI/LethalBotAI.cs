@@ -6164,7 +6164,7 @@ namespace LethalBots.AI
             if (this.OwnerClientId != targetClientId)
             {
                 // Changes the ownership of the lethalBot, on server and client directly
-                ChangeOwnershipOfEnemy(newTarget.actualClientId);
+                ChangeOwnershipOfEnemy(targetClientId);
 
                 if (this.IsServer)
                 {

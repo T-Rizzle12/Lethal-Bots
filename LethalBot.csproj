@@ -197,8 +197,11 @@
 	<Reference Include="DawnLib-Compatability">
 		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.compatibility.dll</HintPath>
 	</Reference>
-	<Reference Include="UsualScrap.dll">
+	<Reference Include="UsualScrap">
 		<HintPath>lib\mods\UsualScrap.dll</HintPath>
+	</Reference>
+	<Reference Include="Tomatobird.AutoRevive">
+		<HintPath>lib\mods\Tomatobird.AutoRevive.dll</HintPath>
 	</Reference>
     <Reference Include="Unity.Animation.Rigging">
       <HintPath>lib\Unity.Animation.Rigging.dll</HintPath>

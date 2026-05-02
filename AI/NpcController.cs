@@ -96,7 +96,6 @@ namespace LethalBots.AI
         //private float slopeModifier; // ignore for now
         private Vector3 walkForce;
         private bool isFallingNoJump;
-        private int previousFootstepClip;
 
         private Dictionary<string, bool> dictAnimationBoolPerItem = null!;
 

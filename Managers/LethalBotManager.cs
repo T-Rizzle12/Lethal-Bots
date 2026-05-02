@@ -8,6 +8,7 @@ using LethalBots.Enums;
 using LethalBots.NetworkSerializers;
 using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
+using LethalBots.Patches.ModPatches.AutoRevive;
 using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
@@ -276,7 +277,6 @@ namespace LethalBots.Managers
         private bool _areAllHumanPlayersDead;
         private float nextCheckForAllPlayersOnShip;
         private bool _areAllPlayersOnTheShip;
-        private LethalBotAI[] lethalBotsInFOV = null!; // new LethalBotAI[50]
 
         private float timerRegisterAINoiseListener;
         private HashSet<EnemyAI> ListEnemyAINonNoiseListeners = new HashSet<EnemyAI>();
@@ -986,15 +986,13 @@ namespace LethalBots.Managers
             int irlPlayersCount = Plugin.PluginIrlPlayersCount;
 
             // Initialize back ups
-            if (AllLethalBotAIs == null || lethalBotsInFOV == null)
+            if (AllLethalBotAIs == null)
             {
                 AllLethalBotAIs = new LethalBotAI[irlPlayersCount];
-                lethalBotsInFOV = new LethalBotAI[irlPlayersCount];
             }
             else if (AllLethalBotAIs.Length != irlPlayersCount)
             {
                 Array.Resize(ref AllLethalBotAIs, irlPlayersCount);
-                Array.Resize(ref lethalBotsInFOV, irlPlayersCount);
             }
 
             // We save this so we can deterine how many player slots are available without needing to grab the entire table.
@@ -1693,6 +1691,32 @@ namespace LethalBots.Managers
                 }
                 if (lethalBotIdentity.DeadBody != null)
                 {
+                    GrabbableObject? body = lethalBotIdentity.DeadBody.grabBodyObject;
+                    if (body != null)
+                    {
+                        if (!body.isHeld)
+                        {
+                            if (IsServer)
+                            {
+                                if (body.NetworkObject.IsSpawned)
+                                {
+                                    body.NetworkObject.Despawn();
+                                }
+                                else
+                                {
+                                    Object.Destroy(body.gameObject);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            PlayerControllerB? playerHoldingBody = body.playerHeldBy;
+                            if (playerHoldingBody != null && body.isHeld)
+                            {
+                                playerHoldingBody.DropAllHeldItems();
+                            }
+                        }
+                    }
                     Object.Destroy(lethalBotIdentity.DeadBody.gameObject);
                     lethalBotIdentity.DeadBody = null;
                 }
@@ -2117,6 +2141,13 @@ namespace LethalBots.Managers
                         lethalBotAI.HangupPhone();
                     }
                     CleanupLethalPhoneForBot(lethalBotController);
+                }
+
+                // Auto Revive support!
+                if (Plugin.IsModAutoReviveLoaded)
+                {
+                    LethalBotAutoReviveHelper.AutoReviveHandler autoReviveHandler = LethalBotAutoReviveHelper.GetAutoReviveHandler(lethalBotController);
+                    autoReviveHandler.OnPlayerDC();
                 }
 
                 // Mimic suit switch to default suit on kick

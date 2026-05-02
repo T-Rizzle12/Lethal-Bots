@@ -12,6 +12,7 @@ using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapHazardsPatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.AdditionalNetworking;
+using LethalBots.Patches.ModPatches.AutoRevive;
 using LethalBots.Patches.ModPatches.BetterEmotes;
 using LethalBots.Patches.ModPatches.BunkbedRevive;
 using LethalBots.Patches.ModPatches.ButteryFixes;
@@ -74,6 +75,7 @@ namespace LethalBots
     [BepInDependency(Const.LETHALINTERNS_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LCVR.Plugin.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(DawnLib.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(LCAutoRevive.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         // Please don't use the MyPluginInfo class for the GUID, my mod is
@@ -109,6 +111,7 @@ namespace LethalBots
         internal static bool IsModGeneralImprovementsLoaded = false;
         internal static bool IsModDawnLibLoaded = false;
         internal static bool IsModUsualScrapLoaded = false;
+        internal static bool IsModAutoReviveLoaded = false;
         private readonly Harmony _harmony = new(ModGUID);
 
         private void Awake()
@@ -305,6 +308,7 @@ namespace LethalBots
             IsModGeneralImprovementsLoaded = IsModLoaded(Const.GENERAL_IMPROVEMENTS_GUID);
             IsModDawnLibLoaded = IsModLoaded(DawnLib.PLUGIN_GUID);
             IsModUsualScrapLoaded = IsModLoaded(UsualScrap.Plugin.PLUGIN_GUID);
+            IsModAutoReviveLoaded = IsModLoaded(LCAutoRevive.MyPluginInfo.PLUGIN_GUID);
 
             bool isModMoreEmotesLoaded = IsModLoaded(Const.MOREEMOTES_GUID);
             bool isModBetterEmotesLoaded = IsModLoaded(Const.BETTEREMOTES_GUID);
@@ -440,6 +444,22 @@ namespace LethalBots
             if (IsModUsualScrapLoaded)
             {
                 _harmony.PatchAll(typeof(DefibrillatorScriptPatch));
+            }
+            if (IsModAutoReviveLoaded)
+            {
+                _harmony.PatchAll(typeof(AutoRevivePlayerPatch));
+                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCAutoRevive.Patches.PlayerControllerBPatcher"), "KillPlayerPostfix"),
+                               new HarmonyMethod(typeof(LethalBotAutoReviveHelper), nameof(LethalBotAutoReviveHelper.KillPlayerPostfix_Prefix)));
+                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCAutoRevive.Patches.StartOfRoundPatcher"), "ReviveDeadPlayersPostfix"),
+                               null,
+                               new HarmonyMethod(typeof(LethalBotAutoReviveHelper), nameof(LethalBotAutoReviveHelper.ReviveDeadPlayersPostfix_Postfix)));
+                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCAutoRevive.Patches.StartOfRoundPatcher"), "ShipLeavePostfix"),
+                               null,
+                               new HarmonyMethod(typeof(LethalBotAutoReviveHelper), nameof(LethalBotAutoReviveHelper.ShipLeavePostfix_Postfix)));
+                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCAutoRevive.Network.NetworkHandler"), "CheckIfAllPlayersDead"),
+                               null,
+                               null,
+                               new HarmonyMethod(typeof(LethalBotAutoReviveHelper), nameof(LethalBotAutoReviveHelper.CheckIfAllPlayersDead_Transpiler)));
             }
         }
 
