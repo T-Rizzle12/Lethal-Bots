@@ -170,7 +170,10 @@ namespace LethalBots
             }
 
             // randomize GlobalObjectIdHash
-            byte[] value = MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(Assembly.GetCallingAssembly().GetName().Name + gameObject.name + bundleName));
+            //Logger.LogInfo($"Calling Assembly Name: {typeof(Plugin).Assembly.GetName().Name}");
+            //Logger.LogInfo($"Prefab Name: {gameObject.name}");
+            //Logger.LogInfo($"Bundle Name: {bundleName}");
+            byte[] value = MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(typeof(Plugin).Assembly.GetName().Name + gameObject.name + bundleName));
             uint newGlobalObjectIdHash = BitConverter.ToUInt32(value, 0);
             Type type = typeof(NetworkObject);
             FieldInfo fieldInfo = type.GetField("GlobalObjectIdHash", BindingFlags.NonPublic | BindingFlags.Instance);
