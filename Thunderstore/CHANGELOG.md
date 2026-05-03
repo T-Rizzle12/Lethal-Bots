@@ -1,5 +1,9 @@
 # Changelog
 
+## 7.0.3 2026-5-3
+I have no idea how long this has been a bug, but I fixed the Lethal Bot Prefab hash sometimes not being consistent between clients.
+This caused a rare bug where some players would be unable to join their friend's lobby even if they had the same modpack!
+
 ## 7.0.2 2026-5-1
 Just a minor patch to publicize some ship navmesh fields to help modders add support for their custom ship sizes!
 
