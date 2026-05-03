@@ -540,14 +540,18 @@ namespace LethalBots.AI.AIStates
                 || CurrentEnemy is BushWolfEnemy
                 || (CurrentEnemy is CadaverBloomAI && CurrentEnemy.isInsidePlayerShip))
             {
-                // This is good if we have a weapon on us, or dropped nearby us!
-                float maxRange = CurrentEnemy is MaskedPlayerEnemy || CurrentEnemy is CrawlerAI ? Const.LETHAL_BOT_OBJECT_AWARNESS : Const.LETHAL_BOT_OBJECT_RANGE;
-                GrabbableObject? weapon = FindNearbyWeapon(maxRange);
-                if (weapon != null)
+                // Don't grab an weapon if already have one
+                if (!ai.HasCombatWeapon())
                 {
-                    // Try to grab it!
-                    ai.State = new FetchingObjectState(this, weapon, ignoreEnemies: true);
-                    return true;
+                    // This is good if we have a weapon on us, or dropped nearby us!
+                    float maxRange = CurrentEnemy is MaskedPlayerEnemy || CurrentEnemy is CrawlerAI ? Const.LETHAL_BOT_OBJECT_AWARNESS : Const.LETHAL_BOT_OBJECT_RANGE;
+                    GrabbableObject? weapon = FindNearbyWeapon(maxRange);
+                    if (weapon != null)
+                    {
+                        // Try to grab it!
+                        ai.State = new FetchingObjectState(this, weapon, ignoreEnemies: true);
+                        return true;
+                    }
                 }
             }
             // Stare at the feiopars to scare them away.

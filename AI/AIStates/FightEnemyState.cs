@@ -168,6 +168,7 @@ namespace LethalBots.AI.AIStates
             float fallBackDistance = maxEnemyDistance * 0.75f;
             float giveupRange = fearRange.Value * 1.5f;
             Vector3 targetPos = EnemyCollision != null ? EnemyCollision.bounds.center : this.CurrentEnemy.eye.position;
+            Vector3 enemyPos = RoundManager.Instance.GetNavMeshPosition(CurrentEnemy.transform.position, default, 2.7f);
             if (sqrMagDistanceEnemy < maxEnemyDistance * maxEnemyDistance && canHitTarget)
             {
                 // We are close enough to the enemy, lets attack!
@@ -193,7 +194,7 @@ namespace LethalBots.AI.AIStates
             }
             // Enemy is outside our retreat range, abort!
             else if (sqrMagDistanceEnemy > giveupRange * giveupRange
-                || !ai.IsValidPathToTarget(CurrentEnemy.transform.position))
+                || !ai.IsValidPathToTarget(enemyPos))
             {
                 ChangeBackToPreviousState();
                 return;
@@ -201,7 +202,7 @@ namespace LethalBots.AI.AIStates
             else
             {
                 // Else get close to target
-                ai.SetDestinationToPositionLethalBotAI(CurrentEnemy.transform.position);
+                ai.SetDestinationToPositionLethalBotAI(enemyPos);
                 npcController.OrderToSprint(); // Sprint, we need to move NOW!
                 ai.OrderMoveToDestination();
             }

@@ -310,6 +310,39 @@ namespace LethalBots.Managers
                 }
             }
 
+            // Super useful code for checking if players have the same hashes!
+            //var nm = NetworkManager.Singleton;
+
+            //if (nm == null)
+            //{
+            //    Plugin.LogInfo("NetworkManager not found!");
+            //    return;
+            //}
+
+            //var prefabs = nm.NetworkConfig.Prefabs.Prefabs;
+
+            //Plugin.LogInfo($"=== NETWORK PREFABS ({prefabs.Count}) ===");
+
+            //Type type = typeof(NetworkObject);
+            //FieldInfo fieldInfo = type.GetField("GlobalObjectIdHash", BindingFlags.NonPublic | BindingFlags.Instance);
+            //int index = 0;
+            //uint combinedHash = 0;
+            //foreach (var prefab in prefabs)
+            //{
+            //    if (prefab?.Prefab == null) continue;
+
+            //    var netObj = prefab.Prefab.GetComponent<NetworkObject>();
+
+            //    uint hash = netObj != null ? (uint)fieldInfo.GetValue(netObj) : 0;
+
+            //    combinedHash ^= hash;
+            //    Plugin.LogInfo($"{index}: {prefab.Prefab.name} | Hash: {hash}");
+
+            //    index++;
+            //}
+
+            //Plugin.LogInfo($"COMBINED PREFAB HASH: {combinedHash}");
+
             Instance = this;
             Plugin.Config.InitialSyncCompleted += Config_InitialSyncCompleted;
             Plugin.LogDebug($"Client {NetworkManager.LocalClientId}, MaxBotsAllowedToSpawn before CSync {Plugin.Config.MaxBotsAllowedToSpawn.Value}");
@@ -1362,7 +1395,7 @@ namespace LethalBots.Managers
 
             // Girl aka Ghost Girl
             RegisterThreat(typeof(DressGirlAI), 
-                fq => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && ghostGirl.currentBehaviourStateIndex > 0 ? 40f : null,
+                fq => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && (ghostGirl.staringInHaunt || ghostGirl.currentBehaviourStateIndex > 0) ? 40f : null,
                 _ => null,  // No value for mission control
                 fq => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && ghostGirl.staringInHaunt ? 60f : null   // We don't want to go near her.....
             );
@@ -2924,6 +2957,7 @@ namespace LethalBots.Managers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool CanBotsSpawnAtCompanyBuilding()
         {
+            return true;
             if (Plugin.IsModNavmeshInCompanyLoaded)
             {
                 return true;
