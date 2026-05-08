@@ -22,6 +22,7 @@ namespace LethalBots.AI.AIStates
     /// </summary>
     public class PanikState : AIState
     {
+        private CountdownTimer updateRetreatPosTimer = new CountdownTimer();
         private float findEntranceTimer;
         private float calmDownTimer;
         private float breakLOSTimer;
@@ -42,6 +43,7 @@ namespace LethalBots.AI.AIStates
                 {
                     _retreatPos = null;
                 }
+                updateRetreatPosTimer.Start(Const.FLEEING_UPDATE_FALLBACK_TIME);
             }
             get => _retreatPos;
         }
@@ -257,6 +259,7 @@ namespace LethalBots.AI.AIStates
             {
                 if (!RetreatPos.HasValue
                     || (RetreatPos.Value - npcController.Npc.transform.position).sqrMagnitude < Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION
+                    || (updateRetreatPosTimer.HasStarted() && updateRetreatPosTimer.Elapsed())
                     || !ai.IsValidPathToTarget(RetreatPos.Value, false))
                 {
                     RestartPanikCoroutine(this.CurrentEnemy, fearRange.Value);
@@ -513,6 +516,39 @@ namespace LethalBots.AI.AIStates
             base.UseHeldItem();
         }
 
+        //protected override bool SelectBestItemFromInventoryFilter(GrabbableObject item)
+        //{
+        //    // If this item uses batteries, make sure it has a charge before we try to use it!
+        //    if (!LethalBotAI.IsItemPowered(item))
+        //    {
+        //        return false;
+        //    }
+
+        //    // If we have a stun grenade, we can use it to escape!
+        //    // NOTE: spawnDamagingShockwave is true for easter eggs!
+        //    if (item is StunGrenadeItem stunGrenade 
+        //        && !stunGrenade.spawnDamagingShockwave 
+        //        && !stunGrenade.hasExploded)
+        //    {
+        //        return true;
+        //    }
+
+        //    return false;
+        //}
+
+        //protected override int GetItemPriority(GrabbableObject item)
+        //{
+        //    // Make sure we use the best stun grenade we have
+        //    int priority = 0;
+        //    StunGrenadeItem? stunGrenade = item as StunGrenadeItem;
+        //    if (stunGrenade != null && !stunGrenade.hasExploded)
+        //    {
+        //        priority += stunGrenade.pinPulled ? 1 : 0;
+        //        priority += stunGrenade.chanceToExplode >= 100 ? 1 : 0;
+        //    }
+        //    return priority;
+        //}
+
         public override string GetBillboardStateIndicator()
         {
             return @"/!\";
@@ -583,6 +619,15 @@ namespace LethalBots.AI.AIStates
                 ai.StopMoving(); // Stand still, if we move, the nutcracker will see us!
                 return true;
             }
+            // If we have a stun grenade, we should use it!
+            //else if (CurrentEnemy is ForestGiantAI)
+            //{
+            //    // Make sure we actually have one in our inventory!
+            //    if (ai.HasGrabbableObjectInInventory(SelectBestItemFromInventoryFilter, out _))
+            //    {
+            //        SelectBestItemFromInventory();
+            //    }
+            //}
             return false;
         }
 
@@ -637,6 +682,7 @@ namespace LethalBots.AI.AIStates
             public bool isNodeOutOfSight; // true is good; false is bad
             public float minPathDistanceToEnemy; // Larger numbers are better!
 
+
             // These are the distance between the node and the chosen target
             public float enemyPathDistance; // further away is better
             public float botPathDistance; // closer is better
@@ -683,7 +729,7 @@ namespace LethalBots.AI.AIStates
                 if (isNodeOutOfSight) score += 10f;
 
                 // Enemy distance
-                score += Mathf.Min(enemyPathDistance, fearRange) * 1.2f;
+                score += Mathf.Min(enemyPathDistance - fearRange, 0f) * 1.2f;
 
                 // Prefer closer nodes, but lightly
                 score -= botPathDistance * 0.6f;
@@ -811,7 +857,7 @@ namespace LethalBots.AI.AIStates
             Vector3 enemyPos = enemyTransform.position;
             Vector3 viewPos = enemy.eye != null ? enemy.eye.position : enemyPos;
             viewPos += Vector3.up * 0.2f; // Slightly above eye level to avoid ground clipping issues
-            float ourDistanceFromEnemy = (enemyTransform.position - ourPos).sqrMagnitude;
+            float ourDistanceFromEnemy = (enemyPos - ourPos).sqrMagnitude;
             float headOffset = npcController.Npc.gameplayCamera.transform.position.y - ourPos.y;
             int maxAsync;
             if (ourDistanceFromEnemy < 16f * 16f)
@@ -849,10 +895,10 @@ namespace LethalBots.AI.AIStates
                 // Skip if the node is too close to the enemy
                 NodeSafety nodeSafety = new NodeSafety(node, fearRange, true, true);
                 Vector3 nodePos = nodeSafety.GetNodePosition();
-                if ((nodePos - ourPos).sqrMagnitude < fearRange * fearRange)
-                {
-                    continue;
-                }
+                //if ((nodePos - enemyPos).sqrMagnitude < fearRange * fearRange)
+                //{
+                //    continue;
+                //}
 
                 if (enemy != null)
                 {
@@ -893,12 +939,6 @@ namespace LethalBots.AI.AIStates
 
                 // Update the closest part of the path to the enemy we are fleeing from
                 nodeSafety.minPathDistanceToEnemy = minDist;
-
-                // Make sure our path actualy leads us further away from out target
-                if (nodeSafety.minPathDistanceToEnemy <= ourDistanceFromEnemy * 0.9f)
-                {
-                    continue;
-                }
 
                 // Now we test if the node is visible to an enemy!
                 Vector3 simulatedHead = nodePos + Vector3.up * headOffset;

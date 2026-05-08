@@ -251,6 +251,7 @@ namespace LethalBots.AI
             {
                 agent = gameObject.GetComponentInChildren<NavMeshAgent>();
                 agent.acceleration = float.MaxValue; // Is THIS a good idea?
+                agent.autoTraverseOffMeshLink = false;
                 Plugin.LogDebug($"LethalBot Agent Type ID {agent.agentTypeID}");
                 Plugin.LogDebug($"LethalBot Area Mask {agent.areaMask}");
                 SetAgent(enabled: false);
@@ -320,7 +321,8 @@ namespace LethalBots.AI
             this.isEnemyDead = false;
             this.enabled = true;
             addPlayerVelocityToDestination = 3f;
-            
+            StateControllerMovement = EnumStateControllerMovement.FollowAgent;
+
             // Reset Network Variables
             if (base.IsOwner)
             {
@@ -680,7 +682,6 @@ namespace LethalBots.AI
                 StateControllerMovement = EnumStateControllerMovement.FollowAgent;
                 TeleportAgentAIAndBody(IsTouchingGroundTimedCheck.GetGroundHit(NpcController.Npc.thisPlayerBody.position).point);
                 SetDestinationToPositionLethalBotAI(destination); // Refresh our path!
-                hasDestinationChanged = true; // Just for good measure!
                 //Plugin.LogDebug($"{NpcController.Npc.playerUsername} ============= NpcController.Npc.transform.position {NpcController.Npc.transform.position}");
             }
 
@@ -701,17 +702,14 @@ namespace LethalBots.AI
                 if (agent.velocity.sqrMagnitude < 0.002f
                     && !agent.isOnOffMeshLink
                     && !IsInsideElevator
-                    && (StartOfRound.Instance.inShipPhase 
-                        || (instanceSOR.shipHasLanded
-                        && !instanceSOR.shipIsLeaving
-                        && !instanceSOR.shipLeftAutomatically))) // Mathf.Abs((NpcController.Npc.oldPlayerPosition - NpcController.Npc.transform.position).sqrMagnitude) < Const.EPSILON * Const.EPSILON
+                    && (LethalBotManager.AreWeInOrbit(instanceSOR) 
+                        || LethalBotManager.IsTheShipLanded(instanceSOR))) // Mathf.Abs((NpcController.Npc.oldPlayerPosition - NpcController.Npc.transform.position).sqrMagnitude) < Const.EPSILON * Const.EPSILON
                 {
                     if (stuckTimer > 4f)
                     {
                         Plugin.LogWarning($"Bot {NpcController.Npc.playerClientId} {NpcController.Npc.playerUsername} is stuck! Telporting to closest node!");
                         Plugin.LogWarning($"Agent velocity: {agent.velocity.sqrMagnitude} Previous distance from last position: {(NpcController.Npc.oldPlayerPosition - NpcController.Npc.transform.position).sqrMagnitude}");
                         State?.OnBotStuck(); // Call the OnBotStuck method of the current state if it exists
-                        hasDestinationChanged = true; // Force a repath!
                         stuckTimer = 0f;
                     }
                     else
@@ -776,7 +774,7 @@ namespace LethalBots.AI
 
             // Ladders
             // FIXME: This causes TOO many issues to be used right now!
-            //UseLadderIfNeeded();
+            UseLadderIfNeeded();
 
             // Copy movement
             FollowCrouchStateIfCan();
@@ -1296,8 +1294,7 @@ namespace LethalBots.AI
                         }
                     }
 
-                    // Define a distance threshold (buffer) to avoid paths too close to quicksand
-                    const float quicksandBuffer = 3f;
+                    // Check if the path intersects with any quicksand or water.
                     Plugin.LogDebug($"Testing quicksand safety between current node {nodePos} and previous node {previousNode}");
                     foreach (var quicksand in QuicksandArray)
                     {
@@ -1461,8 +1458,7 @@ namespace LethalBots.AI
                         }
                     }
 
-                    // Define a distance threshold (buffer) to avoid paths too close to quicksand
-                    const float quicksandBuffer = 3f;
+                    // Check if the path intersects with any quicksand or water.
                     Plugin.LogDebug($"Testing quicksand safety between current node {nodePos} and previous node {previousNode}");
                     foreach (var quicksand in QuicksandArray)
                     {
@@ -2166,11 +2162,14 @@ namespace LethalBots.AI
             if (agent != null && agent.enabled != enabled)
             {
                 agent.enabled = enabled;
-                if (enabled)
+                if (enabled && agent.isOnNavMesh) // Make sure the agent is enabled before setting area costs
                 {
                     // 5 times the pathing cost for water!
                     int waterArea = NavMesh.GetAreaFromName("Water");
                     agent.SetAreaCost(waterArea, 5f);
+
+                    // 5 times the pathing cost for landmines!
+                    agent.SetAreaCost(Const.LETHAL_BOT_LANDMINE_NAVAREA, 5f);
 
                     // High path cost for quicksand
                     agent.SetAreaCost(Const.LETHAL_BOT_QUICKSAND_NAVAREA, 50f);
@@ -3101,13 +3100,20 @@ namespace LethalBots.AI
         /// <returns>The ladder to use, null if nothing close</returns>
         public InteractTrigger? GetLadderIfWantsToUseLadder()
         {
-            if (!agent.isOnOffMeshLink)
+            bool checkDistToBot = false;
+            OffMeshLinkData offMeshLinkData = agent.currentOffMeshLinkData;
+            if (!offMeshLinkData.valid)
+            {
+                offMeshLinkData = agent.nextOffMeshLinkData;
+                checkDistToBot = true;
+            }
+            if (!offMeshLinkData.valid 
+                || this.offMeshLinkCoroutine != null)
             {
                 return null;
             }
 
             Vector3 ourPos = NpcController.Npc.transform.position;
-            OffMeshLinkData offMeshLinkData = agent.currentOffMeshLinkData;
             Vector3 linkStartPos = offMeshLinkData.startPos;
             Vector3 linkEndPos = offMeshLinkData.endPos;
             Vector3 closestLinkPos;
@@ -3124,6 +3130,8 @@ namespace LethalBots.AI
             float closestLadderDistSqr = Const.DISTANCE_NPCBODY_FROM_LADDER * Const.DISTANCE_NPCBODY_FROM_LADDER;
             foreach (InteractTrigger ladder in laddersInteractTrigger)
             {
+                if (ladder == null) continue;
+
                 // Setup important local variables
                 Vector3 ladderBottomPos = ladder.bottomOfLadderPosition.position;
                 Vector3 ladderTopPos = ladder.topOfLadderPosition.position;
@@ -3148,7 +3156,9 @@ namespace LethalBots.AI
                 }
 
                 // Check if this is the closest ladder
-                if (bestLadderDistSqr < closestLadderDistSqr)
+                if (bestLadderDistSqr < closestLadderDistSqr 
+                    && (!checkDistToBot 
+                        || (closestLadderPos - ourPos).sqrMagnitude < Const.DISTANCE_NPCBODY_FROM_LADDER * Const.DISTANCE_NPCBODY_FROM_LADDER))
                 {
                     Plugin.LogDebug($"{NpcController.Npc.playerUsername} Path wants to climb {(climbUp ? "UP" : "DOWN")} ladder");
                     NpcController.OrderToGoUpDownLadder(hasToGoDown: !climbUp);
@@ -3595,7 +3605,7 @@ namespace LethalBots.AI
                 // If this is a gap, do the default logic instead!
                 if (agent.isOnOffMeshLink && offMeshLinkCoroutine == null)
                 {
-                    offMeshLinkCoroutine = StartCoroutine(offMeshLinkParabola(agent, NpcController.Npc.jumpForce));
+                    offMeshLinkCoroutine = StartCoroutine(offMeshLinkParabola(agent, 0.6f)); // NpcController.Npc.jumpForce
                 }
                 return false;
             }
@@ -3678,7 +3688,7 @@ namespace LethalBots.AI
             offMeshLinkCoroutine = null;
         }
 
-        private void StopOffMeshLinkMovement(bool warpToEnd = true)
+        public void StopOffMeshLinkMovement(bool warpToEnd = true)
         {
             if (offMeshLinkCoroutine == null)
             {
@@ -5372,6 +5382,10 @@ namespace LethalBots.AI
                     lethalBotController.isInElevator = true;
                     lethalBotController.isInHangarShipRoom = true;
                     this.isInsidePlayerShip = true;
+                    if (!this.isOutside)
+                    {
+                        this.SetEnemyOutside(true);
+                    }
 
                     if (instanceSOR.testRoom == null && !shipInnerRoomBounds.Contains(playerPos + Vector3.up * 0.25f))
                     {
@@ -8290,6 +8304,12 @@ namespace LethalBots.AI
 
         #region Damage bot RPC
 
+        public override void EnableEnemyMesh(bool enable, bool overrideDoNotSet = false, bool tamperWithMeshes = false)
+        {
+            // Bots use PlayerControllerB objects, so there is no mesh to enable or disable!
+            return;
+        }
+
         public override void HitEnemy(int force = 1, PlayerControllerB playerWhoHit = null!, bool playHitSFX = false, int hitID = -1)
         {
             // The HitEnemy function works with player controller instead
@@ -8589,6 +8609,7 @@ namespace LethalBots.AI
             }
             this.isEnemyDead = true;
             this.LethalBotIdentity.Hp = 0;
+            StopOffMeshLinkMovement(warpToEnd: false);
             SetAgent(enabled: false);
             //this.LethalBotIdentity.Voice.StopAudioFadeOut();
             this.State = new BrainDeadState(this);
@@ -8895,7 +8916,6 @@ namespace LethalBots.AI
 
             // Change ai state
             this.State = GetDesiredAIState();
-            //agent.autoTraverseOffMeshLink = false;
 
             spawnAnimationCoroutine = null;
             yield break;
@@ -8936,7 +8956,6 @@ namespace LethalBots.AI
 
             // Change ai state
             this.State = GetDesiredAIState();
-            //agent.autoTraverseOffMeshLink = false;
 
             spawnAnimationCoroutine = null;
             yield break;

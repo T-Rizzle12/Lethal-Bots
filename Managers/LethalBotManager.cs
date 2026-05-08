@@ -1675,11 +1675,18 @@ namespace LethalBots.Managers
             lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_LIMP, false);
             lethalBotController.climbSpeed = Const.CLIMB_SPEED;
             lethalBotController.usernameBillboardText.enabled = true;
-            if (!clientJoining) AccessTools.Field(typeof(PlayerControllerB), "updatePositionForNewlyJoinedClient").SetValue(lethalBotController, true);
+
+            // Cleanup the blood on the bot as requested
+            if (spawnParamsNetworkSerializable.ResetBodyBlood 
+                && spawnParamsNetworkSerializable.enumSpawnAnimation != EnumSpawnAnimation.ReinitializePlayer)
+            {
+                lethalBotController.ResetPlayerBloodObjects(resetBodyBlood: true);
+            }
 
             // Mimic base game join message
             if (!clientJoining && lethalBotIdentity.JustJoinedServer)
-            { 
+            {
+                AccessTools.Field(typeof(PlayerControllerB), "updatePositionForNewlyJoinedClient").SetValue(lethalBotController, true);
                 HUDManager.Instance.AddTextToChatOnServer(lethalBotController.playerUsername + " joined the ship."); 
             }
 

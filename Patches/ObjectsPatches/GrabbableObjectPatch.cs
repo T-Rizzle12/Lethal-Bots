@@ -34,6 +34,53 @@ namespace LethalBots.Patches.ObjectsPatches
             return !LethalBotManager.Instance.IsAnLethalBotAiOwnerOfObject(__instance);
         }
 
+        [HarmonyPatch("DestroyObjectInHand")]
+        [HarmonyTranspiler]
+        static IEnumerable<CodeInstruction> DestroyObjectInHand_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // GameNetworkManager methods
+            MethodInfo getGameNetworkManagerInstance = AccessTools.PropertyGetter(typeof(GameNetworkManager), "Instance");
+            FieldInfo localPlayerControllerField = AccessTools.Field(typeof(GameNetworkManager), "localPlayerController");
+
+            // Unity Object Equality Method
+            MethodInfo opEqualityMethod = AccessTools.Method(typeof(UnityEngine.Object), "op_Equality");
+
+            // Replacement field: this.playerHeldBy
+            FieldInfo playerHeldByField = AccessTools.Field(typeof(GrabbableObject), "playerHeldBy");
+
+            // ----------------------------------------------------------------------
+            for (var i = 0; i < codes.Count - 4; i++)
+            {
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].LoadsField(playerHeldByField)
+                    && codes[i + 2].Calls(getGameNetworkManagerInstance)
+                    && codes[i + 3].LoadsField(localPlayerControllerField)
+                    && codes[i + 4].Calls(opEqualityMethod))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Remove the previous codes and use our own instead.
+                codes.RemoveRange(startIndex + 2, 3);
+
+                // Add our replacement code
+                codes.Insert(startIndex + 2, new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLocalOrLethalBotOwnerLocalMethod));
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.ObjectsPatches.DestroyObjectInHand_Transpiler could not remove check if holding player is bot");
+            }
+
+            return codes.AsEnumerable();
+        }
+
         [HarmonyPatch("DiscardItemOnClient")]
         [HarmonyTranspiler]
         static IEnumerable<CodeInstruction> DiscardItemOnClient_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
@@ -68,7 +115,7 @@ namespace LethalBots.Patches.ObjectsPatches
                 {
                     new CodeInstruction(OpCodes.Ldarg_0), // Load this
                     new CodeInstruction(OpCodes.Ldfld, playerHeldByField), // Load this.playerHeldBy
-                    new CodeInstruction(OpCodes.Stloc, playerLocal) // Store in our local variable
+                    new CodeInstruction(OpCodes.Stloc, playerLocal.LocalIndex) // Store in our local variable
                 };
                 codes.InsertRange(startIndex, codesToAdd);
                 startIndex = -1;
@@ -100,7 +147,7 @@ namespace LethalBots.Patches.ObjectsPatches
                 // Insert new method call to skip ClearControlTips if a bot is dropping the item
                 List<CodeInstruction> codesToAdd = new List<CodeInstruction>
                 {
-                    new CodeInstruction(OpCodes.Ldloc, playerLocal),
+                    new CodeInstruction(OpCodes.Ldloc, playerLocal.LocalIndex),
                     new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLethalBotMethod),
                     new CodeInstruction(OpCodes.Brtrue_S, skipSnapshot)
                 };

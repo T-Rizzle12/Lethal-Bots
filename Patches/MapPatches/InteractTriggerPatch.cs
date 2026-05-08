@@ -1,16 +1,17 @@
-﻿using HarmonyLib;
+﻿using GameNetcodeStuff;
+using HarmonyLib;
+using LethalBots.AI;
+using LethalBots.Managers;
+using LethalBots.Utils;
+using LethalMin;
+using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Emit;
 using UnityEngine;
-using LethalBots.Utils;
-using System.Reflection;
-using GameNetcodeStuff;
-using System.ComponentModel;
-using LethalBots.Managers;
-using LethalBots.AI;
-using System.Collections;
-using System;
 
 namespace LethalBots.Patches.MapPatches
 {
@@ -248,8 +249,9 @@ namespace LethalBots.Patches.MapPatches
             return codes.AsEnumerable();
         }*/
 
-        private static IEnumerator ladderClimbAnimation(InteractTrigger ladder, PlayerControllerB playerController)
+        private static IEnumerator ladderClimbAnimation(InteractTrigger ladder, PlayerControllerB playerController, Vector3 ladderPosition, Quaternion ladderAngle)
         {
+            #pragma warning disable Harmony003 // Harmony non-ref patch parameters modified
             LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerController);
             ladder.onInteractEarly.Invoke(null);
             playerController.UpdateSpecialAnimationValue(specialAnimation: true, (short)ladder.ladderPlayerPositionNode.eulerAngles.y, 0f, climbingLadder: true);
@@ -261,8 +263,6 @@ namespace LethalBots.Patches.MapPatches
             playerController.playerBodyAnimator.SetTrigger("EnterLadder");
             playerController.thisController.enabled = false;
             float timer = 0f;
-            Vector3 ladderPosition = ladder.ladderPlayerPositionNode.position;
-            Quaternion ladderAngle = ladder.ladderPlayerPositionNode.rotation;
             while (timer <= ladder.animationWaitTime)
             {
                 yield return null;
@@ -355,6 +355,7 @@ namespace LethalBots.Patches.MapPatches
             lethalBotAI?.useLadderCoroutine = null;
             //ladder.currentCooldownValue = ladder.cooldownTime;
             ladder.onInteract.Invoke(null);
+            #pragma warning restore Harmony003 // Harmony non-ref patch parameters modified
         }
 
         private static IEnumerator specialInteractAnimation(InteractTrigger trigger, PlayerControllerB playerController)
@@ -500,16 +501,13 @@ namespace LethalBots.Patches.MapPatches
             player.ResetFallGravity();
             if (__instance.isLadder)
             {
-                if (player.isInHangarShipRoom)
-                {
-                    return false;
-                }
-                __instance.ladderPlayerPositionNode.position = new Vector3(__instance.ladderHorizontalPosition.position.x, Mathf.Clamp(player.thisPlayerBody.position.y, __instance.bottomOfLadderPosition.position.y + 0.3f, __instance.topOfLadderPosition.position.y - 2.2f), __instance.ladderHorizontalPosition.position.z);
+                Vector3 ladderPosition = new Vector3(__instance.ladderHorizontalPosition.position.x, Mathf.Clamp(player.thisPlayerBody.position.y, __instance.bottomOfLadderPosition.position.y + 0.3f, __instance.topOfLadderPosition.position.y - 2.2f), __instance.ladderHorizontalPosition.position.z);
+                Quaternion ladderAngle = __instance.ladderPlayerPositionNode.rotation;
                 if (lethalBot.useLadderCoroutine != null)
                 {
                     __instance.StopCoroutine(lethalBot.useLadderCoroutine);
                 }
-                lethalBot.useLadderCoroutine = __instance.StartCoroutine(ladderClimbAnimation(__instance, player));
+                lethalBot.useLadderCoroutine = __instance.StartCoroutine(ladderClimbAnimation(__instance, player, ladderPosition, ladderAngle));
             }
             else
             {

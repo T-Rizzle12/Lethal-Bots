@@ -54,6 +54,7 @@ namespace LethalBots.Patches.ModPatches.UsualScrap
                                                             new NetworkSerializers.SpawnLethalBotParamsNetworkSerializable()
                                                             {
                                                                 ShouldDestroyDeadBody = true,
+                                                                ResetBodyBlood = true,
                                                                 Hp = 5,
                                                                 enumSpawnAnimation = EnumSpawnAnimation.OnlyPlayerSpawnAnimation,
                                                                 SpawnPosition = SpawnPosition,

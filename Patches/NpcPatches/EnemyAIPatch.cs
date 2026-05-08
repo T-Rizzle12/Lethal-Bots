@@ -93,8 +93,9 @@ namespace LethalBots.Patches.NpcPatches
             }
 
             // Make sure to include our custom quicksand mask to enemies!
-            __instance.agentMask |= 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA;
-            __instance.agent.areaMask |= 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+            int areaMaskToAdd = (1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA) | (1 << Const.LETHAL_BOT_LANDMINE_NAVAREA);
+            __instance.agentMask |= areaMaskToAdd;
+            __instance.agent.areaMask |= areaMaskToAdd;
         }
 
         #region Transpilers

@@ -440,16 +440,35 @@ namespace LethalBots.AI
                 return;
             }
 
-            // Get direction from current position to NavMeshAgent's steering target
-            Vector3 worldDir = (LethalBotAIController.agent.steeringTarget - Npc.thisController.transform.position);
-            worldDir.y = 0f; // Ignore vertical movement
+            Vector2 moveInput = new Vector2();
+            if (Npc.isClimbingLadder)
+            {
+                // Pick move direction based on if we want to go up or down the ladder
+                float x = 1f;
+                float y = 1f;
+                if (goDownLadder)
+                {
+                    x = -1f;
+                    y = -1f;
+                }
+                moveInput.x = x;
+                moveInput.y = y;
+            }
+            else
+            {
+                // Get direction from current position to NavMeshAgent's steering target
+                Vector3 worldDir = (LethalBotAIController.agent.steeringTarget - Npc.thisController.transform.position);
+                worldDir.y = 0f; // Ignore vertical movement
 
-            // Convert to local space (relative to the bot's forward direction)
-            Vector3 localDir = Npc.thisController.transform.InverseTransformDirection(worldDir.normalized);
+                // Convert to local space (relative to the bot's forward direction)
+                Vector3 localDir = Npc.thisController.transform.InverseTransformDirection(worldDir.normalized);
+                moveInput.x = localDir.x;
+                moveInput.y = localDir.z;
+            }
 
             // Set moveInputVector (X = sideways, Z = forward)
             lastMoveVector = Npc.moveInputVector;
-            Npc.moveInputVector = new Vector2(localDir.x, localDir.z);
+            Npc.moveInputVector = moveInput;
             Npc.moveInputVector.Normalize();
         }
 
@@ -539,15 +558,14 @@ namespace LethalBots.AI
                 {
                     Npc.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f);
                 }
+                else if (Npc.isClimbingLadder)
+                {
+                    Npc.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 0f);
+                }
                 if (Npc.moveInputVector.sqrMagnitude >= 0.001f && (!Npc.inSpecialInteractAnimation || Npc.isClimbingLadder || Npc.inShockingMinigame))
                 {
                     IsWalking = true;
                 }
-            }
-
-            if (Npc.isClimbingLadder)
-            {
-                Npc.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 2f);
             }
         }
 
@@ -961,10 +979,11 @@ namespace LethalBots.AI
                 direction = -Npc.thisPlayerBody.up;
                 origin = Npc.transform.position;
             }
-            if (!Physics.Raycast(origin, direction, 0.15f, StartOfRound.Instance.allPlayersCollideWithMask, QueryTriggerInteraction.Ignore))
-            {
-                Npc.thisPlayerBody.transform.position += direction * (Const.BASE_MAX_SPEED * Npc.climbSpeed * Time.deltaTime);
-            }
+            Npc.thisPlayerBody.transform.position += direction * (Const.BASE_MAX_SPEED * Npc.climbSpeed * Time.deltaTime);
+            //if (!Physics.Raycast(origin, direction, 0.15f, StartOfRound.Instance.allPlayersCollideWithMask, QueryTriggerInteraction.Ignore))
+            //{
+            //    Npc.thisPlayerBody.transform.position += direction * (Const.BASE_MAX_SPEED * Npc.climbSpeed * Time.deltaTime);
+            //}
         }
 
         private void UpdateAnimationsForOwner()
