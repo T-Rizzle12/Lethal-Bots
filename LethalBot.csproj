@@ -122,6 +122,9 @@
 	<Reference Include="DunGen">
 		<HintPath>lib\DunGen.dll</HintPath>
 	</Reference>
+	<Reference Include="DissonanceVoip">
+		<HintPath>lib\DissonanceVoip.dll</HintPath>
+	</Reference>
     <Reference Include="BetterEmotes">
       <HintPath>lib\mods\BetterEmotes.dll</HintPath>
     </Reference>

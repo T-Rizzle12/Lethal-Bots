@@ -22,58 +22,76 @@ namespace LethalBots.Patches.EnemiesPatches
         /// Patch for making the bush wolf be able to kill an bot
         /// </summary>
         [HarmonyPatch("OnCollideWithPlayer")]
-        [HarmonyPostfix]
-        static void OnCollideWithPlayer_PostFix(BushWolfEnemy __instance,
-                                                Collider other,
-                                                bool ___foundSpawningPoint,
-                                                bool ___inKillAnimation,
-                                                Vector3 ___currentHidingSpot,
-                                                float ___timeSinceTakingDamage,
-                                                PlayerControllerB ___lastHitByPlayer,
-                                                bool ___dragging,
-                                                bool ___startedShootingTongue)
+        [HarmonyTranspiler]
+        static IEnumerable<CodeInstruction> OnCollideWithPlayer_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
         {
-            if (!___foundSpawningPoint)
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // Target property: GameNetworkManager.Instance.localPlayerController
+            MethodInfo getGameNetworkManagerInstance = AccessTools.PropertyGetter(typeof(GameNetworkManager), "Instance");
+            FieldInfo localPlayerControllerField = AccessTools.Field(typeof(GameNetworkManager), "localPlayerController");
+
+            // Unity Object Equality Method
+            MethodInfo opEqualityMethod = AccessTools.Method(typeof(UnityEngine.Object), "op_Equality");
+
+            // ------------------------------------------------
+            for (var i = 0; i < codes.Count - 4; i++)
             {
-                return;
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].LoadsField(PatchesUtil.FieldInfoTargetPlayer)
+                    && codes[i + 2].Calls(getGameNetworkManagerInstance)
+                    && codes[i + 3].LoadsField(localPlayerControllerField)
+                    && codes[i + 4].Calls(opEqualityMethod))
+                {
+                    startIndex = i;
+                    break;
+                }
             }
-            if (___inKillAnimation)
+            if (startIndex > -1)
             {
-                return;
+                // Replace the old this.targetPlayer == GameNetworkManager.Instance.localPlayerController check
+                // with our IsPlayerLocalOrLethalBotOwnerLocalMethod
+                // In order to preserve labels, we just replace the instructions instead of removing and inserting new ones
+                codes[startIndex + 2].opcode = OpCodes.Nop;
+                codes[startIndex + 2].operand = null;
+                codes[startIndex + 3].opcode = OpCodes.Nop;
+                codes[startIndex + 3].operand = null;
+                codes[startIndex + 4].opcode = OpCodes.Call;
+                codes[startIndex + 4].operand = PatchesUtil.IsPlayerLocalOrLethalBotOwnerLocalMethod;
+                startIndex = -1;
             }
-            if (__instance.isEnemyDead)
+            else
             {
-                return;
+                Plugin.LogError($"LethalBot.Patches.EnemiesPatches.BushWolfEnemyPatch.OnCollideWithPlayer_Transpiler could not check if bot or local player!");
             }
 
-            PlayerControllerB playerController = __instance.MeetsStandardPlayerCollisionConditions(other, ___inKillAnimation, false);
-            if (playerController == null)
+            // ------------------------------------------------
+            for (var i = 0; i < codes.Count - 1; i++)
             {
-                return;
+                if (codes[i].Calls(getGameNetworkManagerInstance) 
+                    && codes[i + 1].LoadsField(localPlayerControllerField))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Replace the old GameNetworkManager.Instance.localPlayerController call,
+                // and replace it with our targetPlayer field.
+                codes[startIndex].opcode = OpCodes.Ldarg_0;
+                codes[startIndex].operand = null;
+                codes[startIndex + 1].opcode = OpCodes.Ldfld;
+                codes[startIndex + 1].operand = PatchesUtil.FieldInfoTargetPlayer;
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.EnemiesPatches.BushWolfEnemyPatch.OnCollideWithPlayer_Transpiler could not replace GameNetworkManager.Instance.localPlayerController with targetPlayer field!");
             }
 
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerController);
-            if (lethalBotAI == null)
-            {
-                return;
-            }
-
-            Plugin.LogDebug($"fox saw bot #{lethalBotAI.BotId}");
-            float num = Vector3.Distance(__instance.transform.position, ___currentHidingSpot);
-            bool flag = false;
-            if (___timeSinceTakingDamage < 2.5f && ___lastHitByPlayer != null && num < 16f)
-            {
-                flag = true;
-            }
-            else if (num < 7f && ___dragging && !___startedShootingTongue && __instance.targetPlayer == playerController)
-            {
-                flag = true;
-            }
-            if (flag)
-            {
-                playerController.KillPlayer(Vector3.up * 15f, spawnBody: true, CauseOfDeath.Mauling, 8, default);
-                __instance.DoKillPlayerAnimationServerRpc((int)__instance.targetPlayer.playerClientId);
-            }
+            return codes.AsEnumerable();
         }
 
         /// <summary>

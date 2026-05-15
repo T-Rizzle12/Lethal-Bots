@@ -2319,9 +2319,10 @@ namespace LethalBots.AI
             if (lethalBotController.inSpecialInteractAnimation && lethalBotController.inShockingMinigame && lethalBotController.shockingTarget != null)
             {
                 // Tell the bot to keep the beam steady
-                OrderToLookAtPosition(Npc.shockingTarget.position, EnumLookAtPriority.MAXIMUM_PRIORITY);
+                const float maxFOV = 60f; // Found in source code!
+                OrderToLookAtPosition(Npc.shockingTarget.position, EnumLookAtPriority.MAXIMUM_PRIORITY, maxBodyFOV: maxFOV);
 
-                // 1:1 copy of the code that would normally be run in default PlayerControllerBV update!
+                // 1:1 copy of the code that would normally be run in default PlayerControllerB update!
                 lethalBotController.targetScreenPos = lethalBotController.turnCompassCamera.WorldToViewportPoint(lethalBotController.shockingTarget.position);
                 lethalBotController.shockMinigamePullPosition = lethalBotController.targetScreenPos.x - 0.5f;
                 float num = Mathf.Clamp(Time.deltaTime, 0f, 0.1f);

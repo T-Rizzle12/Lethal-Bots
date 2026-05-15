@@ -364,6 +364,10 @@ namespace LethalBots.AI
                 }
                 // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: check indexes now: T: {targetCheckIndex}, V: {visitCheckIndex}");
                 // int remAmount =
+                if (visitCheckIndex < 0)
+                {
+                    visitCheckIndex = unsearchedNodes.Count - 1;
+                }
                 unsearchedNodes.RemoveAll(x => x == null);
                 // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: nodes removed: {remAmount}");
                 // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: nodes count: {unsearchedNodes.Count}");

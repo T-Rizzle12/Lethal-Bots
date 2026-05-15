@@ -38,6 +38,8 @@ namespace LethalBots.Utils
 
         public static readonly AccessTools.FieldRef<PumaAI, bool> stalkingFrozenField = AccessTools.FieldRefAccess<bool>(typeof(PumaAI), "stalkingFrozen");
 
+        public static readonly AccessTools.FieldRef<SpringManAI, float> stopMovementTimerField = AccessTools.FieldRefAccess<float>(typeof(SpringManAI), "stopMovementTimer");
+
         #endregion
 
         #region Method Infos

@@ -140,6 +140,19 @@ namespace LethalBots.AI.AIStates
 
         public override void OnExitState(AIState newState)
         {
+            // If we are going to follow a player, stop being the mission controller
+            switch (newState.GetAIState())
+            {
+                case EnumAIStates.GetCloseToPlayer:
+                case EnumAIStates.ChillWithPlayer:
+                case EnumAIStates.JustLostPlayer:
+                case EnumAIStates.PlayerInCruiser:
+                    LethalBotManager.Instance.MissionControlPlayer = null;
+                    break;
+                default:
+                    break;
+            }
+
             // If we are no longer the mission controller, stop being the switchboard operator!
             if (Plugin.IsModLethalPhonesLoaded && LethalBotManager.Instance.MissionControlPlayer != npcController.Npc)
             {

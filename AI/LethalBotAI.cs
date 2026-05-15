@@ -1,4 +1,5 @@
-﻿using GameNetcodeStuff;
+﻿using Dissonance;
+using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.AI.AIStates;
 using LethalBots.Constants;
@@ -251,11 +252,12 @@ namespace LethalBots.AI
             {
                 agent = gameObject.GetComponentInChildren<NavMeshAgent>();
                 agent.acceleration = float.MaxValue; // Is THIS a good idea?
-                agent.autoTraverseOffMeshLink = false;
+                //agent.autoTraverseOffMeshLink = false;
                 Plugin.LogDebug($"LethalBot Agent Type ID {agent.agentTypeID}");
                 Plugin.LogDebug($"LethalBot Area Mask {agent.areaMask}");
                 SetAgent(enabled: false);
                 enemyType.WaterType = EnemyWaterType.Amphibious;
+                enemyType.pushPlayerDistance = 0f; // Don't run EnemyAI player push code!
                 skinnedMeshRenderers = gameObject.GetComponentsInChildren<SkinnedMeshRenderer>();
                 meshRenderers = gameObject.GetComponentsInChildren<MeshRenderer>();
                 if (creatureAnimator == null)
@@ -413,6 +415,25 @@ namespace LethalBots.AI
                 LethalBotManager.Instance.ResizePlayerVoiceMixers(LethalBotManager.Instance.AllEntitiesCount);
             }*/
             this.LethalBotVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[(int)NpcController.Npc.playerClientId];
+
+            // Copy player voice prefab values
+            DissonanceComms dissonanceComms = Object.FindObjectOfType<DissonanceComms>();
+            if (dissonanceComms != null)
+            {
+                // Find the prefab
+                Plugin.LogDebug($"Lethal Bot {NpcController.Npc.playerUsername}: found DissonanceComms!");
+                AudioSource? voicePrefab = dissonanceComms.PlaybackPrefab?.GetComponentInChildren<AudioSource>();
+                if (voicePrefab != null)
+                {
+                    // Copy over the setting used in the prefab!
+                    Plugin.LogDebug($"Lethal Bot {NpcController.Npc.playerUsername}: found voice prefab!");
+                    var customCurve = voicePrefab.GetCustomCurve(AudioSourceCurveType.CustomRolloff);
+                    this.LethalBotVoice.rolloffMode = AudioRolloffMode.Custom;
+                    this.LethalBotVoice.minDistance = voicePrefab.minDistance;
+                    this.LethalBotVoice.maxDistance = voicePrefab.maxDistance;
+                    this.LethalBotVoice.SetCustomCurve(AudioSourceCurveType.CustomRolloff, customCurve);
+                }
+            }
         }
 
         private void FixedUpdate()
@@ -700,7 +721,7 @@ namespace LethalBots.AI
                 // If we are stuck, teleport to the closest node!
                 StartOfRound instanceSOR = StartOfRound.Instance;
                 if (agent.velocity.sqrMagnitude < 0.002f
-                    && !agent.isOnOffMeshLink
+                    && !this.IsUsingOffMeshLink()
                     && !IsInsideElevator
                     && (LethalBotManager.AreWeInOrbit(instanceSOR) 
                         || LethalBotManager.IsTheShipLanded(instanceSOR))) // Mathf.Abs((NpcController.Npc.oldPlayerPosition - NpcController.Npc.transform.position).sqrMagnitude) < Const.EPSILON * Const.EPSILON
@@ -774,7 +795,7 @@ namespace LethalBots.AI
 
             // Ladders
             // FIXME: This causes TOO many issues to be used right now!
-            UseLadderIfNeeded();
+            //UseLadderIfNeeded();
 
             // Copy movement
             FollowCrouchStateIfCan();
@@ -1096,22 +1117,23 @@ namespace LethalBots.AI
             }
 
             // Check to make sure the path is valid!
-            if (path == null || path.corners.Length == 0)
+            Vector3[]? corners = path?.corners;
+            if (corners == null || corners.Length == 0)
             {
                 return false;
             }
 
             // This may be a partial path, make sure the end of the path actually reaches our target destiniation!
-            if ((path.corners[path.corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(endPosition, RoundManager.Instance.navHit, 2.7f)).sqrMagnitude > 1.5f * 1.5f)
+            if ((corners[corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(endPosition, RoundManager.Instance.navHit, 2.7f)).sqrMagnitude > 1.5f * 1.5f)
             {
                 return false;
             }
 
             if (calculatePathDistance)
             {
-                for (int i = 1; i < path.corners.Length; i++)
+                for (int i = 1; i < corners.Length; i++)
                 {
-                    pathDistance += Vector3.Distance(path.corners[i - 1], path.corners[i]);
+                    pathDistance += Vector3.Distance(corners[i - 1], corners[i]);
                 }
             }
 
@@ -1141,26 +1163,27 @@ namespace LethalBots.AI
         public bool IsValidPathToTarget(Vector3 targetPos, ref NavMeshPath path, bool calculatePathDistance = false, float nearestNavAreaRange = 2.7f, float maxRangeToEnd = 1.5f)
         {
             pathDistance = 0f;
-            Plugin.LogDebug($"BEFORE: Is agent on NavMesh {agent.isOnNavMesh}?");
-            Plugin.LogDebug($"BEFORE: Is agent enabled {agent.enabled}?");
+            //Plugin.LogDebug($"BEFORE: Is agent on NavMesh {agent.isOnNavMesh}?");
+            //Plugin.LogDebug($"BEFORE: Is agent enabled {agent.enabled}?");
             // Make sure the agent is enabled BEFORE we call the pathfind function!
             bool wasEnabled = agent.enabled;
             SetAgent(enabled: true);
-            Plugin.LogDebug($"AFTER: Is agent on NavMesh {agent.isOnNavMesh}?");
-            Plugin.LogDebug($"AFTER: Is agent enabled {agent.enabled}?");
+            //Plugin.LogDebug($"AFTER: Is agent on NavMesh {agent.isOnNavMesh}?");
+            //Plugin.LogDebug($"AFTER: Is agent enabled {agent.enabled}?");
             if (agent.isOnNavMesh && !agent.CalculatePath(targetPos, path))
             {
                 Plugin.LogDebug("IsValidPathToTarget: Path could not be calculated");
                 return false;
             }
 
-            if (path == null || path.corners.Length == 0)
+            Vector3[]? corners = path?.corners;
+            if (corners == null || corners.Length == 0)
             {
                 Plugin.LogDebug("IsValidPathToTarget: Path is invalid");
                 return false;
             }
 
-            if ((path.corners[path.corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(targetPos, RoundManager.Instance.navHit, nearestNavAreaRange)).sqrMagnitude > maxRangeToEnd * maxRangeToEnd)
+            if ((corners[corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(targetPos, RoundManager.Instance.navHit, nearestNavAreaRange)).sqrMagnitude > maxRangeToEnd * maxRangeToEnd)
             {
                 Plugin.LogDebug($"IsValidPathToTarget: Path is not complete; final waypoint of path was too far from target position: {targetPos}");
                 return false;
@@ -1168,9 +1191,9 @@ namespace LethalBots.AI
 
             if (calculatePathDistance)
             {
-                for (int i = 1; i < path.corners.Length; i++)
+                for (int i = 1; i < corners.Length; i++)
                 {
-                    pathDistance += Vector3.Distance(path.corners[i - 1], path.corners[i]);
+                    pathDistance += Vector3.Distance(corners[i - 1], corners[i]);
                 }
             }
 
@@ -1619,7 +1642,8 @@ namespace LethalBots.AI
             }
 
             // We need to make sure we have a valid path
-            if (ourPath == null || ourPath.corners.Length == 0)
+            Vector3[]? corners = ourPath?.corners;
+            if (corners == null || corners.Length == 0)
             {
                 return (true, false, 0f);
             }
@@ -1634,7 +1658,7 @@ namespace LethalBots.AI
             moveSpeed /= NpcController.Npc.carryWeight;
             // FIXME: Rethink this, each water body has its own speed multiplier, so we should not use the NpcController's hindered multiplier here!
             //moveSpeed /= 2f * NpcController.Npc.hinderedMultiplier; // We need to account for the hindered multiplier, since moving in water is slower!
-            for (int j = 1; j < ourPath.corners.Length; j++)
+            for (int j = 1; j < corners.Length; j++)
             {
                 // Check if we were canceled before running danger checks!
                 if (token.IsCancellationRequested)
@@ -1644,8 +1668,8 @@ namespace LethalBots.AI
 
                 // We cache the corners we are using for quicker lookups
                 // also we always use the default distance function as we may be calculating path distance!
-                Vector3 previousNode = ourPath.corners[j - 1];
-                Vector3 nodePos = ourPath.corners[j];
+                Vector3 previousNode = corners[j - 1];
+                Vector3 nodePos = corners[j];
                 float tempDistance = Vector3.Distance(previousNode, nodePos);
 
                 // Log current path segment check
@@ -1683,7 +1707,7 @@ namespace LethalBots.AI
                     if (calculatePathDistance)
                         continue; // Keep looping to get the full path distance
                     else
-                        break; // End it here, no point on continuing! BTY, THIS SHOULD NEVER HAPPEN!!!!!
+                        break; // End it here, no point on continuing! BTW, THIS SHOULD NEVER HAPPEN!!!!!
                 }
 
                 // Check if the path may be exposed to enemies!
@@ -1866,9 +1890,9 @@ namespace LethalBots.AI
                 return (false, predictedDrownTimer);
             }
 
-            // Define a distance threshold (buffer) to avoid paths too close to quicksand
-            //const float quicksandBuffer = 2.5f; // Was 1.5f, now testing 2.5f
-            //Collider[] hitColliders = new Collider[10];
+            // Keep track if we went through water. If this part of the path is on land,
+            // we need to simulate the air gain from being out of the water or the bot may mark a safe path as dangerous!
+            bool pathGoesThroughWater = false;
             Plugin.LogDebug($"{NpcController.Npc.playerUsername} is testing quicksand safety between previous node {from} and current node {to}");
             for (int i = 0; i < QuicksandArray.Length; i++)
             {
@@ -1890,18 +1914,18 @@ namespace LethalBots.AI
 
                 Bounds quicksandBounds = default;
                 bool foundCollider = false;
-                foreach (Collider colldier in quicksand.gameObject.GetComponents<Collider>())
+                foreach (Collider collider in quicksand.gameObject.GetComponents<Collider>())
                 {
-                    if (colldier != null)
+                    if (collider != null)
                     {
                         if (!foundCollider)
                         {
-                            quicksandBounds = colldier.bounds;
+                            quicksandBounds = collider.bounds;
                             foundCollider = true;
                         }
                         else
                         {
-                            quicksandBounds.Encapsulate(colldier.bounds);
+                            quicksandBounds.Encapsulate(collider.bounds);
                         }
                     }
                 }
@@ -1916,33 +1940,6 @@ namespace LethalBots.AI
                 if (!quicksand.isWater)
                 {
                     Plugin.LogDebug("This is quicksand!");
-
-                    // Check if the closest point is within or on the collider
-                    /*int arraySize = Physics.OverlapSphereNonAlloc(closestPoint, quicksandBuffer, hitColliders);
-                    if (arraySize >= hitColliders.Length)
-                    {
-                        Array.Resize(ref hitColliders, arraySize);
-                        arraySize = Physics.OverlapSphereNonAlloc(closestPoint, quicksandBuffer, hitColliders);
-                    }
-                    //Collider[] hitColliders = Physics.OverlapSphere(closestPoint, quicksandBuffer);
-                    for (int i = 0; i < arraySize; i++)
-                    {
-                        var hitCollider = hitColliders[i];
-                        if (hitCollider == collider)
-                        {
-                            Plugin.LogDebug("Segment intersects solid quicksand!");
-                            return (true, predictedDrownTimer);
-                        }
-                    }*/
-
-                    // Check if the closest point is within or on the collider
-                    //Vector3 testPoint = quicksandBounds.ClosestPoint(closestPoint);
-                    //if ((testPoint - closestPoint).sqrMagnitude < quicksandBuffer * quicksandBuffer)
-                    //{
-                    //    Plugin.LogDebug("Segment intersects solid quicksand!");
-                    //    return (true, predictedDrownTimer);
-                    //}
-
                     if (quicksandBounds.Contains(closestPoint))
                     {
                         Plugin.LogDebug("Segment intersects solid quicksand!");
@@ -1955,7 +1952,6 @@ namespace LethalBots.AI
 
                     // For some reason this works really well like this unlike the code above
                     Vector3 simulatedHead = closestPoint + Vector3.up * headOffset;
-                    //if ((testPoint - simulatedHead).sqrMagnitude < quicksandBuffer * quicksandBuffer)
                     if (quicksandBounds.Contains(simulatedHead))
                     {
                         // Test the amount of time we would spend underwater to get here
@@ -1966,6 +1962,7 @@ namespace LethalBots.AI
                         predictedDrownTimer -= downingDelta;
                         Plugin.LogDebug($"Time left in water: {predictedDrownTimer:F2}");
 
+                        pathGoesThroughWater = true;
                         if (predictedDrownTimer <= 0f)
                         {
                             Plugin.LogDebug("Path would drown the bot! Marking path as dangerous!");
@@ -1974,6 +1971,16 @@ namespace LethalBots.AI
                     }
                 }
             }
+
+            // If the path doesn't go through water, we need to simulate the amount of
+            // air we would gain back from being outside of the water.
+            if (!pathGoesThroughWater)
+            {
+                // Match game logic
+                float travelTime = tempDistance / moveSpeed;
+                predictedDrownTimer = Mathf.Clamp(predictedDrownTimer + (travelTime / Const.LETHAL_BOT_DROWN_TIME), 0f, 1f);
+            }
+
             return (false, predictedDrownTimer);
         }
 
@@ -1987,7 +1994,7 @@ namespace LethalBots.AI
         /// The point on the line segment between <paramref name="vLineA"/> and <paramref name="vLineB"/> 
         /// that is closest to <paramref name="point"/>.
         /// </returns>
-        private static Vector3 GetClosestPointOnLineSegment(Vector3 vLineA, Vector3 vLineB, Vector3 point)
+        internal static Vector3 GetClosestPointOnLineSegment(Vector3 vLineA, Vector3 vLineB, Vector3 point)
         {
             // Check if we are at the same point
             if (vLineA == vLineB)
@@ -2056,13 +2063,14 @@ namespace LethalBots.AI
                 }
             }
 
-            if (path1 == null || path1.corners.Length == 0)
+            Vector3[]? corners = path1?.corners;
+            if (corners == null || corners.Length == 0)
             {
                 isPathVaild = false;
                 return true;
             }
 
-            if (Vector3.Distance(path1.corners[path1.corners.Length - 1], RoundManager.Instance.GetNavMeshPosition(targetPos, RoundManager.Instance.navHit, 2.7f)) > 1.5f)
+            if ((corners[corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(targetPos, RoundManager.Instance.navHit, 2.7f)).sqrMagnitude > 1.5f * 1.5f)
             {
                 if (DebugEnemy)
                 {
@@ -2081,12 +2089,12 @@ namespace LethalBots.AI
                 Vector3 enemyPos = checkLOSToTarget != null ? checkLOSToTarget.transform.position : Vector3.zero;
                 Vector3 viewPos = useEnemyEyePos && checkLOSToTarget != null && checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : enemyPos;
                 viewPos += Vector3.up * 0.3f;
-                for (int j = 1; j < path1.corners.Length; j++)
+                for (int j = 1; j < corners.Length; j++)
                 {
                     // We cache the corners we are using for quicker lookups
                     // also we always use the default distance function as we may be calculating path distance!
-                    Vector3 previousNode = path1.corners[j - 1];
-                    Vector3 currentNode = path1.corners[j];
+                    Vector3 previousNode = corners[j - 1];
+                    Vector3 currentNode = corners[j];
                     float tempDistance = Vector3.Distance(previousNode, currentNode);
 
                     // Calculate the path distance as requested
@@ -2210,7 +2218,7 @@ namespace LethalBots.AI
 
             if (agent.isActiveAndEnabled
                 && agent.isOnNavMesh
-                && !agent.isOnOffMeshLink
+                && !this.IsUsingOffMeshLink()
                 && !isEnemyDead
                 && !NpcController.Npc.isPlayerDead)
             {
@@ -2814,7 +2822,7 @@ namespace LethalBots.AI
         /// <summary>
         /// Returns true if the given EnemyAI can be killed!
         /// </summary>
-        /// <inheritdoc cref="LethalBotAI.CanEnemyBeKilled(EnemyAI, bool, bool)"/>
+        /// <inheritdoc cref="LethalBotAI.CanEnemyBeKilled(EnemyAI, bool, bool, bool)"/>
         public bool CanEnemyBeKilled(EnemyAI enemy, bool isMissionController = false)
         {
             return CanEnemyBeKilled(enemy, HasRangedWeapon(), false, isMissionController);
@@ -2875,15 +2883,10 @@ namespace LethalBots.AI
                 }
                 return hasRangedWeapon || isHumanPlayer || isEnemyStunned || enemy.isInsidePlayerShip;
             }
-            else if (enemy is PumaAI)
+            else if (enemy is PumaAI || enemy is CadaverBloomAI)
             {
-                // The mission controller bot should only protect the ship, not give chase to the fieopar!
+                // The mission controller bot should only protect the ship, not give chase to the fieopar or cadaver!
                 return !isMissionController || enemy.isInsidePlayerShip;
-            }
-            else if (enemy is CadaverBloomAI)
-            {
-                // Slightly special in that the mission controller bot will give their life to protect the ship!
-                return hasRangedWeapon || isHumanPlayer || isEnemyStunned || enemy.isInsidePlayerShip;
             }
             else
             {
@@ -3650,6 +3653,15 @@ namespace LethalBots.AI
         }
 
         /// <summary>
+        /// Helper function to check if the bot is currently using an off mesh link.
+        /// </summary>
+        /// <returns>true if the bot is using an off mesh link, otherwise false</returns>
+        public bool IsUsingOffMeshLink()
+        {
+            return offMeshLinkCoroutine != null || agent.isOnOffMeshLink;
+        }
+
+        /// <summary>
         /// Moves the bot across an off the mesh link using a parabola
         /// </summary>
         /// <remarks>
@@ -3682,8 +3694,8 @@ namespace LethalBots.AI
                 normalizedTime += Time.deltaTime / duration;
                 yield return null;
             }
-            TeleportAgentAIAndBody(endPos);
             agent.CompleteOffMeshLink();
+            TeleportAgentAIAndBody(endPos);
             Plugin.LogDebug($"Completed off mesh link without interruption, position: {base.transform.position}");
             offMeshLinkCoroutine = null;
         }
@@ -6019,19 +6031,8 @@ namespace LethalBots.AI
             serverPosition = navMeshPosition;
             NpcController.Npc.transform.position = navMeshPosition;
 
-            if (agent == null
-                || !agent.enabled)
-            {
-                this.transform.position = navMeshPosition;
-                agent?.Warp(navMeshPosition);
-            }
-            else
-            {
-                SetAgent(enabled: false);
-                this.transform.position = navMeshPosition;
-                agent.Warp(navMeshPosition);
-                SetAgent(enabled: true);
-            }
+            this.transform.position = navMeshPosition;
+            agent?.Warp(navMeshPosition);
 
             // For CullFactory mod
             if (!AreHandsFree())
@@ -9235,14 +9236,11 @@ namespace LethalBots.AI
         /// <summary>
         /// setStartingShipEffectsMethod is private, so we use reflection here to call it
         /// </summary>
-        /// <remarks>
-        /// TODO: We should either use a delegate function or a reverse patch in the future
-        /// </remarks>
-        private static MethodInfo setStartingShipEffectsMethod = AccessTools.Method(typeof(StartMatchLever), "SetStartingShipEffects");
+        private static readonly Action<StartMatchLever> setStartingShipEffectsMethod = AccessTools.MethodDelegate<Action<StartMatchLever>>(AccessTools.Method(typeof(StartMatchLever), "SetStartingShipEffects"));
 
-        private static MethodInfo pullLeverAnimMethod = AccessTools.Method(typeof(StartMatchLever), "PullLeverAnim");
+        private static readonly Action<StartMatchLever, bool> pullLeverAnimMethod = AccessTools.MethodDelegate<Action<StartMatchLever, bool>>(AccessTools.Method(typeof(StartMatchLever), "PullLeverAnim"));
 
-        private static AccessTools.FieldRef<StartMatchLever, bool> clientSentRPCField = AccessTools.FieldRefAccess<bool>(typeof(StartMatchLever), "clientSentRPC");
+        private static readonly AccessTools.FieldRef<StartMatchLever, bool> clientSentRPCField = AccessTools.FieldRefAccess<bool>(typeof(StartMatchLever), "clientSentRPC");
 
         /// <summary>
         /// Carbon copy of <see cref="StartMatchLever.LeverAnimation"/>, but with support for bots
@@ -9276,15 +9274,15 @@ namespace LethalBots.AI
                 // Got to love the amount of reflection I have to do here, but oh well
                 if (playersManager.shipHasLanded)
                 {
-                    pullLeverAnimMethod.Invoke(startMatchLever, new object[] { false });
+                    pullLeverAnimMethod.Invoke(startMatchLever, false);
                     clientSentRPCField.Invoke(startMatchLever) = true;
                     startMatchLever.PlayLeverPullEffectsServerRpc(leverPulled: false);
                 }
                 else if (playersManager.inShipPhase)
                 {
-                    pullLeverAnimMethod.Invoke(startMatchLever, new object[] { true });
+                    pullLeverAnimMethod.Invoke(startMatchLever, true);
                     clientSentRPCField.Invoke(startMatchLever) = true;
-                    setStartingShipEffectsMethod.Invoke(startMatchLever, null);
+                    setStartingShipEffectsMethod.Invoke(startMatchLever);
                     startMatchLever.PlayLeverPullEffectsServerRpc(leverPulled: true);
                 }
             }

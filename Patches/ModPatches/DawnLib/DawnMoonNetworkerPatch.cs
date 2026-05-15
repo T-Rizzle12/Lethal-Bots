@@ -45,9 +45,8 @@ namespace LethalBots.Patches.ModPatches.DawnLib
         public static void MarkBotsAsReadyDawnLib(NetworkBehaviour dawnMoonNetworker)
         {
             // So you may ask, why not just directly call the function.
-            // I need to make sure I don't spam PlayerSetBundleStateServerRpc calls, since that could break stuff.
+            // I need to make sure I don't spam PlayerSetBundleStateRpc calls, since that could break stuff.
             DawnMoonNetworker dawnMoonInstance = (DawnMoonNetworker)dawnMoonNetworker;
-            MethodInfo playerSetBundleStateServerRpcMethod = AccessTools.Method(typeof(DawnMoonNetworker), "PlayerSetBundleStateServerRpc"); // This rpc is private, I have to use reflection to call it
             FieldInfo _playerStatesField = AccessTools.Field(typeof(DawnMoonNetworker), "_playerStates"); // This field is private, makes sense, wish there was a way to query information from it though.
             Dictionary<PlayerControllerB, DawnMoonNetworker.BundleState> playerStates = (Dictionary<PlayerControllerB, DawnMoonNetworker.BundleState>)_playerStatesField.GetValue(dawnMoonInstance); // Cast reflected object into dictionary
 
@@ -63,7 +62,7 @@ namespace LethalBots.Patches.ModPatches.DawnLib
                     && playerStates[lethalBotController] != DawnMoonNetworker.BundleState.Done) // Since rpc postfixes can be called multiple times, make sure we only send an rpc as needed
                 {
                     // This will network to all players that the bot is "ready"
-                    playerSetBundleStateServerRpcMethod.Invoke(dawnMoonNetworker, new object[] { (PlayerControllerReference)lethalBotController, DawnMoonNetworker.BundleState.Done });
+                    dawnMoonInstance.PlayerSetBundleStateRpc(lethalBotController, DawnMoonNetworker.BundleState.Done);
                 }
             }
         }

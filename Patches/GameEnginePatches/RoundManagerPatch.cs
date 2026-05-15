@@ -104,76 +104,102 @@ namespace LethalBots.Patches.GameEnginePatches
             }
         }
 
-        [HarmonyPatch("SpawnMapObjects")]
-        [HarmonyPostfix]
-        static void SpawnMapObjects_Postfix(RoundManager __instance, NavMeshSurface[] ___fullBakeSurfaces)
-        {
-            if (__instance.currentLevel.indoorMapHazards.Length == 0)
-            {
-                return;
-            }
+        // FIXME: This for some unknown reason breaks the entire interior's NavMesh, I have NO idea what causes this to happen........
+        //[HarmonyPatch("SpawnMapObjects")]
+        //[HarmonyPostfix]
+        //static void SpawnMapObjects_Postfix(RoundManager __instance, List<NavMeshSurface> ___fullBakeSurfaces)
+        //{
+        //    if (__instance.currentLevel.indoorMapHazards.Length == 0)
+        //    {
+        //        return;
+        //    }
 
-            bool shouldUpdateNavmesh = false;
-            Vector3 colliderBuffer = new Vector3(0.8f, 0.2f, 0.8f); // Add a slight buffer to keep the bots from walking too close!
-            Landmine[] landmines = Object.FindObjectsOfType<Landmine>(includeInactive: true);
-            if (landmines.Length == 0) 
-            {
-                return;
-            }
+        //    bool shouldUpdateNavmesh = false;
+        //    Vector3 colliderBuffer = new Vector3(0.8f, 0.2f, 0.8f); // Add a slight buffer to keep the bots from walking too close!
+        //    Landmine[] landmines = Object.FindObjectsOfType<Landmine>(includeInactive: true);
+        //    if (landmines.Length == 0)
+        //    {
+        //        return;
+        //    }
 
-            // Log what we are about to do!
-            Plugin.LogInfo("Adding NavMeshModifierVolume to the landmine objects to override its path cost for bots!");
-            Dungeon dungeon = __instance.dungeonGenerator.Generator.CurrentDungeon;
-            GameObject landmineModifiers = new GameObject("LandmineNavModifiers");
-            landmineModifiers.transform.SetParent(dungeon.transform, worldPositionStays: false);
-            Transform rootTransform = landmineModifiers.transform;
+        //    // Log what we are about to do!
+        //    Plugin.LogInfo("Adding NavMeshModifierVolume to the landmine objects to override its path cost for bots!");
+        //    HUDManager.Instance.DisplayTip("Landmines spawned!", "Check the Logs!");
+        //    Dungeon dungeon = __instance.dungeonGenerator.Generator.CurrentDungeon;
+        //    GameObject landmineModifiers = new GameObject("LandmineNavModifiers");
+        //    landmineModifiers.transform.SetParent(dungeon.gameObject.transform, worldPositionStays: false);
+        //    Transform rootTransform = landmineModifiers.transform;
 
-            // Go through each landmine!
-            foreach (var landmine in landmines)
-            {
-                if (landmine != null)
-                {
-                    // Change the bounds to contain where the quicksand is.
-                    BoxCollider[] boxColliders = landmine.gameObject.GetComponentsInChildren<BoxCollider>();
-                    for (int i = 0; i < boxColliders.Length; i++)
-                    {
-                        BoxCollider boxCollider = boxColliders[i];
-                        if (boxCollider != null)
-                        {
-                            // Add our proxy gameobject
-                            shouldUpdateNavmesh = true;
-                            GameObject navMeshModifierGameObject = new GameObject($"LandmineNavMeshModifier{i}");
-                            navMeshModifierGameObject.transform.SetParent(rootTransform, worldPositionStays: true);
-                            navMeshModifierGameObject.transform.SetPositionAndRotation(boxCollider.transform.position, boxCollider.transform.rotation); // I didn't know this existed until I found this in the Unity docs....Very useful!
-                            navMeshModifierGameObject.layer = LayerMask.NameToLayer("NavigationSurface");
+        //    // Go through each landmine!
+        //    foreach (var landmine in landmines)
+        //    {
+        //        if (landmine != null)
+        //        {
+        //            // Change the bounds to contain where the quicksand is.
+        //            BoxCollider[] boxColliders = landmine.gameObject.GetComponentsInChildren<BoxCollider>();
+        //            for (int i = 0; i < boxColliders.Length; i++)
+        //            {
+        //                BoxCollider boxCollider = boxColliders[i];
+        //                if (boxCollider != null)
+        //                {
+        //                    // Add our proxy gameobject
+        //                    shouldUpdateNavmesh = true;
+        //                    GameObject navMeshModifierGameObject = new GameObject($"LandmineNavMeshModifier{i}");
+        //                    navMeshModifierGameObject.transform.SetParent(rootTransform, worldPositionStays: true);
+        //                    navMeshModifierGameObject.transform.SetPositionAndRotation(boxCollider.transform.position, boxCollider.transform.rotation); // I didn't know this existed until I found this in the Unity docs....Very useful!
+        //                    navMeshModifierGameObject.layer = LayerMask.NameToLayer("NavigationSurface");
 
-                            // Add the NavMeshVolume
-                            NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();
-                            navMeshModifier.area = Const.LETHAL_BOT_LANDMINE_NAVAREA;
-                            navMeshModifier.center = boxCollider.center;
-                            navMeshModifier.size = boxCollider.size + colliderBuffer;
-                            Plugin.LogInfo($"Added NavMeshModifierVolume to landmine with center {navMeshModifier.center} and size {navMeshModifier.size}.");
-                        }
-                    }
-                }
-            }
+        //                    // Add the NavMeshVolume
+        //                    NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();
+        //                    navMeshModifier.area = Const.LETHAL_BOT_LANDMINE_NAVAREA;
+        //                    navMeshModifier.center = boxCollider.center;
+        //                    navMeshModifier.size = boxCollider.size + colliderBuffer;
+        //                    Plugin.LogInfo($"Added NavMeshModifierVolume to landmine with center {navMeshModifier.center} and size {navMeshModifier.size}.");
+        //                    Plugin.LogInfo($"Landmine position {landmine.transform.position} and rotation {landmine.transform.rotation}.");
+        //                    Plugin.LogInfo($"Collider position {boxCollider.transform.position} and rotation {boxCollider.transform.rotation}.");
+        //                    Plugin.LogInfo($"Proxy position {navMeshModifierGameObject.transform.position} and rotation {navMeshModifierGameObject.transform.rotation}.");
+        //                    Plugin.LogInfo($"Modifier position {navMeshModifier.transform.position} and rotation {navMeshModifier.transform.rotation}.");
+        //                }
+        //            }
+        //        }
+        //    }
 
-            // Don't update the mesh unless we have to
-            if (shouldUpdateNavmesh)
-            {
-                // The game keeps a cache of all of the surfaces that were used for the full bake
-                // of the dungeon, I can just loop through those and call UpdateNavMesh!
-                foreach (var navMeshSurface in ___fullBakeSurfaces)
-                {
-                    if (navMeshSurface != null)
-                    {
-                        // Since we are only adding NavMeshModifiers, no need to rebuild the mesh.
-                        // Just force the game to update the NavMeshAttributes!
-                        navMeshSurface.UpdateNavMesh(navMeshSurface.navMeshData);
-                    }
-                }
-            }
-        }
+        //    // Don't update the mesh unless we have to
+        //    if (shouldUpdateNavmesh)
+        //    {
+        //        // The game keeps a cache of all of the surfaces that were used for the full bake
+        //        // of the dungeon, I can just loop through those and call UpdateNavMesh!
+        //        Plugin.LogInfo("Updating NavMesh for all full bake surfaces in the dungeon to apply the new modifiers!");
+        //        foreach (var navMeshSurface in ___fullBakeSurfaces)
+        //        {
+        //            if (navMeshSurface != null)
+        //            {
+        //                // Log about what we are updating!
+        //                Plugin.LogInfo($"Updating NavMesh for surface {navMeshSurface.gameObject.name} with {navMeshSurface.GetComponentsInChildren<NavMeshModifierVolume>().Length} modifiers.");
+
+        //                // Since we are only adding NavMeshModifiers, no need to rebuild the mesh.
+        //                // Just force the game to update the NavMeshAttributes!
+        //                //navMeshSurface.UpdateNavMesh(navMeshSurface.navMeshData);
+        //                __instance.StartCoroutine(UpdateNavmeshDelayed(navMeshSurface));
+        //            }
+        //        }
+        //    }
+        //}
+
+        //private static IEnumerator UpdateNavmeshDelayed(NavMeshSurface surface)
+        //{
+        //    AsyncOperation asyncOperation = surface.UpdateNavMesh(surface.navMeshData);
+        //    while (asyncOperation != null && !asyncOperation.isDone)
+        //    {
+        //        yield return null;
+        //    }
+
+        //    Plugin.LogDebug($"UpdateNavMesh finished, refreshing surface data.");
+        //    surface.RemoveData();
+        //    Plugin.LogDebug("Removed existing data.");
+        //    surface.AddData();
+        //    Plugin.LogDebug("Updated NavMesh.");
+        //}
 
         /// <summary>
         /// Make sure to include our custom quicksand mask to enemies!

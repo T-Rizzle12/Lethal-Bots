@@ -359,15 +359,21 @@ namespace LethalBots.AI.AIStates
             }
 
             // Update our destination if needed!
-            if (RetreatPos.HasValue)
+            if (!RetreatPos.HasValue 
+                || (RetreatPos.Value - npcController.Npc.transform.position).sqrMagnitude > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {
-                ai.SetDestinationToPositionLethalBotAI(RetreatPos.Value);
-            }
+                // Move NOW!
+                if (RetreatPos.HasValue)
+                    ai.SetDestinationToPositionLethalBotAI(RetreatPos.Value);
 
-            // Sprint of course
-            npcController.OrderToSprint();
-            ai.OrderMoveToDestination();
-            //retreatPos = ai.destination; // OrderMoveToDestination may change the final destination! 
+                // Sprint of course
+                npcController.OrderToSprint();
+                ai.OrderMoveToDestination();
+            }
+            else
+            {
+                ai.StopMoving(); // Wait here!
+            }
         }
 
         public override void StopAllCoroutines()
@@ -717,19 +723,23 @@ namespace LethalBots.AI.AIStates
                 if (minPathDistanceToEnemy < fearRange)
                 {
                     score -= 100f; // Not good, really dislike this node!
+
+                    // If we have to pick a node that runs past an enemy,
+                    // pick the one the enemy has the hardest time reaching.
+                    score += Mathf.Min(enemyPathDistance - fearRange, 0f) * 1.2f;
                 }
                 else
                 {
                     // Path safety is king
                     score += minPathDistanceToEnemy * 2.5f;
+
+                    // Enemy distance
+                    score += (enemyPathDistance - fearRange) * 1.2f;
                 }
 
                 // Visibility matters, but not infinitely
                 if (isPathOutOfSight) score += 15f;
                 if (isNodeOutOfSight) score += 10f;
-
-                // Enemy distance
-                score += Mathf.Min(enemyPathDistance - fearRange, 0f) * 1.2f;
 
                 // Prefer closer nodes, but lightly
                 score -= botPathDistance * 0.6f;
@@ -905,7 +915,7 @@ namespace LethalBots.AI.AIStates
                     // Check if they can even path there and their distance from the node!
                     if (enemy.PathIsIntersectedByLineOfSight(nodePos, calculatePathDistance: true, false, false))
                     {
-                        nodeSafety.enemyPathDistance = float.MaxValue; // No path, thats REALLY good!
+                        nodeSafety.enemyPathDistance = 99999f; // No path, thats REALLY good! // NOTE: We don't use float.MaxValue since we could cause an integer overflow with it........
                     }
                     else
                     {
@@ -929,12 +939,20 @@ namespace LethalBots.AI.AIStates
                 nodeSafety.botPathDistance = ai.pathDistance;
 
                 // Check if our path goes anywhere near the enemy we are fleeing from
+                Vector3[] corners = ai.path1.corners;
                 float minDist = float.MaxValue;
-                foreach (var corner in ai.path1.corners)
+                for (int j = 1; j < corners.Length; j++)
                 {
-                    // TODO: Make this pick the closest point on the path.
                     // Use the same stuff safe path uses.
-                    minDist = Math.Min(minDist, (corner - enemyPos).sqrMagnitude);
+                    Vector3 toPos = corners[j];
+                    Vector3 fromPos = corners[j - 1];
+                    Vector3 closestPoint = LethalBotAI.GetClosestPointOnLineSegment(fromPos, toPos, enemyPos);
+                    if (closestPoint == ourPos)
+                    {
+                        continue; // Don't consider where we are currently standing as the path moving closer to the enemy in question!
+                    }
+
+                    minDist = Mathf.Min(minDist, (closestPoint - enemyPos).sqrMagnitude);
                 }
 
                 // Update the closest part of the path to the enemy we are fleeing from

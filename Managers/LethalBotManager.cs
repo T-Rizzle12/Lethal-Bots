@@ -1266,6 +1266,18 @@ namespace LethalBots.Managers
                       (fq.EnemyAI is CentipedeAI c && c.clingingToPlayer != null) ? 15f : 1f
             );
 
+            float? CoilHeadPanikFunc(LethalBotFearQuery fearQuery)
+            {
+                // If the coil hasn't moved for 10 seconds, stop being afraid of it!
+                const float stopFearTimer = 10f;
+                if (fearQuery.EnemyAI is SpringManAI coilHead 
+                    && PatchesUtil.stopMovementTimerField.Invoke(coilHead) > stopFearTimer)
+                {
+                    return null;
+                }
+                return fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null;
+            }
+
             float? CoilHeadMissionFunc(LethalBotFearQuery fearQuery)
             {
                 if (fearQuery.EnemyAI.currentBehaviourStateIndex > 0 && fearQuery.PlayerToCheck is PlayerControllerB playerToCheck)
@@ -1281,7 +1293,7 @@ namespace LethalBots.Managers
 
             // Coil Head
             RegisterThreat(typeof(SpringManAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null,
+                CoilHeadPanikFunc,
                 CoilHeadMissionFunc,
                 fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null
             );
@@ -1673,7 +1685,7 @@ namespace LethalBots.Managers
             lethalBotController.externalForceAutoFade = Vector3.zero;
             lethalBotController.voiceMuffledByEnemy = false;
             lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_LIMP, false);
-            lethalBotController.climbSpeed = Const.CLIMB_SPEED;
+            //lethalBotController.climbSpeed = Const.CLIMB_SPEED;
             lethalBotController.usernameBillboardText.enabled = true;
 
             // Cleanup the blood on the bot as requested
@@ -1729,9 +1741,10 @@ namespace LethalBots.Managers
                     RemovePlayerModelReplacement(lethalBotIdentity.BodyReplacementBase);
                     lethalBotIdentity.BodyReplacementBase = null;
                 }
-                if (lethalBotIdentity.DeadBody != null)
+                DeadBodyInfo? deadBody = lethalBotIdentity.DeadBody ?? lethalBotController.deadBody;
+                if (deadBody != null)
                 {
-                    GrabbableObject? body = lethalBotIdentity.DeadBody.grabBodyObject;
+                    GrabbableObject? body = deadBody.grabBodyObject;
                     if (body != null)
                     {
                         if (!body.isHeld)
@@ -1757,7 +1770,7 @@ namespace LethalBots.Managers
                             }
                         }
                     }
-                    Object.Destroy(lethalBotIdentity.DeadBody.gameObject);
+                    Object.Destroy(deadBody.gameObject);
                     lethalBotIdentity.DeadBody = null;
                 }
             }

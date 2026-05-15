@@ -364,7 +364,8 @@ namespace LethalBots.AI.AIStates
         private IEnumerator healUsingWeedKiller()
         {
             // Alright, look at our heal target
-            npcController.OrderToLookAtPosition(this.healTarget.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f);
+            const float cureAngle = 40f; // Found in source code!
+            npcController.OrderToLookAtPosition(this.healTarget.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f, maxBodyFOV: cureAngle);
             yield return null;
             yield return new WaitUntil(() => npcController.LookAtTarget.IsHeadAimingOnTarget() && npcController.LookAtTarget.hasBeenSightedIn);
 
@@ -497,7 +498,7 @@ namespace LethalBots.AI.AIStates
                 yield return null;
             }
 
-            // Swap to weed killer and give time for the switch to happen!
+            // Swap to medkit and give time for the switch to happen!
             float startTime = Time.timeSinceLevelLoad;
             if (npcController.Npc.currentItemSlot != itemSlot
                 || !FindUsualScrapMedkit(ai.HeldItem))
@@ -506,7 +507,7 @@ namespace LethalBots.AI.AIStates
                 yield return new WaitUntil(() => npcController.Npc.currentItemSlot == itemSlot || (Time.timeSinceLevelLoad - startTime) > 1f); // One second to allow RPC to got to server and back to us!
             }
 
-            // Alright, are we holding the Weed Killer?
+            // Alright, are we holding the medkit?
             GrabbableObject? heldItem = ai.HeldItem;
             if (!FindUsualScrapMedkit(heldItem))
             {
