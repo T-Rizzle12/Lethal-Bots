@@ -158,6 +158,17 @@ namespace LethalBots.AI
                 return field;
             }
         }
+        public static DissonanceComms? DissonanceComms 
+        { 
+            get 
+            {
+                if (field == null)
+                {
+                    field = Object.FindObjectOfType<DissonanceComms>();
+                }
+                return field;
+            } 
+        }
         public static MineshaftElevatorController? ElevatorScript { private set; get; } = null;
         private float timerElevatorCooldown;
         private static float pressElevatorButtonCooldown;
@@ -417,7 +428,7 @@ namespace LethalBots.AI
             this.LethalBotVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[(int)NpcController.Npc.playerClientId];
 
             // Copy player voice prefab values
-            DissonanceComms dissonanceComms = Object.FindObjectOfType<DissonanceComms>();
+            DissonanceComms? dissonanceComms = DissonanceComms;
             if (dissonanceComms != null)
             {
                 // Find the prefab

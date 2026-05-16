@@ -2692,7 +2692,7 @@ namespace LethalBots.Managers
                 {
                     flag = LethalPhonesCanBotsHearPlayer(botController, playerWhoSaidMessage);
                 }
-                if (flag || (botController.transform.position - playerWhoSaidMessage.transform.position).sqrMagnitude <= Const.MAX_CHAT_RANGE * Const.MAX_CHAT_RANGE)
+                if (flag || (botController.transform.position - playerWhoSaidMessage.transform.position).sqrMagnitude <= Const.MAX_VOICE_CHAT_RANGE * Const.MAX_VOICE_CHAT_RANGE)
                 {
                     Plugin.LogDebug($"Bot {botController.playerUsername} heard message {message} from {playerWhoSaidMessage.playerUsername}!");
                     //Plugin.LogDebug($"Bot {(botController.holdingWalkieTalkie ? "does" : "doesn't")} have a walkie-talkie!");
@@ -2977,7 +2977,6 @@ namespace LethalBots.Managers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool CanBotsSpawnAtCompanyBuilding()
         {
-            return true;
             if (Plugin.IsModNavmeshInCompanyLoaded)
             {
                 return true;

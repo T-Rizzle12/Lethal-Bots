@@ -93,7 +93,7 @@ namespace LethalBots.Patches.NpcPatches
             }
 
             // Make sure to include our custom area masks to enemies!
-            int areaMaskToAdd = (1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA) | (1 << Const.LETHAL_BOT_LANDMINE_NAVAREA);
+            int areaMaskToAdd = (1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA) | (1 << Const.LETHAL_BOT_LANDMINE_NAVAREA) | (1 << Const.LETHAL_BOT_BRIDGE_NAVAREA);
             __instance.agentMask |= areaMaskToAdd;
             __instance.agent.areaMask |= areaMaskToAdd;
         }
