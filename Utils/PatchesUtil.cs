@@ -36,6 +36,10 @@ namespace LethalBots.Utils
         public static readonly AccessTools.FieldRef<PlayerControllerB, float> slimeSlipAudioVolumeSyncField = AccessTools.FieldRefAccess<float>(typeof(PlayerControllerB), "slimeSlipAudioVolumeSync");
         public static readonly AccessTools.FieldRef<EntranceTeleport, InteractTrigger> triggerScriptField = AccessTools.FieldRefAccess<InteractTrigger>(typeof(EntranceTeleport), "triggerScript");
 
+        public static readonly AccessTools.FieldRef<PumaAI, bool> stalkingFrozenField = AccessTools.FieldRefAccess<bool>(typeof(PumaAI), "stalkingFrozen");
+
+        public static readonly AccessTools.FieldRef<SpringManAI, float> stopMovementTimerField = AccessTools.FieldRefAccess<float>(typeof(SpringManAI), "stopMovementTimer");
+
         #endregion
 
         #region Method Infos

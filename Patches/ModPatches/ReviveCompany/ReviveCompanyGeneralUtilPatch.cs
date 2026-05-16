@@ -61,6 +61,7 @@ namespace LethalBots.Patches.ModPatches.ReviveCompany
                                                             {
                                                                 Hp = ConfigVariables.ReviveToHealth, // FIXME: Fix this to work with the less health on revive!
                                                                 ShouldDestroyDeadBody = true,
+                                                                ResetBodyBlood = true,
                                                                 enumSpawnAnimation = EnumSpawnAnimation.OnlyPlayerSpawnAnimation,
                                                                 SpawnPosition = revivePos,
                                                                 YRot = yRot,

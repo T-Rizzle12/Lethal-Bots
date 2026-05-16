@@ -3,6 +3,7 @@ using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Utils.Helpers;
 using System.Collections;
 using System.Collections.Generic;
@@ -24,19 +25,6 @@ namespace LethalBots.AI.AIStates
         private bool allowRecharging;
         private HealMethod healMethod = HealMethod.None;
         private Coroutine? healCoroutine;
-        private static readonly UpdateLimiter nextCadaverGrowthCheck = new UpdateLimiter();
-        private static CadaverGrowthAI? CadaverGrowthAI
-        {
-            get
-            {
-                if (field == null && nextCadaverGrowthCheck.CanUpdate())
-                {
-                    nextCadaverGrowthCheck.Invalidate();
-                    field = Object.FindObjectOfType<CadaverGrowthAI>();
-                }
-                return field;
-            }
-        }
 
         public HealPlayerState(AIState oldState, PlayerControllerB targetPlayer) : base(oldState)
         {
@@ -212,12 +200,12 @@ namespace LethalBots.AI.AIStates
                 return false; // We can't heal ourselves with weed killer, someone else has to do it for us.
             }
 
-            if (CadaverGrowthAI == null)
+            if (CadaverGrowthAIPatch.CadaverGrowthAI == null)
             {
                 //Plugin.LogDebug("HealPlayerState: Cannot find CadaverGrowthAI, cannot heal with weed killer!");
                 return false;
             }
-            PlayerInfection playerInfection = CadaverGrowthAI.playerInfections[healTarget.playerClientId];
+            PlayerInfection playerInfection = CadaverGrowthAIPatch.CadaverGrowthAI.playerInfections[healTarget.playerClientId];
             if (!playerInfection.infected || playerInfection.infectionMeter < requiredInfectionLevel)
             {
                 //Plugin.LogDebug("HealPlayerState: Player is not infected with the Cadaver infection, cannot heal with weed killer!");
@@ -376,7 +364,8 @@ namespace LethalBots.AI.AIStates
         private IEnumerator healUsingWeedKiller()
         {
             // Alright, look at our heal target
-            npcController.OrderToLookAtPosition(this.healTarget.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f);
+            const float cureAngle = 40f; // Found in source code!
+            npcController.OrderToLookAtPosition(this.healTarget.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f, maxBodyFOV: cureAngle);
             yield return null;
             yield return new WaitUntil(() => npcController.LookAtTarget.IsHeadAimingOnTarget() && npcController.LookAtTarget.hasBeenSightedIn);
 
@@ -509,7 +498,7 @@ namespace LethalBots.AI.AIStates
                 yield return null;
             }
 
-            // Swap to weed killer and give time for the switch to happen!
+            // Swap to medkit and give time for the switch to happen!
             float startTime = Time.timeSinceLevelLoad;
             if (npcController.Npc.currentItemSlot != itemSlot
                 || !FindUsualScrapMedkit(ai.HeldItem))
@@ -518,7 +507,7 @@ namespace LethalBots.AI.AIStates
                 yield return new WaitUntil(() => npcController.Npc.currentItemSlot == itemSlot || (Time.timeSinceLevelLoad - startTime) > 1f); // One second to allow RPC to got to server and back to us!
             }
 
-            // Alright, are we holding the Weed Killer?
+            // Alright, are we holding the medkit?
             GrabbableObject? heldItem = ai.HeldItem;
             if (!FindUsualScrapMedkit(heldItem))
             {

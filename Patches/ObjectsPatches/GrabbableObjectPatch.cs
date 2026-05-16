@@ -34,27 +34,31 @@ namespace LethalBots.Patches.ObjectsPatches
             return !LethalBotManager.Instance.IsAnLethalBotAiOwnerOfObject(__instance);
         }
 
-        [HarmonyPatch("DiscardItemOnClient")]
+        [HarmonyPatch("DestroyObjectInHand")]
         [HarmonyTranspiler]
-        static IEnumerable<CodeInstruction> DiscardItemOnClient_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        static IEnumerable<CodeInstruction> DestroyObjectInHand_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
         {
             var startIndex = -1;
             var codes = new List<CodeInstruction>(instructions);
 
-            // Delcare local variable
-            var playerLocal = generator.DeclareLocal(typeof(PlayerControllerB));
+            // GameNetworkManager methods
+            MethodInfo getGameNetworkManagerInstance = AccessTools.PropertyGetter(typeof(GameNetworkManager), "Instance");
+            FieldInfo localPlayerControllerField = AccessTools.Field(typeof(GameNetworkManager), "localPlayerController");
 
-            // Grab methods and fields we need!
-            MethodInfo discardItemMethod = AccessTools.Method(typeof(GrabbableObject), "DiscardItem");
-            MethodInfo getHUDManagerInstance = AccessTools.PropertyGetter(typeof(HUDManager), "Instance");
-            MethodInfo clearControlTipsMethod = AccessTools.Method(typeof(HUDManager), "ClearControlTips");
+            // Unity Object Equality Method
+            MethodInfo opEqualityMethod = AccessTools.Method(typeof(UnityEngine.Object), "op_Equality");
+
+            // Replacement field: this.playerHeldBy
             FieldInfo playerHeldByField = AccessTools.Field(typeof(GrabbableObject), "playerHeldBy");
 
             // ----------------------------------------------------------------------
-            for (var i = 0; i < codes.Count - 1; i++)
+            for (var i = 0; i < codes.Count - 4; i++)
             {
                 if (codes[i].IsLdarg(0)
-                    && codes[i + 1].Calls(discardItemMethod))
+                    && codes[i + 1].LoadsField(playerHeldByField)
+                    && codes[i + 2].Calls(getGameNetworkManagerInstance)
+                    && codes[i + 3].LoadsField(localPlayerControllerField)
+                    && codes[i + 4].Calls(opEqualityMethod))
                 {
                     startIndex = i;
                     break;
@@ -62,22 +66,47 @@ namespace LethalBots.Patches.ObjectsPatches
             }
             if (startIndex > -1)
             {
-                // Insert new field call so we can store the heldItem variable so we can check if a bot is dropping the item
-                // We do this since DiscardItem clears the playerHeldBy attribute making it impossible to check who is dropping the object at this point
-                List<CodeInstruction> codesToAdd = new List<CodeInstruction>
-                {
-                    new CodeInstruction(OpCodes.Ldarg_0), // Load this
-                    new CodeInstruction(OpCodes.Ldfld, playerHeldByField), // Load this.playerHeldBy
-                    new CodeInstruction(OpCodes.Stloc, playerLocal) // Store in our local variable
-                };
-                codes.InsertRange(startIndex, codesToAdd);
+                // Remove the previous codes and use our own instead.
+                codes.RemoveRange(startIndex + 2, 3);
+
+                // Add our replacement code
+                codes.Insert(startIndex + 2, new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLocalOrLethalBotOwnerLocalMethod));
                 startIndex = -1;
             }
             else
             {
-                Plugin.LogError($"LethalBot.Patches.ObjectsPatches.DiscardItemOnClient_Transpiler could not remove check if holding player is bot");
-                return codes.AsEnumerable();
+                Plugin.LogError($"LethalBot.Patches.ObjectsPatches.DestroyObjectInHand_Transpiler could not remove check if holding player is bot");
             }
+
+            return codes.AsEnumerable();
+        }
+
+        [HarmonyPatch("DiscardItemOnClient")]
+        [HarmonyTranspiler]
+        static IEnumerable<CodeInstruction> DiscardItemOnClient_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = 0;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // Delcare local variable
+            var playerLocal = generator.DeclareLocal(typeof(PlayerControllerB));
+
+            // Grab methods and fields we need!
+            MethodInfo getHUDManagerInstance = AccessTools.PropertyGetter(typeof(HUDManager), "Instance");
+            MethodInfo clearControlTipsMethod = AccessTools.Method(typeof(HUDManager), "ClearControlTips");
+            FieldInfo playerHeldByField = AccessTools.Field(typeof(GrabbableObject), "playerHeldBy");
+
+            // ----------------------------------------------------------------------
+            // Insert new field call so we can store the heldItem variable so we can check if a bot is dropping the item
+            // We do this since DiscardItem clears the playerHeldBy attribute making it impossible to check who is dropping the object at this point
+            List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+            {
+                new CodeInstruction(OpCodes.Ldarg_0), // Load this
+                new CodeInstruction(OpCodes.Ldfld, playerHeldByField), // Load this.playerHeldBy
+                new CodeInstruction(OpCodes.Stloc, playerLocal) // Store in our local variable
+            };
+            codes.InsertRange(startIndex, codesToAdd);
+            startIndex = -1;
 
             // ----------------------------------------------------------------------
             for (var i = 0; i < codes.Count - 1; i++)
@@ -98,7 +127,7 @@ namespace LethalBots.Patches.ObjectsPatches
                 codes.Insert(startIndex + 2, nop); // Set label to the instruction **after** the ClearControlTips call
 
                 // Insert new method call to skip ClearControlTips if a bot is dropping the item
-                List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+                codesToAdd = new List<CodeInstruction>
                 {
                     new CodeInstruction(OpCodes.Ldloc, playerLocal),
                     new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLethalBotMethod),

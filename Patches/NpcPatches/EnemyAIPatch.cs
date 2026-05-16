@@ -87,15 +87,42 @@ namespace LethalBots.Patches.NpcPatches
         [HarmonyPostfix]
         static void Start_Postfix(EnemyAI __instance)
         {
-            if (__instance.IsServer && __instance is not LethalBotAI && !RoundManager.Instance.SpawnedEnemies.Contains(__instance))
+            if (__instance is not LethalBotAI && !RoundManager.Instance.SpawnedEnemies.Contains(__instance))
             {
                 RoundManager.Instance.SpawnedEnemies.Add(__instance);
             }
 
-            // Make sure to include our custom quicksand mask to enemies!
-            __instance.agentMask |= 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA;
-            __instance.agent.areaMask |= 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+            // Make sure to include our custom area masks to enemies!
+            int areaMaskToAdd = (1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA) | (1 << Const.LETHAL_BOT_LANDMINE_NAVAREA) | (1 << Const.LETHAL_BOT_BRIDGE_NAVAREA);
+            __instance.agentMask |= areaMaskToAdd;
+            __instance.agent.areaMask |= areaMaskToAdd;
         }
+
+        //[HarmonyPatch("EnableEnemyMesh")]
+        //[HarmonyPrefix]
+        //static void EnableEnemyMesh_Prefix(EnemyAI __instance)
+        //{
+        //    // I need to find what is spamming the console with errors.
+        //    // My best bet is to check before the call to EnableEnemyMesh and see what is creating the issue
+        //    Plugin.LogInfo($"EnableEnemyMesh_Prefix for {__instance} with {__instance.skinnedMeshRenderers.Length} skinnedMeshRenderers and {__instance.meshRenderers.Length} meshRenderers");
+        //    for (int i = 0; i < __instance.skinnedMeshRenderers.Length; i++)
+        //    {
+        //        if (__instance.skinnedMeshRenderers[i] == null)
+        //        {
+        //            Plugin.LogError($"Null skinned renderer at {i}");
+        //            continue;
+        //        }
+        //    }
+
+        //    for (int i = 0; i < __instance.meshRenderers.Length; i++)
+        //    {
+        //        if (__instance.meshRenderers[i] == null)
+        //        {
+        //            Plugin.LogError($"Null mesh renderer at {i}");
+        //            continue;
+        //        }
+        //    }
+        //}
 
         #region Transpilers
 

@@ -1270,6 +1270,7 @@ namespace LethalBots.AI.AIStates
                                                             new NetworkSerializers.SpawnLethalBotParamsNetworkSerializable()
                                                             {
                                                                 ShouldDestroyDeadBody = true,
+                                                                ResetBodyBlood = true,
                                                                 enumSpawnAnimation = EnumSpawnAnimation.OnlyPlayerSpawnAnimation,
                                                                 SpawnPosition = StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, playerClientId, simpleTeleport: false),
                                                                 YRot = 0,

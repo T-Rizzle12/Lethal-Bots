@@ -207,6 +207,8 @@ namespace LethalBots.AI
             GameObject? closestNode = null;
             foreach (GameObject node in array)
             {
+                if (node == null) continue;
+
                 float sqrMagnitude = (node.transform.position - pos).sqrMagnitude;
                 if (sqrMagnitude < num && ignoreNode != node)
                 {
@@ -1017,8 +1019,8 @@ namespace LethalBots.AI
         }
 
         /// <summary>
-        /// Simple function that checks if the give <paramref name="item"/> is null or not<br/>
-        /// This was designed to be overridden by states that want to drop specific items only!
+        /// This checks if the given <paramref name="item"/> should be consider for use in <see cref="SelectBestItemFromInventory"/><br/>
+        /// This was designed to be overridden by states that want to use specific items only!
         /// </summary>
         /// <remarks>
         /// This was designed for use in <see cref="LethalBotAI.HasGrabbableObjectInInventory(System.Func{GrabbableObject, bool}, out int)"/> calls.
@@ -1044,7 +1046,7 @@ namespace LethalBots.AI
             else if (item is ShotgunItem shotgun)
             {
                 // If we have a shotgun and we need to reload or the safety is off, we should use it!
-                if ((!shotgun.safetyOn || shotgun.shellsLoaded < 2) && ai.HasAmmoForWeapon(shotgun, true))
+                if (!shotgun.safetyOn || (shotgun.shellsLoaded < 2 && ai.HasAmmoForWeapon(shotgun, true)))
                 {
                     return true;
                 }

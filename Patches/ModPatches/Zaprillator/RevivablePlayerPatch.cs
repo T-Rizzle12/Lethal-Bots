@@ -54,6 +54,7 @@ namespace LethalBots.Patches.ModPatches.Zaprillator
                                                             new NetworkSerializers.SpawnLethalBotParamsNetworkSerializable()
                                                             {
                                                                 ShouldDestroyDeadBody = true,
+                                                                ResetBodyBlood = true,
                                                                 Hp = restoreHealth,
                                                                 enumSpawnAnimation = EnumSpawnAnimation.OnlyPlayerSpawnAnimation,
                                                                 SpawnPosition = ____ragdoll.ragdoll.transform.position,

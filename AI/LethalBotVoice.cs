@@ -1,10 +1,12 @@
 ﻿using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.Utils.Helpers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEngine;
+using UnityEngine.Events;
 using AudioManager = LethalBots.Managers.AudioManager;
 using Random = System.Random;
 
@@ -24,6 +26,14 @@ namespace LethalBots.AI
         public float Volume { get; set; }
         public float VoicePitch { get; set; }
         public AudioSource CurrentAudioSource { get; set; } = null!;
+
+        // These are used for StartOfRoundPatch.DetectVoiceChatAmplitude
+        public int averageCount;
+        public float averageVoiceAmplitude;
+        public float voiceChatNoiseCooldown;
+
+        // This event is called when a bot talks, it provides the bot that talked and the detected amplitude of the voice chat audio.
+        public static LethalBotTalkEvent lethalBotTalkEvent = new LethalBotTalkEvent();
 
         private float cooldownPlayAudio = 0f;
         private float[] leftSamples = new float[256];

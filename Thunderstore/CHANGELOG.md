@@ -1,5 +1,64 @@
 # Changelog
 
+## 7.1.0 2026-5-16
+Back again with another update. I would have added more support for other mods, but the bug list was starting to pile up and I needed to release the fixes I have been sitting on. Anyhow, lets get on with the update.
+
+## Added support for TomatoBird.AutoRevive
+Bots now understand how to use the Auto Revive mod and will respawn as soon as possible, they also respect the mod's config options.
+
+## Added Landmine Avoidance
+This took a ton of debugging, but bots will now pathfind around landmines. This doesn't mean they will never walk through them, they just dislike walking near them now.
+
+## PanikState Rework
+The PanikState has had some major changes. Bots are much smarter on how they pick paths to flee from their current enemy. I also fixed some logic errors that caused the bots to pick much worse paths than they should of.
+- Reworked panic/fleeing pathfinding and node safety scoring
+- Fixed a logic error in the PanikState where bots would not consider nodes nearby themself
+- Fixed a potential integer overflow in the PanikState
+- Bots will stop being afraid of a coil head if it hasn't moved for 10 seconds. This should help in situations where the bot just stands in a corner screaming at it.
+- Fixed bots in the PanikState grabbing another weapon, if they already had one
+
+## AI Improvements
+I also made some adjustments to the bots AI to make them better overall.
+- Increased the range bots can hear voice chat to 40 Units.
+- Bots will now fight fieopars even if they are not in the ship
+- Improved bot behavior with fieopars, I will improve the bot countering AI later down the line
+- Made some adjustments to how the bot aims at players they are attempting to cure with weedkiller
+- Bots will now remove themself as the mission controller if they start following a player
+- Bots will now fight Cadaver Blooms with melee weapons instead of only doing so if one invaded the ship
+- Improved bot path code when attacking snare fleas. Yes, this means bots should no longer stand there and watch you die if you get grabbed by a snare flea!
+- Fixed bot voices not being consistent with the base game voice chat. Bots voices can now be heard from the same range as a human player's!
+- Bots now consider paths through water to be 5 times as expensive
+- Introduced ResetBodyBlood flag for when the bot respawns
+- Made some minor improvements to bots using the Zap Gun
+- Made some adjustments to bots revived midround when deleting their old dead bodies
+- Made some experimental changes to ladderClimbAnimation. This is still unused.
+- Refactored movement input for ladder climbing vs. normal navigation (NOTE: Ladder climbing is not implemented......yet)
+- Added some more NavArea consts for future updates
+
+## Chat Command Improvements
+**NOTICE:** all ``/`` commands have been changed to use a new prefix ``!lb`` this is to maintain compatibility with other mods.
+The changes to the chat commands are just some optimizations and changes to help other mod makers.
+- Updated chat command system to accept multiple keywords for a command
+- Also, the ``blacklistitem`` and ``unblacklistitem`` chat commands now accept a new parameter ``all``. This will mark all items that have the same internal name as the item you are holding as blacklisted.
+- Made some minor optimizations
+
+## Bug Fixes
+Last but not least, the part you have been waiting for, the bug fixes!
+- Actually fixed bots clearing the local players control tips when they dropped an item
+- Fixed a potential null ref exception when loading blacklisted items if no items were blacklisted
+- Fixed the Cadaver infection cough mechanic not working for bots
+- Fixed bot talking not agroing Eyeless dogs
+- Fixed the cruiser failing to register itself to the bot manager when loading a save file
+- Fixed a logic error in ``LethalBotAI.SyncAssignTargetAndSetMovingTo``
+- Fixed a logic error with shotgun reload logic
+- Added transpiler patch for ``DestroyObjectInHand`` to support bot item destruction as well
+- Fixed bot Enemy AI objects pushing players
+- Fixed bots sometimes failing to find a safe path on flooded moons even if said path had some sections where the bot could get its air back. There are still some edge cases, but its much better than it was before.
+- Fixed DawnLib failing to swap between moons if bots were allowed in orbit. (An RPC was updated!)
+- Fixed a potential NullReferenceException in ``LethalBotSearchRoutine.TrimVisitedNodes``
+- Fixed a rare bug where the local player would die if a Kidnapper fox collided with a bot when said Kidnapper fox was targeting the local player
+- Performed other minor bug fixes and cleanup
+
 ## 7.0.3 2026-5-3
 I have no idea how long this has been a bug, but I fixed the Lethal Bot Prefab hash sometimes not being consistent between clients.
 This caused a rare bug where some players would be unable to join their friend's lobby even if they had the same modpack!

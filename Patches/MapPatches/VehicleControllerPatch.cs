@@ -2,6 +2,7 @@
 using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Managers;
+using System;
 using UnityEngine;
 
 namespace LethalBots.Patches.MapPatches
@@ -12,10 +13,26 @@ namespace LethalBots.Patches.MapPatches
     [HarmonyPatch(typeof(VehicleController))]
     public class VehicleControllerPatch
     {
+        /// <summary>
+        /// HACKHACK: Postfixes are not called if the method throws an exception.
+        /// Zeekerss has some kind of error in here that causes it to throw an exception.
+        /// </summary>
+        /// <param name="__exception"></param>
+        /// <returns></returns>
+        [HarmonyPatch("Start")]
+        [HarmonyFinalizer]
+        static Exception Start_Finalizer(Exception __exception)
+        {
+            // Run our code
+            LethalBotManager.Instance.VehicleHasLanded();
+            return __exception; // Let the original exception propagate!
+        }
+
         [HarmonyPatch("Start")]
         [HarmonyPostfix]
         static void Start_PostFix()
         {
+            // Run our code
             LethalBotManager.Instance.VehicleHasLanded();
         }
 

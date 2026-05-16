@@ -20,80 +20,6 @@ namespace LethalBots.Patches.GameEnginePatches
     [HarmonyPatch(typeof(RoundManager))]
     public class RoundManagerPatch
     {
-        //private static Coroutine? overrideQuicksandCoroutine = null;
-
-        //[HarmonyPatch("Awake")]
-        //[HarmonyPrefix]
-        //static void Awake_Prefix(RoundManager __instance)
-        //{
-        //    // Override the NavArea for the Quicksand
-        //    if (overrideQuicksandCoroutine != null)
-        //    {
-        //        __instance.StopCoroutine(overrideQuicksandCoroutine);
-        //    }
-        //    overrideQuicksandCoroutine = __instance.StartCoroutine(OverrideQuicksandPrefab());
-        //}
-
-        // FIXME: This doesn't work since it marks ALL quicksand objects as quicksand when some could be water.
-        //private static IEnumerator OverrideQuicksandPrefab()
-        //{
-        //    // Override the NavArea for the Quicksand
-        //    while (RoundManager.Instance == null || RoundManager.Instance.quicksandPrefab == null)
-        //    {
-        //        yield return null;
-        //    }
-        //    yield return null;
-
-        //    // Log what we are about to do!
-        //    Plugin.LogInfo("Adding NavMeshModifierVolume to the quicksand prefab to override its path cost for bots!");
-
-        //    GameObject quicksandPrefab = RoundManager.Instance.quicksandPrefab;
-        //    if (quicksandPrefab != null)
-        //    {
-        //        // Add the NavMeshVolume
-        //        NavMeshModifierVolume navMeshModifier = quicksandPrefab.gameObject.GetComponent<NavMeshModifierVolume>() ?? quicksandPrefab.gameObject.AddComponent<NavMeshModifierVolume>();
-        //        navMeshModifier.area = Const.LETHAL_BOT_QUICKSAND_NAVAREA;
-
-        //        // Change the bounds to contain where the quicksand is.
-        //        Bounds quicksandBounds = default;
-        //        bool foundCollider = false;
-        //        foreach (BoxCollider collider in quicksandPrefab.gameObject.GetComponentsInChildren<BoxCollider>())
-        //        {
-        //            if (collider != null)
-        //            {
-        //                // convert local box to world-ish space using transform
-        //                Vector3 worldCenter = collider.transform.TransformPoint(collider.center);
-
-        //                Vector3 worldSize = Vector3.Scale(collider.size, collider.transform.lossyScale);
-
-        //                Bounds bounds = new Bounds(worldCenter, worldSize);
-        //                if (!foundCollider)
-        //                {
-        //                    quicksandBounds = bounds;
-        //                    foundCollider = true;
-        //                }
-        //                else
-        //                {
-        //                    quicksandBounds.Encapsulate(bounds);
-        //                }
-        //            }
-        //        }
-
-        //        // Update the center and size!
-        //        if (foundCollider)
-        //        {
-        //            navMeshModifier.center = quicksandPrefab.transform.InverseTransformPoint(quicksandBounds.center);
-        //            navMeshModifier.size = quicksandBounds.size;
-        //            Plugin.LogInfo($"Added NavMeshModifierVolume to quicksand prefab with center {quicksandBounds.center} and size {quicksandBounds.size}");
-        //        }
-        //        else
-        //        {
-        //            Plugin.LogWarning("Added NavMeshModifierVolume to quicksand prefab, but failed to find collider's center and size. This may cause issues!");
-        //        }
-        //    }
-        //    overrideQuicksandCoroutine = null;
-        //}
-
         /// <summary>
         /// Patch to mark quicksand as well quicksand
         /// </summary>
@@ -102,13 +28,20 @@ namespace LethalBots.Patches.GameEnginePatches
         [HarmonyPostfix]
         static void SpawnOutsideHazards_Postfix(RoundManager __instance)
         {
+            // Filter out the water quicksand triggers since those are handled by safe path.
+            QuicksandTrigger[] quicksandArray = Object.FindObjectsOfType<QuicksandTrigger>(includeInactive: true);
+            quicksandArray = quicksandArray.Where(quicksand => quicksand != null && !quicksand.isWater).ToArray();
+            if (quicksandArray.Length == 0)
+            {
+                return;
+            }
+
             // Log what we are about to do!
             Plugin.LogInfo("Adding NavMeshModifierVolume to the quicksand objects to override its path cost for bots!");
 
             bool shouldUpdateNavmesh = false;
             Vector3 colliderBuffer = new Vector3(0.8f, 0.2f, 0.8f); // Add a slight buffer to keep the bots from walking too close!
             //List<NavMeshModifierVolume> modifiers = new List<NavMeshModifierVolume>();
-            QuicksandTrigger[] quicksandArray = Object.FindObjectsOfType<QuicksandTrigger>(includeInactive: true);
             foreach (var quicksand in quicksandArray)
             {
                 // Make sure its valid
@@ -155,7 +88,9 @@ namespace LethalBots.Patches.GameEnginePatches
                 GameObject outsideNavMesh = GameObject.FindGameObjectWithTag("OutsideLevelNavMesh");
                 if (outsideNavMesh != null)
                 {
+                    // Log about what we are updating!
                     NavMeshSurface navMeshSurface = outsideNavMesh.GetComponent<NavMeshSurface>();
+                    Plugin.LogDebug($"Updating NavMesh for surface {navMeshSurface.gameObject.name} with {navMeshSurface.GetComponentsInChildren<NavMeshModifierVolume>().Length} modifiers.");
                     //foreach (var modifier in navMeshSurface.GetComponentsInChildren<NavMeshModifierVolume>())
                     //{
                     //    if (modifier != null)
@@ -167,8 +102,133 @@ namespace LethalBots.Patches.GameEnginePatches
                     // Since we are only adding NavMeshModifiers, no need to rebuild the mesh.
                     // Just force the game to update the NavMeshAttributes!
                     navMeshSurface.UpdateNavMesh(navMeshSurface.navMeshData);
+                    Plugin.LogDebug($"UpdateNavMesh finished, refreshing surface data.");
+                    navMeshSurface.RemoveData();
+                    Plugin.LogDebug("Removed existing data.");
+                    navMeshSurface.AddData();
+                    Plugin.LogDebug("Added updated data.");
                 }
             }
+        }
+
+        // FIXME: This for some unknown reason breaks the entire interior's NavMesh, I have NO idea what causes this to happen........
+        [HarmonyPatch("SpawnMapObjects")]
+        [HarmonyPostfix]
+        static void SpawnMapObjects_Postfix(RoundManager __instance, List<NavMeshSurface> ___fullBakeSurfaces)
+        {
+            if (__instance.currentLevel.indoorMapHazards.Length == 0)
+            {
+                return;
+            }
+
+            bool shouldUpdateNavmesh = false;
+            Vector3 colliderBuffer = new Vector3(0.8f, 0.2f, 0.8f); // Add a slight buffer to keep the bots from walking too close!
+            Landmine[] landmines = Object.FindObjectsOfType<Landmine>(includeInactive: true);
+            if (landmines.Length == 0)
+            {
+                return;
+            }
+
+            // Log what we are about to do!
+            Plugin.LogInfo("Adding NavMeshModifierVolume to the landmine objects to override its path cost for bots!");
+            //HUDManager.Instance.DisplayTip("Landmines spawned!", "Check the Logs!");
+            Dungeon dungeon = __instance.dungeonGenerator.Generator.CurrentDungeon;
+            GameObject landmineModifiers = new GameObject("LandmineNavModifiers");
+            landmineModifiers.transform.SetParent(dungeon.gameObject.transform, worldPositionStays: false);
+            Transform rootTransform = landmineModifiers.transform;
+
+            // Go through each landmine!
+            foreach (var landmine in landmines)
+            {
+                if (landmine != null)
+                {
+                    // Change the bounds to contain where the quicksand is.
+                    BoxCollider[] boxColliders = landmine.gameObject.GetComponentsInChildren<BoxCollider>();
+                    for (int i = 0; i < boxColliders.Length; i++)
+                    {
+                        BoxCollider boxCollider = boxColliders[i];
+                        if (boxCollider != null)
+                        {
+                            // Add our proxy gameobject
+                            shouldUpdateNavmesh = true;
+                            GameObject navMeshModifierGameObject = new GameObject($"LandmineNavMeshModifier{i}");
+                            navMeshModifierGameObject.transform.SetParent(rootTransform, worldPositionStays: true);
+                            navMeshModifierGameObject.transform.SetPositionAndRotation(boxCollider.transform.position, boxCollider.transform.rotation); // I didn't know this existed until I found this in the Unity docs....Very useful!
+                            navMeshModifierGameObject.layer = LayerMask.NameToLayer("NavigationSurface");
+
+                            // Add the NavMeshVolume
+                            NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();
+                            navMeshModifier.area = Const.LETHAL_BOT_LANDMINE_NAVAREA;
+                            navMeshModifier.center = boxCollider.center;
+                            navMeshModifier.size = boxCollider.size + colliderBuffer;
+                            Plugin.LogDebug($"Added NavMeshModifierVolume to landmine with center {navMeshModifier.center} and size {navMeshModifier.size}.");
+                            //Plugin.LogInfo($"Landmine position {landmine.transform.position} and rotation {landmine.transform.rotation}.");
+                            //Plugin.LogInfo($"Collider position {boxCollider.transform.position} and rotation {boxCollider.transform.rotation}.");
+                            //Plugin.LogInfo($"Proxy position {navMeshModifierGameObject.transform.position} and rotation {navMeshModifierGameObject.transform.rotation}.");
+                            //Plugin.LogInfo($"Modifier position {navMeshModifier.transform.position} and rotation {navMeshModifier.transform.rotation}.");
+                        }
+                    }
+                }
+            }
+
+            // Don't update the mesh unless we have to
+            if (shouldUpdateNavmesh)
+            {
+                // Start the rebake!
+                Plugin.LogInfo("Updating NavMesh for all full bake surfaces in the dungeon to apply the new modifiers!");
+                __instance.StartCoroutine(UpdateNavmeshDelayed(___fullBakeSurfaces));
+            }
+        }
+
+        private static IEnumerator UpdateNavmeshDelayed(List<NavMeshSurface> fullBakeSurfaces)
+        {
+            // The game keeps a cache of all of the surfaces that were used for the full bake
+            // of the dungeon, I can just loop through those and call UpdateNavMesh!
+            AdjacentRoomCullingModified roomCullingModified = StartOfRound.Instance.occlusionCuller;
+            bool wasEnabed = roomCullingModified.enabled;
+            foreach (var navMeshSurface in fullBakeSurfaces)
+            {
+                if (navMeshSurface != null)
+                {
+                    // Log about what we are updating!
+                    Plugin.LogDebug($"Updating NavMesh for surface {navMeshSurface.gameObject.name} with {navMeshSurface.GetComponentsInChildren<NavMeshModifierVolume>().Length} modifiers.");
+
+                    // NOTE: The vanilla game culling causes the NavMesh Generation to fail. Need to force everything to render
+                    // before we can safely rebuild the mesh!
+                    if (roomCullingModified != null && roomCullingModified.enabled)
+                    {
+                        wasEnabed = true;
+                        roomCullingModified.enabled = false;
+                    }
+
+                    // Wait for the game to run the OnDisabled code for the AdjacentRoomCullingModified
+                    yield return null;
+                    yield return new WaitForEndOfFrame(); // Just in case.....
+
+                    // Build our new mesh!
+                    AsyncOperation asyncOperation = navMeshSurface.UpdateNavMesh(navMeshSurface.navMeshData);
+                    while (asyncOperation != null && !asyncOperation.isDone)
+                    {
+                        yield return null;
+                    }
+
+                    // Update the NavMeshData!
+                    Plugin.LogDebug($"UpdateNavMesh finished, refreshing surface data.");
+                    navMeshSurface.RemoveData();
+                    Plugin.LogDebug("Removed existing data.");
+                    navMeshSurface.AddData();
+                    Plugin.LogDebug("Added updated data.");
+                }
+            }
+
+            // Turn the vanilla game culling back on!
+            roomCullingModified ??= StartOfRound.Instance.occlusionCuller;
+            if (roomCullingModified != null && roomCullingModified.enabled != wasEnabed)
+            {
+                roomCullingModified.enabled = wasEnabed;
+            }
+
+            Plugin.LogDebug("Updated all interior NavMeshes.");
         }
 
         /// <summary>
@@ -183,7 +243,8 @@ namespace LethalBots.Patches.GameEnginePatches
         {
             if (supplyExistingMask)
             {
-                __result |= 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+                int areaMaskToAdd = (1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA) | (1 << Const.LETHAL_BOT_LANDMINE_NAVAREA) | (1 << Const.LETHAL_BOT_BRIDGE_NAVAREA);
+                __result |= areaMaskToAdd;
             }
         }
 

@@ -97,7 +97,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // We are on the ship in orbit, just pick a spot and chill!
-            if (LethalBotManager.AreWeInOrbit())
+            if (LethalBotManager.AreWeInOrbit(instanceSOR))
             {
                 ai.State = new ReturnToShipState(this);
                 return;
@@ -314,7 +314,7 @@ namespace LethalBots.AI.AIStates
                 // If we don't have an entrance selected we should pick one now!
                 if (targetEntrance == null 
                     || waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH 
-                    || entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS)
+                    || (entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS && (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)))
                 {
                     EntranceTeleport? entranceToAvoid = (waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH || entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS) ? this.targetEntrance : null;
                     targetEntrance = FindClosestEntrance(entranceToAvoid: entranceToAvoid);

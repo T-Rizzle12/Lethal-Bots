@@ -86,6 +86,7 @@ namespace LethalBots.Constants
         // NpcController
         public const int PLAYER_MASK = 8;
         public const float MAX_CHAT_RANGE = 25f;
+        public const float MAX_VOICE_CHAT_RANGE = 40f; // Based on my testing 50f is the max range set in the game's code, but its around 35f to 40f is where you can barely hear someone.
         public const int INVALID_ITEM_SLOT = -1;
         public const int RESERVED_EQUIPMENT_SLOT = 50; // This is the special equipment slot Zeekerss added. Made it a const so we can easily change it if needed!
         public const string PLAYER_ANIMATION_WEIGHT_HOLDINGITEMSRIGHTHAND = "HoldingItemsRightHand";
@@ -199,6 +200,7 @@ namespace LethalBots.Constants
         public const float DISTANCE_NEARBY_ENTRANCE = 20f;
         public const float FLEEING_CALM_DOWN_TIME = 10f;
         public const float FLEEING_BREAK_LOS_TIME = 4f;
+        public const float FLEEING_UPDATE_FALLBACK_TIME = 5f;
 
         // Return to ship state
         public const float DISTANCE_TO_CHILL_POINT = 2f;
@@ -263,7 +265,10 @@ namespace LethalBots.Constants
         public const float LETHAL_BOT_DROWN_TIME = 12f; // Makes it easier to update how long a bot has until it drowns! // Was 10, but was buffed to 12 in v80
 
         // NavMesh Related
-        public const int LETHAL_BOT_QUICKSAND_NAVAREA = 26; // Just one above Pathfinding Lib
+        public const int LETHAL_BOT_LANDMINE_NAVAREA = 26; // Just one above Pathfinding Lib
+        public const int LETHAL_BOT_QUICKSAND_NAVAREA = 27;
+        public const int LETHAL_BOT_BRIDGE_NAVAREA = 28;
+        public const int LETHAL_BOT_ONLY_NAVAREA = 29; // This can be used to mark a navarea that only Lethal Bots are allowed to use!
 
         // Mod specific
         public const short LETHAL_PHONES_NO_CALLER_ID = -1; // Lethal Phones uses this to indicate that there is no caller.

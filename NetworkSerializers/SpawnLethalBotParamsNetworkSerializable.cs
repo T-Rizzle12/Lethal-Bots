@@ -20,6 +20,7 @@ namespace LethalBots.NetworkSerializers
         public float YRot;
         public bool IsOutside;
         public bool ShouldDestroyDeadBody;
+        public bool ResetBodyBlood = false;
 
         public SpawnLethalBotParamsNetworkSerializable()
         {
@@ -40,6 +41,7 @@ namespace LethalBots.NetworkSerializers
             serializer.SerializeValue(ref YRot);
             serializer.SerializeValue(ref IsOutside);
             serializer.SerializeValue(ref ShouldDestroyDeadBody);
+            serializer.SerializeValue(ref ResetBodyBlood);
         }
     }
 }
