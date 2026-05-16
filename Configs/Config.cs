@@ -62,6 +62,7 @@ namespace LethalBots.Configs
 
         // Voices
         public ConfigEntry<int> Talkativeness;
+        public ConfigEntry<int> Responsiveness;
         public ConfigEntry<bool> AllowSwearing;
         [SyncedEntryField] public SyncedEntry<bool> AllowTalkingWhileDead;
 
@@ -234,9 +235,23 @@ namespace LethalBots.Configs
             Talkativeness = cfg.Bind(ConfigConst.ConfigSectionVoices,
                                      "Talkativeness (Client only)",
                                      defaultValue: (int)VoicesConst.DEFAULT_CONFIG_ENUM_TALKATIVENESS,
-                                     new ConfigDescription("0: No talking | 1: Shy | 2: Normal | 3: Talkative | 4: Can't stop talking",
+                                     new ConfigDescription(
+                                            "Controls how often bots play idle/ambient voice lines " +
+                                            "(When waiting, founding Loot, getting lost, hearing the player etc.). " +
+                                            "0: No talking | 1: Shy | 2: Normal | 3: Talkative | 4: Can't stop talking",
                                                      new AcceptableValueRange<int>(Enum.GetValues(typeof(EnumTalkativeness)).Cast<int>().Min(),
                                                                                    Enum.GetValues(typeof(EnumTalkativeness)).Cast<int>().Max())));
+
+            Responsiveness = cfg.Bind(ConfigConst.ConfigSectionVoices,
+                                      "Responsiveness (Client only)",
+                                      defaultValue: (int)VoicesConst.DEFAULT_CONFIG_ENUM_RESPONSIVENESS,
+                                      new ConfigDescription(
+                                            "Controls how often bots react to events with voice lines " +
+                                            "(When hit, running from a monster, attacking, ordered to follow, stepped on a trap, etc.). " +
+                                            "0: No responses | 1: Shy | 2: Normal | 3: Responsive | 4: Always respond",
+                                            new AcceptableValueRange<int>(
+                                                Enum.GetValues(typeof(EnumResponsiveness)).Cast<int>().Min(),
+                                                Enum.GetValues(typeof(EnumResponsiveness)).Cast<int>().Max())));
 
             AllowSwearing = cfg.Bind(ConfigConst.ConfigSectionVoices,
                                      "Swear words (Client only)",

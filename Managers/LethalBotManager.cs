@@ -5320,7 +5320,7 @@ namespace LethalBots.Managers
 
         public void SyncPlayAudioLethalBot(int lethalBotID, string smallPathAudioClip)
         {
-            AllLethalBotAIs[lethalBotID].PlayAudioServerRpc(smallPathAudioClip, Plugin.Config.Talkativeness.Value);
+            AllLethalBotAIs[lethalBotID].PlayAudioServerRpc(smallPathAudioClip, Plugin.Config.Talkativeness.Value, Plugin.Config.Responsiveness.Value);
         }
 
         public void PlayAudibleNoiseForLethalBot(int lethalBotID,
