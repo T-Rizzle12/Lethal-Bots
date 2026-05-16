@@ -242,10 +242,13 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.RegisterChatCommands"/>
         public static new void RegisterChatCommands()
         {
-            ChatCommandsManager.RegisterCommandForState<TransferLootState>(new ChatCommand(Const.TRANSFER_LOOT_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            foreach (string cmd in Const.TRANSFER_LOOT_COMMANDS)
             {
-                return true; // We are already transferring loot, no need to respond to transfer loot messages
-            }));
+                ChatCommandsManager.RegisterCommandForState<TransferLootState>(new ChatCommand(cmd, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+                {
+                    return true; // We are already transferring loot, no need to respond to transfer loot messages
+                }));
+            }
         }
 
         /// <remarks>

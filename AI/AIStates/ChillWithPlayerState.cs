@@ -272,40 +272,46 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.RegisterChatCommands"/>
         public static new void RegisterChatCommands()
         {
-            ChatCommandsManager.RegisterCommandForState<ChillWithPlayerState>(new ChatCommand(Const.GEAR_UP_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            foreach (string cmd in Const.GEAR_UP_COMMANDS)
             {
-                lethalBotAI.State = new GrabLoadoutState(state);
-                return true;
-            }));
-
-            ChatCommandsManager.RegisterCommandForState<ChillWithPlayerState>(new ChatCommand(Const.USE_KEY_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
-            {
-                // Make sure we have a key or lockpicker
-                // Check what door the player is looking at
-                if (!lethalBotAI.HasKeyInInventory() 
-                    || !Physics.Raycast(new Ray(playerWhoSentMessage.gameplayCamera.transform.position, playerWhoSentMessage.gameplayCamera.transform.forward), out var hitInfo, 3f, 2816))
+                ChatCommandsManager.RegisterCommandForState<ChillWithPlayerState>(new ChatCommand(cmd, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
                 {
+                    lethalBotAI.State = new GrabLoadoutState(state);
                     return true;
-                }
+                }));
+            }
 
-                // Get the door object from the raycast
-                DoorLock lockedDoor = hitInfo.transform.GetComponent<DoorLock>();
-                if (lockedDoor == null)
+            foreach (string cmd in Const.USE_KEY_COMMANDS)
+            {
+                ChatCommandsManager.RegisterCommandForState<ChillWithPlayerState>(new ChatCommand(cmd, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
                 {
-                    TriggerPointToDoor component = hitInfo.transform.GetComponent<TriggerPointToDoor>();
-                    if (component != null)
+                    // Make sure we have a key or lockpicker
+                    // Check what door the player is looking at
+                    if (!lethalBotAI.HasKeyInInventory()
+                        || !Physics.Raycast(new Ray(playerWhoSentMessage.gameplayCamera.transform.position, playerWhoSentMessage.gameplayCamera.transform.forward), out var hitInfo, 3f, 2816))
                     {
-                        lockedDoor = component.pointToDoor;
+                        return true;
                     }
-                }
 
-                // If the door is locked, we better open it!
-                if (lockedDoor != null && lockedDoor.isLocked && !lockedDoor.isPickingLock)
-                {
-                    lethalBotAI.State = new UseKeyOnLockedDoorState(state, lockedDoor);
-                }
-                return true;
-            }));
+                    // Get the door object from the raycast
+                    DoorLock lockedDoor = hitInfo.transform.GetComponent<DoorLock>();
+                    if (lockedDoor == null)
+                    {
+                        TriggerPointToDoor component = hitInfo.transform.GetComponent<TriggerPointToDoor>();
+                        if (component != null)
+                        {
+                            lockedDoor = component.pointToDoor;
+                        }
+                    }
+
+                    // If the door is locked, we better open it!
+                    if (lockedDoor != null && lockedDoor.isLocked && !lockedDoor.isPickingLock)
+                    {
+                        lethalBotAI.State = new UseKeyOnLockedDoorState(state, lockedDoor);
+                    }
+                    return true;
+                }));
+            }
         }
 
         /// <inheritdoc cref="AIState.RegisterSignalTranslatorCommands"/>

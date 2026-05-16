@@ -247,33 +247,39 @@ namespace LethalBots.AI
 
             // One of us was asked to be the mission controller!
             // NOTE: playerWhoSentMessage should never be null here, but other modders could call this function directly with a null value!
-            ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.MAN_THE_SHIP_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            foreach (string cmd in Const.MAN_THE_SHIP_COMMANDS)
             {
-                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController))
+                ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(cmd, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
                 {
-                    // Yay, we found a vaild bot, make it the mission controller!
-                    lethalBotAI.SendChatMessage("Alright, I'll head to the terminal and watch over the crew!");
-                    LethalBotManager.Instance.MissionControlPlayer = lethalBotController;
-                    lethalBotAI.State = new MissionControlState(state); // Its fine to set the state here directly, if we are not on the ship, the state will handle moving to the ship!
-                }
-                return true;
-            }));
+                    if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController))
+                    {
+                        // Yay, we found a vaild bot, make it the mission controller!
+                        lethalBotAI.SendChatMessage("Alright, I'll head to the terminal and watch over the crew!");
+                        LethalBotManager.Instance.MissionControlPlayer = lethalBotController;
+                        lethalBotAI.State = new MissionControlState(state); // Its fine to set the state here directly, if we are not on the ship, the state will handle moving to the ship!
+                    }
+                    return true;
+                }));
+            }
 
             // One of us was asked to transfer loot!
-            ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.TRANSFER_LOOT_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            foreach (string cmd in Const.TRANSFER_LOOT_COMMANDS)
             {
-                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController))
+                ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(cmd, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
                 {
-                    // Yay, we found a vaild bot, make it transfer loot!
-                    lethalBotAI.SendChatMessage("I'll start transferring loot to the ship right away!");
-                    if (!LethalBotManager.Instance.LootTransferPlayers.Contains(lethalBotController))
+                    if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController))
                     {
-                        LethalBotManager.Instance.AddPlayerToLootTransferListAndSync(lethalBotController);
+                        // Yay, we found a vaild bot, make it transfer loot!
+                        lethalBotAI.SendChatMessage("I'll start transferring loot to the ship right away!");
+                        if (!LethalBotManager.Instance.LootTransferPlayers.Contains(lethalBotController))
+                        {
+                            LethalBotManager.Instance.AddPlayerToLootTransferListAndSync(lethalBotController);
+                        }
+                        lethalBotAI.State = new TransferLootState(state);
                     }
-                    lethalBotAI.State = new TransferLootState(state);
-                }
-                return true;
-            }));
+                    return true;
+                }));
+            }
 
             // A player asked to join our group
             ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.JOIN_GROUP_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
