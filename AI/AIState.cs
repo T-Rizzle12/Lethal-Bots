@@ -247,7 +247,7 @@ namespace LethalBots.AI
 
             // One of us was asked to be the mission controller!
             // NOTE: playerWhoSentMessage should never be null here, but other modders could call this function directly with a null value!
-            ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.MAN_THE_SHIP_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.MAN_THE_SHIP_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
                 if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController))
                 {
@@ -260,7 +260,7 @@ namespace LethalBots.AI
             }));
 
             // One of us was asked to transfer loot!
-            ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.TRANSFER_LOOT_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.TRANSFER_LOOT_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
                 if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController))
                 {

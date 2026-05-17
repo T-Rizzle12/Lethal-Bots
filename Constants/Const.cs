@@ -138,18 +138,22 @@ namespace LethalBots.Constants
         // Chat command consts
         // Its a good idea to use consts for your chat command names!
         public const string JESTER_COMMAND = "jester";
-        public const string MAN_THE_SHIP_COMMAND = "man the ship";
-        public const string TRANSFER_LOOT_COMMAND = "transfer loot";
-        public const string GEAR_UP_COMMAND = "gear up";
-        public const string START_THE_SHIP_COMMAND = "start the ship";
-        public const string REQUEST_MONITORING_COMMAND = "request monitoring";
-        public const string CLEAR_MONITORING_COMMAND = "clear monitoring";
-        public const string REQUEST_TELEPORT_COMMAND = "request teleport";
-        public const string HOP_OFF_THE_TERMINAL_COMMAND = "hop off the terminal";
-        public const string USE_KEY_COMMAND = "use key";
         public const string JOIN_GROUP_COMMAND = "join group";
         public const string LEAVE_GROUP_COMMAND = "leave group";
         public const string CREATE_GROUP_COMMAND = "create group";
+
+        // Chat command static readonly arrays
+        public static readonly string[] MAN_THE_SHIP_COMMANDS = { "man the ship", "get on the terminal" };
+        public static readonly string[] TRANSFER_LOOT_COMMANDS = { "transfer loot", "transfer items", "transfer scrap" };
+        public static readonly string[] GEAR_UP_COMMANDS = { "gear up", "get your gear", "pick up your gear" };
+        public static readonly string[] START_THE_SHIP_COMMANDS = { "start the ship", "land the ship", "take off", "pull the lever" };
+        public static readonly string[] REQUEST_MONITORING_COMMANDS = { "request monitoring", "monitor me" };
+        public static readonly string[] CLEAR_MONITORING_COMMANDS = { "clear monitoring", "stop monitoring" };
+        // You probably want to be teleported in dangerous situations and 'help fast' and 'help me' fit that.
+        // 'help' might be too short for a command as then it might trigger too much.
+        public static readonly string[] REQUEST_TELEPORT_COMMANDS = { "request teleport", "teleport me", "help fast", "help me" };
+        public static readonly string[] HOP_OFF_THE_TERMINAL_COMMANDS = { "hop off the terminal", "get off the terminal", "get off", "hop off" };
+        public static readonly string[] USE_KEY_COMMANDS = { "use key", "open the door", "unlock the door" };
 
         // Signal Translator command consts
         public const string RETURN_COMMAND = "return";

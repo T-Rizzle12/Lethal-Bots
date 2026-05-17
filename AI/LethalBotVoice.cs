@@ -35,10 +35,19 @@ namespace LethalBots.AI
         // This event is called when a bot talks, it provides the bot that talked and the detected amplitude of the voice chat audio.
         public static LethalBotTalkEvent lethalBotTalkEvent = new LethalBotTalkEvent();
 
-        private float cooldownPlayAudio = 0f;
+        // Cooldown for talkativeness voice states
+        private float cooldownTalkativeness = 0f;
+        // Cooldown for responsiveness voice states
+        private float cooldownResponsiveness = 0f;
+
         private float[] leftSamples = new float[256];
         private float[] rightSamples = new float[256];
         private bool aboutToTalk;
+
+        // Whether the currently playing voice lines is from the talkativeness state
+        // Used to determine if a responsiveness line can interrupt the currently playing voice line
+        private bool isTalkingnessPlaying = false;
+
         public EnumVoicesState LastVoiceState
         {
             get;
@@ -63,33 +72,62 @@ namespace LethalBots.AI
             return $"BotID: {BotID}, VoiceFolder: {VoiceFolder}, Volume: {Volume}, VoicePitch {VoicePitch}";
         }
 
-        public void SetCooldownAudio(float cooldown)
+        public void SetCooldownAudio(EnumVoicesState voiceState, float cooldown)
         {
-            cooldownPlayAudio = cooldown;
+            if (IsResponsivenessState(voiceState))
+            {
+                cooldownResponsiveness = cooldown;
+            } else
+            {
+                cooldownTalkativeness = cooldown;
+            }
         }
 
-        public void SetNewRandomCooldownAudio()
+        public void SetNewRandomCooldownAudio(EnumVoicesState voiceState)
         {
-            cooldownPlayAudio = GetRandomCooldown();
+            if (IsResponsivenessState(voiceState))
+            {
+                cooldownResponsiveness = GetRandomCooldown(voiceState);
+            } else
+            {
+                cooldownTalkativeness = GetRandomCooldown(voiceState);
+            }
         }
 
         public void ReduceCooldown(float time)
         {
             // CooldownPlayAudio
-            if (cooldownPlayAudio > 0f)
+            // Talkativeness cooldown
+            if (cooldownTalkativeness > 0f)
             {
-                cooldownPlayAudio -= time;
+                cooldownTalkativeness -= time;
+                if (cooldownTalkativeness < 0f)
+                {
+                    cooldownTalkativeness = 0f;
+                }
             }
-            if (cooldownPlayAudio < 0f)
+
+            // Responsiveness cooldown
+            if (cooldownResponsiveness > 0f)
             {
-                cooldownPlayAudio = 0f;
+                cooldownResponsiveness -= time;
+                if (cooldownResponsiveness < 0f)
+                {
+                    cooldownResponsiveness = 0f;
+                }
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool CanPlayAudioAfterCooldown()
+        private static bool IsResponsivenessState(EnumVoicesState voiceState)
         {
-            return cooldownPlayAudio == 0f;
+            return VoicesConst.ResponsivenessVoiceStates.Contains(voiceState);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool CanPlayAudioAfterCooldown(EnumVoicesState voiceState)
+        {
+            return IsResponsivenessState(voiceState) ? cooldownResponsiveness == 0f : cooldownTalkativeness == 0f;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -133,24 +171,49 @@ namespace LethalBots.AI
 
         public void TryPlayVoiceAudio(PlayVoiceParameters parameters)
         {
-            if (Plugin.Config.Talkativeness.Value == (int)EnumTalkativeness.NoTalking)
+            // Check the correct value depending on which slider controls this state
+            // Cooldown check in the 'is responsive' if statement, otherwise the responsive voice lines have no cooldown
+            bool isResponsiveness = IsResponsivenessState(parameters.VoiceState);
+            if (isResponsiveness)
             {
-                return;
+                if (Plugin.Config.Responsiveness.Value == (int)EnumResponsiveness.NoResponses)
+                {
+                    return;
+                }
+
+                if (!CanPlayAudioAfterCooldown(parameters.VoiceState))
+                {
+                    return;
+                }
+
+                // If a talkativeness line is currently playing, cut it so the reactive line can play immediately (responsiveness takes priority)
+                if (IsTalking() && isTalkingnessPlaying)
+                {
+                    StopAudioFadeOut();
+                }
+            }
+            else
+            {
+                if (Plugin.Config.Talkativeness.Value == (int)EnumTalkativeness.NoTalking)
+                {
+
+                    return;
+                }
+
+                if (parameters.WaitForCooldown)
+                {
+                    if (!CanPlayAudioAfterCooldown(parameters.VoiceState))
+                    {
+                        return;
+                    }
+                }
             }
 
             if (!parameters.CanTalkIfOtherLethalBotTalk)
             {
                 if (LethalBotManager.Instance.DidAnLethalBotJustTalkedClose(this.BotID))
                 {
-                    SetNewRandomCooldownAudio();
-                    return;
-                }
-            }
-
-            if (parameters.WaitForCooldown)
-            {
-                if (!CanPlayAudioAfterCooldown())
-                {
+                    SetNewRandomCooldownAudio(parameters.VoiceState);
                     return;
                 }
             }
@@ -181,6 +244,10 @@ namespace LethalBots.AI
                     return;
                 }
             }
+
+            // Track which category is now playing so future responsiveness
+            // triggers know whether they can interrupt.
+            isTalkingnessPlaying = !isResponsiveness;
 
             PlayRandomVoiceAudio(parameters.VoiceState, parameters);
             LastVoiceState = parameters.VoiceState;
@@ -223,25 +290,47 @@ namespace LethalBots.AI
             CurrentAudioSource.clip = audioClip;
             CurrentAudioSource.Play();
 
-            SetCooldownAudio(audioClip.length + GetRandomCooldown());
+            SetCooldownAudio(LastVoiceState, audioClip.length + GetRandomCooldown(LastVoiceState));
         }
 
-        private float GetRandomCooldown()
+        /// <summary>
+        /// Returns a random cooldown duration using whichever slider (talkativeness or responsiveness) controls <paramref name="voiceState"/>.
+        /// </summary>
+        private float GetRandomCooldown(EnumVoicesState voiceState)
         {
             // Set random cooldown
             Random randomInstance = new Random();
-            switch (Plugin.Config.Talkativeness.Value)
+            if (IsResponsivenessState(voiceState))
             {
-                case (int)EnumTalkativeness.Shy:
-                    return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_SHY, VoicesConst.MAX_COOLDOWN_PLAYVOICE_SHY);
-                case (int)EnumTalkativeness.Normal:
-                    return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_NORMAL, VoicesConst.MAX_COOLDOWN_PLAYVOICE_NORMAL);
-                case (int)EnumTalkativeness.Talkative:
-                    return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_TALKATIVE, VoicesConst.MAX_COOLDOWN_PLAYVOICE_TALKATIVE);
-                case (int)EnumTalkativeness.CantStopTalking:
-                    return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_CANTSTOPTALKING, VoicesConst.MAX_COOLDOWN_PLAYVOICE_CANTSTOPTALKING);
-                default:
-                    return 0f;
+                switch (Plugin.Config.Responsiveness.Value)
+                {
+                    case (int)EnumResponsiveness.Shy:
+                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY);
+                    case (int)EnumResponsiveness.Normal:
+                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL);
+                    case (int)EnumResponsiveness.Responsive:
+                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_RESPONSIVE, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_RESPONSIVE);
+                    case (int)EnumResponsiveness.AlwaysRespond:
+                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_ALWAYSRESPOND, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_ALWAYSRESPOND);
+                    default:
+                        return 0f;
+                }
+            }
+            else
+            {
+                switch (Plugin.Config.Talkativeness.Value)
+                {
+                    case (int)EnumTalkativeness.Shy:
+                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_SHY, VoicesConst.MAX_COOLDOWN_PLAYVOICE_SHY);
+                    case (int)EnumTalkativeness.Normal:
+                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_NORMAL, VoicesConst.MAX_COOLDOWN_PLAYVOICE_NORMAL);
+                    case (int)EnumTalkativeness.Talkative:
+                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_TALKATIVE, VoicesConst.MAX_COOLDOWN_PLAYVOICE_TALKATIVE);
+                    case (int)EnumTalkativeness.CantStopTalking:
+                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_CANTSTOPTALKING, VoicesConst.MAX_COOLDOWN_PLAYVOICE_CANTSTOPTALKING);
+                    default:
+                        return 0f;
+                }
             }
         }
 
@@ -362,6 +451,7 @@ namespace LethalBots.AI
             {
                 CurrentAudioSource.Stop();
                 LastVoiceState = EnumVoicesState.None;
+                isTalkingnessPlaying = false;
             }
         }
     }
