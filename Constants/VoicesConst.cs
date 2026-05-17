@@ -29,7 +29,7 @@ namespace LethalBots.Constants
 
         // Responsiveness cooldowns
         // in seconds
-        public const int MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY = 4;
+        public const int MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY = 6;
         public const int MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY = 12;
 
         public const int MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL = 2;
