@@ -25,20 +25,18 @@ namespace LethalBots.Utils.Helpers
 
         public bool IncludeDisabledComponents;
 
-        private Tag? disableCullingTag = null;
-
         public Tag DisableCullingTag
         {
             get
             {
-                if (disableCullingTag == null)
+                if (field == null)
                 {
-                    disableCullingTag = StartOfRound.Instance.occlusionCuller.DisableCullingTag; // Just use what the local player uses!
+                    field = StartOfRound.Instance.occlusionCuller.DisableCullingTag; // Just use what the local player uses!
                 }
-                return disableCullingTag;
+                return field;
             }
-            set => disableCullingTag = value;
-        }
+            set;
+        } = null!;
 
         protected List<Dungeon> dungeons = new List<Dungeon>();
 

@@ -23,28 +23,11 @@ namespace LethalBots.Patches.EnemiesPatches
         private static MethodInfo increaseBackFlowersMethod = AccessTools.Method(typeof(CadaverGrowthAI), "IncreaseBackFlowers");
         private static MethodInfo healPlayerSporeEffectMethod = AccessTools.Method(typeof(CadaverGrowthAI), "HealPlayerSporeEffect");
 
-        // Cache the reference to the CadaverGrowthAI since we need it for multiple patches
-        // and it's a pretty expensive call to do Object.FindObjectOfType every time we need it.
-        private static readonly UpdateLimiter nextCadaverGrowthCheck = new UpdateLimiter();
-        internal static CadaverGrowthAI? CadaverGrowthAI
-        {
-            set => field = value;
-            get
-            {
-                if (field == null && nextCadaverGrowthCheck.CanUpdate())
-                {
-                    nextCadaverGrowthCheck.Invalidate();
-                    field = Object.FindObjectOfType<CadaverGrowthAI>();
-                }
-                return field;
-            }
-        }
-
         [HarmonyPatch("OnEnable")]
         [HarmonyPostfix]
         public static void OnEnable_Postfix(CadaverGrowthAI __instance)
         {
-            CadaverGrowthAI = __instance;
+            SingletonManager.CadaverGrowthAI.Instance = __instance;
             LethalBotVoice.lethalBotTalkEvent.AddListener(OnLethalBotTalk);
         }
 
@@ -57,7 +40,7 @@ namespace LethalBots.Patches.EnemiesPatches
         [HarmonyPostfix]
         public static void OnDisable_Postfix(CadaverGrowthAI __instance)
         {
-            CadaverGrowthAI = null;
+            SingletonManager.CadaverGrowthAI.Instance = null;
             LethalBotVoice.lethalBotTalkEvent.RemoveListener(OnLethalBotTalk);
 
             PlayerControllerB localPlayerController = GameNetworkManager.Instance.localPlayerController;
@@ -88,13 +71,14 @@ namespace LethalBots.Patches.EnemiesPatches
         private static void OnLethalBotTalk(LethalBotVoice botVoice, float loudness)
         {
             LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(botVoice.BotID);
-            if (lethalBotAI == null || CadaverGrowthAI == null)
+            CadaverGrowthAI? cadaverGrowthAI = SingletonManager.CadaverGrowthAI.Instance;
+            if (lethalBotAI == null || cadaverGrowthAI == null)
             {
                 return;
             }
 
             PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
-            PlayerInfection playerInfection = CadaverGrowthAI.playerInfections[lethalBotController.playerClientId];
+            PlayerInfection playerInfection = cadaverGrowthAI.playerInfections[lethalBotController.playerClientId];
             Plugin.LogDebug($"On Lethal Bot talk {lethalBotController.playerUsername}!");
             if (!playerInfection.infected)
             {
@@ -112,7 +96,7 @@ namespace LethalBots.Patches.EnemiesPatches
                     Plugin.LogDebug($"Face spore object position: {lethalBotController.gameplayCamera.transform.position}; {lethalBotController.gameplayCamera.transform.position + lethalBotController.gameplayCamera.transform.forward * 0.25f}");
                     playerInfection.faceSpores.transform.rotation = lethalBotController.gameplayCamera.transform.rotation;
                     playerInfection.faceSpores.Play();
-                    CadaverGrowthAI.CoughSporesRpc(loudness, (int)lethalBotController.playerClientId);
+                    cadaverGrowthAI.CoughSporesRpc(loudness, (int)lethalBotController.playerClientId);
                 }
             }
         }

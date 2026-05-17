@@ -165,8 +165,8 @@ namespace LethalBots.AI
             }
             Npc.gameObject.GetComponent<CharacterController>().enabled = true;
 
-            AudioReverbPresets audioReverbPresets = UnityEngine.Object.FindObjectOfType<AudioReverbPresets>();
-            if ((bool)audioReverbPresets)
+            AudioReverbPresets? audioReverbPresets = SingletonManager.AudioReverbPresets.Instance;
+            if (audioReverbPresets != null)
             {
                 audioReverbPresets.audioPresets[3].ChangeAudioReverbForPlayer(Npc);
             }

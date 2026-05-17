@@ -31,7 +31,8 @@ namespace LethalBots.AI.AIStates
                 // If we still don't have the company desk, we can't sell scrap!
                 // We also need to be at the company building to sell scrap!
                 // If either of these conditions are not met, we return to our ship!
-                if (LethalBotManager.CompanyDesk == null
+                DepositItemsDesk? companyDesk = SingletonManager.CompanyDesk.Instance;
+                if (companyDesk == null
                     || !LethalBotManager.AreWeAtTheCompanyBuilding())
                 {
                     ai.State = new ReturnToShipState(this);
@@ -80,7 +81,7 @@ namespace LethalBots.AI.AIStates
         {
             // The company desk is invaild, we are not at the company building,
             // or the company is pissed, return!
-            DepositItemsDesk? companyDesk = LethalBotManager.CompanyDesk;
+            DepositItemsDesk? companyDesk = SingletonManager.CompanyDesk.Instance;
             if (companyDesk == null 
                 || !LethalBotManager.AreWeAtTheCompanyBuilding() 
                 || companyDesk.attacking)
@@ -180,7 +181,8 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // Sell our item!
-                if (!ai.AreHandsFree() && FindObject(ai.HeldItem))
+                GrabbableObject? heldItem = ai.HeldItem;
+                if (heldItem != null && FindObject(heldItem))
                 {
                     // NEEDTOVALIDATE: Do we use a custom method for this?
                     companyDesk.PlaceItemOnCounter(npcController.Npc);
@@ -188,7 +190,7 @@ namespace LethalBots.AI.AIStates
                 else
                 {
                     // Swap to our next item!
-                    if (!ai.AreHandsFree() && ai.HeldItem.itemProperties.twoHanded)
+                    if (heldItem != null && heldItem.itemProperties.twoHanded)
                     {
                         ai.DropItem();
                         return;

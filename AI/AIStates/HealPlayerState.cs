@@ -200,12 +200,13 @@ namespace LethalBots.AI.AIStates
                 return false; // We can't heal ourselves with weed killer, someone else has to do it for us.
             }
 
-            if (CadaverGrowthAIPatch.CadaverGrowthAI == null)
+            CadaverGrowthAI? cadaverGrowthAI = SingletonManager.CadaverGrowthAI.Instance;
+            if (cadaverGrowthAI == null)
             {
                 //Plugin.LogDebug("HealPlayerState: Cannot find CadaverGrowthAI, cannot heal with weed killer!");
                 return false;
             }
-            PlayerInfection playerInfection = CadaverGrowthAIPatch.CadaverGrowthAI.playerInfections[healTarget.playerClientId];
+            PlayerInfection playerInfection = cadaverGrowthAI.playerInfections[healTarget.playerClientId];
             if (!playerInfection.infected || playerInfection.infectionMeter < requiredInfectionLevel)
             {
                 //Plugin.LogDebug("HealPlayerState: Player is not infected with the Cadaver infection, cannot heal with weed killer!");
@@ -522,7 +523,7 @@ namespace LethalBots.AI.AIStates
             heldItem.UseItemOnClient(true);
             while (this.healTarget != null 
                 && this.healTarget.health < 100
-                && FindUsualScrapMedkit(ai.HeldItem))
+                && FindUsualScrapMedkit(heldItem = ai.HeldItem))
             {
                 // Ok, we keep looping until the player is fully healed
                 yield return null;
@@ -544,7 +545,7 @@ namespace LethalBots.AI.AIStates
                     yield return new WaitUntil(() => (int)healthpoolField.GetValue(heldItem) > 0);
                 }
             }
-            if (heldItem != null && heldItem == ai.HeldItem && heldItem.itemProperties.holdButtonUse)
+            if (heldItem != null && heldItem.itemProperties.holdButtonUse)
             {
                 heldItem.UseItemOnClient(false);
             }
@@ -616,10 +617,11 @@ namespace LethalBots.AI.AIStates
             }
 
             // Make sure we have the bandage equiped
-            if (!FindUsualScrapBandage(ai.HeldItem) 
+            GrabbableObject? heldItem = ai.HeldItem;
+            if (!FindUsualScrapBandage(heldItem) 
                 || npcController.Npc.currentItemSlot != bandageSlot)
             {
-                if (ai.HeldItem != null && ai.HeldItem.itemProperties.twoHanded)
+                if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
                     ai.DropItem();
                     return;
@@ -629,7 +631,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Patch ourself up!
-            ai.HeldItem.UseItemOnClient(true);
+            heldItem.UseItemOnClient(true);
         }
 
         /// <summary>

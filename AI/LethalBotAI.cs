@@ -125,11 +125,26 @@ namespace LethalBots.AI
         /// <summary>
         /// Currently held item by lethalBot
         /// </summary>
-        /// <remarks>
-        /// NEEDTOVALIDATE: Should I just make this a glorified call to <see cref="PlayerControllerB.currentlyHeldObjectServer"/>?<br/>
-        /// After all <see cref="PlayerControllerB.currentlyHeldObjectServer"/> is used internally by most of the game's code!
-        /// </remarks>
-        public GrabbableObject? HeldItem = null!;
+        public GrabbableObject? HeldItem
+        {
+            set
+            {
+                var player = NpcController?.Npc;
+                if (player != null)
+                {
+                    player.currentlyHeldObjectServer = value;
+                }
+                else
+                {
+                    Plugin.LogWarning($"LethalBotAI.HeldItem failed to set currentlyHeldObjectServer to {value}. Bot PlayerControllerB was null!");
+                }
+            }
+            get
+            {
+                var player = NpcController?.Npc;
+                return player != null ? player.currentlyHeldObjectServer : null;
+            }
+        }
         public Collider LethalBotBodyCollider = null!;
 
         public int BotId = -1;
@@ -147,28 +162,6 @@ namespace LethalBots.AI
         public static EntranceTeleport[] EntrancesTeleportArray { private set; get; } = null!;
         public static QuicksandTrigger[] QuicksandArray { private set; get; } = null!;
         private static DoorLock[] doorLocksArray = null!;
-        public static ShipTeleporter? InverseTeleporter
-        {
-            get
-            {
-                if (field == null)
-                {
-                    field = FindTeleporter(true);
-                }
-                return field;
-            }
-        }
-        public static DissonanceComms? DissonanceComms 
-        { 
-            get 
-            {
-                if (field == null)
-                {
-                    field = Object.FindObjectOfType<DissonanceComms>();
-                }
-                return field;
-            } 
-        }
         public static MineshaftElevatorController? ElevatorScript { private set; get; } = null;
         private float timerElevatorCooldown;
         private static float pressElevatorButtonCooldown;
@@ -428,7 +421,7 @@ namespace LethalBots.AI
             this.LethalBotVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[(int)NpcController.Npc.playerClientId];
 
             // Copy player voice prefab values
-            DissonanceComms? dissonanceComms = DissonanceComms;
+            DissonanceComms? dissonanceComms = SingletonManager.DissonanceComms.Instance;
             if (dissonanceComms != null)
             {
                 // Find the prefab
@@ -3764,11 +3757,12 @@ namespace LethalBots.AI
         public bool IsHoldingCombatWeapon()
         {
             // Need ammo in order to use this weapon!
-            if (!HasAmmoForWeapon(HeldItem))
+            GrabbableObject? heldItem = HeldItem;
+            if (!HasAmmoForWeapon(heldItem))
             {
                 return false;
             }
-            return IsItemWeapon(HeldItem);
+            return IsItemWeapon(heldItem);
         }
 
         /// <summary>
@@ -3779,11 +3773,12 @@ namespace LethalBots.AI
         public bool IsHoldingRangedWeapon()
         {
             // Need ammo in order to use this weapon!
-            if (!HasAmmoForWeapon(HeldItem))
+            GrabbableObject? heldItem = HeldItem;
+            if (!HasAmmoForWeapon(heldItem))
             {
                 return false;
             }
-            return IsItemRangedWeapon(HeldItem);
+            return IsItemRangedWeapon(heldItem);
         }
 
         /// <summary>
@@ -4100,6 +4095,7 @@ namespace LethalBots.AI
         /// <param name="typeOfObject">The type of the object in the inventory!</param>
         /// <param name="objectSlot">The slot of where the object was found at! Is set to <see cref="Const.INVALID_ITEM_SLOT"/> if item was not found!</param>
         /// <returns>true: the bot has the object in its inventory, false: the bot doesn't have the given object in its inventory</returns>
+        [Obsolete("Its not recommended to use this function as it has been superseded by HasGrabbableObjectInInventory(Func<GrabbableObject, bool>, out int). Use that instead!")]
         public bool HasGrabbableObjectInInventory(Type typeOfObject, out int objectSlot)
         {
             // Check if the lethalBot is holding the object
@@ -4145,7 +4141,8 @@ namespace LethalBots.AI
         {
             // Check if the lethalBot is holding the object
             objectSlot = Const.INVALID_ITEM_SLOT;
-            if (!AreHandsFree() && objectPredicate(HeldItem))
+            GrabbableObject? heldItem = HeldItem;
+            if (heldItem != null && objectPredicate(heldItem))
             {
                 objectSlot = NpcController.Npc.currentItemSlot;
                 return true;
@@ -4309,9 +4306,10 @@ namespace LethalBots.AI
         /// <returns>I mean come on</returns>
         public bool HasScrapInInventory()
         {
-            if (!AreHandsFree() 
-                && IsItemScrap(HeldItem) 
-                && !IsGrabbableObjectInLoadout(HeldItem))
+            GrabbableObject? heldItem = HeldItem;
+            if (heldItem != null
+                && IsItemScrap(heldItem) 
+                && !IsGrabbableObjectInLoadout(heldItem))
             {
                 return true;
             }
@@ -4339,7 +4337,8 @@ namespace LethalBots.AI
         /// <returns>I mean come on</returns>
         public bool HasSellableItemInInventory()
         {
-            if (!AreHandsFree() && IsGrabbableObjectSellable(HeldItem, true, true))
+            GrabbableObject? heldItem = HeldItem;
+            if (heldItem != null && IsGrabbableObjectSellable(heldItem, true, true))
             {
                 return true;
             }
@@ -4424,7 +4423,6 @@ namespace LethalBots.AI
         /// Basically a carbon copy of <see cref="PlayerControllerB.CanUseItem"/>, but made for bots
         /// </summary>
         /// <returns></returns>
-        [MemberNotNullWhen(true, nameof(HeldItem))]
         public bool CanUseHeldItem()
         {
             PlayerControllerB lethalBotController = NpcController.Npc;
@@ -4432,7 +4430,7 @@ namespace LethalBots.AI
             {
                 return false;
             }
-            if (AreHandsFree())
+            if (lethalBotController.currentlyHeldObjectServer)
             {
                 return false;
             }
@@ -4440,7 +4438,7 @@ namespace LethalBots.AI
             {
                 return false;
             }
-            if (!HeldItem.itemProperties.usableInSpecialAnimations 
+            if (!lethalBotController.currentlyHeldObjectServer.itemProperties.usableInSpecialAnimations 
                 && (lethalBotController.isGrabbingObjectAnimation 
                     || lethalBotController.inTerminalMenu 
                     || lethalBotController.isTypingChat 
@@ -5183,7 +5181,8 @@ namespace LethalBots.AI
             }
 
             // Are we holding a two handed item and is the item we are grabbing two handed
-            if (!AreHandsFree() && enumGrabbable != EnumGrabbableObjectCall.Reviving && HeldItem.itemProperties.twoHanded)
+            GrabbableObject? heldItem = HeldItem;
+            if (heldItem != null && enumGrabbable != EnumGrabbableObjectCall.Reviving && heldItem.itemProperties.twoHanded)
             {
                 // If the item requires one hand then we can set down our large item and pick up the small one!
                 if (grabbableObject.itemProperties.twoHanded 
@@ -6010,9 +6009,9 @@ namespace LethalBots.AI
                 targetEntrance.timeAtLastUse = Time.realtimeSinceStartup;
                 targetEntrance.FinishOpeningEntrance(playShutAudio: false);
                 //EntranceTeleport entranceTeleport = RoundManager.FindMainEntranceScript(setOutside.Value);
-                AudioReverbPresets audioReverbPresets = Object.FindObjectOfType<AudioReverbPresets>();
+                AudioReverbPresets? audioReverbPresets = SingletonManager.AudioReverbPresets.Instance;
                 //audioReverbPresets.audioPresets[targetEntrance.audioReverbPreset].ChangeAudioReverbForPlayer(NpcController.Npc);
-                if (targetEntrance.audioReverbPreset != -1)
+                if (audioReverbPresets != null && targetEntrance.audioReverbPreset != -1)
                 {
                     audioReverbPresets.audioPresets[targetEntrance.audioReverbPreset].ChangeAudioReverbForPlayer(lethalBotController);
                     if (targetEntrance.entrancePointAudio != null)
@@ -6936,9 +6935,9 @@ namespace LethalBots.AI
             }
             if (!this.AreHandsFree())
             {
-                this.HeldItem.playerHeldBy = thisBot;
-                this.SetSpecialGrabAnimationBool(false, this.HeldItem);
-                this.HeldItem.PocketItem();
+                thisBot.currentlyHeldObjectServer.playerHeldBy = thisBot;
+                this.SetSpecialGrabAnimationBool(false, thisBot.currentlyHeldObjectServer);
+                thisBot.currentlyHeldObjectServer.PocketItem();
                 if (slot == Const.RESERVED_EQUIPMENT_SLOT)
                 {
                     if (thisBot.ItemOnlySlot != null && !string.IsNullOrEmpty(thisBot.ItemOnlySlot.itemProperties.pocketAnim))
@@ -6959,7 +6958,7 @@ namespace LethalBots.AI
                 this.SetSpecialGrabAnimationBool(true, grabbableObject);
                 if (!this.AreHandsFree())
                 {
-                    if (grabbableObject.itemProperties.twoHandedAnimation || this.HeldItem.itemProperties.twoHandedAnimation)
+                    if (grabbableObject.itemProperties.twoHandedAnimation || thisBot.currentlyHeldObjectServer.itemProperties.twoHandedAnimation)
                     {
                         thisBot.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATIONTWOHANDED);
                         thisBot.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATIONTWOHANDED);
@@ -6973,15 +6972,13 @@ namespace LethalBots.AI
                 thisBot.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, false);
                 thisBot.isHoldingObject = true;
                 thisBot.currentlyHeldObjectServer = grabbableObject;
-                this.HeldItem = grabbableObject;
                 if (fillSlotWithItem == null)
                 {
-                    this.HeldItem.gameObject.GetComponent<AudioSource>().PlayOneShot(this.HeldItem.itemProperties.grabSFX, 0.6f);
+                    thisBot.currentlyHeldObjectServer.gameObject.GetComponent<AudioSource>().PlayOneShot(thisBot.currentlyHeldObjectServer.itemProperties.grabSFX, 0.6f);
                 }
             }
             else
             {
-                this.HeldItem = null;
                 thisBot.currentlyHeldObject = null;
                 thisBot.currentlyHeldObjectServer = null;
                 thisBot.isHoldingObject = false;
@@ -7314,7 +7311,7 @@ namespace LethalBots.AI
             }
 
             // Discard for player
-            Plugin.LogDebug($"{lethalBot.playerUsername} Try to despawn held item {this.HeldItem} on owner #{this.OwnerClientId} and sync");
+            Plugin.LogDebug($"{lethalBot.playerUsername} Try to despawn held item {grabbableObject} on owner #{this.OwnerClientId} and sync");
             lethalBot.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, true);
             lethalBot.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
 
@@ -9099,7 +9096,7 @@ namespace LethalBots.AI
             if (shipLever == null)
             {
                 // Fallback and find it ourselves
-                shipLever = Object.FindObjectOfType<StartMatchLever>();
+                shipLever = SingletonManager.StartMatchLevel.Instance;
                 if (shipLever == null)
                 {
                     return false;
@@ -9315,7 +9312,7 @@ namespace LethalBots.AI
             if (itemCharger == null)
             {
                 // Fallback and find it ourselves
-                itemCharger = Object.FindObjectOfType<ItemCharger>();
+                itemCharger = SingletonManager.ItemCharger.Instance;
                 if (itemCharger == null)
                 {
                     return false;

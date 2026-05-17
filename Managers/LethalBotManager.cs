@@ -195,36 +195,6 @@ namespace LethalBots.Managers
 
         #endregion
 
-        /// <summary>
-        /// Returns the <see cref="DepositItemsDesk"/> instance in the scene, if it exists.<br/>
-        /// </summary>
-        public static DepositItemsDesk? CompanyDesk 
-        {
-            get
-            {
-                if (field == null)
-                {
-                    field = UnityEngine.Object.FindObjectOfType<DepositItemsDesk>();
-                }
-                return field;
-            }
-        }
-
-        /// <summary>
-        /// Returns the <see cref="HangarShipDoor"/> instance in the scene, if it exists.<br/>
-        /// </summary>
-        public static HangarShipDoor? ShipDoor
-        {
-            get
-            {
-                if (field == null)
-                {
-                    field = UnityEngine.Object.FindObjectOfType<HangarShipDoor>();
-                }
-                return field;
-            }
-        }
-
         public VehicleController? VehicleController;
 
         // Variables that handle the ship's NavMesh
@@ -1724,10 +1694,6 @@ namespace LethalBots.Managers
             //lethalBotAI.NetworkObject.AutoObjectParentSync = true;
             lethalBotAI.enabled = true;
             objectParent.SetActive(true); // Think that some optimization mods disable the player controller, we need to force renable them here
-            if (clientJoining && lethalBotController.currentlyHeldObject != null)
-            {
-                lethalBotAI.HeldItem = lethalBotController.currentlyHeldObject;
-            }
 
             // Unsuscribe from events to prevent double trigger
             PlayerControllerBPatch.OnDisable_ReversePatch(lethalBotController);
@@ -2152,7 +2118,7 @@ namespace LethalBots.Managers
                 }
 
                 // Remove from quick menu
-                QuickMenuManager quickMenuManager = UnityEngine.Object.FindObjectOfType<QuickMenuManager>();
+                QuickMenuManager? quickMenuManager = SingletonManager.QuickMenuManager.Instance;
                 if (quickMenuManager != null)
                 {
                     quickMenuManager.RemoveUserFromPlayerList((int)lethalBotController.playerClientId);
@@ -3025,7 +2991,7 @@ namespace LethalBots.Managers
             {
                 return 0;
             }
-            DepositItemsDesk? companyDesk = CompanyDesk;
+            DepositItemsDesk? companyDesk = SingletonManager.CompanyDesk.Instance;
             if (companyDesk != null)
             {
                 return companyDesk.deskObjectsContainer.GetComponentsInChildren<GrabbableObject>().Length;
@@ -3043,7 +3009,7 @@ namespace LethalBots.Managers
             {
                 return 0;
             }
-            DepositItemsDesk? companyDesk = CompanyDesk;
+            DepositItemsDesk? companyDesk = SingletonManager.CompanyDesk.Instance;
             if (companyDesk != null)
             {
                 int value = 0;
@@ -3585,7 +3551,7 @@ namespace LethalBots.Managers
             }
 
             Vector3 teleportPos = default(Vector3);
-            AudioReverbPresets audioReverbPresets = Object.FindObjectOfType<AudioReverbPresets>();
+            AudioReverbPresets? audioReverbPresets = SingletonManager.AudioReverbPresets.Instance;
             LethalBotAI[] lethalBotAIs = GetLethalBotsAIOwnedByLocal();
             foreach (LethalBotAI lethalBotAI in lethalBotAIs)
             {
@@ -3684,7 +3650,7 @@ namespace LethalBots.Managers
         [ClientRpc]
         public void SetHangarShipDoorStateClientRpc(bool isClosed)
         {
-            HangarShipDoor? hangarShipDoor = ShipDoor;
+            HangarShipDoor? hangarShipDoor = SingletonManager.ShipDoor.Instance;
             if (hangarShipDoor != null && hangarShipDoor.buttonsEnabled)
             {
                 hangarShipDoor.shipDoorsAnimator.SetBool("Closed", value: isClosed);
@@ -4469,7 +4435,7 @@ namespace LethalBots.Managers
                     lethalBotController.gameObject.GetComponent<NetworkObject>().RemoveOwnership();
                 }
                 // Remove from quick menu
-                QuickMenuManager quickMenuManager = UnityEngine.Object.FindObjectOfType<QuickMenuManager>();
+                QuickMenuManager? quickMenuManager = SingletonManager.QuickMenuManager.Instance;
                 if (quickMenuManager != null)
                 {
                     quickMenuManager.RemoveUserFromPlayerList(lethalBot);

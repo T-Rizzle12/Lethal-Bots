@@ -1,5 +1,6 @@
 ﻿using LethalBots.Constants;
 using LethalBots.Enums;
+using LethalBots.Managers;
 using System;
 
 namespace LethalBots.AI.AIStates
@@ -93,7 +94,7 @@ namespace LethalBots.AI.AIStates
                     || this.itemToCharge.insertedBattery.charge < 0.9f))
             {
                 // We should charge the item if we can!
-                ItemCharger itemCharger = UnityEngine.Object.FindObjectOfType<ItemCharger>();
+                ItemCharger? itemCharger = SingletonManager.ItemCharger.Instance;
                 if (itemCharger != null)
                 {
                     InteractTrigger itemChargerTrigger = itemCharger.triggerScript;

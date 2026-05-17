@@ -144,10 +144,10 @@ namespace LethalBots.AI.AIStates
             }
 
             // Switch to our weapon!
+            GrabbableObject? heldItem = ai.HeldItem;
             if (npcController.Npc.currentItemSlot != weaponSlot 
                 || !ai.IsHoldingCombatWeapon())
             {
-                GrabbableObject? heldItem = ai.HeldItem;
                 if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
                     ai.DropItem();
@@ -164,7 +164,7 @@ namespace LethalBots.AI.AIStates
             // Close enough to use item, attempt to use
             float enemySize = EnemyCollision != null ? EnemyCollision.bounds.extents.magnitude : 0.4f;
             float sqrMagDistanceEnemy = (this.CurrentEnemy.transform.position - npcController.Npc.transform.position).sqrMagnitude;
-            float maxEnemyDistance = GetAttackRangeForWeapon(ai.HeldItem) + enemySize;
+            float maxEnemyDistance = GetAttackRangeForWeapon(heldItem) + enemySize;
             float fallBackDistance = maxEnemyDistance * 0.75f;
             float giveupRange = fearRange.Value * 1.5f;
             Vector3 targetPos = EnemyCollision != null ? EnemyCollision.bounds.center : this.CurrentEnemy.eye.position;
@@ -385,14 +385,14 @@ namespace LethalBots.AI.AIStates
                 && !CurrentEnemy.isEnemyDead)
             {
                 // Make sure we have a weapon!
-                if (ai.AreHandsFree() || !ai.IsHoldingCombatWeapon())
+                GrabbableObject? heldItem = ai.HeldItem;
+                if (heldItem == null || !ai.IsHoldingCombatWeapon())
                 {
                     yield return null;
                     continue;
                 }
 
                 // Check if we are still close enough!
-                GrabbableObject heldItem = ai.HeldItem;
                 Vector3 targetPos = EnemyCollision != null ? EnemyCollision.bounds.center : this.CurrentEnemy.eye.position;
                 if (!CanHitEnemyWithHeldItem(heldItem, targetPos))
                 {

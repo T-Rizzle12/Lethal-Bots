@@ -213,26 +213,6 @@ namespace LethalBots.Patches.GameEnginePatches
             LethalBotManager.Instance.EnableShipNavMesh("Now in orbit!");
         }
 
-        [HarmonyPatch("SyncAlreadyHeldObjectsClientRpc")]
-        [HarmonyPostfix]
-        static void SyncAlreadyHeldObjectsClientRpc_PostFix(StartOfRound __instance)
-        {
-            if (LethalBotManager.Instance == null)
-            {
-                return; // No manager means no bots
-            }
-
-            // Update lethal bots held item field
-            foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotAIs())
-            {
-                PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
-                if (lethalBotController != null && lethalBotController.currentlyHeldObjectServer != null)
-                {
-                    lethalBotAI?.HeldItem = lethalBotController.currentlyHeldObjectServer;
-                }
-            }
-        }
-
         [HarmonyPatch("SuckLocalPlayerOutOfShipDoor")]
         [HarmonyPostfix]
         static void SuckLocalPlayerOutOfShipDoor_PostFix(StartOfRound __instance)

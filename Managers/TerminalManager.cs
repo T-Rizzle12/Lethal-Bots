@@ -227,7 +227,7 @@ namespace LethalBots.Managers
                         }
                     case "transmit":
                         {
-                            SignalTranslator? signalTranslator = MissionControlState.SignalTranslator;
+                            SignalTranslator? signalTranslator = SingletonManager.SignalTranslator.Instance;
                             if (signalTranslator == null || !(Time.realtimeSinceStartup - signalTranslator.timeLastUsingSignalTranslator > 8f) || array.Length < 2)
                             {
                                 break;
