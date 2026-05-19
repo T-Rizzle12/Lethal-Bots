@@ -205,7 +205,7 @@ namespace LethalBots.AI.AIStates
                     if (heldItem != null && !FindObject(heldItem) && heldItem.itemProperties.twoHanded)
                     {
                         droppedHeldItem = heldItem;
-                        ai.DropItem();
+                        npcController.Npc.DiscardHeldObject();
                         return;
                     }
                     else if (heldItem == null || !FindObject(heldItem))

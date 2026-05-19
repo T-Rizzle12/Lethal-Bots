@@ -382,7 +382,7 @@ namespace LethalBots.AI.AIStates
                 && (ai.HeldItem is not SprayPaintItem sprayPaintItem || !sprayPaintItem.isWeedKillerSprayBottle)
                 && ai.HeldItem.itemProperties.twoHanded)
             {
-                ai.DropItem();
+                npcController.Npc.DiscardHeldObject();
                 yield return null;
             }
 
@@ -495,7 +495,7 @@ namespace LethalBots.AI.AIStates
                 && !FindUsualScrapMedkit(ai.HeldItem)
                 && ai.HeldItem.itemProperties.twoHanded)
             {
-                ai.DropItem();
+                npcController.Npc.DiscardHeldObject();
                 yield return null;
             }
 
@@ -623,7 +623,7 @@ namespace LethalBots.AI.AIStates
             {
                 if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
-                    ai.DropItem();
+                    npcController.Npc.DiscardHeldObject();
                     return;
                 }
                 ai.SwitchItemSlotsAndSync(bandageSlot);

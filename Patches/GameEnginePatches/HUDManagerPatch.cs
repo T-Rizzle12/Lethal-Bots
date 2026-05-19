@@ -90,9 +90,18 @@ namespace LethalBots.Patches.GameEnginePatches
         }
 
         [HarmonyPatch("AddPlayerChatMessageClientRpc")]
-        [HarmonyPostfix]
+        [HarmonyPrefix]
+        [HarmonyPriority(Priority.Last)]
         public static void AddPlayerChatMessageClientRpc_Postfix(HUDManager __instance, string chatMessage, int playerId)
         {
+            // If other mods block this call, we don't do anything!
+            // HACKHACK: This is the only way we can get chat messages, so run even if the original didn't!
+            //if (!__runOriginal)
+            //{
+            //    Plugin.LogDebug($"AddPlayerChatMessageClientRpc_Postfix call was blocked");
+            //    return; // Let the base game not run........
+            //}
+
             // Grandpa, why don't we use AddTextToChatOnServer or AddChatMessage?
             // Well you see Timmy, AddTextToChatOnServer is too early and is called for all types of messages
             // and AddChatMessage would only let us hear messages if the local player could hear them!

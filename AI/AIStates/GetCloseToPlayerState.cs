@@ -197,7 +197,7 @@ namespace LethalBots.AI.AIStates
                             && !ai.AreHandsFree()
                             && ai.HeldItem is CaveDwellerPhysicsProp)
                             {
-                                ai.DropItem();
+                                npcController.Npc.DiscardHeldObject();
                             }
                         }
                         else if (!isPlayerNearElevatorEntrance && ai.IsInElevatorStartRoom)
@@ -249,7 +249,7 @@ namespace LethalBots.AI.AIStates
                                 && !ai.AreHandsFree()
                                 && ai.HeldItem is CaveDwellerPhysicsProp)
                                 {
-                                    ai.DropItem();
+                                    npcController.Npc.DiscardHeldObject();
                                 }
                             }
                             else if (!isPlayerNearElevatorEntrance && ai.IsInElevatorStartRoom)

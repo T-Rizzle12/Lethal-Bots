@@ -113,7 +113,7 @@ namespace LethalBots.AI.AIStates
                 {
                     if (heldItem != null && (heldItem.itemProperties.twoHanded || !ai.HasSpaceInInventory()))
                     {
-                        ai.DropItem();
+                        npcController.Npc.DiscardHeldObject();
                     }
                     LethalBotAI.DictJustDroppedItems.Remove(playerBody); // HACKHACK: Skip the dropped item cooldown so bot can grab the body immediately
                     if (ai.IsGrabbableObjectGrabbable(playerBody, EnumGrabbableObjectCall.Reviving))
@@ -798,7 +798,7 @@ namespace LethalBots.AI.AIStates
                 shouldPickupBody = false; // Don't try to pick up the body again, we need it on the ground for the revive
                 if (!ai.AreHandsFree())
                 {
-                    ai.DropItem();
+                    npcController.Npc.DiscardHeldObject();
                     return;
                 }
 
@@ -837,7 +837,7 @@ namespace LethalBots.AI.AIStates
                 && ai.HeldItem is not PatcherTool 
                 && ai.HeldItem.itemProperties.twoHanded)
             {
-                ai.DropItem();
+                npcController.Npc.DiscardHeldObject();
                 yield return null;
             }
 
@@ -981,7 +981,7 @@ namespace LethalBots.AI.AIStates
                 shouldPickupBody = false; // Don't try to pick up the body again, we need it on the ground for the revive
                 if (!ai.AreHandsFree() && ai.HeldItem is not PatcherTool)
                 {
-                    ai.DropItem();
+                    npcController.Npc.DiscardHeldObject();
                     return;
                 }
 
@@ -1020,7 +1020,7 @@ namespace LethalBots.AI.AIStates
                 && !IsUsualScrapDefibUnit(ai.HeldItem)
                 && ai.HeldItem.itemProperties.twoHanded)
             {
-                ai.DropItem();
+                npcController.Npc.DiscardHeldObject();
                 yield return null;
             }
 
@@ -1142,7 +1142,7 @@ namespace LethalBots.AI.AIStates
                 shouldPickupBody = false; // Don't try to pick up the body again, we need it on the ground for the revive
                 if (!ai.AreHandsFree() && ai.HeldItem is not DefibrillatorScript)
                 {
-                    ai.DropItem();
+                    npcController.Npc.DiscardHeldObject();
                     return;
                 }
 

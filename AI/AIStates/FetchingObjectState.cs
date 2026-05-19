@@ -12,6 +12,7 @@ namespace LethalBots.AI.AIStates
         private EnumGrabbableObjectCall enumGrabbable;
         private int grabAttempts;
         private bool ignoreEnemies;
+        private GrabbableObject? droppedHeldItem;
 
         /// <summary>
         /// <inheritdoc cref="AIState(AIState)"/>
@@ -60,24 +61,37 @@ namespace LethalBots.AI.AIStates
             float sqrMagDistanceItem = Mathf.Min((this.TargetItem.transform.position - npcController.Npc.gameplayCamera.transform.position).sqrMagnitude, (this.TargetItem.transform.position - npcController.Npc.transform.position).sqrMagnitude); // HACKHACK: Let the bot's grab range be a little better than a human player's.....
             if (sqrMagDistanceItem < npcController.Npc.grabDistance * npcController.Npc.grabDistance)
             {
-                if (!npcController.Npc.inAnimationWithEnemy 
-                    && !npcController.Npc.activatingItem)
+                // Drop our two handed item
+                GrabbableObject? heldItem = ai.HeldItem;
+                if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
-                    GrabbableObject? heldItem = ai.HeldItem;
-                    if (heldItem != null && heldItem.itemProperties.twoHanded)
-                    {
-                        ai.DropItem();
-                    }
+                    droppedHeldItem = heldItem;
+                    npcController.Npc.DiscardHeldObject();
+                    return;
+                }
+                if (ai.CanGrabObject(this.TargetItem))
+                {
+                    // Stop moving
                     ai.StopMoving();
-                    ai.GrabItemServerRpc(this.TargetItem.NetworkObject, itemGiven: false);
-                    if (heldItem != null)
+
+                    // Attempt to grab the object
+                    ai.GrabObject(this.TargetItem);
+                    if (!npcController.Npc.isGrabbingObjectAnimation)
                     {
-                        LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
-                        this.TargetItem = heldItem;
-                        return;
+                        grabAttempts++;
                     }
-                    this.TargetItem = null;
-                    ChangeBackToPreviousState();
+                    else
+                    {
+                        // We are grabbing the object, grab the item we just dropped
+                        if (droppedHeldItem != null)
+                        {
+                            LethalBotAI.DictJustDroppedItems.Remove(droppedHeldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
+                            this.TargetItem = droppedHeldItem;
+                            return;
+                        }
+                        this.TargetItem = null;
+                        ChangeBackToPreviousState();
+                    }
                     return;
                 }
             }

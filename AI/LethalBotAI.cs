@@ -4430,7 +4430,8 @@ namespace LethalBots.AI
             {
                 return false;
             }
-            if (lethalBotController.currentlyHeldObjectServer)
+            GrabbableObject? heldItem = lethalBotController.currentlyHeldObjectServer;
+            if (heldItem == null)
             {
                 return false;
             }
@@ -4438,7 +4439,7 @@ namespace LethalBots.AI
             {
                 return false;
             }
-            if (!lethalBotController.currentlyHeldObjectServer.itemProperties.usableInSpecialAnimations 
+            if (!heldItem.itemProperties.usableInSpecialAnimations 
                 && (lethalBotController.isGrabbingObjectAnimation 
                     || lethalBotController.inTerminalMenu 
                     || lethalBotController.isTypingChat 
@@ -4903,7 +4904,7 @@ namespace LethalBots.AI
                 }
 
                 // Object not outside when ai inside and vice versa
-                bool isHeld = grabbableObject.isHeld;
+                bool isHeld = grabbableObject.isHeld || grabbableObject.isPocketed;
                 Vector3 deadBodyPosition = gameObject.transform.position;
                 if (!isHeld)
                 {
@@ -5122,7 +5123,8 @@ namespace LethalBots.AI
 
             // If its held, check if we are reviving the player or not
             bool skipPathCheck = false;
-            if (grabbableObject.isHeld)
+            bool isHeld = grabbableObject.isHeld || grabbableObject.isPocketed;
+            if (isHeld)
             {
                 // Alright, if we are picking up a player to revive them, check if we are already holding their body!
                 skipPathCheck = true;
@@ -5134,6 +5136,13 @@ namespace LethalBots.AI
 
             if (!grabbableObject.grabbable
                 || grabbableObject.deactivated)
+            {
+                return false;
+            }
+
+            if (!GameNetworkManager.Instance.gameHasStarted 
+                && !grabbableObject.itemProperties.canBeGrabbedBeforeGameStart 
+                && StartOfRound.Instance.testRoom == null)
             {
                 return false;
             }
@@ -5169,7 +5178,7 @@ namespace LethalBots.AI
 
             // Item just dropped, should wait a bit before grab it again
             CaveDwellerPhysicsProp? caveDwellerGrabbableObject = grabbableObject as CaveDwellerPhysicsProp;
-            if (!grabbableObject.isHeld 
+            if (!isHeld
                 && (caveDwellerGrabbableObject == null
                 || !caveDwellerGrabbableObject.caveDwellerScript.babyCrying)
                 && DictJustDroppedItems.TryGetValue(grabbableObject, out float justDroppedItemTime))
@@ -5243,7 +5252,7 @@ namespace LethalBots.AI
                 return false;
             }
 
-            if ((!ignoreHeldFlag && grabbableObject.isHeld)
+            if ((!ignoreHeldFlag && (grabbableObject.isHeld || grabbableObject.isPocketed))
                 || !grabbableObject.grabbable
                 || grabbableObject.deactivated 
                 || !IsItemScrap(grabbableObject))
@@ -5298,7 +5307,8 @@ namespace LethalBots.AI
             // Are we holding a two handed item and is the item we are grabbing two handed
             if (!ignoreHeldFlag)
             {
-                if (!AreHandsFree() && HeldItem.itemProperties.twoHanded)
+                GrabbableObject? heldItem = HeldItem;
+                if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
                     // If the item requires one hand then we can set down our large item and pick up the small one!
                     if (grabbableObject.itemProperties.twoHanded)
@@ -6580,139 +6590,118 @@ namespace LethalBots.AI
         #region Grab item RPC
 
         /// <summary>
-        /// Server side, call clients to make the lethalBot grab item on their side to sync everyone
+        /// Carbon Copy of <see cref="PlayerControllerB.BeginGrabObject"/>, but made for bots
         /// </summary>
-        /// <param name="networkObjectReference">Item reference over the network</param>
-        [ServerRpc(RequireOwnership = false)]
-        public void GrabItemServerRpc(NetworkObjectReference networkObjectReference, bool itemGiven)
+        /// <param name="grabbableObject"></param>
+        public void GrabObject(GrabbableObject grabbableObject)
         {
-            if (!networkObjectReference.TryGet(out NetworkObject networkObject))
+            // Only the owner can call this
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            if (!base.IsOwner)
             {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} GrabItem for LethalBotAI {this.BotId} {NpcController.Npc.playerUsername}: Unknown to get network object from network object reference (Grab item RPC)");
+                Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not owner.");
                 return;
             }
 
-            GrabbableObject grabbableObject = networkObject.GetComponent<GrabbableObject>();
-            if (grabbableObject == null)
+            // NOTE: IsGrabbableObjectGrabbable doesn't work here since we are just checking the same conditions as the human player
+            if (!CanGrabObject(grabbableObject))
             {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} GrabItem for LethalBotAI {this.BotId} {NpcController.Npc.playerUsername}: Unknown to get GrabbableObject component from network object (Grab item RPC)");
+                Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. A");
                 return;
             }
 
-            if (!itemGiven)
+            ref GrabbableObject currentlyGrabbingObject = ref PatchesUtil.currentlyGrabbingObjectField.Invoke(lethalBotController);
+            currentlyGrabbingObject = grabbableObject;
+            if (!GameNetworkManager.Instance.gameHasStarted && !currentlyGrabbingObject.itemProperties.canBeGrabbedBeforeGameStart && StartOfRound.Instance.testRoom == null)
             {
-                if (!IsGrabbableObjectGrabbable(grabbableObject) && !IsGrabbableObjectSellable(grabbableObject))
+                Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. B");
+                return;
+            }
+            PatchesUtil.grabInvalidatedField.Invoke(lethalBotController) = false;
+            if (currentlyGrabbingObject == null 
+                || lethalBotController.inSpecialInteractAnimation 
+                || currentlyGrabbingObject.isHeld 
+                || currentlyGrabbingObject.isPocketed)
+            {
+                Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. C");
+                return;
+            }
+
+            NetworkObject networkObject = currentlyGrabbingObject.NetworkObject;
+            if (networkObject == null || !networkObject.IsSpawned)
+            {
+                Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. D");
+                return;
+            }
+
+            currentlyGrabbingObject.InteractItem();
+            if (currentlyGrabbingObject.grabbable && FirstEmptyItemSlot(currentlyGrabbingObject) != Const.INVALID_ITEM_SLOT)
+            {
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABINVALIDATED, value: false);
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, value: false);
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, value: false);
+                lethalBotController.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
+                SetSpecialGrabAnimationBool(setBool: true, grabbableObject);
+                lethalBotController.isGrabbingObjectAnimation = true;
+                lethalBotController.twoHanded = currentlyGrabbingObject.itemProperties.twoHanded;
+                lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight + (currentlyGrabbingObject.itemProperties.weight - 1f), 1f, 10f);
+                if (currentlyGrabbingObject.itemProperties.grabAnimationTime > 0f)
                 {
-                    Plugin.LogDebug($"{NpcController.Npc.playerUsername} grabbableObject {grabbableObject} not grabbable");
-                    return;
+                    lethalBotController.grabObjectAnimationTime = currentlyGrabbingObject.itemProperties.grabAnimationTime;
                 }
+                else
+                {
+                    lethalBotController.grabObjectAnimationTime = 0.4f;
+                }
+                PatchesUtil.grabObjectServerRpcMethod.Invoke(lethalBotController, networkObject);
+                if (grabObjectCoroutine != null)
+                {
+                    StopCoroutine(grabObjectCoroutine);
+                }
+                grabObjectCoroutine = StartCoroutine(this.GrabAnimationCoroutine());
             }
-
-            // Items need to be owned by the owner of the bot so client code
-            // can be executed properly
-            // NOTE: We do this here since we should be on the server
-            if (networkObject.OwnerClientId != this.OwnerClientId)
-            { 
-                networkObject.ChangeOwnership(this.OwnerClientId);
+            else
+            {
+                Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. E");
             }
-            GrabItemClientRpc(networkObjectReference);
         }
 
         /// <summary>
-        /// Client side, make the lethalBot grab item
+        /// Helper function for <see cref="GrabObject(GrabbableObject)"/>
         /// </summary>
-        /// <param name="networkObjectReference">Item reference over the network</param>
-        [ClientRpc]
-        private void GrabItemClientRpc(NetworkObjectReference networkObjectReference)
-        {
-            if (!networkObjectReference.TryGet(out NetworkObject networkObject))
-            {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} GrabItem for LethalBotAI {this.BotId} {NpcController.Npc.playerUsername}: Unknown to get network object from network object reference (Grab item RPC)");
-                return;
-            }
-
-            GrabbableObject grabbableObject = networkObject.GetComponent<GrabbableObject>();
-            if (grabbableObject == null)
-            {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} GrabItem for LethalBotAI {this.BotId} {NpcController.Npc.playerUsername}: Unknown to get GrabbableObject component from network object (Grab item RPC)");
-                return;
-            }
-
-            if (this.HasGrabbableObjectInInventory(grabbableObject, out _))
-            {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} cannot grab already held item {grabbableObject} on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            GrabItem(grabbableObject);
-        }
-
-        /// <summary>
-        /// Make the lethalBot grab an item like an enemy would, but update the body (<c>PlayerControllerB</c>) too.
-        /// </summary>
-        /// <param name="grabbableObject">Item to grab</param>
-        private void GrabItem(GrabbableObject grabbableObject)
+        /// <remarks>
+        /// This is basically a copy of the checks called by <see cref="PlayerControllerB.Interact_performed"/><br/>
+        /// While this is similar to <see cref="IsGrabbableObjectGrabbable(GrabbableObject, EnumGrabbableObjectCall)"/>, 
+        /// its only the same code human players go through before an item can be picked up
+        /// </remarks>
+        /// <param name="grabbableObject"></param>
+        /// <returns></returns>
+        public bool CanGrabObject(GrabbableObject? grabbableObject)
         {
             PlayerControllerB lethalBotController = NpcController.Npc;
-            Plugin.LogDebug($"{lethalBotController.playerUsername} try to grab item {grabbableObject} on client #{NetworkManager.LocalClientId}");
-            int itemSlot = FirstEmptyItemSlot(grabbableObject);
-            if (itemSlot == Const.INVALID_ITEM_SLOT)
+            if (lethalBotController.twoHanded
+                || lethalBotController.sinkingValue > 0.73f
+                || lethalBotController.inSpecialMenu 
+                || NpcController.TimeSinceSwitchingSlots < 0.2f)
             {
-                Plugin.LogDebug($"{lethalBotController.playerUsername} failed to grab item on client #{NetworkManager.LocalClientId}, no free slots!");
-                return;
+                return false;
             }
-            //this.HeldItem = grabbableObject;
-
-            //grabbableObject.GrabItemFromEnemy(this); //NEEDTOVALIDATE: Should I keep this?
-            //grabbableObject.GrabItem();
-            SwitchToItemSlot(itemSlot, grabbableObject);
-            grabbableObject.EnablePhysics(enable: false);
-            grabbableObject.isHeld = true;
-            grabbableObject.hasHitGround = false;
-            grabbableObject.isInFactory = lethalBotController.isInsideFactory;
-            lethalBotController.SetItemInElevator(lethalBotController.isInHangarShipRoom, lethalBotController.isInElevator, grabbableObject);
-            lethalBotController.twoHanded = grabbableObject.itemProperties.twoHanded;
-            lethalBotController.twoHandedAnimation = grabbableObject.itemProperties.twoHandedAnimation;
-            grabbableObject.parentObject = lethalBotController.serverItemHolder;
-            lethalBotController.isHoldingObject = true;
-            if (grabbableObject.itemProperties.grabSFX != null)
+            if (!lethalBotController.isGrabbingObjectAnimation 
+                && !lethalBotController.isTypingChat 
+                && !lethalBotController.inTerminalMenu 
+                && !NpcController.ThrowingObject 
+                && !lethalBotController.IsInspectingItem 
+                && lethalBotController.inAnimationWithEnemy == null 
+                && !lethalBotController.jetpackControls 
+                && !lethalBotController.disablingJetpackControls 
+                && !StartOfRound.Instance.suckingPlayersOutOfShip)
             {
-                lethalBotController.itemAudio.PlayOneShot(grabbableObject.itemProperties.grabSFX, 1f);
+                if (!lethalBotController.activatingItem && PatchesUtil.waitingToDropItemField.Invoke(lethalBotController) == false)
+                {
+                    return true;
+                }
             }
-
-            lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight + (grabbableObject.itemProperties.weight - 1f), 1f, 10f);
-            NpcController.GrabbedObjectValidated = true;
-
-            // Only call this on the owner, it will be networked if needed!
-            if (IsOwner)
-            { 
-                grabbableObject.GrabItemOnClient(); 
-            }
-            // Should I just call GrabItemOnClient instead?
-            /*if (IsOwner || grabbableObject.itemProperties.syncGrabFunction)
-            {
-                grabbableObject.GrabItem();
-            }*/
-            /*if (grabbableObject.itemProperties.grabSFX != null)
-            {
-                NpcController.Npc.itemAudio.PlayOneShot(grabbableObject.itemProperties.grabSFX, 1f);
-            }*/
-
-            // animations
-            lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABINVALIDATED, false);
-            lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, false);
-            lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, false);
-            lethalBotController.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
-            lethalBotController.isGrabbingObjectAnimation = true;
-            this.SetSpecialGrabAnimationBool(true, grabbableObject);
-
-            if (this.grabObjectCoroutine != null)
-            {
-                base.StopCoroutine(this.grabObjectCoroutine);
-            }
-            this.grabObjectCoroutine = base.StartCoroutine(this.GrabAnimationCoroutine());
-
-            Plugin.LogDebug($"{lethalBotController.playerUsername} Grabbed item {grabbableObject} on client #{NetworkManager.LocalClientId}");
+            return false; ;
         }
 
         /// <summary>
@@ -6994,17 +6983,83 @@ namespace LethalBots.AI
         /// <returns></returns>
         private IEnumerator GrabAnimationCoroutine()
         {
-            if (!this.AreHandsFree())
+            // Grab our player controller
+            PlayerControllerB lethalBotController = NpcController.Npc;
+
+            // Clear the validated grab flag
+            PatchesUtil.grabbedObjectValidatedField.Invoke(lethalBotController) = false;
+
+            // Yield just like the base game
+            yield return new WaitForSeconds(0.1f);
+
+            // Play pickup audio
+            lethalBotController.itemAudio.PlayOneShot(StartOfRound.Instance.playerGrabSFX[UnityEngine.Random.Range(0, StartOfRound.Instance.playerGrabSFX.Length)]);
+            
+            // Play item pickup audio
+            GrabbableObject currentlyGrabbingObject = PatchesUtil.currentlyGrabbingObjectField.Invoke(lethalBotController);
+            currentlyGrabbingObject.parentObject = lethalBotController.serverItemHolder;
+            if (currentlyGrabbingObject.itemProperties.grabSFX != null)
             {
-                float grabAnimationTime = this.HeldItem.itemProperties.grabAnimationTime > 0f ? this.HeldItem.itemProperties.grabAnimationTime : 0.4f;
-                yield return new WaitForSeconds(grabAnimationTime - 0.2f);
-                NpcController.Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, true);
-                NpcController.Npc.isGrabbingObjectAnimation = false;
+                lethalBotController.itemAudio.PlayOneShot(currentlyGrabbingObject.itemProperties.grabSFX, 1f);
+            }
+
+            // For the the grab to be validated by the server
+            while ((PatchesUtil.currentlyGrabbingObjectField.Invoke(lethalBotController) != lethalBotController.currentlyHeldObjectServer || !lethalBotController.currentlyHeldObjectServer.wasOwnerLastFrame) && PatchesUtil.grabInvalidatedField.Invoke(lethalBotController) == false)
+            {
+                yield return null;
+            }
+
+            // Update local variable with our new field
+            currentlyGrabbingObject = PatchesUtil.currentlyGrabbingObjectField.Invoke(lethalBotController);
+            ref bool grabInvalidated = ref PatchesUtil.grabInvalidatedField.Invoke(lethalBotController);
+            if (grabInvalidated)
+            {
+                // If the grab was marked as invalid by the server, let the user know!
+                grabInvalidated = false;
+                Plugin.LogInfo("Grab was invalidated on object: " + currentlyGrabbingObject.name);
+                if (currentlyGrabbingObject.playerHeldBy != null)
+                {
+                    Plugin.LogInfo($"playerHeldBy on currentlyGrabbingObject 2: {currentlyGrabbingObject.playerHeldBy}");
+                }
+                if (currentlyGrabbingObject.parentObject == lethalBotController.serverItemHolder)
+                {
+                    if (currentlyGrabbingObject.playerHeldBy != null)
+                    {
+                        Plugin.LogInfo($"Grab invalidated; giving grabbed object to the client who got it first; {currentlyGrabbingObject.playerHeldBy}");
+                        currentlyGrabbingObject.parentObject = currentlyGrabbingObject.playerHeldBy.serverItemHolder;
+                    }
+                    else
+                    {
+                        Plugin.LogInfo("Grab invalidated; no other client has possession of it, so set its parent object to null.");
+                        currentlyGrabbingObject.parentObject = null;
+                    }
+                }
+                lethalBotController.twoHanded = false;
+                SetSpecialGrabAnimationBool(setBool: false, currentlyGrabbingObject);
+                if (lethalBotController.currentlyHeldObjectServer != null)
+                {
+                    lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRAB, value: true);
+                }
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABINVALIDATED, value: true);
+                lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight - (currentlyGrabbingObject.itemProperties.weight - 1f), 1f, 10f);
+                lethalBotController.isGrabbingObjectAnimation = false;
+                PatchesUtil.currentlyGrabbingObjectField.Invoke(lethalBotController) = null!;
+                lethalBotController.queueDiscardObject = false;
             }
             else
             {
-                NpcController.Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABINVALIDATED, true);
-                NpcController.Npc.isGrabbingObjectAnimation = false;
+                PatchesUtil.grabbedObjectValidatedField.Invoke(lethalBotController) = true;
+                lethalBotController.currentlyHeldObjectServer.GrabItemOnClient();
+                lethalBotController.isHoldingObject = true;
+                yield return new WaitForSeconds(lethalBotController.grabObjectAnimationTime - 0.2f);
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, value: true);
+                lethalBotController.isGrabbingObjectAnimation = false;
+                if (lethalBotController.queueDiscardObject)
+                {
+                    Plugin.LogInfo($"Activating queued DiscardHeldObject to force player #{lethalBotController.playerClientId} '{lethalBotController.playerUsername}' to drop their item! item: '{lethalBotController.currentlyHeldObjectServer.itemProperties.itemName}'");
+                    lethalBotController.DiscardHeldObject();
+                    lethalBotController.queueDiscardObject = false;
+                }
             }
             yield break;
         }
@@ -7014,7 +7069,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="setBool">Activate or deactivate special animation</param>
         /// <param name="item">Item that has the special grab animation</param>
-        private void SetSpecialGrabAnimationBool(bool setBool, GrabbableObject? item)
+        internal void SetSpecialGrabAnimationBool(bool setBool, GrabbableObject? item)
         {
             NpcController.Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRAB, setBool);
             if (item != null
@@ -7035,160 +7090,6 @@ namespace LethalBots.AI
         #endregion
 
         #region Drop item RPC
-
-        /// <summary>
-        /// Make the lethalBot drop his item like an enemy, but update the body (<c>PlayerControllerB</c>) too.
-        /// </summary>
-        public void DropItem(bool placeObject = false, NetworkObject parentObjectTo = null!, Vector3 placePosition = default(Vector3), bool matchRotationOfParent = true)
-        {
-            Plugin.LogDebug($"{NpcController.Npc.playerUsername} Try to drop item on client #{NetworkManager.LocalClientId}");
-            if (this.AreHandsFree())
-            {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} Try to drop not held item on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            GrabbableObject grabbableObject = this.HeldItem;
-            Vector3 vector;
-            NetworkObject physicsRegionOfDroppedObject = grabbableObject.GetPhysicsRegionOfDroppedObject(NpcController.Npc, out vector);
-            if (!placeObject)
-            {
-                if (physicsRegionOfDroppedObject != null)
-                {
-                    placePosition = vector;
-                    parentObjectTo = physicsRegionOfDroppedObject;
-                    placeObject = true;
-                    matchRotationOfParent = false;
-                }
-            }
-
-            if (placeObject)
-            {
-                if (parentObjectTo == null)
-                {
-                    NpcController.ThrowingObject.Value = true; // Just like the base game!
-                    if (NpcController.Npc.isInElevator)
-                    {
-                        placePosition = StartOfRound.Instance.elevatorTransform.InverseTransformPoint(placePosition);
-                    }
-                    else
-                    {
-                        placePosition = StartOfRound.Instance.propsContainer.InverseTransformPoint(placePosition);
-                    }
-                    int floorYRot2 = (int)base.transform.localEulerAngles.y;
-
-                    // on client
-                    SetObjectAsNoLongerHeld(grabbableObject,
-                                            this.NpcController.Npc.isInElevator,
-                                            this.NpcController.Npc.isInHangarShipRoom,
-                                            placePosition,
-                                            floorYRot2);
-
-                    if (grabbableObject.NetworkObject == null || !grabbableObject.NetworkObject.IsSpawned)
-                    {
-                        Plugin.LogWarning($"{NpcController.Npc.playerUsername}: Tried to drop an unspawned object! Not networking to other clients!");
-                        return;
-                    }
-
-                    // for other clients
-                    SetObjectAsNoLongerHeldServerRpc(new DropItemNetworkSerializable()
-                    {
-                        DroppedInElevator = this.NpcController.Npc.isInElevator,
-                        DroppedInShipRoom = this.NpcController.Npc.isInHangarShipRoom,
-                        FloorYRot = floorYRot2,
-                        GrabbedObject = grabbableObject.NetworkObject,
-                        TargetFloorPosition = placePosition,
-                        SkipPlayer = NetworkManager.LocalClientId
-                    });
-                }
-                else
-                {
-                    // on client
-                    PlaceGrabbableObject(grabbableObject, parentObjectTo.transform, placePosition, matchRotationOfParent);
-
-                    if (grabbableObject.NetworkObject == null || !grabbableObject.NetworkObject.IsSpawned)
-                    {
-                        Plugin.LogWarning($"{NpcController.Npc.playerUsername}: Tried to drop an unspawned object! Not networking to other clients!");
-                        return;
-                    }
-
-                    // for other clients
-                    PlaceGrabbableObjectServerRpc(new PlaceItemNetworkSerializable()
-                    {
-                        GrabbedObject = grabbableObject.NetworkObject,
-                        MatchRotationOfParent = matchRotationOfParent,
-                        ParentObject = parentObjectTo,
-                        PlacePositionOffset = placePosition,
-                        SkipPlayer = NetworkManager.LocalClientId
-                    });
-                }
-                return;
-            }
-
-            // More base game logic!
-            NpcController.ThrowingObject.Value = true;
-            bool droppedInElevator = this.NpcController.Npc.isInElevator;
-            Vector3 targetFloorPosition;
-            if (!NpcController.Npc.isInElevator)
-            {
-                Vector3 vector2;
-                if (grabbableObject.itemProperties.allowDroppingAheadOfPlayer)
-                {
-                    vector2 = DropItemAheadOfPlayer(grabbableObject, NpcController.Npc);
-                }
-                else
-                {
-                    vector2 = grabbableObject.GetItemFloorPosition(default(Vector3));
-                }
-                if (!NpcController.Npc.playersManager.shipBounds.bounds.Contains(vector2))
-                {
-                    targetFloorPosition = NpcController.Npc.playersManager.propsContainer.InverseTransformPoint(vector2);
-                }
-                else
-                {
-                    droppedInElevator = true;
-                    targetFloorPosition = NpcController.Npc.playersManager.elevatorTransform.InverseTransformPoint(vector2);
-                }
-            }
-            else
-            {
-                Vector3 vector2 = grabbableObject.GetItemFloorPosition(default(Vector3));
-                if (!NpcController.Npc.playersManager.shipBounds.bounds.Contains(vector2))
-                {
-                    droppedInElevator = false;
-                    targetFloorPosition = NpcController.Npc.playersManager.propsContainer.InverseTransformPoint(vector2);
-                }
-                else
-                {
-                    targetFloorPosition = NpcController.Npc.playersManager.elevatorTransform.InverseTransformPoint(vector2);
-                }
-            }
-            int floorYRot = (int)base.transform.localEulerAngles.y;
-
-            // on client
-            SetObjectAsNoLongerHeld(grabbableObject,
-                                    droppedInElevator,
-                                    this.NpcController.Npc.isInHangarShipRoom,
-                                    targetFloorPosition,
-                                    floorYRot);
-
-            if (grabbableObject.NetworkObject == null || !grabbableObject.NetworkObject.IsSpawned)
-            {
-                Plugin.LogWarning($"{NpcController.Npc.playerUsername}: Tried to drop an unspawned object! Not networking to other clients!");
-                return;
-            }
-
-            // for other clients
-            SetObjectAsNoLongerHeldServerRpc(new DropItemNetworkSerializable()
-            {
-                DroppedInElevator = droppedInElevator,
-                DroppedInShipRoom = this.NpcController.Npc.isInHangarShipRoom,
-                FloorYRot = floorYRot,
-                GrabbedObject = grabbableObject.NetworkObject,
-                TargetFloorPosition = targetFloorPosition,
-                SkipPlayer = NetworkManager.LocalClientId
-            });
-        }
 
         /// <summary>
         /// Destorys the grabbable object in the given slot!
@@ -7382,242 +7283,6 @@ namespace LethalBots.AI
             {
                 DespawnHeldObjectOnClient();
             }
-        }
-
-        private Vector3 DropItemAheadOfPlayer(GrabbableObject grabbableObject, PlayerControllerB player)
-        {
-            Vector3 vector;
-            Ray ray = new Ray(base.transform.position + Vector3.up * 0.4f, player.gameplayCamera.transform.forward);
-            if (Physics.Raycast(ray, out RaycastHit hit, 1.7f, 268438273, QueryTriggerInteraction.Ignore))
-            {
-                vector = ray.GetPoint(Mathf.Clamp(hit.distance - 0.3f, 0.01f, 2f));
-            }
-            else
-            {
-                vector = ray.GetPoint(1.7f);
-            }
-            Vector3 itemFloorPosition = grabbableObject.GetItemFloorPosition(vector);
-            if (itemFloorPosition == vector)
-            {
-                itemFloorPosition = grabbableObject.GetItemFloorPosition(default(Vector3));
-            }
-            return itemFloorPosition;
-        }
-
-        [ServerRpc(RequireOwnership = false)]
-        private void SetObjectAsNoLongerHeldServerRpc(DropItemNetworkSerializable dropItemNetworkSerializable)
-        {
-            NetworkObject networkObject;
-            if (dropItemNetworkSerializable.GrabbedObject.TryGet(out networkObject, null))
-            {
-                SetObjectAsNoLongerHeldClientRpc(dropItemNetworkSerializable);
-            }
-            else
-            {
-                Plugin.LogError($"Lethal Bot {this.NpcController.Npc.playerUsername} on client #{NetworkManager.LocalClientId} (server) drop item : Object was not thrown because it does not exist on the server.");
-            }
-        }
-
-        [ClientRpc]
-        private void SetObjectAsNoLongerHeldClientRpc(DropItemNetworkSerializable dropItemNetworkSerializable)
-        {
-            // Always set ThrowingObject to false!
-            NpcController.ThrowingObject.Value = false;
-
-            // Skip the owner if we were told to!
-            ulong? skipClientId = dropItemNetworkSerializable.SkipPlayer;
-            if (skipClientId.HasValue && skipClientId.Value == NetworkManager.LocalClientId)
-            {
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} skipping drop held item, on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            if (this.AreHandsFree())
-            {
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} held item already dropped, on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            NetworkObject networkObject;
-            if (dropItemNetworkSerializable.GrabbedObject.TryGet(out networkObject, null))
-            {
-                SetObjectAsNoLongerHeld(networkObject.GetComponent<GrabbableObject>(),
-                                        dropItemNetworkSerializable.DroppedInElevator,
-                                        dropItemNetworkSerializable.DroppedInShipRoom,
-                                        dropItemNetworkSerializable.TargetFloorPosition,
-                                        dropItemNetworkSerializable.FloorYRot);
-            }
-            else
-            {
-                Plugin.LogError($"Lethal Bot {this.NpcController.Npc.playerUsername} on client #{NetworkManager.LocalClientId} drop item : The server did not have a reference to the held object");
-            }
-        }
-
-        private void SetObjectAsNoLongerHeld(GrabbableObject grabbableObject,
-                                             bool droppedInElevator,
-                                             bool droppedInShipRoom,
-                                             Vector3 targetFloorPosition,
-                                             int floorYRot = -1)
-        {
-            grabbableObject.heldByPlayerOnServer = false;
-            grabbableObject.parentObject = null;
-            if (droppedInElevator)
-            {
-                grabbableObject.transform.SetParent(NpcController.Npc.playersManager.elevatorTransform, true);
-            }
-            else
-            {
-                grabbableObject.transform.SetParent(NpcController.Npc.playersManager.propsContainer, true);
-            }
-
-            NpcController.Npc.SetItemInElevator(droppedInShipRoom, droppedInElevator, grabbableObject);
-            grabbableObject.EnablePhysics(true);
-            grabbableObject.EnableItemMeshes(true);
-            grabbableObject.isHeld = false;
-            grabbableObject.isPocketed = false;
-            grabbableObject.fallTime = 0f;
-            grabbableObject.startFallingPosition = grabbableObject.transform.parent.InverseTransformPoint(grabbableObject.transform.position);
-            grabbableObject.targetFloorPosition = targetFloorPosition;
-            grabbableObject.floorYRot = floorYRot;
-
-            EndDropItem(grabbableObject);
-        }
-
-        [ServerRpc(RequireOwnership = false)]
-        private void PlaceGrabbableObjectServerRpc(PlaceItemNetworkSerializable placeItemNetworkSerializable)
-        {
-            NetworkObject networkObject;
-            NetworkObject networkObject2;
-            if (placeItemNetworkSerializable.GrabbedObject.TryGet(out networkObject, null)
-                && placeItemNetworkSerializable.ParentObject.TryGet(out networkObject2, null))
-            {
-                PlaceGrabbableObjectClientRpc(placeItemNetworkSerializable);
-                return;
-            }
-
-            NetworkObject networkObject3;
-            if (!placeItemNetworkSerializable.GrabbedObject.TryGet(out networkObject3, null))
-            {
-                Plugin.LogError($"Object placement not synced to clients, missing reference to a network object: placing object with id: {placeItemNetworkSerializable.GrabbedObject.NetworkObjectId}; lethalBot {NpcController.Npc.playerUsername}");
-                return;
-            }
-            NetworkObject networkObject4;
-            if (!placeItemNetworkSerializable.ParentObject.TryGet(out networkObject4, null))
-            {
-                Plugin.LogError($"Object placement not synced to clients, missing reference to a network object: parent object with id: {placeItemNetworkSerializable.ParentObject.NetworkObjectId}; lethalBot {NpcController.Npc.playerUsername}");
-            }
-        }
-
-        [ClientRpc]
-        private void PlaceGrabbableObjectClientRpc(PlaceItemNetworkSerializable placeItemNetworkSerializable)
-        {
-            // Always set ThrowingObject to false!
-            NpcController.ThrowingObject.Value = false;
-
-            ulong? skipClientId = placeItemNetworkSerializable.SkipPlayer;
-            if (skipClientId.HasValue && skipClientId.Value == NetworkManager.LocalClientId)
-            {
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} skipping place held item, on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            NetworkObject networkObject;
-            if (placeItemNetworkSerializable.GrabbedObject.TryGet(out networkObject, null))
-            {
-                GrabbableObject grabbableObject = networkObject.GetComponent<GrabbableObject>();
-                NetworkObject networkObject2;
-                if (placeItemNetworkSerializable.ParentObject.TryGet(out networkObject2, null))
-                {
-                    this.PlaceGrabbableObject(grabbableObject,
-                                              networkObject2.transform,
-                                              placeItemNetworkSerializable.PlacePositionOffset,
-                                              placeItemNetworkSerializable.MatchRotationOfParent);
-                }
-                else
-                {
-                    Plugin.LogError($"Reference to parent object when placing was missing. object: {grabbableObject} placed by lethalBot #{NpcController.Npc.playerUsername}");
-                }
-            }
-            else
-            {
-                Plugin.LogError("The server did not have a reference to the held object (when attempting to PLACE object on client.)");
-            }
-        }
-
-        private void PlaceGrabbableObject(GrabbableObject placeObject, Transform parentObject, Vector3 positionOffset, bool matchRotationOfParent)
-        {
-            if (this.AreHandsFree())
-            {
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} held item already placed, on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            PlayerPhysicsRegion componentInChildren = parentObject.GetComponentInChildren<PlayerPhysicsRegion>();
-            if (componentInChildren != null && componentInChildren.allowDroppingItems)
-            {
-                parentObject = componentInChildren.physicsTransform;
-            }
-            placeObject.EnablePhysics(true);
-            placeObject.EnableItemMeshes(true);
-            placeObject.isHeld = false;
-            placeObject.isPocketed = false;
-            placeObject.heldByPlayerOnServer = false;
-            NpcController.Npc.SetItemInElevator(NpcController.Npc.isInHangarShipRoom, NpcController.Npc.isInElevator, placeObject);
-            placeObject.parentObject = null;
-            placeObject.transform.SetParent(parentObject, true);
-            placeObject.startFallingPosition = placeObject.transform.localPosition;
-            placeObject.transform.localScale = placeObject.originalScale;
-            placeObject.transform.localPosition = positionOffset;
-            placeObject.targetFloorPosition = positionOffset;
-            if (!matchRotationOfParent)
-            {
-                placeObject.fallTime = 0f;
-            }
-            else
-            {
-                placeObject.transform.localEulerAngles = new Vector3(0f, 0f, 0f);
-                placeObject.fallTime = 1.1f;
-            }
-            placeObject.OnPlaceObject();
-
-            EndDropItem(placeObject);
-        }
-
-        private void EndDropItem(GrabbableObject grabbableObject)
-        {
-            grabbableObject.DiscardItemOnClient();
-            this.SetSpecialGrabAnimationBool(false, grabbableObject);
-            NpcController.Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, true);
-            NpcController.Npc.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
-            DictJustDroppedItems[grabbableObject] = Time.realtimeSinceStartup;
-            this.HeldItem = null;
-            NpcController.Npc.isHoldingObject = false;
-            NpcController.Npc.currentlyHeldObjectServer = null;
-            NpcController.Npc.twoHanded = false;
-            NpcController.Npc.twoHandedAnimation = false;
-            NpcController.GrabbedObjectValidated = false;
-            GrabbableObject?[] itemSlots = NpcController.Npc.ItemSlots;
-            for (int i = 0; i < itemSlots.Length; i++)
-            {
-                if (itemSlots[i] == grabbableObject)
-                {
-                    itemSlots[i] = null;
-                }
-            }
-            if (NpcController.Npc.ItemOnlySlot == grabbableObject)
-            {
-                NpcController.Npc.ItemOnlySlot = null;
-            }
-
-            NpcController.Npc.carryWeight = Mathf.Clamp(NpcController.Npc.carryWeight - (grabbableObject.itemProperties.weight - 1f), 1f, 10f);
-            // NOTE: SendChangedWeightEvent that Zeekerss added is used to update the weight display on the client,
-            // so its not need for bots.
-            //if (base.IsOwner && isPlayerControlled)
-            //{
-            //    StartOfRound.Instance.SendChangedWeightEvent();
-            //}
-            SyncBatteryLethalBot(grabbableObject, (int)(grabbableObject.insertedBattery.charge * 100f));
-            Plugin.LogDebug($"{NpcController.Npc.playerUsername} dropped {grabbableObject}, on client #{NetworkManager.LocalClientId}");
         }
 
         [ServerRpc(RequireOwnership = false)]

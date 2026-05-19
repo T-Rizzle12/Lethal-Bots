@@ -291,7 +291,7 @@ namespace LethalBots.AI.AIStates
                             GrabbableObject? heldItem = ai.HeldItem;
                             if (heldItem != null && FindObject(heldItem))
                             {
-                                ai.DropItem();
+                                npcController.Npc.DiscardHeldObject();
                                 LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
                                 shouldWalkLootToShip = false;
                             }

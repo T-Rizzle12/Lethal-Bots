@@ -964,7 +964,7 @@ namespace LethalBots.AI
                                 {
                                     // The maneater doesn't like us, so we should drop it!
                                     // or else it will be mad at us after a while and would try to kill us!
-                                    ai.DropItem();
+                                    npcController.Npc.DiscardHeldObject();
                                 }
                             }
                         }

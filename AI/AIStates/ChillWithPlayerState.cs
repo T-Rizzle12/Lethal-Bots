@@ -92,7 +92,7 @@ namespace LethalBots.AI.AIStates
                 {
                     canInverseTeleport = false;
                     if (!ai.TurnOffHeldItem())
-                        ai.DropItem();
+                        npcController.Npc.DiscardHeldObject();
                 }
                 // If we still have stuff in our inventory,
                 // we should swap to it and drop it!
@@ -174,7 +174,7 @@ namespace LethalBots.AI.AIStates
                         GrabbableObject? heldItem = ai.HeldItem;
                         if (heldItem != null && DropScrapAtEntrance(heldItem))
                         {
-                            ai.DropItem();
+                            npcController.Npc.DiscardHeldObject();
                             LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
                         }
                         else if (ai.HasGrabbableObjectInInventory(DropScrapAtEntrance, out int objectSlot))

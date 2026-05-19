@@ -294,7 +294,7 @@ namespace LethalBots.Managers
                 if (!lethalBot.AreHandsFree())
                 {
                     // Bot drop item
-                    lethalBot.DropItem();
+                    lethalBotController.DiscardHeldObject();
                 }
                 // If we still have stuff in our inventory,
                 // we should swap to it in case the player wants us to drop it!

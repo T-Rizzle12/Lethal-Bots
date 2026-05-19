@@ -150,7 +150,7 @@ namespace LethalBots.AI.AIStates
             {
                 if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
-                    ai.DropItem();
+                    npcController.Npc.DiscardHeldObject();
                     LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
                     return;
                 }

@@ -345,6 +345,55 @@ namespace LethalBots.Patches.NpcPatches
         }
 
         /// <summary>
+        /// Patch to call our SetSpecialGrabAnimationBool method!
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="setTrue"></param>
+        /// <param name="currentItem"></param>
+        /// <returns></returns>
+        [HarmonyPatch("SetSpecialGrabAnimationBool")]
+        [HarmonyPrefix]
+        static bool SetSpecialGrabAnimationBool_Prefix(PlayerControllerB __instance, 
+                                                    ref GrabbableObject ___currentlyGrabbingObject, 
+                                                    bool setTrue, 
+                                                    GrabbableObject currentItem)
+        {
+            if (currentItem == null)
+            {
+                #pragma warning disable Harmony003 // Harmony non-ref patch parameters modified
+                currentItem = ___currentlyGrabbingObject;
+                #pragma warning restore Harmony003 // Harmony non-ref patch parameters modified
+            }
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
+            if (lethalBotAI != null)
+            {
+                lethalBotAI.SetSpecialGrabAnimationBool(setBool: setTrue, item: currentItem);
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Patch to call our FirstEmptyItemSlot method!
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="__result"></param>
+        /// <param name="attemptingGrab"></param>
+        /// <returns></returns>
+        [HarmonyPatch("FirstEmptyItemSlot")]
+        [HarmonyPrefix]
+        static bool FirstEmptyItemSlot_Prefix(PlayerControllerB __instance, ref int __result, GrabbableObject attemptingGrab = null!)
+        {
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
+            if (lethalBotAI != null)
+            {
+                __result = lethalBotAI.FirstEmptyItemSlot(attemptingGrab);
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
         /// Patch to call our SwitchToItemSlot method!
         /// </summary>
         /// <param name="__instance"></param>
@@ -361,29 +410,6 @@ namespace LethalBots.Patches.NpcPatches
                 lethalBotAI.SwitchToItemSlot(slot, fillSlotWithItem);
                 return false;
             }
-            return true;
-        }
-
-        /// <summary>
-        /// Patch to call the drop item method on the bot rather than the player
-        /// </summary>
-        /// <param name="__instance"></param>
-        /// <param name="placeObject"></param>
-        /// <param name="parentObjectTo"></param>
-        /// <param name="placePosition"></param>
-        /// <param name="matchRotationOfParent"></param>
-        /// <returns></returns>
-        [HarmonyPatch("DiscardHeldObject")]
-        [HarmonyPrefix]
-        static bool DiscardHeldObject_Prefix(PlayerControllerB __instance, bool placeObject = false, NetworkObject parentObjectTo = null!, Vector3 placePosition = default(Vector3), bool matchRotationOfParent = true)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                lethalBotAI.DropItem(placeObject, parentObjectTo, placePosition, matchRotationOfParent);
-                return false;
-            }
-
             return true;
         }
 
@@ -784,6 +810,411 @@ namespace LethalBots.Patches.NpcPatches
 
         #region Transpilers
 
+        [HarmonyPatch("DiscardHeldObject")]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> DiscardHeldObject_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // StartOfRound
+            MethodInfo getStartOfRoundInstance = AccessTools.PropertyGetter(typeof(StartOfRound), "Instance");
+            MethodInfo sendChangedWeightEventMethod = AccessTools.Method(typeof(StartOfRound), "SendChangedWeightEvent");
+
+            // HUDManager
+            MethodInfo getHUDManagerInstance = AccessTools.PropertyGetter(typeof(HUDManager), "Instance");
+            FieldInfo itemOnlySlotIconField = AccessTools.Field(typeof(HUDManager), "itemOnlySlotIcon");
+            FieldInfo holdingTwoHandedItemField = AccessTools.Field(typeof(HUDManager), "holdingTwoHandedItem");
+
+            // Other needed methods
+            FieldInfo currentItemSlotField = AccessTools.Field(typeof(PlayerControllerB), "currentItemSlot");
+            MethodInfo enabledMethod = AccessTools.PropertySetter(typeof(Behaviour), "enabled");
+            MethodInfo isOwnerGetter = AccessTools.PropertyGetter(typeof(NetworkBehaviour), "IsOwner");
+            FieldInfo isPlayerControlledField = AccessTools.Field(typeof(PlayerControllerB), "isPlayerControlled");
+
+            // ----------------------------------------------------------------------
+            for (var i = 0; i < codes.Count - 7; i++)
+            {
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].Calls(isOwnerGetter)
+                    && (codes[i + 2].opcode == OpCodes.Brfalse_S || codes[i + 2].opcode == OpCodes.Brfalse)
+                    && codes[i + 3].IsLdarg(0)
+                    && codes[i + 4].LoadsField(isPlayerControlledField)
+                    && (codes[i + 5].opcode == OpCodes.Brfalse_S || codes[i + 5].opcode == OpCodes.Brfalse)
+                    && codes[i + 6].Calls(getStartOfRoundInstance) 
+                    && codes[i + 7].Calls(sendChangedWeightEventMethod))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Grab the label's destination and add our custom call
+                Label skipSnapshot = (Label)codes[startIndex + 2].operand;
+                List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+                {
+                    new CodeInstruction(OpCodes.Ldarg_0),
+                    new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLethalBotMethod),
+                    new CodeInstruction(OpCodes.Brtrue, skipSnapshot)
+                };
+                codes.InsertRange(startIndex, codesToAdd);
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.DiscardHeldObject_Transpiler could not bypass SendChangedWeightEvent if player is bot");
+            }
+
+            // ----------------------------------------------------------------------
+            for (var i = 0; i < codes.Count - 7; i++)
+            {
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].LoadsField(currentItemSlotField)
+                    && codes[i + 2].opcode == OpCodes.Ldc_I4_S //&& codes[i + 2].operand is int num && num == 50
+                    && (codes[i + 3].opcode == OpCodes.Bne_Un_S || codes[i + 3].opcode == OpCodes.Bne_Un)
+                    && codes[i + 4].Calls(getHUDManagerInstance)
+                    && codes[i + 5].LoadsField(itemOnlySlotIconField)
+                    && codes[i + 6].opcode == OpCodes.Ldc_I4_0
+                    && codes[i + 7].Calls(enabledMethod))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Insert a conditional branch (if this != localPlayer skip calling HUDManager stuff)
+                int endIndex = -1;
+                for (int j = startIndex; j < codes.Count - 2; j++)
+                {
+                    if (codes[j].LoadsField(holdingTwoHandedItemField)
+                        && codes[j + 1].opcode == OpCodes.Ldc_I4_0
+                        && codes[j + 2].Calls(enabledMethod))
+                    {
+                        endIndex = j;
+                        break;
+                    }
+                }
+
+                if (endIndex == -1)
+                {
+                    Plugin.LogError("Could not find holdingTwoHandedItem disable call!");
+                    endIndex = startIndex + 17;
+                }
+
+                // Create our label's destination....
+                Label skipSnapshot = generator.DefineLabel();
+                var nop = new CodeInstruction(OpCodes.Nop);
+                nop.labels.Add(skipSnapshot);
+                codes.Insert(endIndex + 3, nop); // Set label to the instruction **after** the HUDManager stuff
+
+                // Insert new method call to skip ClearControlTips if a bot is equiping the item
+                List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+                {
+                    new CodeInstruction(OpCodes.Ldarg_0),
+                    new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLethalBotMethod),
+                    new CodeInstruction(OpCodes.Brtrue, skipSnapshot)
+                };
+                codes.InsertRange(startIndex, codesToAdd);
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.DiscardHeldObject_Transpiler could not bypass HUDManager if player is bot");
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        [HarmonyPatch("SetObjectAsNoLongerHeld")]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> SetObjectAsNoLongerHeld_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // StartOfRound
+            MethodInfo getStartOfRoundInstance = AccessTools.PropertyGetter(typeof(StartOfRound), "Instance");
+            MethodInfo sendChangedWeightEventMethod = AccessTools.Method(typeof(StartOfRound), "SendChangedWeightEvent");
+
+            // Other needed methods
+            MethodInfo isOwnerGetter = AccessTools.PropertyGetter(typeof(NetworkBehaviour), "IsOwner");
+            FieldInfo isPlayerControlledField = AccessTools.Field(typeof(PlayerControllerB), "isPlayerControlled");
+
+            // ----------------------------------------------------------------------
+            for (var i = 0; i < codes.Count - 7; i++)
+            {
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].Calls(isOwnerGetter)
+                    && (codes[i + 2].opcode == OpCodes.Brfalse_S || codes[i + 2].opcode == OpCodes.Brfalse)
+                    && codes[i + 3].IsLdarg(0)
+                    && codes[i + 4].LoadsField(isPlayerControlledField)
+                    && (codes[i + 5].opcode == OpCodes.Brfalse_S || codes[i + 5].opcode == OpCodes.Brfalse)
+                    && codes[i + 6].Calls(getStartOfRoundInstance)
+                    && codes[i + 7].Calls(sendChangedWeightEventMethod))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Grab the label's destination and add our custom call
+                Label skipSnapshot = (Label)codes[startIndex + 2].operand;
+                List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+                {
+                    new CodeInstruction(OpCodes.Ldarg_0),
+                    new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLethalBotMethod),
+                    new CodeInstruction(OpCodes.Brtrue, skipSnapshot)
+                };
+                codes.InsertRange(startIndex, codesToAdd);
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.SetObjectAsNoLongerHeld_Transpiler could not bypass SendChangedWeightEvent if player is bot");
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        [HarmonyPatch("PlaceGrabbableObject")]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> PlaceGrabbableObject_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // StartOfRound
+            MethodInfo getStartOfRoundInstance = AccessTools.PropertyGetter(typeof(StartOfRound), "Instance");
+            MethodInfo sendChangedWeightEventMethod = AccessTools.Method(typeof(StartOfRound), "SendChangedWeightEvent");
+
+            // Other needed methods
+            MethodInfo isOwnerGetter = AccessTools.PropertyGetter(typeof(NetworkBehaviour), "IsOwner");
+            FieldInfo isPlayerControlledField = AccessTools.Field(typeof(PlayerControllerB), "isPlayerControlled");
+
+            // ----------------------------------------------------------------------
+            for (var i = 0; i < codes.Count - 7; i++)
+            {
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].Calls(isOwnerGetter)
+                    && (codes[i + 2].opcode == OpCodes.Brfalse_S || codes[i + 2].opcode == OpCodes.Brfalse)
+                    && codes[i + 3].IsLdarg(0)
+                    && codes[i + 4].LoadsField(isPlayerControlledField)
+                    && (codes[i + 5].opcode == OpCodes.Brfalse_S || codes[i + 5].opcode == OpCodes.Brfalse)
+                    && codes[i + 6].Calls(getStartOfRoundInstance)
+                    && codes[i + 7].Calls(sendChangedWeightEventMethod))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Grab the label's destination and add our custom call
+                Label skipSnapshot = (Label)codes[startIndex + 2].operand;
+                List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+                {
+                    new CodeInstruction(OpCodes.Ldarg_0),
+                    new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLethalBotMethod),
+                    new CodeInstruction(OpCodes.Brtrue, skipSnapshot)
+                };
+                codes.InsertRange(startIndex, codesToAdd);
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.PlaceGrabbableObject_Transpiler could not bypass SendChangedWeightEvent if player is bot");
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        [HarmonyPatch("PlaceObjectClientRpc")]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> PlaceObjectClientRpc_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // HUDManager
+            MethodInfo getHUDManagerInstance = AccessTools.PropertyGetter(typeof(HUDManager), "Instance");
+            FieldInfo itemOnlySlotIconField = AccessTools.Field(typeof(HUDManager), "itemOnlySlotIcon");
+
+            // Other needed methods
+            FieldInfo currentItemSlotField = AccessTools.Field(typeof(PlayerControllerB), "currentItemSlot");
+            MethodInfo enabledMethod = AccessTools.PropertySetter(typeof(Behaviour), "enabled");
+            FieldInfo throwingObjectField = AccessTools.Field(typeof(PlayerControllerB), "throwingObject");
+            MethodInfo isOwnerGetter = AccessTools.PropertyGetter(typeof(NetworkBehaviour), "IsOwner");
+
+            // ----------------------------------------------------------------------
+            for (var i = 0; i < codes.Count - 7; i++)
+            {
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].LoadsField(currentItemSlotField)
+                    && codes[i + 2].opcode == OpCodes.Ldc_I4_S //&& codes[i + 2].operand is int num && num == 50
+                    && (codes[i + 3].opcode == OpCodes.Bne_Un_S || codes[i + 3].opcode == OpCodes.Bne_Un)
+                    && codes[i + 4].Calls(getHUDManagerInstance)
+                    && codes[i + 5].LoadsField(itemOnlySlotIconField)
+                    && codes[i + 6].opcode == OpCodes.Ldc_I4_0
+                    && codes[i + 7].Calls(enabledMethod))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Insert a conditional branch (if this != localPlayer skip calling HUDManager stuff)
+                int endIndex = -1;
+                for (int j = startIndex; j < codes.Count - 3; j++)
+                {
+                    if (codes[j].LoadsField(currentItemSlotField)
+                        && codes[j + 1].opcode == OpCodes.Ldelem_Ref
+                        && codes[j + 2].opcode == OpCodes.Ldc_I4_0
+                        && codes[j + 3].Calls(enabledMethod))
+                    {
+                        endIndex = j;
+                        break;
+                    }
+                }
+
+                if (endIndex == -1)
+                {
+                    Plugin.LogError("Could not find itemSlotIcons disable call!");
+                    endIndex = startIndex + 10;
+                }
+
+                // Create our label's destination....
+                Label skipSnapshot = generator.DefineLabel();
+                var nop = new CodeInstruction(OpCodes.Nop);
+                nop.labels.Add(skipSnapshot);
+                codes.Insert(endIndex + 4, nop); // Set label to the instruction **after** the HUDManager stuff
+
+                // Insert new method call to skip HUDManager stuff if a bot is equiping the item
+                List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+                {
+                    new CodeInstruction(OpCodes.Ldarg_0),
+                    new CodeInstruction(OpCodes.Call, PatchesUtil.IsPlayerLethalBotMethod),
+                    new CodeInstruction(OpCodes.Brtrue, skipSnapshot)
+                };
+                codes.InsertRange(startIndex, codesToAdd);
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.PlaceObjectClientRpc_Transpiler could not bypass HUDManager if player is bot");
+            }
+
+            for (var i = 0; i < codes.Count - 5; i++)
+            {
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].Calls(isOwnerGetter)
+                    && (codes[i + 2].opcode == OpCodes.Brfalse_S || codes[i + 2].opcode == OpCodes.Brfalse)
+                    && codes[i + 3].IsLdarg(0)
+                    && codes[i + 4].opcode == OpCodes.Ldc_I4_0
+                    && codes[i + 5].StoresField(throwingObjectField))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Replace original code
+                codes[startIndex + 1].opcode = OpCodes.Call;
+                codes[startIndex + 1].operand = PatchesUtil.IsPlayerLocalOrLethalBotMethod;
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.PlaceObjectClientRpc_Transpiler could not force throwingObject false for all clients if player is bot");
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        [HarmonyPatch("GrabObjectClientRpc")]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> GrabObjectClientRpc_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // Needed methods
+            FieldInfo grabInvalidatedField = AccessTools.Field(typeof(PlayerControllerB), "grabInvalidated");
+            MethodInfo isOwnerGetter = AccessTools.PropertyGetter(typeof(NetworkBehaviour), "IsOwner");
+
+            // ----------------------------------------------------------------------
+            for (var i = 0; i < codes.Count - 8; i++)
+            {
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].Calls(isOwnerGetter)
+                    && (codes[i + 2].opcode == OpCodes.Brfalse_S || codes[i + 2].opcode == OpCodes.Brfalse)
+                    && codes[i + 6].IsLdarg(0)
+                    && codes[i + 7].opcode == OpCodes.Ldc_I4_1
+                    && codes[i + 8].StoresField(grabInvalidatedField))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Replace original code
+                codes[startIndex + 1].opcode = OpCodes.Call;
+                codes[startIndex + 1].operand = PatchesUtil.IsPlayerLocalOrLethalBotMethod;
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.GrabObjectClientRpc_Transpiler could not force grabInvalidated true for all clients if player is bot and the grab was invalidated");
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        [HarmonyPatch("ThrowObjectClientRpc")]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> ThrowObjectClientRpc_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // Needed methods
+            FieldInfo throwingObjectField = AccessTools.Field(typeof(PlayerControllerB), "throwingObject");
+            MethodInfo isOwnerGetter = AccessTools.PropertyGetter(typeof(NetworkBehaviour), "IsOwner");
+
+            // ----------------------------------------------------------------------
+            for (var i = 0; i < codes.Count - 5; i++)
+            {
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].Calls(isOwnerGetter)
+                    && (codes[i + 2].opcode == OpCodes.Brfalse_S || codes[i + 2].opcode == OpCodes.Brfalse)
+                    && codes[i + 3].IsLdarg(0)
+                    && codes[i + 4].opcode == OpCodes.Ldc_I4_0
+                    && codes[i + 5].StoresField(throwingObjectField))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Replace original code
+                codes[startIndex + 1].opcode = OpCodes.Call;
+                codes[startIndex + 1].operand = PatchesUtil.IsPlayerLocalOrLethalBotMethod;
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.ThrowObjectClientRpc_Transpiler could not force throwingObject false for all clients if player is bot");
+            }
+
+            return codes.AsEnumerable();
+        }
+
         [HarmonyPatch("Crouch")]
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> Crouch_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
@@ -918,6 +1349,28 @@ namespace LethalBots.Patches.NpcPatches
         //    });
         //}
 
+        [HarmonyPatch("SetObjectAsNoLongerHeld")]
+        [HarmonyPostfix]
+        static void SetObjectAsNoLongerHeld_PostFix(PlayerControllerB __instance, GrabbableObject dropObject)
+        {
+            // If a bot drops an item, add it to the just dropped item list
+            if (LethalBotManager.Instance.IsPlayerLethalBot(__instance))
+            {
+                LethalBotAI.DictJustDroppedItems[dropObject] = Time.realtimeSinceStartup;
+            }
+        }
+
+        [HarmonyPatch("PlaceGrabbableObject")]
+        [HarmonyPostfix]
+        static void PlaceGrabbableObject_PostFix(PlayerControllerB __instance, GrabbableObject placeObject)
+        {
+            // If a bot drops an item, add it to the just dropped item list
+            if (LethalBotManager.Instance.IsPlayerLethalBot(__instance))
+            {
+                LethalBotAI.DictJustDroppedItems[placeObject] = Time.realtimeSinceStartup;
+            }
+        }
+
         [HarmonyPatch("SendNewPlayerValuesClientRpc")]
         [HarmonyPostfix]
         static void SendNewPlayerValuesClientRpc_PostFix(PlayerControllerB __instance)
@@ -962,34 +1415,11 @@ namespace LethalBots.Patches.NpcPatches
         [HarmonyPostfix]
         static void SetHoverTipAndCurrentInteractTrigger_PostFix(ref PlayerControllerB __instance,
                                                                  ref Ray ___interactRay,
-                                                                 int ___playerMask,
-                                                                 int ___interactableObjectsMask,
-                                                                 ref RaycastHit ___hit)
+                                                                 int ___playerMask)
         {
-            ___interactRay = new Ray(__instance.gameplayCamera.transform.position, __instance.gameplayCamera.transform.forward);
-            if (Physics.Raycast(___interactRay, out ___hit, __instance.grabDistance, ___interactableObjectsMask) && ___hit.collider.gameObject.layer != 8 && ___hit.collider.gameObject.layer != 30)
-            {
-                // Check if we are pointing to a ragdoll body of lethalBot (not grabbable)
-                if (___hit.collider.tag == "PhysicsProp")
-                {
-                    RagdollGrabbableObject? ragdoll = ___hit.collider.gameObject.GetComponent<RagdollGrabbableObject>();
-                    if (ragdoll == null)
-                    {
-                        return;
-                    }
-
-                    if (ragdoll.bodyID == Const.INIT_RAGDOLL_ID)
-                    {
-                        // Remove tooltip text
-                        __instance.cursorTip.text = string.Empty;
-                        __instance.cursorIcon.enabled = false;
-                        return;
-                    }
-                }
-            }
-
             // Set tooltip when pointing at lethalBot
             RaycastHit[] raycastHits = new RaycastHit[3];
+            ___interactRay = new Ray(__instance.gameplayCamera.transform.position, __instance.gameplayCamera.transform.forward);
             int raycastResults = Physics.RaycastNonAlloc(___interactRay, raycastHits, __instance.grabDistance, ___playerMask);
             for (int i = 0; i < raycastResults; i++)
             {
@@ -1066,17 +1496,6 @@ namespace LethalBots.Patches.NpcPatches
                 break;
             }
         }
-
-        /*[HarmonyPatch("IVisibleThreat.GetThreatTransform")]
-        [HarmonyPostfix]
-        static void GetThreatTransform_PostFix(PlayerControllerB __instance, ref Transform __result)
-        {
-            LethalBotAI? lehtalBotAI = LethalBotManager.Instance.GetLethalBotAI((int)__instance.playerClientId);
-            if (lehtalBotAI != null)
-            {
-                __result = lehtalBotAI.transform;
-            }
-        }*/
 
         #endregion
     }

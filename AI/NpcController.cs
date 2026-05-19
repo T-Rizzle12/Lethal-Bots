@@ -67,7 +67,6 @@ namespace LethalBots.AI
 
         public Vector3 MoveVector;
         public bool UpdatePositionForNewlyJoinedClient;
-        public bool GrabbedObjectValidated;
         public float UpdatePlayerLookInterval;
         public int PlayerMask;
         public bool IsTouchingGround;
@@ -1663,7 +1662,7 @@ namespace LethalBots.AI
                         }
 
                         GrabbableObject? currentlyHeldObject = LethalBotAIController.HeldItem;
-                        if (currentlyHeldObject != null && Npc.isHoldingObject && this.GrabbedObjectValidated)
+                        if (currentlyHeldObject != null && Npc.isHoldingObject && PatchesUtil.grabbedObjectValidatedField.Invoke(Npc))
                         {
                             currentlyHeldObject.transform.localPosition = currentlyHeldObject.itemProperties.positionOffset;
                             currentlyHeldObject.transform.localEulerAngles = currentlyHeldObject.itemProperties.rotationOffset;

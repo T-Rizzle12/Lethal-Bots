@@ -231,7 +231,7 @@ namespace LethalBots.AI.AIStates
                 {
                     return;
                 }
-                ai.DropItem();
+                npcController.Npc.DiscardHeldObject();
                 return;
             }
             // If we still have stuff in our inventory,

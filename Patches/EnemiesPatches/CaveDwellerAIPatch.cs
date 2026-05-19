@@ -49,19 +49,20 @@ namespace LethalBots.Patches.EnemiesPatches
                 return;
             }
 
-            if (__instance.propScript.playerHeldBy == null)
+            PlayerControllerB playerHeldBy = __instance.propScript.playerHeldBy;
+            if (playerHeldBy == null)
             {
                 return;
             }
 
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance.propScript.playerHeldBy);
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerHeldBy);
             if (lethalBotAI == null)
             {
                 return;
             }
 
             Plugin.LogDebug("ScareBaby_PostFix");
-            lethalBotAI.DropItem();
+            playerHeldBy.DiscardHeldObject();
         }
 
         [HarmonyPatch("ScareBabyClientRpc")]
@@ -73,19 +74,20 @@ namespace LethalBots.Patches.EnemiesPatches
                 return;
             }
 
-            if (__instance.propScript.playerHeldBy == null)
+            PlayerControllerB playerHeldBy = __instance.propScript.playerHeldBy;
+            if (playerHeldBy == null)
             {
                 return;
             }
 
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance.propScript.playerHeldBy);
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerHeldBy);
             if (lethalBotAI == null)
             {
                 return;
             }
 
             Plugin.LogDebug("ScareBabyClientRpc_PostFix");
-            lethalBotAI.DropItem();
+            playerHeldBy.DiscardHeldObject();
         }
 
         [HarmonyPatch("CancelKillAnimationClientRpc")]
@@ -149,18 +151,19 @@ namespace LethalBots.Patches.EnemiesPatches
         [HarmonyPostfix]
         static void StartTransformationAnim_PostFix(CaveDwellerAI __instance)
         {
-            if (__instance.propScript.playerHeldBy == null)
+            PlayerControllerB playerHeldBy = __instance.propScript.playerHeldBy;
+            if (playerHeldBy == null)
             {
                 return;
             }
 
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance.propScript.playerHeldBy);
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerHeldBy);
             if (lethalBotAI == null)
             {
                 return;
             }
 
-            lethalBotAI.DropItem();
+            playerHeldBy.DiscardHeldObject();
         }
     }
 }

@@ -219,7 +219,7 @@ namespace LethalBots.AI.AIStates
                         if (!ai.AreHandsFree()
                             && ai.HeldItem is CaveDwellerPhysicsProp)
                         {
-                            ai.DropItem();
+                            npcController.Npc.DiscardHeldObject();
                         }
                     }
                 }
@@ -282,7 +282,7 @@ namespace LethalBots.AI.AIStates
                     if (!ai.AreHandsFree() && ai.HeldItem is CaveDwellerPhysicsProp)
                     {
                         // We must drop the maneater baby before we use the entrance!
-                        ai.DropItem();
+                        npcController.Npc.DiscardHeldObject();
                         return;
                     }
                     else if (Time.timeSinceLevelLoad - ai.TimeSinceTeleporting > Const.WAIT_TIME_TO_TELEPORT)

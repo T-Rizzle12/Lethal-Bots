@@ -192,7 +192,7 @@ namespace LethalBots.AI.AIStates
                     // Swap to our next item!
                     if (heldItem != null && heldItem.itemProperties.twoHanded)
                     {
-                        ai.DropItem();
+                        npcController.Npc.DiscardHeldObject();
                         return;
                     }
                     if (ai.HasGrabbableObjectInInventory(FindObject, out int itemSlot))
