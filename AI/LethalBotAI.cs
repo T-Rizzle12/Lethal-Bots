@@ -1325,7 +1325,7 @@ namespace LethalBots.AI
                     Plugin.LogDebug($"Testing quicksand safety between current node {nodePos} and previous node {previousNode}");
                     foreach (var quicksand in QuicksandArray)
                     {
-                        if (!quicksand.isActiveAndEnabled)
+                        if (quicksand == null || !quicksand.isActiveAndEnabled)
                             continue;
 
                         Bounds quicksandBounds = default;
@@ -1489,7 +1489,7 @@ namespace LethalBots.AI
                     Plugin.LogDebug($"Testing quicksand safety between current node {nodePos} and previous node {previousNode}");
                     foreach (var quicksand in QuicksandArray)
                     {
-                        if (!quicksand.isActiveAndEnabled)
+                        if (quicksand == null || !quicksand.isActiveAndEnabled)
                             continue;
 
                         Bounds quicksandBounds = default;
@@ -3190,6 +3190,8 @@ namespace LethalBots.AI
         {
             foreach (var entrance in EntrancesTeleportArray)
             {
+                if (entrance == null) continue;
+
                 if ((entityPos1 - entrance.entrancePoint.position).sqrMagnitude < Const.DISTANCE_TO_ENTRANCE * Const.DISTANCE_TO_ENTRANCE
                     && (entityPos2 - entrance.entrancePoint.position).sqrMagnitude < Const.DISTANCE_TO_ENTRANCE * Const.DISTANCE_TO_ENTRANCE)
                 {
@@ -3282,7 +3284,7 @@ namespace LethalBots.AI
                 Vector3 npcBodyPos = NpcController.Npc.thisController.transform.position;
                 foreach (var lockedDoor in doorLocksArray)
                 {
-                    if (lockedDoor.isLocked && !lockedDoor.isPickingLock)
+                    if (lockedDoor != null && lockedDoor.isLocked && !lockedDoor.isPickingLock)
                     {
                         float distSqrFromDoor = (lockedDoor.transform.position - npcBodyPos).sqrMagnitude;
                         if (distSqrFromDoor < lockedDoorRange * lockedDoorRange)
@@ -5212,6 +5214,8 @@ namespace LethalBots.AI
             {
                 foreach (EntranceTeleport entrance in EntrancesTeleportArray)
                 {
+                    if (entrance == null) continue;
+
                     if (entrance.isEntranceToBuilding 
                         && (grabbableObject.transform.position - entrance.entrancePoint.position).sqrMagnitude < Const.DISTANCE_ITEMS_TO_ENTRANCE * Const.DISTANCE_ITEMS_TO_ENTRANCE)
                     {

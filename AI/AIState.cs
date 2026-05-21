@@ -592,7 +592,7 @@ namespace LethalBots.AI
                 Plugin.LogDebug($"Testing quicksand safety for pos {targetPos}");
                 foreach (var quicksand in LethalBotAI.QuicksandArray)
                 {
-                    if (!quicksand.isActiveAndEnabled)
+                    if (quicksand == null || !quicksand.isActiveAndEnabled)
                         continue;
 
                     Collider? collider = quicksand.gameObject.GetComponent<Collider>();

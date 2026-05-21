@@ -274,6 +274,8 @@ namespace LethalBots.AI.AIStates
                         bool areWeNearbyEntrance = false;
                         foreach (EntranceTeleport entrance in LethalBotAI.EntrancesTeleportArray)
                         {
+                            if (entrance == null) continue;
+
                             if (entrance.isEntranceToBuilding 
                                 && (entrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE)
                             {

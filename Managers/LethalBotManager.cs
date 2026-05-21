@@ -253,7 +253,6 @@ namespace LethalBots.Managers
         private float timerUpdateLightsOnMap;
         private static HashSet<Light> lightsOnMap = new HashSet<Light>();
         public static IReadOnlyCollection<Light> LightsOnMap => lightsOnMap;
-        public Dictionary<string, int> DictTagSurfaceIndex = new Dictionary<string, int>();
 
         private float timerSetLethalBotInElevator;
         private float timerUpdateOwnershipOfBot;
@@ -916,13 +915,6 @@ namespace LethalBots.Managers
 
             // Load data from save
             SaveManager.Instance.LoadAllDataFromSave();
-
-            // Init footstep surfaces tags
-            DictTagSurfaceIndex.Clear();
-            for (int i = 0; i < StartOfRound.Instance.footstepSurfaces.Length; i++)
-            {
-                DictTagSurfaceIndex.Add(StartOfRound.Instance.footstepSurfaces[i].surfaceTag, i);
-            }
 
             // Register default threats
             DictionaryLethalBotThreats.Clear();
@@ -3727,6 +3719,8 @@ namespace LethalBots.Managers
             NavMeshPath path = new NavMeshPath();
             foreach (var entrance in LethalBotAI.EntrancesTeleportArray)
             {
+                if (entrance == null) continue;
+
                 if (((isOutside && entrance.isEntranceToBuilding)
                         || (!isOutside && !entrance.isEntranceToBuilding))
                     && entrance.FindExitPoint())
