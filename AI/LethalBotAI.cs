@@ -179,7 +179,8 @@ namespace LethalBots.AI
             {
                 if (ElevatorScript != null)
                 {
-                    return ElevatorScript.elevatorBounds.bounds.Contains(NpcController.Npc.transform.position);
+                    Collider? elevatorBounds = ElevatorScript.elevatorBounds;
+                    return elevatorBounds != null && elevatorBounds.bounds.Contains(NpcController.Npc.transform.position);
                 }
                 return false;
             }
