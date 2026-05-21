@@ -122,24 +122,13 @@ namespace LethalBots.Patches.MapHazardsPatches
                     });
 
                     // Boom
-                    TriggerMineOnLocalClientByExiting_ReversePatch(__instance);
+                    __instance.TriggerMineOnLocalClientByExiting();
                     return false;
                 }
             }
 
             return true;
         }
-
-        /// <summary>
-        /// Reverse patch for calling <c>TriggerMineOnLocalClientByExiting</c>z.
-        /// Set the mine to explode.
-        /// </summary>
-        /// <param name="instance"></param>
-        /// <exception cref="NotImplementedException">Ignore (see harmony)</exception>
-        [HarmonyPatch("TriggerMineOnLocalClientByExiting")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static void TriggerMineOnLocalClientByExiting_ReversePatch(object instance) => throw new NotImplementedException("Stub LethalBot.Patches.EnemiesPatches.TriggerMineOnLocalClientByExiting");
 
         /// <summary>
         /// Patch for making an explosion check for bots, calls for an explosion by landmine or lightning.

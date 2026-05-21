@@ -83,7 +83,7 @@ namespace LethalBots.Patches.GameEnginePatches
                 }
 
                 Terminal terminal = TerminalManager.Instance.GetTerminal();
-                InteractTrigger terminalInteractTrigger = PatchesUtil.terminalTriggerField.Invoke(terminal);
+                InteractTrigger terminalInteractTrigger = terminal.terminalTrigger;
                 foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotAIs())
                 {
                     // Check to see if the bot is owned by the disconnecting client

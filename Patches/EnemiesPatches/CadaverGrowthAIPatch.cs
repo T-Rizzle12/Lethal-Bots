@@ -18,10 +18,6 @@ namespace LethalBots.Patches.EnemiesPatches
     [HarmonyPatch(typeof(CadaverGrowthAI))]
     public class CadaverGrowthAIPatch
     {
-        // TODO: Use delegates instead of using reflection to call the private methods
-        private static MethodInfo displayFeverStatusEffectMethod = AccessTools.Method(typeof(CadaverGrowthAI), "DisplayFeverStatusEffect");
-        private static MethodInfo increaseBackFlowersMethod = AccessTools.Method(typeof(CadaverGrowthAI), "IncreaseBackFlowers");
-        private static MethodInfo healPlayerSporeEffectMethod = AccessTools.Method(typeof(CadaverGrowthAI), "HealPlayerSporeEffect");
 
         [HarmonyPatch("OnEnable")]
         [HarmonyPostfix]
@@ -441,7 +437,7 @@ namespace LethalBots.Patches.EnemiesPatches
             PlayerInfection obj = __instance.playerInfections[infectionId];
             LethalBotInfection lethalBotInfection = lethalBotAI.BotInfectionData.Value;
             int clipIndex = UnityEngine.Random.Range(0, __instance.healPlayerSFX.Length);
-            healPlayerSporeEffectMethod.Invoke(__instance, new object[] { infectionId, clipIndex });
+            __instance.HealPlayerSporeEffect(infectionId, clipIndex);
             obj.infectionMeter -= healAmount;
             lethalBotInfection.timeAtLastHealing = Time.realtimeSinceStartup;
             lethalBotInfection.totalTimeSpentInPlants = Mathf.Clamp(lethalBotInfection.totalTimeSpentInPlants - lethalBotInfection.totalTimeSpentInPlants / 4f, 0f, 100f);
@@ -627,7 +623,7 @@ namespace LethalBots.Patches.EnemiesPatches
                         float num6 = Mathf.Lerp(5f, 50f, Mathf.Clamp(playerInfection.infectionMeter / 0.9f, 0f, 1f));
                         if (UnityEngine.Random.Range(0f, 100f) < num6)
                         {
-                            increaseBackFlowersMethod.Invoke(__instance, new object[] { i });
+                            __instance.IncreaseBackFlowers(i);
                             __instance.IncreaseBackFlowersRpc(i, playerInfection.infectionMeter);
                         }
                         else

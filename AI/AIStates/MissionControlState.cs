@@ -472,7 +472,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // If we are not at the ship or terminal, we should move there now!
-            ref InteractTrigger terminalTrigger = ref PatchesUtil.terminalTriggerField.Invoke(ourTerminal);
+            InteractTrigger terminalTrigger = ourTerminal.terminalTrigger;
             float sqrDistFromTerminal = (terminalTrigger.playerPositionNode.position - npcController.Npc.transform.position).sqrMagnitude;
             if (sqrDistFromTerminal > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {
@@ -1193,7 +1193,7 @@ namespace LethalBots.AI.AIStates
             // Consider what is currently in the dropship as well
             if (itemDropship != null)
             {
-                foreach (int index in PatchesUtil.itemsToDeliverField.Invoke(itemDropship))
+                foreach (int index in itemDropship.itemsToDeliver)
                 {
                     if (index == itemIndex)
                         numOrdered++;

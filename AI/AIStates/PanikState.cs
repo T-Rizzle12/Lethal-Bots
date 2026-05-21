@@ -314,7 +314,7 @@ namespace LethalBots.AI.AIStates
                             if (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)
                             {
                                 EntranceTeleport entrance = targetEntrance;
-                                ref InteractTrigger interactTrigger = ref PatchesUtil.triggerScriptField.Invoke(entrance);
+                                InteractTrigger interactTrigger = entrance!.triggerScript;
                                 LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
                                 {
                                     Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
@@ -601,7 +601,7 @@ namespace LethalBots.AI.AIStates
             {
                 // If the feiopar stops moving towards us, we can assume its scared and we should assert dominance to scare it away!
                 npcController.OrderToLookAtPosition(CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f);
-                if (PatchesUtil.stalkingFrozenField(pumaAI))
+                if (pumaAI.stalkingFrozen)
                 {
                     return true;
                 }

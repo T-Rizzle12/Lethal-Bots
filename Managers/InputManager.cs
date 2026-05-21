@@ -169,7 +169,7 @@ namespace LethalBots.Managers
             if (localPlayer.hoveringOverTrigger != null)
             {
                 if (localPlayer.hoveringOverTrigger.holdInteraction
-                    || !PlayerControllerBPatch.InteractTriggerUseConditionsMet_ReversePatch(localPlayer))
+                    || !localPlayer.InteractTriggerUseConditionsMet())
                 {
                     return false;
                 }
@@ -289,7 +289,7 @@ namespace LethalBots.Managers
                 }
 
                 // To cut Discard_performed from triggering after this input
-                PatchesUtil.timeSinceSwitchingSlotsField.Invoke(localPlayer) = 0f;
+                localPlayer.timeSinceSwitchingSlots = 0f;
 
                 if (!lethalBot.AreHandsFree())
                 {

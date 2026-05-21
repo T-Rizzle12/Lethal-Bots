@@ -366,7 +366,7 @@ namespace LethalBots.AI.AIStates
                         }
                         if (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)
                         {
-                            ref InteractTrigger interactTrigger = ref PatchesUtil.triggerScriptField.Invoke(entrance);
+                            InteractTrigger interactTrigger = entrance!.triggerScript;
                             LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
                             {
                                 Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
@@ -492,7 +492,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         protected override bool FindObject(GrabbableObject item)
         {
-            return LethalBotAI.IsItemScrap(item) && (!ai.IsGrabbableObjectInLoadout(item) || ai.HasDuplicateLoadoutItems(item, out _)); // Found a scrap item, great, we want to drop it!
+            return !ai.IsGrabbableObjectInLoadout(item) || ai.HasDuplicateLoadoutItems(item, out _); // Found a scrap item, great, we want to drop it!
         }
 
         /// <remarks>

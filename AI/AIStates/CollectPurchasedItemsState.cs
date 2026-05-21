@@ -177,7 +177,7 @@ namespace LethalBots.AI.AIStates
             ItemDropship? itemDropship = SingletonManager.ItemDropship.Instance;
             if (itemDropship != null 
                 && !itemDropship.shipDoorsOpened
-                && (itemDropship.shipLanded || PatchesUtil.itemsToDeliverField.Invoke(itemDropship).Count > 0))
+                && (itemDropship.shipLanded || itemDropship.itemsToDeliver.Count > 0))
             {
                 return true; 
             }
@@ -201,7 +201,7 @@ namespace LethalBots.AI.AIStates
                 && !itemDropship.shipLanded
                 && (itemDropship.deliveringOrder 
                     || itemDropship.deliveringVehicle 
-                    || PatchesUtil.itemsToDeliverField.Invoke(itemDropship).Count > 0))
+                    || itemDropship.itemsToDeliver.Count > 0))
             {
                 return true;
             }

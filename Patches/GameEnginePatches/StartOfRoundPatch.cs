@@ -15,6 +15,7 @@ using System.Reflection.Emit;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using static Unity.Netcode.NetworkBehaviour;
 using Object = UnityEngine.Object;
 
 namespace LethalBots.Patches.GameEnginePatches
@@ -359,14 +360,6 @@ namespace LethalBots.Patches.GameEnginePatches
             LethalBotManager.Instance.SpawnLethalBotsAtShip();
         }*/
 
-        #region Reverse patches
-
-        [HarmonyPatch("GetPlayerSpawnPosition")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static Vector3 GetPlayerSpawnPosition_ReversePatch(object instance, int playerNum, bool simpleTeleport) => throw new NotImplementedException("Stub LethalBot.Patches.GameEnginePatches.StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch");
-
-        #endregion
 
         #region Transpilers
 
@@ -900,7 +893,7 @@ namespace LethalBots.Patches.GameEnginePatches
 
         [HarmonyPatch("FirePlayersAfterDeadlineClientRpc")]
         [HarmonyPostfix]
-        static void FirePlayersAfterDeadlineClientRpc_PostFix()
+        static void FirePlayersAfterDeadlineClientRpc_PostFix(StartOfRound __instance)
         {
             if (Plugin.Config.ResetIdentitiesWhenFired.Value)
             {   

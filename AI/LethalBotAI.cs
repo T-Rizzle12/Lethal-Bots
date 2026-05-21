@@ -2168,7 +2168,6 @@ namespace LethalBots.AI
             return false;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetAgent(bool enabled)
         {
             if (agent != null && agent.enabled != enabled)
@@ -5407,7 +5406,7 @@ namespace LethalBots.AI
                     if (choseRandomFlyDirForPlayer)
                     {
                         choseRandomFlyDirForPlayer = false;
-                        lethalBotController.TeleportPlayer(StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(instanceSOR, (int)lethalBotController.playerClientId, false));
+                        lethalBotController.TeleportPlayer(instanceSOR.GetPlayerSpawnPosition((int)lethalBotController.playerClientId, false));
                     }
 
                     // Just in case.....
@@ -5421,7 +5420,7 @@ namespace LethalBots.AI
 
                     if (instanceSOR.testRoom == null && !shipInnerRoomBounds.Contains(playerPos + Vector3.up * 0.25f))
                     {
-                        lethalBotController.TeleportPlayer(StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(instanceSOR, (int)lethalBotController.playerClientId, true));
+                        lethalBotController.TeleportPlayer(instanceSOR.GetPlayerSpawnPosition((int)lethalBotController.playerClientId, true));
                     }
                 }
 
@@ -5432,7 +5431,7 @@ namespace LethalBots.AI
                         lethalBotController.parentedToElevatorLastFrame = false;
                         lethalBotController.lastSyncedPhysicsParent = lethalBotController.overridePhysicsParent;
                         this.ReParentLethalBot(lethalBotController.overridePhysicsParent);
-                        PlayerControllerBPatch.UpdatePlayerPhysicsParentServerRpc_ReversePatch(lethalBotController, lethalBotController.thisPlayerBody.localPosition, lethalBotController.overridePhysicsParent.GetComponent<NetworkObject>(), isOverride: true, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
+                        lethalBotController.UpdatePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, lethalBotController.overridePhysicsParent.GetComponent<NetworkObject>(), isOverride: true, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
                     }
                 }
                 else if (lethalBotController.physicsParent != null)
@@ -5442,7 +5441,7 @@ namespace LethalBots.AI
                         lethalBotController.parentedToElevatorLastFrame = false;
                         lethalBotController.lastSyncedPhysicsParent = lethalBotController.physicsParent;
                         this.ReParentLethalBot(lethalBotController.physicsParent);
-                        PlayerControllerBPatch.UpdatePlayerPhysicsParentServerRpc_ReversePatch(lethalBotController, lethalBotController.thisPlayerBody.localPosition, lethalBotController.physicsParent.GetComponent<NetworkObject>(), isOverride: false, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
+                        lethalBotController.UpdatePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, lethalBotController.physicsParent.GetComponent<NetworkObject>(), isOverride: false, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
                     }
                 }
                 else
@@ -5451,7 +5450,7 @@ namespace LethalBots.AI
                     {
                         lethalBotController.lastSyncedPhysicsParent = null;
                         this.ReParentLethalBot(lethalBotController.playersManager.playersContainer);
-                        PlayerControllerBPatch.RemovePlayerPhysicsParentServerRpc_ReversePatch(lethalBotController, lethalBotController.thisPlayerBody.localPosition, removeOverride: false, removeBoth: true, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
+                        lethalBotController.RemovePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, removeOverride: false, removeBoth: true, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
                     }
                     if (lethalBotController.isInElevator)
                     {
@@ -5549,7 +5548,7 @@ namespace LethalBots.AI
                 }
 
                 // If the bot is not liked by the maneater baby, then only grab it if the maneater baby is crying
-                BabyPlayerMemory? playerMemory = CaveDwellerAIPatch.GetBabyMemoryOfPlayer_ReversePatch(caveDwellerAI, NpcController.Npc);
+                BabyPlayerMemory? playerMemory = caveDwellerAI.GetBabyMemoryOfPlayer(NpcController.Npc);
                 if ((playerMemory == null 
                     || playerMemory.likeMeter < 0.1f) 
                     && !caveDwellerAI.babyCrying)
@@ -6055,9 +6054,10 @@ namespace LethalBots.AI
             agent?.Warp(navMeshPosition);
 
             // For CullFactory mod
-            if (!AreHandsFree())
+            GrabbableObject? heldItem = HeldItem;
+            if (heldItem != null)
             {
-                HeldItem.EnableItemMeshes(true);
+                heldItem.EnableItemMeshes(true);
             }
         }
 
@@ -6160,7 +6160,7 @@ namespace LethalBots.AI
             }
 
             this.allAINodes = nodeList.ToArray();
-            if (outside && searchForScrap != null && (searchForScrap.searchInProgress || searchForScrap.visitInProgress))
+            if (searchForScrap != null && (searchForScrap.searchInProgress || searchForScrap.visitInProgress))
             {
                 searchForScrap.StopSearch();
             }
@@ -6565,7 +6565,7 @@ namespace LethalBots.AI
                 return;
             }
 
-            PlayerControllerBPatch.IsInSpecialAnimationClientRpc_ReversePatch(NpcController.Npc, specialAnimation, timed, climbingLadder);
+            NpcController.Npc.IsInSpecialAnimationClientRpc(specialAnimation, timed, climbingLadder);
             NpcController.Npc.ResetZAndXRotation();
         }
 
@@ -6610,32 +6610,31 @@ namespace LethalBots.AI
                 return;
             }
 
-            ref GrabbableObject currentlyGrabbingObject = ref PatchesUtil.currentlyGrabbingObjectField.Invoke(lethalBotController);
-            currentlyGrabbingObject = grabbableObject;
-            if (!GameNetworkManager.Instance.gameHasStarted && !currentlyGrabbingObject.itemProperties.canBeGrabbedBeforeGameStart && StartOfRound.Instance.testRoom == null)
+            lethalBotController.currentlyGrabbingObject = grabbableObject;
+            if (!GameNetworkManager.Instance.gameHasStarted && !lethalBotController.currentlyGrabbingObject.itemProperties.canBeGrabbedBeforeGameStart && StartOfRound.Instance.testRoom == null)
             {
                 Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. B");
                 return;
             }
-            PatchesUtil.grabInvalidatedField.Invoke(lethalBotController) = false;
-            if (currentlyGrabbingObject == null 
+            lethalBotController.grabInvalidated = false;
+            if (lethalBotController.currentlyGrabbingObject == null 
                 || lethalBotController.inSpecialInteractAnimation 
-                || currentlyGrabbingObject.isHeld 
-                || currentlyGrabbingObject.isPocketed)
+                || lethalBotController.currentlyGrabbingObject.isHeld 
+                || lethalBotController.currentlyGrabbingObject.isPocketed)
             {
                 Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. C");
                 return;
             }
 
-            NetworkObject networkObject = currentlyGrabbingObject.NetworkObject;
+            NetworkObject networkObject = lethalBotController.currentlyGrabbingObject.NetworkObject;
             if (networkObject == null || !networkObject.IsSpawned)
             {
                 Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. D");
                 return;
             }
 
-            currentlyGrabbingObject.InteractItem();
-            if (currentlyGrabbingObject.grabbable && FirstEmptyItemSlot(currentlyGrabbingObject) != Const.INVALID_ITEM_SLOT)
+            lethalBotController.currentlyGrabbingObject.InteractItem();
+            if (lethalBotController.currentlyGrabbingObject.grabbable && FirstEmptyItemSlot(lethalBotController.currentlyGrabbingObject) != Const.INVALID_ITEM_SLOT)
             {
                 lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABINVALIDATED, value: false);
                 lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, value: false);
@@ -6643,17 +6642,17 @@ namespace LethalBots.AI
                 lethalBotController.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
                 SetSpecialGrabAnimationBool(setBool: true, grabbableObject);
                 lethalBotController.isGrabbingObjectAnimation = true;
-                lethalBotController.twoHanded = currentlyGrabbingObject.itemProperties.twoHanded;
-                lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight + (currentlyGrabbingObject.itemProperties.weight - 1f), 1f, 10f);
-                if (currentlyGrabbingObject.itemProperties.grabAnimationTime > 0f)
+                lethalBotController.twoHanded = lethalBotController.currentlyGrabbingObject.itemProperties.twoHanded;
+                lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight + (lethalBotController.currentlyGrabbingObject.itemProperties.weight - 1f), 1f, 10f);
+                if (lethalBotController.currentlyGrabbingObject.itemProperties.grabAnimationTime > 0f)
                 {
-                    lethalBotController.grabObjectAnimationTime = currentlyGrabbingObject.itemProperties.grabAnimationTime;
+                    lethalBotController.grabObjectAnimationTime = lethalBotController.currentlyGrabbingObject.itemProperties.grabAnimationTime;
                 }
                 else
                 {
                     lethalBotController.grabObjectAnimationTime = 0.4f;
                 }
-                PatchesUtil.grabObjectServerRpcMethod.Invoke(lethalBotController, networkObject);
+                lethalBotController.GrabObjectServerRpc(networkObject);
                 if (grabObjectCoroutine != null)
                 {
                     StopCoroutine(grabObjectCoroutine);
@@ -6696,7 +6695,7 @@ namespace LethalBots.AI
                 && !lethalBotController.disablingJetpackControls 
                 && !StartOfRound.Instance.suckingPlayersOutOfShip)
             {
-                if (!lethalBotController.activatingItem && PatchesUtil.waitingToDropItemField.Invoke(lethalBotController) == false)
+                if (!lethalBotController.activatingItem && !lethalBotController.waitingToDropItem)
                 {
                     return true;
                 }
@@ -6987,68 +6986,65 @@ namespace LethalBots.AI
             PlayerControllerB lethalBotController = NpcController.Npc;
 
             // Clear the validated grab flag
-            PatchesUtil.grabbedObjectValidatedField.Invoke(lethalBotController) = false;
+            lethalBotController.grabbedObjectValidated = false;
 
             // Yield just like the base game
             yield return new WaitForSeconds(0.1f);
 
             // Play pickup audio
             lethalBotController.itemAudio.PlayOneShot(StartOfRound.Instance.playerGrabSFX[UnityEngine.Random.Range(0, StartOfRound.Instance.playerGrabSFX.Length)]);
-            
+
             // Play item pickup audio
-            GrabbableObject currentlyGrabbingObject = PatchesUtil.currentlyGrabbingObjectField.Invoke(lethalBotController);
-            currentlyGrabbingObject.parentObject = lethalBotController.serverItemHolder;
-            if (currentlyGrabbingObject.itemProperties.grabSFX != null)
+            lethalBotController.currentlyGrabbingObject.parentObject = lethalBotController.serverItemHolder;
+            if (lethalBotController.currentlyGrabbingObject.itemProperties.grabSFX != null)
             {
-                lethalBotController.itemAudio.PlayOneShot(currentlyGrabbingObject.itemProperties.grabSFX, 1f);
+                lethalBotController.itemAudio.PlayOneShot(lethalBotController.currentlyGrabbingObject.itemProperties.grabSFX, 1f);
             }
 
             // For the the grab to be validated by the server
-            while ((PatchesUtil.currentlyGrabbingObjectField.Invoke(lethalBotController) != lethalBotController.currentlyHeldObjectServer || !lethalBotController.currentlyHeldObjectServer.wasOwnerLastFrame) && PatchesUtil.grabInvalidatedField.Invoke(lethalBotController) == false)
+            while ((lethalBotController.currentlyGrabbingObject != lethalBotController.currentlyHeldObjectServer || !lethalBotController.currentlyHeldObjectServer.wasOwnerLastFrame) && !lethalBotController.grabInvalidated)
             {
                 yield return null;
             }
 
             // Update local variable with our new field
-            currentlyGrabbingObject = PatchesUtil.currentlyGrabbingObjectField.Invoke(lethalBotController);
-            ref bool grabInvalidated = ref PatchesUtil.grabInvalidatedField.Invoke(lethalBotController);
-            if (grabInvalidated)
+            if (lethalBotController.grabInvalidated)
             {
                 // If the grab was marked as invalid by the server, let the user know!
-                grabInvalidated = false;
-                Plugin.LogInfo("Grab was invalidated on object: " + currentlyGrabbingObject.name);
-                if (currentlyGrabbingObject.playerHeldBy != null)
+                lethalBotController.grabInvalidated = false;
+                Plugin.LogInfo("Grab was invalidated on object: " + lethalBotController.currentlyGrabbingObject.name);
+                if (lethalBotController.currentlyGrabbingObject.playerHeldBy != null)
                 {
-                    Plugin.LogInfo($"playerHeldBy on currentlyGrabbingObject 2: {currentlyGrabbingObject.playerHeldBy}");
+                    Plugin.LogInfo($"playerHeldBy on currentlyGrabbingObject 2: {lethalBotController.currentlyGrabbingObject.playerHeldBy}");
                 }
-                if (currentlyGrabbingObject.parentObject == lethalBotController.serverItemHolder)
+                if (lethalBotController.currentlyGrabbingObject.parentObject == lethalBotController.serverItemHolder)
                 {
-                    if (currentlyGrabbingObject.playerHeldBy != null)
+                    if (lethalBotController.currentlyGrabbingObject.playerHeldBy != null)
                     {
-                        Plugin.LogInfo($"Grab invalidated; giving grabbed object to the client who got it first; {currentlyGrabbingObject.playerHeldBy}");
-                        currentlyGrabbingObject.parentObject = currentlyGrabbingObject.playerHeldBy.serverItemHolder;
+                        Plugin.LogInfo($"Grab invalidated; giving grabbed object to the client who got it first; {lethalBotController.currentlyGrabbingObject.playerHeldBy}");
+                        lethalBotController.currentlyGrabbingObject.parentObject = lethalBotController.currentlyGrabbingObject.playerHeldBy.serverItemHolder;
                     }
                     else
                     {
                         Plugin.LogInfo("Grab invalidated; no other client has possession of it, so set its parent object to null.");
-                        currentlyGrabbingObject.parentObject = null;
+                        lethalBotController.currentlyGrabbingObject.parentObject = null;
                     }
                 }
                 lethalBotController.twoHanded = false;
-                SetSpecialGrabAnimationBool(setBool: false, currentlyGrabbingObject);
+                SetSpecialGrabAnimationBool(setBool: false, lethalBotController.currentlyGrabbingObject);
                 if (lethalBotController.currentlyHeldObjectServer != null)
                 {
                     lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRAB, value: true);
                 }
                 lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABINVALIDATED, value: true);
-                lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight - (currentlyGrabbingObject.itemProperties.weight - 1f), 1f, 10f);
+                lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight - (lethalBotController.currentlyGrabbingObject.itemProperties.weight - 1f), 1f, 10f);
                 lethalBotController.isGrabbingObjectAnimation = false;
-                PatchesUtil.currentlyGrabbingObjectField.Invoke(lethalBotController) = null!;
+                lethalBotController.currentlyGrabbingObject = null;
                 lethalBotController.queueDiscardObject = false;
             }
             else
             {
-                PatchesUtil.grabbedObjectValidatedField.Invoke(lethalBotController) = true;
+                lethalBotController.grabbedObjectValidated = true;
                 lethalBotController.currentlyHeldObjectServer.GrabItemOnClient();
                 lethalBotController.isHoldingObject = true;
                 yield return new WaitForSeconds(lethalBotController.grabObjectAnimationTime - 0.2f);
@@ -7090,200 +7086,6 @@ namespace LethalBots.AI
         #endregion
 
         #region Drop item RPC
-
-        /// <summary>
-        /// Destorys the grabbable object in the given slot!
-        /// </summary>
-        /// <param name="itemSlot"></param>
-        public void DestroyItemInSlot(int itemSlot)
-        {
-            if (NetworkManager.Singleton == null || NetworkManager.Singleton.ShutdownInProgress)
-            {
-                return;
-            }
-
-            PlayerControllerB lethalBotController = NpcController.Npc;
-            Plugin.LogDebug($"Destroying item in slot {itemSlot}; {lethalBotController.currentItemSlot}; is helditem null: {AreHandsFree()}");
-            if (!AreHandsFree())
-            {
-                Plugin.LogDebug("HeldItem: " + HeldItem.itemProperties.itemName);
-            }
-
-            GrabbableObject? grabbableObject = itemSlot == Const.RESERVED_EQUIPMENT_SLOT ? lethalBotController.ItemOnlySlot : lethalBotController.ItemSlots[itemSlot];
-            if (lethalBotController.isHoldingObject)
-            {
-                if (lethalBotController.currentItemSlot == itemSlot)
-                {
-                    lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight - (grabbableObject.itemProperties.weight - 1f), 1f, 10f);
-                    lethalBotController.isHoldingObject = false;
-                    lethalBotController.twoHanded = false;
-                    lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, value: true);
-                    lethalBotController.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
-                    lethalBotController.activatingItem = false;
-                }
-
-                if (!AreHandsFree() && HeldItem == grabbableObject)
-                {
-                    SetSpecialGrabAnimationBool(setBool: false, HeldItem);
-                    if (IsOwner)
-                    {
-                        HeldItem.DiscardItemOnClient();
-                    }
-
-                    HeldItem = null;
-                    lethalBotController.currentlyHeldObjectServer = null;
-                }
-            }
-            if (itemSlot == Const.RESERVED_EQUIPMENT_SLOT)
-            {
-                lethalBotController.ItemOnlySlot = null;
-            }
-            else
-            { 
-                lethalBotController.ItemSlots[itemSlot] = null; 
-            }
-            if (IsServer)
-            {
-                grabbableObject?.NetworkObject.Despawn();
-            }
-        }
-
-        /// <summary>
-        /// Copied from <c>PlayerControllerB</c>, makes the bot drop everthing held! 
-        /// </summary>
-        public void DropAllHeldItems(bool itemsFall = true, bool setInShip = false, bool setInElevator = false, Vector3 syncedPlayerPosition = default(Vector3), Vector3 syncedHeldObjectPosition = default(Vector3), Vector3 syncedHeldObjectRotation = default(Vector3), Vector3 syncedPlayerCamPosition = default(Vector3), Vector3 syncedPlayerCamRotation = default(Vector3))
-        {
-            PlayerControllerB lethalBotController = NpcController.Npc;
-            GrabbableObject?[] itemSlots = lethalBotController.ItemSlots;
-            for (int i = 0; i < itemSlots.Length; i++)
-            {
-                GrabbableObject? grabbableObject = itemSlots[i];
-                if (grabbableObject == null)
-                {
-                    continue;
-                }
-                PlayerControllerBPatch.DropHeldItem_ReversePatch(lethalBotController, grabbableObject, itemsFall, false, syncedPlayerPosition, syncedHeldObjectPosition, syncedHeldObjectRotation, syncedPlayerCamPosition, syncedPlayerCamRotation, setInShip, setInElevator);
-                DictJustDroppedItems[grabbableObject] = Time.realtimeSinceStartup;
-                if (base.IsOwner)
-                {
-                    lethalBotController.activatingItem = false;
-                }
-                itemSlots[i] = null;
-            }
-            if (lethalBotController.ItemOnlySlot)
-            {
-                PlayerControllerBPatch.DropHeldItem_ReversePatch(lethalBotController, lethalBotController.ItemOnlySlot, itemsFall, false, syncedPlayerPosition, syncedHeldObjectPosition, syncedHeldObjectRotation, syncedPlayerCamPosition, syncedPlayerCamRotation, setInShip, setInElevator);
-                DictJustDroppedItems[lethalBotController.ItemOnlySlot] = Time.realtimeSinceStartup;
-                if (base.IsOwner)
-                {
-                    lethalBotController.activatingItem = false;
-                }
-                lethalBotController.ItemOnlySlot = null;
-            }
-            if (lethalBotController.isHoldingObject)
-            {
-                lethalBotController.isHoldingObject = false;
-                if (!this.AreHandsFree())
-                {
-                    this.SetSpecialGrabAnimationBool(false, this.HeldItem);
-                }
-                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, true);
-                lethalBotController.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
-            }
-            this.HeldItem = null;
-            lethalBotController.activatingItem = false;
-            lethalBotController.twoHanded = false;
-            lethalBotController.carryWeight = 1f;
-            lethalBotController.currentlyHeldObjectServer = null;
-        }
-
-        /// <summary>
-        /// Copied from <c>PlayerControllerB</c>, despawns the bot's currently held object! 
-        /// </summary>
-        public void DespawnHeldObject()
-        {
-            GrabbableObject? grabbableObject = this.HeldItem;
-            PlayerControllerB lethalBot = NpcController.Npc;
-            Plugin.LogDebug($"{lethalBot.playerUsername} Try to despawn held item");
-            if (grabbableObject == null)
-            {
-                Plugin.LogError($"{lethalBot.playerUsername} Try to despawn, but bot is holding nothing");
-                return;
-            }
-
-            // Discard for player
-            Plugin.LogDebug($"{lethalBot.playerUsername} Try to despawn held item {grabbableObject} on owner #{this.OwnerClientId} and sync");
-            lethalBot.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, true);
-            lethalBot.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
-
-            // Despawn and sync with others!
-            NpcController.ThrowingObject.Value = true;
-            DespawnHeldObjectOnClient();
-            DespawnHeldObjectOnServerRpc();
-        }
-
-        /// <summary>
-        /// Actually does the action of despawning the object on this client
-        /// </summary>
-        private void DespawnHeldObjectOnClient()
-        {
-            // Discard for player
-            PlayerControllerB lethalBot = NpcController.Npc;
-            Plugin.LogDebug($"{lethalBot.playerUsername} Try to despawn held item on client #{NetworkManager.LocalClientId}");
-            if (this.AreHandsFree())
-            {
-                Plugin.LogError($"{lethalBot.playerUsername} Try to despawn, but bot is holding nothing on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            Plugin.LogDebug($"{lethalBot.playerUsername} Try to despawn held item {this.HeldItem} on client #{NetworkManager.LocalClientId}");
-            if (lethalBot.currentItemSlot == Const.RESERVED_EQUIPMENT_SLOT)
-            {
-                lethalBot.ItemOnlySlot = null;
-            }
-            else
-            {
-                lethalBot.ItemSlots[lethalBot.currentItemSlot] = null;
-            }
-
-            SetSpecialGrabAnimationBool(false, this.HeldItem);
-            lethalBot.isHoldingObject = false;
-            lethalBot.twoHanded = false;
-            lethalBot.twoHandedAnimation = false;
-            lethalBot.carryWeight = Mathf.Clamp(lethalBot.carryWeight - (this.HeldItem.itemProperties.weight - 1f), 1f, 10f);
-            // NOTE: SendChangedWeightEvent that Zeekerss added is used to update the weight display on the client,
-            // so its not need for bots.
-            //if (base.IsOwner && isPlayerControlled)
-            //{
-            //    StartOfRound.Instance.SendChangedWeightEvent();
-            //}
-        }
-
-        /// <summary>
-        /// Sends the despawn held object client RPC and despawns the network object as well!
-        /// </summary>
-        [ServerRpc]
-        private void DespawnHeldObjectOnServerRpc()
-        {
-            if (!this.AreHandsFree())
-            {
-                this.HeldItem.gameObject.GetComponent<NetworkObject>().Despawn();
-            }
-            DespawnHeldObjectClientRpc();
-        }
-
-        /// <summary>
-        /// Despawns the bot's currently held object for this client! 
-        /// </summary>
-        [ClientRpc]
-        private void DespawnHeldObjectClientRpc()
-        {
-            NpcController.ThrowingObject.Value = false; // Set false for all!
-            if (!IsOwner)
-            {
-                DespawnHeldObjectOnClient();
-            }
-        }
 
         [ServerRpc(RequireOwnership = false)]
         public void SyncBatteryLethalBotServerRpc(NetworkObjectReference networkObjectReferenceGrabbableObject, int charge)
@@ -7395,13 +7197,10 @@ namespace LethalBots.AI
             }
 
             // Send each message separately
+            int playerClientId = (int)NpcController.Npc.playerClientId;
             foreach (string msg in splitMessages)
             {
-                HUDManagerPatch.AddPlayerChatMessageServerRpc_ReversePatch(
-                    HUDManager.Instance,
-                    msg,
-                    (int)NpcController.Npc.playerClientId
-                );
+                HUDManager.Instance.AddPlayerChatMessageServerRpc(msg, playerClientId);
             }
         }
 
@@ -7792,7 +7591,7 @@ namespace LethalBots.AI
             ourTerminal.StartCoroutine(waitUntilFrameEndToSetActive(true, ourTerminal));
             //ourTerminal.terminalUIScreen.gameObject.SetActive(true);
             PlayerControllerB localPlayerController = NpcController.Npc;
-            InteractTriggerPatch.UpdateUsedByPlayerServerRpc_ReversePatch(terminalTrigger, (int)localPlayerController.playerClientId);
+            terminalTrigger.UpdateUsedByPlayerServerRpc((int)localPlayerController.playerClientId);
             localPlayerController.inSpecialInteractAnimation = true;
             localPlayerController.currentTriggerInAnimationWith = terminalTrigger;
             localPlayerController.inTerminalMenu = true;
@@ -7805,11 +7604,10 @@ namespace LethalBots.AI
                 localPlayerController.overridePhysicsParent = terminalTrigger.overridePlayerParent;
             }
             ourTerminal.LoadNewNode(ourTerminal.terminalNodes.specialNodes[TerminalConst.INDEX_DEFAULT_TERMINALNODE]);
-            ref bool usedTerminalThisSession = ref PatchesUtil.usedTerminalThisSessionField.Invoke(ourTerminal);
-            if (!usedTerminalThisSession)
+            if (!ourTerminal.usedTerminalThisSession)
             {
-                usedTerminalThisSession = true;
-                if (!PatchesUtil.syncedTerminalValuesField.Invoke(ourTerminal))
+                ourTerminal.usedTerminalThisSession = true;
+                if (!ourTerminal.syncedTerminalValues)
                 {
                     ourTerminal.SyncTerminalValuesServerRpc();
                 }
@@ -7843,7 +7641,7 @@ namespace LethalBots.AI
             }
 
             InteractTrigger terminalTrigger = ourTerminal.gameObject.GetComponent<InteractTrigger>();
-            InteractTriggerPatch.StopUsingServerRpc_ReversePatch(terminalTrigger, (int)localPlayerController.playerClientId);
+            terminalTrigger.StopUsingServerRpc((int)localPlayerController.playerClientId);
             //ourTerminal.terminalInUse = false;
             ourTerminal.StartCoroutine(waitUntilFrameEndToSetActive(active: false, ourTerminal));
             localPlayerController.inSpecialInteractAnimation = false;
@@ -8212,7 +8010,7 @@ namespace LethalBots.AI
             lethalBotController.hinderedMultiplier = 1f;
             lethalBotController.isMovementHindered = 0;
             lethalBotController.inAnimationWithEnemy = null;
-            PatchesUtil.positionOfDeathField.Invoke(lethalBotController) = lethalBotController.transform.position;
+            lethalBotController.positionOfDeath = lethalBotController.transform.position;
             lethalBotController.bleedingHeavily = false;
             lethalBotController.setPositionOfDeadPlayer = true;
             lethalBotController.snapToServerPosition = false;
@@ -8223,7 +8021,7 @@ namespace LethalBots.AI
             lethalBotController.poisonInertia = 0f;
             lethalBotController.slipperyFloor = 0f;
             lethalBotController.slimeSlipAudio.Stop();
-            PatchesUtil.slimeSlipAudioVolumeSyncField.Invoke(lethalBotController) = 0f;
+            lethalBotController.slimeSlipAudioVolumeSync = 0f;
             lethalBotController.slimeOnFaceDecals[0].gameObject.SetActive(value: false);
             lethalBotController.slimeOnFaceDecals[1].gameObject.SetActive(value: false);
             if (spawnBody && !lethalBotController.overrideDontSpawnBody)
@@ -8257,7 +8055,7 @@ namespace LethalBots.AI
             lethalBotController.CancelSpecialTriggerAnimations();
             SoundManager.Instance.playerVoicePitchTargets[lethalBotController.playerClientId] = 1f;
             SoundManager.Instance.playerVoicePitchLerpSpeed[lethalBotController.playerClientId] = 3f;
-            PatchesUtil.KillPlayerServerRpcMethod.Invoke(lethalBotController, new object[] { (int)lethalBotController.playerClientId, spawnBody, bodyVelocity, (int)causeOfDeath, deathAnimation, positionOffset, setOverrideDropItems });
+            lethalBotController.KillPlayerServerRpc((int)lethalBotController.playerClientId, spawnBody, bodyVelocity, (int)causeOfDeath, deathAnimation, positionOffset, setOverrideDropItems);
             Plugin.LogInfo($"Override drop items : {lethalBotController.overrideDropItems}; overridedontspawnbody: {lethalBotController.overrideDontSpawnBody}");
             if (lethalBotController.overrideDropItems)
             {
@@ -8800,7 +8598,7 @@ namespace LethalBots.AI
         private IEnumerator pullLeverCoroutine(StartMatchLever startMatchLever, InteractTrigger leverTrigger)
         {
             PlayerControllerB localPlayerController = NpcController.Npc;
-            InteractTriggerPatch.UpdateUsedByPlayerServerRpc_ReversePatch(leverTrigger, (int)localPlayerController.playerClientId);
+            leverTrigger.UpdateUsedByPlayerServerRpc((int)localPlayerController.playerClientId);
             // Grandpa? Why don't we just call startMatchLever.LeverAnimation() and startMatchLever.PullLever()
             // Well you see Timmy, they only work for the local player and since the bots are not the local player
             // we have to recreate them here
@@ -8819,7 +8617,7 @@ namespace LethalBots.AI
             }
             //leverTrigger.interactable = false; // Don't let other player use the lever!
             yield return new WaitForSeconds(leverTrigger.animationWaitTime);
-            InteractTriggerPatch.StopUsingServerRpc_ReversePatch(leverTrigger, (int)localPlayerController.playerClientId);
+            leverTrigger.StopUsingServerRpc((int)localPlayerController.playerClientId);
             leverTrigger.isPlayingSpecialAnimation = false;
             localPlayerController.inSpecialInteractAnimation = false;
             if ((bool)leverTrigger.overridePlayerParent && localPlayerController.overridePhysicsParent == leverTrigger.overridePlayerParent)
@@ -8907,15 +8705,6 @@ namespace LethalBots.AI
         }
 
         /// <summary>
-        /// setStartingShipEffectsMethod is private, so we use reflection here to call it
-        /// </summary>
-        private static readonly Action<StartMatchLever> setStartingShipEffectsMethod = AccessTools.MethodDelegate<Action<StartMatchLever>>(AccessTools.Method(typeof(StartMatchLever), "SetStartingShipEffects"));
-
-        private static readonly Action<StartMatchLever, bool> pullLeverAnimMethod = AccessTools.MethodDelegate<Action<StartMatchLever, bool>>(AccessTools.Method(typeof(StartMatchLever), "PullLeverAnim"));
-
-        private static readonly AccessTools.FieldRef<StartMatchLever, bool> clientSentRPCField = AccessTools.FieldRefAccess<bool>(typeof(StartMatchLever), "clientSentRPC");
-
-        /// <summary>
         /// Carbon copy of <see cref="StartMatchLever.LeverAnimation"/>, but with support for bots
         /// </summary>
         /// <param name="startMatchLever"></param>
@@ -8947,15 +8736,15 @@ namespace LethalBots.AI
                 // Got to love the amount of reflection I have to do here, but oh well
                 if (playersManager.shipHasLanded)
                 {
-                    pullLeverAnimMethod.Invoke(startMatchLever, false);
-                    clientSentRPCField.Invoke(startMatchLever) = true;
+                    startMatchLever.PullLeverAnim(leverPulled: false);
+                    startMatchLever.clientSentRPC = true;
                     startMatchLever.PlayLeverPullEffectsServerRpc(leverPulled: false);
                 }
                 else if (playersManager.inShipPhase)
                 {
-                    pullLeverAnimMethod.Invoke(startMatchLever, true);
-                    clientSentRPCField.Invoke(startMatchLever) = true;
-                    setStartingShipEffectsMethod.Invoke(startMatchLever);
+                    startMatchLever.PullLeverAnim(leverPulled: true);
+                    startMatchLever.clientSentRPC = true;
+                    startMatchLever.SetStartingShipEffects();
                     startMatchLever.PlayLeverPullEffectsServerRpc(leverPulled: true);
                 }
             }
@@ -9026,7 +8815,7 @@ namespace LethalBots.AI
         private IEnumerator useItemCharger(ItemCharger itemCharger, InteractTrigger itemChargerTrigger, GrabbableObject itemToCharge)
         {
             PlayerControllerB localPlayerController = NpcController.Npc;
-            InteractTriggerPatch.UpdateUsedByPlayerServerRpc_ReversePatch(itemChargerTrigger, (int)localPlayerController.playerClientId);
+            itemChargerTrigger.UpdateUsedByPlayerServerRpc((int)localPlayerController.playerClientId);
             // Grandpa? Why don't we just call itemCharger.ChargeItem()
             // Well you see Timmy, they only work for the local player and since the bots are not the local player
             // we have to recreate them here
@@ -9063,7 +8852,7 @@ namespace LethalBots.AI
             // we have to manually do its logic here. Subtracting the cooldown time is needed to keep the animations
             // and effects in sync!
             yield return new WaitForSeconds(Mathf.Max(itemChargerTrigger.animationWaitTime - 0.75f, 0f));
-            InteractTriggerPatch.StopUsingServerRpc_ReversePatch(itemChargerTrigger, (int)localPlayerController.playerClientId);
+            itemChargerTrigger.StopUsingServerRpc((int)localPlayerController.playerClientId);
             itemChargerTrigger.isPlayingSpecialAnimation = false;
             localPlayerController.inSpecialInteractAnimation = false;
             if ((bool)itemChargerTrigger.overridePlayerParent && localPlayerController.overridePhysicsParent == itemChargerTrigger.overridePlayerParent)
@@ -9112,7 +8901,7 @@ namespace LethalBots.AI
         {
             if (!IsClientOwnerOfLethalBot())
             {
-                PlayerControllerBPatch.PlayJumpAudio_ReversePatch(this.NpcController.Npc);
+                this.NpcController.Npc.PlayJumpAudio();
             }
         }
 

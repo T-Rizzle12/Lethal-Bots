@@ -130,7 +130,7 @@ namespace LethalBots.Patches.ObjectsPatches
 
             if (!patched)
             {
-                Plugin.LogError($"LethalBot.Patches.ObjectPatches.SprayPaintItemPatch.TrySprayingWeedKillerBottle_Transpiler could not check if player local or bot local 1");
+                Plugin.LogError($"LethalBot.Patches.ObjectPatches.SprayPaintItemPatch.TrySprayingWeedKillerBottle_Transpiler could not check if player local or bot local");
             }
             else
             {

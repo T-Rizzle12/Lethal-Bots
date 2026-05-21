@@ -319,7 +319,7 @@ namespace LethalBots.AI
             UpdateLineOfSightCube();
 
             // Update our player sanity
-            PlayerControllerBPatch.SetPlayerSanityLevel_ReversePatch(Npc);
+            Npc.SetPlayerSanityLevel();
         }
 
         /// <summary>
@@ -348,7 +348,7 @@ namespace LethalBots.AI
                     Npc.activeAudioListener.transform.localPosition = Vector3.zero;*/
                     UpdateRuntimeAnimatorController(isOwner);
                 }
-                PlayerControllerBPatch.SetNightVisionEnabled_ReversePatch(Npc, true);
+                Npc.SetNightVisionEnabled(isNotLocalClient: true);
             }
             else
             {
@@ -367,7 +367,7 @@ namespace LethalBots.AI
                         Npc.gameObject.GetComponent<Rigidbody>().interpolation = RigidbodyInterpolation.None;
                     }
                 }
-                PlayerControllerBPatch.SetNightVisionEnabled_ReversePatch(Npc, true);
+                Npc.SetNightVisionEnabled(isNotLocalClient: true);
             }
         }
 
@@ -871,7 +871,7 @@ namespace LethalBots.AI
                             Npc.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_SHORTFALLLANDING);
                         }
                         //Plugin.LogDebug($"{Npc.playerUsername} JustTouchedGround fallValue {Npc.fallValue}");
-                        PlayerControllerBPatch.PlayerHitGroundEffects_ReversePatch(this.Npc);
+                        this.Npc.PlayerHitGroundEffects();
                     }
                     //if (!IsFallingFromJump)
                     //{
@@ -894,9 +894,9 @@ namespace LethalBots.AI
             {
                 if (!this.TeleportingThisFrame && !Npc.inSpecialInteractAnimation && !Npc.enteringSpecialAnimation && !Npc.isClimbingLadder && (instanceSOR.timeSinceRoundStarted > 1f || instanceSOR.testRoom != null))
                 {
-                    float magnitude2 = Npc.thisController.velocity.magnitude;
                     if (Npc.getAverageVelocityInterval <= 0f)
                     {
+                        float magnitude2 = Npc.thisController.velocity.magnitude;
                         Npc.getAverageVelocityInterval = 0.04f;
                         Npc.velocityAverageCount++;
                         if (Npc.velocityAverageCount > Npc.velocityMovingAverageLength)
@@ -1662,7 +1662,7 @@ namespace LethalBots.AI
                         }
 
                         GrabbableObject? currentlyHeldObject = LethalBotAIController.HeldItem;
-                        if (currentlyHeldObject != null && Npc.isHoldingObject && PatchesUtil.grabbedObjectValidatedField.Invoke(Npc))
+                        if (currentlyHeldObject != null && Npc.isHoldingObject && Npc.grabbedObjectValidated)
                         {
                             currentlyHeldObject.transform.localPosition = currentlyHeldObject.itemProperties.positionOffset;
                             currentlyHeldObject.transform.localEulerAngles = currentlyHeldObject.itemProperties.rotationOffset;
@@ -1812,7 +1812,7 @@ namespace LethalBots.AI
         /// <param name="allowTooManyEmotes">Should the bot be allowed to pick a random emote using the TooManyEmotes mod?</param>
         public void PerformRandomEmote(bool allowTooManyEmotes = true)
         {
-            if (!Npc.performingEmote && PlayerControllerBPatch.CheckConditionsForEmote_ReversePatch(Npc))
+            if (!Npc.performingEmote && Npc.CheckConditionsForEmote())
             {
                 // 50% chance to use the TooManyEmotes mod if it is loaded
                 if (allowTooManyEmotes && Plugin.IsModTooManyEmotesLoaded && Random.Range(1, 100) <= 50)
@@ -2000,7 +2000,7 @@ namespace LethalBots.AI
             int emoteNumberLethalBot = Npc.playerBodyAnimator.GetInteger("emoteNumber");
             if ((!Npc.performingEmote
                 || emoteNumberLethalBot != emoteNumberToMimic)
-                && PlayerControllerBPatch.CheckConditionsForEmote_ReversePatch(Npc))
+                && Npc.CheckConditionsForEmote())
             {
                 Npc.performingEmote = true;
                 Npc.PerformEmote(new UnityEngine.InputSystem.InputAction.CallbackContext(), emoteNumberToMimic);

@@ -78,39 +78,6 @@ namespace LethalBots.Patches.MapPatches
 #pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
         }*/
 
-        /// <summary>
-        /// Reverse patch to call <c>Interact</c>
-        /// </summary>
-        /// <exception cref="NotImplementedException"></exception>
-        //[HarmonyPatch("Interact")]
-        //[HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        //[HarmonyPriority(Priority.Last)]
-        //public static void Interact_ReversePatch(object instance, Transform playerTransform) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.InteractTriggerPatch.Interact_Transpiler");
-
-        ///<summary>
-        /// Reverse patch to call <c>StopUsingServerRpc</c>
-        ///</summary>
-        [HarmonyPatch("StopUsingServerRpc")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static void StopUsingServerRpc_ReversePatch(object instance, int playerNum) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.InteractTriggerPatch.StopUsingServerRpc_ReversePatch");
-
-        ///<summary>
-        /// Reverse patch to call <c>UpdateUsedByPlayerServerRpc</c>
-        ///</summary>
-        [HarmonyPatch("UpdateUsedByPlayerServerRpc")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static void UpdateUsedByPlayerServerRpc_ReversePatch(object instance, int playerNum) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.InteractTriggerPatch.UpdateUsedByPlayerServerRpc_ReversePatch");
-
-        ///<summary>
-        /// Reverse patch to call <c>LadderPositionObstructed</c>
-        ///</summary>
-        [HarmonyPatch("LadderPositionObstructed")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static bool LadderPositionObstructed_ReversePatch(object instance, PlayerControllerB playerController) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.InteractTriggerPatch.LadderPositionObstructed_ReversePatch");
-
         /*/// <summary>
         /// Patch for not making the bot not cancel the player ladder coroutine 
         /// </summary>
@@ -360,7 +327,7 @@ namespace LethalBots.Patches.MapPatches
 
         private static IEnumerator specialInteractAnimation(InteractTrigger trigger, PlayerControllerB playerController)
         {
-            UpdateUsedByPlayerServerRpc_ReversePatch(trigger, (int)playerController.playerClientId);
+            trigger.UpdateUsedByPlayerServerRpc((int)playerController.playerClientId);
             trigger.onInteractEarly.Invoke(null);
             trigger.isPlayingSpecialAnimation = true;
             playerScriptInSpecialAnimationField.SetValue(trigger, playerController);
@@ -564,7 +531,7 @@ namespace LethalBots.Patches.MapPatches
             if (__instance.isPlayingSpecialAnimation && __instance.stopAnimationManually && playerTransform != null)
             {
                 Plugin.LogDebug($"Calling stop animation function StopUsing server rpc for playerController: {player.playerClientId}");
-                StopUsingServerRpc_ReversePatch(__instance, (int)player.playerClientId);
+                __instance.StopUsingServerRpc((int)player.playerClientId);
             }
             if (player != null)
             {

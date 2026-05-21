@@ -8,23 +8,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using static Unity.Netcode.NetworkBehaviour;
 
 namespace LethalBots.Patches.EnemiesPatches
 {
     [HarmonyPatch(typeof(CaveDwellerAI))]
     public class CaveDwellerAIPatch
     {
-        /// <summary>
-        /// Reverse patch for <c>GetBabyMemoryOfPlayer</c> method.
-        /// </summary>
-        /// <param name="instance"></param>
-        /// <param name="player"></param>
-        /// <exception cref="NotImplementedException"></exception>
-        [HarmonyPatch("GetBabyMemoryOfPlayer")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static BabyPlayerMemory GetBabyMemoryOfPlayer_ReversePatch(object instance, PlayerControllerB player) => throw new NotImplementedException("Stub LethalBot.Patches.EnemiesPatches.CaveDwellerAIPatch.GetBabyMemoryOfPlayer");
-
         [HarmonyPatch("OnCollideWithPlayer")]
         [HarmonyPrefix]
         static void OnCollideWithPlayer_PreFix(ref bool ___startingKillAnimationLocalClient)
@@ -92,7 +82,8 @@ namespace LethalBots.Patches.EnemiesPatches
 
         [HarmonyPatch("CancelKillAnimationClientRpc")]
         [HarmonyPostfix]
-        static void CancelKillAnimationClientRpc_PostFix(int playerObjectId,
+        static void CancelKillAnimationClientRpc_PostFix(CaveDwellerAI __instance, 
+                                                         int playerObjectId,
                                                          ref bool ___startingKillAnimationLocalClient)
         {
             Plugin.LogDebug($"CancelKillAnimationClientRpc_PostFix playerObjectId {playerObjectId}");

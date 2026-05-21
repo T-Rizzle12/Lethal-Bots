@@ -33,7 +33,6 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
-using static UnityEngine.InputSystem.InputRemoting;
 using Object = UnityEngine.Object;
 using Quaternion = UnityEngine.Quaternion;
 using Random = System.Random;
@@ -52,8 +51,7 @@ namespace LethalBots.Managers
     /// Other methods in class can retrieve the brain from the body index and vice versa with the use of arrays.<br/>
     /// <br/>
     /// Important points:<br/>
-    /// The <c>PlayerControllerB</c> instantiated for bots do not spawn on server, they are synchronized in each client.<br/>
-    /// This means that the <c>PlayerControllerB</c> of an bot is never owned, only the <c>LethalBotAI</c> associated is.<br/>
+    /// The <c>PlayerControllerB</c> instantiated for bots do not "spawn" on server in the traditional sense, they are synchronized in each client.<br/>
     /// The patches for the original game code need to always look for an <c>LethalBotAI</c> associated with <c>PlayerControllerB</c> they encounter.<br/>
     /// Typically, everything that happens to the player owner of his body (real player), should function the same to the body of an bot owned by this player,
     /// the local player.<br/>
@@ -1155,12 +1153,10 @@ namespace LethalBots.Managers
         /// Unregisters a threat by its name.
         /// </summary>
         /// <param name="theatType">The type of the threat to unregister.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UnRegisterThreat(Type theatType)
         {
-            if (DictionaryLethalBotThreats.ContainsKey(theatType))
-            {
-                DictionaryLethalBotThreats.Remove(theatType);
-            }
+            DictionaryLethalBotThreats.Remove(theatType);
         }
 
         /// <summary>
@@ -1241,7 +1237,7 @@ namespace LethalBots.Managers
                 // If the coil hasn't moved for 10 seconds, stop being afraid of it!
                 const float stopFearTimer = 10f;
                 if (fearQuery.EnemyAI is SpringManAI coilHead 
-                    && PatchesUtil.stopMovementTimerField.Invoke(coilHead) > stopFearTimer)
+                    && coilHead.stopMovementTimer > stopFearTimer)
                 {
                     return null;
                 }
@@ -1610,7 +1606,7 @@ namespace LethalBots.Managers
             }
 
             GameObject objectParent = instance.allPlayerObjects[spawnParamsNetworkSerializable.IndexNextPlayerObject.Value];
-            objectParent.transform.position = spawnParamsNetworkSerializable.SpawnPosition ?? StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, spawnParamsNetworkSerializable.IndexNextPlayerObject.Value, simpleTeleport: false);
+            objectParent.transform.position = spawnParamsNetworkSerializable.SpawnPosition ?? instance.GetPlayerSpawnPosition(spawnParamsNetworkSerializable.IndexNextPlayerObject.Value, simpleTeleport: false);
             objectParent.transform.rotation = Quaternion.Euler(new Vector3(0f, spawnParamsNetworkSerializable.YRot, 0f));
 
             PlayerControllerB lethalBotController = instance.allPlayerScripts[spawnParamsNetworkSerializable.IndexNextPlayerObject.Value];
@@ -1668,7 +1664,7 @@ namespace LethalBots.Managers
             // Mimic base game join message
             if (!clientJoining && lethalBotIdentity.JustJoinedServer)
             {
-                AccessTools.Field(typeof(PlayerControllerB), "updatePositionForNewlyJoinedClient").SetValue(lethalBotController, true);
+                lethalBotController.updatePositionForNewlyJoinedClient = true;
                 HUDManager.Instance.AddTextToChatOnServer(lethalBotController.playerUsername + " joined the ship."); 
             }
 
@@ -1696,7 +1692,7 @@ namespace LethalBots.Managers
             objectParent.SetActive(true); // Think that some optimization mods disable the player controller, we need to force renable them here
 
             // Unsuscribe from events to prevent double trigger
-            PlayerControllerBPatch.OnDisable_ReversePatch(lethalBotController);
+            lethalBotController.OnDisable();
 
             // Destroy dead body of identity
             if (spawnParamsNetworkSerializable.ShouldDestroyDeadBody)
@@ -3609,14 +3605,14 @@ namespace LethalBots.Managers
 
                 // Teleport bot
                 PlayerControllerB playerControllerB = lethalBotAI.NpcController.Npc;
-                ShipTeleporterPatch.SetPlayerTeleporterId_ReversePatch(teleporter, playerControllerB, 2);
-                teleportPos = ShipTeleporterPatch.GetInverseTelePosition_ReversePatch(teleporter);
+                teleporter.SetPlayerTeleporterId(playerControllerB, 2);
+                teleportPos = teleporter.GetInverseTelePosition();
                 if (playerControllerB.deadBody != null)
                 {
                     teleporter.TeleportPlayerBodyOutServerRpc((int)playerControllerB.playerClientId, teleportPos);
                     continue;
                 }
-                ShipTeleporterPatch.TeleportPlayerOutWithInverseTeleporter_ReversePatch(teleporter, (int)playerControllerB.playerClientId, teleportPos);
+                teleporter.TeleportPlayerOutWithInverseTeleporter((int)playerControllerB.playerClientId, teleportPos);
                 teleporter.TeleportPlayerOutServerRpc((int)playerControllerB.playerClientId, teleportPos);
             }
             IsInverseTeleporterActive = false;
@@ -4536,7 +4532,7 @@ namespace LethalBots.Managers
                                 lethalBotController.isInElevator = true;
                                 lethalBotController.isInHangarShipRoom = true;
                                 lethalBotAI.isInsidePlayerShip = true;
-                                Vector3 shipPos = StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, (int)lethalBotController.playerClientId, false);
+                                Vector3 shipPos = StartOfRound.Instance.GetPlayerSpawnPosition((int)lethalBotController.playerClientId, false);
                                 lethalBotController.thisController.enabled = false;
                                 lethalBotController.TeleportPlayer(shipPos);
                                 // HACKHACK: TeleportLethalBot acts weird at times, so we manually set the player position as well!
@@ -4683,7 +4679,7 @@ namespace LethalBots.Managers
                     || lethalBotController.isPlayerDead))
                 {
                     // This will network to all players that the bot is "ready"
-                    PatchesUtil.PlayerLoadedServerRpcMethod.Invoke(instanceSOR, new object[] { lethalBotController.actualClientId });
+                    instanceSOR.PlayerLoadedServerRpc(lethalBotController.actualClientId);
                 }
             }
         }

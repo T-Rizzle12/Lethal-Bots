@@ -588,7 +588,7 @@ namespace LethalBots.AI
             if (targetPos != null)
             {
                 Vector3 entrancePos = instanceRM.GetNavMeshPosition(targetPos, instanceRM.navHit, 2.7f, ai.agent.areaMask);
-                float quicksandBuffer = 2f;
+                const float quicksandBuffer = 2f;
                 Plugin.LogDebug($"Testing quicksand safety for pos {targetPos}");
                 foreach (var quicksand in LethalBotAI.QuicksandArray)
                 {
@@ -958,7 +958,7 @@ namespace LethalBots.AI
                             {
                                 // Check if the maneater doesn't like us, if it doesn't, we should drop it!
                                 // We also check if the config option is enabled or not!
-                                BabyPlayerMemory playerMemory = CaveDwellerAIPatch.GetBabyMemoryOfPlayer_ReversePatch(caveDwellerAI, npcController.Npc);
+                                BabyPlayerMemory playerMemory = caveDwellerAI.GetBabyMemoryOfPlayer(npcController.Npc);
                                 if ((playerMemory != null && playerMemory.likeMeter < 0.1f)
                                     || !Plugin.Config.AdvancedManeaterBabyAI.Value)
                                 {

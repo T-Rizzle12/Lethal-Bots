@@ -294,7 +294,7 @@ namespace LethalBots.AI.AIStates
                             ai.StopMoving();
                             if (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)
                             {
-                                ref InteractTrigger interactTrigger = ref PatchesUtil.triggerScriptField.Invoke(entrance);
+                                InteractTrigger interactTrigger = entrance!.triggerScript;
                                 LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
                                 {
                                     Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");

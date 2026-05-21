@@ -8,6 +8,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using UnityEngine;
+using static Unity.Netcode.NetworkBehaviour;
 
 namespace LethalBots.Patches.ObjectsPatches
 {
