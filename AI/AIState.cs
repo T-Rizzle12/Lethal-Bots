@@ -481,7 +481,7 @@ namespace LethalBots.AI
             foreach (var entrance in LethalBotAI.EntrancesTeleportArray)
             {
                 // If we are avoiding specific entrances, we should skip it!
-                if (entrancesToAvoid != null && entrancesToAvoid.Contains(entrance))
+                if (entrance == null || (entrancesToAvoid != null && entrancesToAvoid.Contains(entrance)))
                 {
                     continue;
                 }

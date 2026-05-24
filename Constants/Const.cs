@@ -151,6 +151,10 @@ namespace LethalBots.Constants
         public const string LEAVE_GROUP_COMMAND = "leave group";
         public const string CREATE_GROUP_COMMAND = "create group";
 
+        // Mission Control State Consts
+        public const string ROUTE_MOON_COMMAND = "route";
+        public static readonly int ROUTE_MOON_KEYWORD_LENGTH = ROUTE_MOON_COMMAND.Length; // Length of the word "route"
+
         // Signal Translator command consts
         public const string RETURN_COMMAND = "return";
 

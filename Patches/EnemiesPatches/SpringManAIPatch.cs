@@ -64,12 +64,12 @@ namespace LethalBots.Patches.EnemiesPatches
                 {
                     if (lethalBotController.HasLineOfSightToPosition(__instance.transform.position + Vector3.up * 0.6f, 70f, 25))
                     {
-                        float num = Vector3.Distance(__instance.transform.position, lethalBotController.transform.position);
-                        if (num < 4f)
+                        float num = (__instance.transform.position - lethalBotController.transform.position).sqrMagnitude;
+                        if (num < 4f * 4f)
                         {
                             lethalBotController.JumpToFearLevel(0.9f);
                         }
-                        else if (num < 9f)
+                        else if (num < 9f * 9f)
                         {
                             lethalBotController.JumpToFearLevel(0.4f);
                         }

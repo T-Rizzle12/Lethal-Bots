@@ -246,6 +246,7 @@ namespace LethalBots.Patches.MapPatches
                 {
                     lethalBotAI.agent.CompleteOffMeshLink();
                 }
+                ladder.currentCooldownValue = 0f; // Force clear the cooldown!
                 lethalBotAI.SetAgent(false);
                 lethalBotAI.TeleportLethalBot(ladderPosition, lethalBotAI.isOutside, targetEntrance: null, withRotation: false, 0f, allowInteractTrigger: true, skipNavMeshCheck: true);
             }
@@ -385,7 +386,7 @@ namespace LethalBots.Patches.MapPatches
             playerController.gameplayCamera.transform.localEulerAngles = Vector3.zero;
             playerController.UpdateSpecialAnimationValue(specialAnimation: false, 0);
             playerController.inSpecialInteractAnimation = false;
-            ladder.currentCooldownValue = ladder.cooldownTime;
+            //ladder.currentCooldownValue = ladder.cooldownTime;
             if (ladder.hidePlayerItem && playerController.currentlyHeldObjectServer != null)
             {
                 playerController.currentlyHeldObjectServer.EnableItemMeshes(enable: true);

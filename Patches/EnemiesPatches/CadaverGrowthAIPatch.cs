@@ -365,7 +365,7 @@ namespace LethalBots.Patches.EnemiesPatches
                 && playerInfection.infected 
                 && playerInfection.infectionMeter > 0.85f 
                 && StartOfRound.Instance.livingPlayers > 1
-                && Vector3.Distance(player.transform.position, cadaver.bloomEnemies[infectedNum].transform.position) < 14f)
+                && (player.transform.position - cadaver.bloomEnemies[infectedNum].transform.position).sqrMagnitude < 14f * 14f)
             {
                 cadaver.BurstFromPlayer(player, player.transform.position, player.transform.eulerAngles);
                 cadaver.SyncBurstFromPlayerRpc((int)player.playerClientId, player.transform.position, player.transform.eulerAngles);

@@ -29,7 +29,6 @@ namespace LethalBots.AI.AIStates
         private const float declareJesterCooldownTime = 30f;
         private float lastDeclaredJesterTimer;
         private bool wasFleeingJester;
-        private Vector3? _retreatPos = null;
         private Vector3? RetreatPos
         {
             set
@@ -37,15 +36,15 @@ namespace LethalBots.AI.AIStates
                 Vector3? newPos = value;
                 if (newPos.HasValue)
                 {
-                    _retreatPos = RoundManager.Instance.GetNavMeshPosition(newPos.Value, RoundManager.Instance.navHit, 2.7f);
+                    field = RoundManager.Instance.GetNavMeshPosition(newPos.Value, RoundManager.Instance.navHit, 2.7f);
                 }
                 else
                 {
-                    _retreatPos = null;
+                    field = null;
                 }
                 updateRetreatPosTimer.Start(Const.FLEEING_UPDATE_FALLBACK_TIME);
             }
-            get => _retreatPos;
+            get;
         }
 
         /// <summary>

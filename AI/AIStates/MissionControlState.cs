@@ -55,13 +55,12 @@ namespace LethalBots.AI.AIStates
         private Coroutine? restockShip;
         private Coroutine? orbitLogic;
         private float leavePlanetTimer;
+        private string? moonToRouteTo = null;
         private static Dictionary<Turret, TerminalAccessibleObject> turrets = new Dictionary<Turret, TerminalAccessibleObject>();
         private static Dictionary<Landmine, TerminalAccessibleObject> landmines = new Dictionary<Landmine, TerminalAccessibleObject>();
         private static Dictionary<SpikeRoofTrap, TerminalAccessibleObject> spikeRoofTraps = new Dictionary<SpikeRoofTrap, TerminalAccessibleObject>();
         private Dictionary<string, float> calledOutEnemies = new Dictionary<string, float>(); // Should this be an enemy name rather than the AI itself?
         private PriorityQueue<string> messageQueue = new PriorityQueue<string>();
-        private static readonly AccessTools.FieldRef<TerminalAccessibleObject, bool> isDoorOpen = AccessTools.FieldRefAccess<bool>(typeof(TerminalAccessibleObject), "isDoorOpen");
-        private static readonly AccessTools.FieldRef<TerminalAccessibleObject, bool> inCooldown = AccessTools.FieldRefAccess<bool>(typeof(TerminalAccessibleObject), "inCooldown");
 
         public MissionControlState(AIState oldState) : base(oldState)
         {
@@ -1273,6 +1272,7 @@ namespace LethalBots.AI.AIStates
             {
                 yield return new WaitForSeconds(1f); // One second cooldown on this!
 
+                // Check if we should route to the company building
                 if (Plugin.Config.AutoRouteToCompany.Value)
                 {
                     TimeOfDay instanceTOD = TimeOfDay.Instance;
@@ -1284,6 +1284,13 @@ namespace LethalBots.AI.AIStates
                     {
                         yield return RouteToMoon(TerminalConst.STRING_COMPANY_BUILDING);
                     }
+                }
+
+                // We were asked to route to a moon, lets do so now!
+                if (!string.IsNullOrWhiteSpace(moonToRouteTo))
+                {
+                    yield return RouteToMoon(moonToRouteTo);
+                    moonToRouteTo = null; // Clear this flag!
                 }
 
                 // Give the map a chance to update!
@@ -1560,6 +1567,7 @@ namespace LethalBots.AI.AIStates
         {
             if (orbitLogic != null)
             {
+                moonToRouteTo = null; // Clear this!
                 ai.StopCoroutine(orbitLogic);
                 orbitLogic = null;
             }
@@ -1768,7 +1776,7 @@ namespace LethalBots.AI.AIStates
                         || (turret.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                     {
                         TerminalAccessibleObject accessibleObject = turretInfo.Value;
-                        if (accessibleObject != null && !inCooldown.Invoke(accessibleObject))
+                        if (accessibleObject != null && !accessibleObject.inCooldown)
                         { 
                             objectsToUse.Add(accessibleObject); 
                         }
@@ -1787,7 +1795,7 @@ namespace LethalBots.AI.AIStates
                     if ((landmine.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                     {
                         TerminalAccessibleObject accessibleObject = landmineInfo.Value;
-                        if (accessibleObject != null && !inCooldown.Invoke(accessibleObject))
+                        if (accessibleObject != null && !accessibleObject.inCooldown)
                         {
                             objectsToUse.Add(accessibleObject);
                         }
@@ -1806,7 +1814,7 @@ namespace LethalBots.AI.AIStates
                     if ((spikeRoofTrap.spikeTrapAudio.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                     {
                         TerminalAccessibleObject accessibleObject = spikeRoofTrapInfo.Value;
-                        if (accessibleObject != null && !inCooldown.Invoke(accessibleObject))
+                        if (accessibleObject != null && !accessibleObject.inCooldown)
                         {
                             objectsToUse.Add(accessibleObject);
                         }
@@ -1826,8 +1834,8 @@ namespace LethalBots.AI.AIStates
                 if (accessibleObject != null 
                     && accessibleObject.isBigDoor 
                     && !objectsToUse.Contains(accessibleObject)
-                    && !inCooldown.Invoke(accessibleObject)
-                    && !isDoorOpen.Invoke(accessibleObject))
+                    && !accessibleObject.inCooldown
+                    && !accessibleObject.isDoorOpen)
                 {
                     objectsToUse.Add(accessibleObject);
                 }
@@ -1892,7 +1900,6 @@ namespace LethalBots.AI.AIStates
             if (ai.HasGrabbableObjectInInventory(FindWalkieHelper, out int walkieSlot))
             {
                 // Check for the reserved equipment slot
-                // TODO: Add helper function to get grabbable object from inventory slot index, since this is used in multiple places now!
                 this.walkieTalkie = ai.GetItemAtSlot(walkieSlot) as WalkieTalkie;
 
                 // Make sure its valid!
@@ -1925,7 +1932,6 @@ namespace LethalBots.AI.AIStates
             if (ai.HasGrabbableObjectInInventory(FindWeaponHelper, out int weaponSlot))
             {
                 // Check for the reserved equipment slot
-                // TODO: Add helper function to get grabbable object from inventory slot index, since this is used in multiple places now!
                 this.weapon = ai.GetItemAtSlot(weaponSlot);
 
                 // Make sure its valid!
@@ -2223,6 +2229,29 @@ namespace LethalBots.AI.AIStates
                 missionControlState.SendMessageUsingSignalTranslator(messageToTransmit, QueuePriority.High);
                 return true;
             }));
+
+            // A player is asking us to route to the specified moon
+            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.ROUTE_MOON_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            {
+                // First, make sure we are in orbit
+                if (!LethalBotManager.AreWeInOrbit())
+                {
+                    lethalBotAI.SendChatMessage($"I can't route to a moon unless we are in orbit.");
+                    return true;
+                }
+
+                // Next, we need to extract the message!
+                // FIXME: There has to be a better way to do this!
+                MissionControlState missionControlState = (MissionControlState)state; // We have bigger problems if this cast fails!
+                int routeIndex = message.IndexOf(Const.ROUTE_MOON_COMMAND) + Const.ROUTE_MOON_KEYWORD_LENGTH;
+                string moonToRouteTo = message.Substring(routeIndex).Trim();
+                lethalBotAI.SendChatMessage($"Alright, I will try to route to {moonToRouteTo}.");
+
+                // Queue what moon we were asked to route to.
+                missionControlState.moonToRouteTo = moonToRouteTo;
+                return true;
+            }
+            ));
         }
 
         /// <inheritdoc cref="AIState.RegisterSignalTranslatorCommands"/>
@@ -2302,6 +2331,7 @@ namespace LethalBots.AI.AIStates
             if (npcController.Npc.inTerminalMenu)
             {
                 StopAllCoroutines();
+                moonToRouteTo = null;
                 ai.LeaveTerminal();
                 return true;
             }

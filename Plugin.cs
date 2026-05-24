@@ -178,10 +178,8 @@ namespace LethalBots
             //Logger.LogInfo($"Bundle Name: {bundleName}");
             byte[] value = MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(typeof(Plugin).Assembly.GetName().Name + gameObject.name + bundleName));
             uint newGlobalObjectIdHash = BitConverter.ToUInt32(value, 0);
-            Type type = typeof(NetworkObject);
-            FieldInfo fieldInfo = type.GetField("GlobalObjectIdHash", BindingFlags.NonPublic | BindingFlags.Instance);
             var networkObject = LethalBotNPCPrefab.enemyPrefab.GetComponent<NetworkObject>();
-            fieldInfo.SetValue(networkObject, newGlobalObjectIdHash);
+            networkObject.GlobalObjectIdHash = newGlobalObjectIdHash;
 
             // Now for the ship navmesh bundle
             ShipOrbitNavMeshAssets = AssetBundle.LoadFromFile(Path.Combine(DirectoryName, bundleName2));
@@ -208,7 +206,7 @@ namespace LethalBots
 
             PatchOtherMods();
 
-            Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
+            Logger.LogInfo($"Plugin {ModGUID} is loaded!");
         }
 
         private void PatchBaseGame()

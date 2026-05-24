@@ -221,7 +221,7 @@ namespace LethalBots.AI
         private CountdownTimer updateDestinationTimer = new CountdownTimer();
         private float healthRegenerateTimerMax;
         private float timerCheckDoor;
-        private float timerCheckLockedDoor;
+        private CountdownTimer timerCheckLockedDoor = new CountdownTimer();
         private float nextExposedToEnemyTimer;
         private bool _areWeExposed;
         private float nextEyelessdogCheckTimer;
@@ -606,12 +606,12 @@ namespace LethalBots.AI
                 // Update if we are in the elevator start room or not!
                 if (IsInElevatorStartRoom || isOutside)
                 {
-                    if (isOutside || Vector3.Distance(NpcController.Npc.transform.position, ElevatorScript.elevatorBottomPoint.position) < Const.DISTANCE_TO_ELEVATOR_BOTTOM)
+                    if (isOutside || (NpcController.Npc.transform.position - ElevatorScript.elevatorBottomPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_BOTTOM * Const.DISTANCE_TO_ELEVATOR_BOTTOM)
                     {
                         IsInElevatorStartRoom = false;
                     }
                 }
-                else if (Vector3.Distance(NpcController.Npc.transform.position, ElevatorScript.elevatorTopPoint.position) < Const.DISTANCE_TO_ELEVATOR_TOP)
+                else if ((NpcController.Npc.transform.position - ElevatorScript.elevatorTopPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_TOP * Const.DISTANCE_TO_ELEVATOR_TOP)
                 {
                     IsInElevatorStartRoom = true;
                 }
@@ -726,6 +726,7 @@ namespace LethalBots.AI
                 // If we are stuck, teleport to the closest node!
                 StartOfRound instanceSOR = StartOfRound.Instance;
                 if (agent.velocity.sqrMagnitude < 0.002f
+                    && StateControllerMovement != EnumStateControllerMovement.Free
                     && !this.IsUsingOffMeshLink()
                     && !IsInsideElevator
                     && (LethalBotManager.AreWeInOrbit(instanceSOR) 
@@ -2378,7 +2379,7 @@ namespace LethalBots.AI
                 // Target close enough and nothing in between to break line of sight 
                 Vector3 to = posTargetCamera - thisLethalBotCamera.position;
                 if (Vector3.Angle(thisLethalBotCamera.forward, to) < width
-                    || (proximityAwareness != -1 && Vector3.Distance(thisLethalBotCamera.position, posTargetCamera) < (float)proximityAwareness))
+                    || (proximityAwareness != -1 && (thisLethalBotCamera.position - posTargetCamera).sqrMagnitude < (float)proximityAwareness * (float)proximityAwareness))
                 {
                     // Target in FOV or proximity awareness range
                     return targetPlayer;
@@ -2426,7 +2427,7 @@ namespace LethalBots.AI
                     // Target close enough and nothing in between to break line of sight 
                     Vector3 to = posLethalBotCamera - thisLethalBotCamera.position;
                     if (Vector3.Angle(thisLethalBotCamera.forward, to) < width
-                        || (proximityAwareness != -1 && Vector3.Distance(thisLethalBotCamera.position, posLethalBotCamera) < (float)proximityAwareness))
+                        || (proximityAwareness != -1 && (thisLethalBotCamera.position - posLethalBotCamera).sqrMagnitude < (float)proximityAwareness * (float)proximityAwareness))
                     {
                         // Target in FOV or proximity awareness range
                         if (lethalBotAI.targetPlayer == targetPlayer)
@@ -2816,14 +2817,6 @@ namespace LethalBots.AI
         }
 
         /// <summary>
-        /// Allows me to check if the nutcrackerIsInspecting field is true or not!
-        /// </summary>
-        /// <remarks>
-        /// Not up top like the others since this is only used by <see cref="CanEnemyBeKilled(EnemyAI)"/>
-        /// </remarks>
-        private static readonly AccessTools.FieldRef<NutcrackerEnemyAI, bool> nutcrackerIsInspecting = AccessTools.FieldRefAccess<bool>(typeof(NutcrackerEnemyAI), "isInspecting");
-
-        /// <summary>
         /// Returns true if the given EnemyAI can be killed!
         /// </summary>
         /// <inheritdoc cref="LethalBotAI.CanEnemyBeKilled(EnemyAI, bool, bool, bool)"/>
@@ -2863,7 +2856,7 @@ namespace LethalBots.AI
             else if (enemy is NutcrackerEnemyAI nutcracker 
                 && (hasRangedWeapon || isHumanPlayer || isEnemyStunned)
                         && (enemy.currentBehaviourStateIndex == 2
-                            || nutcrackerIsInspecting.Invoke(nutcracker)))
+                            || nutcracker.isInspecting))
             {
                 return true;
             }
@@ -3243,8 +3236,6 @@ namespace LethalBots.AI
             return null;
         }
 
-        private static readonly AccessTools.FieldRef<DoorLock, bool> isDoorOpenedField = AccessTools.FieldRefAccess<bool>(typeof(DoorLock), "isDoorOpened");
-
         /// <summary>
         /// Check the doors after some interval of ms to see if lethalBot can open one to unstuck himself.
         /// </summary>
@@ -3256,7 +3247,7 @@ namespace LethalBots.AI
                 timerCheckDoor = 0f;
 
                 DoorLock? door = GetDoorIfWantsToOpen();
-                if (door != null && !isDoorOpenedField.Invoke(door))
+                if (door != null && !door.isDoorOpened)
                 {
                     // Open door
                     door.OpenOrCloseDoor(NpcController.Npc);
@@ -3273,9 +3264,11 @@ namespace LethalBots.AI
         /// <returns>the locked door has been found by lethalBot. Else null</returns>
         public DoorLock? UnlockDoorIfNeeded(float lockedDoorRange = Const.DISTANCE_NPCBODY_FROM_DOOR, bool checkLineOfSight = false, float proximityRange = -1f, bool bypassCooldown = false)
         {
-            if (bypassCooldown || (Time.timeSinceLevelLoad - timerCheckLockedDoor) > Const.TIMER_CHECK_DOOR)
+            if (bypassCooldown 
+                || !timerCheckLockedDoor.HasStarted() 
+                || timerCheckLockedDoor.Elapsed())
             {
-                timerCheckLockedDoor = Time.timeSinceLevelLoad;
+                timerCheckLockedDoor.Start(Const.TIMER_CHECK_DOOR);
 
                 if (!HasKeyInInventory())
                 {
@@ -3561,11 +3554,11 @@ namespace LethalBots.AI
                 return false;
             }
 
-            if (Vector3.Distance(player.transform.position, ElevatorScript.elevatorBottomPoint.position) < Const.DISTANCE_TO_ELEVATOR_BOTTOM)
+            if ((player.transform.position - ElevatorScript.elevatorBottomPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_BOTTOM * Const.DISTANCE_TO_ELEVATOR_BOTTOM)
             {
                 return false;
             }
-            else if (Vector3.Distance(player.transform.position, ElevatorScript.elevatorTopPoint.position) < Const.DISTANCE_TO_ELEVATOR_TOP)
+            else if ((player.transform.position - ElevatorScript.elevatorTopPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_TOP * Const.DISTANCE_TO_ELEVATOR_TOP)
             {
                 return true;
             }
@@ -3581,11 +3574,11 @@ namespace LethalBots.AI
             // NEEDTOVALIDATE: Does this work as expected?
             if (ElevatorScript != null)
             {
-                if (Vector3.Distance(position, ElevatorScript.elevatorBottomPoint.position) < Const.DISTANCE_TO_ELEVATOR_BOTTOM)
+                if ((position - ElevatorScript.elevatorBottomPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_BOTTOM * Const.DISTANCE_TO_ELEVATOR_BOTTOM)
                 {
                     return false;
                 }
-                else if (Vector3.Distance(position, ElevatorScript.elevatorTopPoint.position) < Const.DISTANCE_TO_ELEVATOR_TOP)
+                else if ((position - ElevatorScript.elevatorTopPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_TOP * Const.DISTANCE_TO_ELEVATOR_TOP)
                 {
                     return true;
                 }
@@ -3759,7 +3752,7 @@ namespace LethalBots.AI
         public bool IsHoldingCombatWeapon()
         {
             // Need ammo in order to use this weapon!
-            GrabbableObject? heldItem = HeldItem;
+            GrabbableObject? heldItem = this.HeldItem;
             if (!HasAmmoForWeapon(heldItem))
             {
                 return false;
@@ -3775,7 +3768,7 @@ namespace LethalBots.AI
         public bool IsHoldingRangedWeapon()
         {
             // Need ammo in order to use this weapon!
-            GrabbableObject? heldItem = HeldItem;
+            GrabbableObject? heldItem = this.HeldItem;
             if (!HasAmmoForWeapon(heldItem))
             {
                 return false;
@@ -3791,7 +3784,7 @@ namespace LethalBots.AI
         [MemberNotNullWhen(true, nameof(HeldItem))]
         public bool IsHoldingKey(bool keyOnly = false)
         {
-            return IsItemKey(HeldItem, keyOnly);
+            return IsItemKey(this.HeldItem, keyOnly);
         }
 
         /// <summary>
@@ -4060,7 +4053,7 @@ namespace LethalBots.AI
             }
 
             // Check if the lethalBot is holding the object
-            if (HeldItem == grabbableObject)
+            if (this.HeldItem == grabbableObject)
             {
                 objectSlot = NpcController.Npc.currentItemSlot;
                 return true;
@@ -4143,7 +4136,7 @@ namespace LethalBots.AI
         {
             // Check if the lethalBot is holding the object
             objectSlot = Const.INVALID_ITEM_SLOT;
-            GrabbableObject? heldItem = HeldItem;
+            GrabbableObject? heldItem = this.HeldItem;
             if (heldItem != null && objectPredicate(heldItem))
             {
                 objectSlot = NpcController.Npc.currentItemSlot;
@@ -4308,7 +4301,7 @@ namespace LethalBots.AI
         /// <returns>I mean come on</returns>
         public bool HasScrapInInventory()
         {
-            GrabbableObject? heldItem = HeldItem;
+            GrabbableObject? heldItem = this.HeldItem;
             if (heldItem != null
                 && IsItemScrap(heldItem) 
                 && !IsGrabbableObjectInLoadout(heldItem))
@@ -4339,7 +4332,7 @@ namespace LethalBots.AI
         /// <returns>I mean come on</returns>
         public bool HasSellableItemInInventory()
         {
-            GrabbableObject? heldItem = HeldItem;
+            GrabbableObject? heldItem = this.HeldItem;
             if (heldItem != null && IsGrabbableObjectSellable(heldItem, true, true))
             {
                 return true;
@@ -4459,7 +4452,7 @@ namespace LethalBots.AI
         /// <returns>false: we didn't press a button to turn off the held item. true: we pressed a button to turn off the held item</returns>
         public bool TurnOffHeldItem()
         {
-            GrabbableObject? grabbableObject = HeldItem;
+            GrabbableObject? grabbableObject = this.HeldItem;
             if (grabbableObject == null)
             {
                 return false;
@@ -4646,7 +4639,7 @@ namespace LethalBots.AI
         public GrabbableObject? LookingForObjectToGrab()
         {
             GrabbableObject? closestObject = null;
-            float closestObjectDistSqr = float.MaxValue;
+            float closestObjectDistSqr = Const.LETHAL_BOT_OBJECT_RANGE * Const.LETHAL_BOT_OBJECT_RANGE;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
                 GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
@@ -4672,8 +4665,7 @@ namespace LethalBots.AI
                 // Check if object is further away from the closest object
                 // FIXME: This should be PATH distance not elucian!
                 float sqrDistanceEyeGameObject = (gameObjectPosition - this.eye.position).sqrMagnitude;
-                if (sqrDistanceEyeGameObject > Const.LETHAL_BOT_OBJECT_RANGE * Const.LETHAL_BOT_OBJECT_RANGE 
-                    || sqrDistanceEyeGameObject > closestObjectDistSqr)
+                if (sqrDistanceEyeGameObject > closestObjectDistSqr)
                 {
                     continue;
                 }
@@ -5192,7 +5184,7 @@ namespace LethalBots.AI
             }
 
             // Are we holding a two handed item and is the item we are grabbing two handed
-            GrabbableObject? heldItem = HeldItem;
+            GrabbableObject? heldItem = this.HeldItem;
             if (heldItem != null && enumGrabbable != EnumGrabbableObjectCall.Reviving && heldItem.itemProperties.twoHanded)
             {
                 // If the item requires one hand then we can set down our large item and pick up the small one!
@@ -5311,7 +5303,7 @@ namespace LethalBots.AI
             // Are we holding a two handed item and is the item we are grabbing two handed
             if (!ignoreHeldFlag)
             {
-                GrabbableObject? heldItem = HeldItem;
+                GrabbableObject? heldItem = this.HeldItem;
                 if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
                     // If the item requires one hand then we can set down our large item and pick up the small one!
@@ -5476,14 +5468,6 @@ namespace LethalBots.AI
         }
 
         /// <summary>
-        /// Allows me to check if the extensionLadderItemLadderActivated field is true or not!
-        /// </summary>
-        /// <remarks>
-        /// Not up top like the others since this is only used by <see cref="IsGrabbableObjectBlackListed(GrabbableObject, EnumGrabbableObjectCall)"/>
-        /// </remarks>
-        private static readonly AccessTools.FieldRef<ExtensionLadderItem, bool> extensionLadderItemLadderActivated = AccessTools.FieldRefAccess<bool>(typeof(ExtensionLadderItem), "ladderActivated");
-
-        /// <summary>
         /// Checks if the given object is blacklisted
         /// </summary>
         /// <param name="grabbableObjectToEvaluate">The object to check</param>
@@ -5595,7 +5579,7 @@ namespace LethalBots.AI
             }
 
             // Don't pickup extended extention ladders
-            if (grabbableObjectToEvaluate is ExtensionLadderItem extensionLadder && (!shouldReturnToShip || extensionLadderItemLadderActivated.Invoke(extensionLadder)))
+            if (grabbableObjectToEvaluate is ExtensionLadderItem extensionLadder && (!shouldReturnToShip || extensionLadder.ladderActivated))
             {
                 return true;
             }
@@ -6059,7 +6043,7 @@ namespace LethalBots.AI
             agent?.Warp(navMeshPosition);
 
             // For CullFactory mod
-            GrabbableObject? heldItem = HeldItem;
+            GrabbableObject? heldItem = this.HeldItem;
             if (heldItem != null)
             {
                 heldItem.EnableItemMeshes(true);
@@ -6926,7 +6910,7 @@ namespace LethalBots.AI
                     itemSlots[slot] = fillSlotWithItem;
                 }
             }
-            if (!this.AreHandsFree())
+            if (thisBot.currentlyHeldObjectServer != null)
             {
                 thisBot.currentlyHeldObjectServer.playerHeldBy = thisBot;
                 this.SetSpecialGrabAnimationBool(false, thisBot.currentlyHeldObjectServer);
@@ -6944,12 +6928,12 @@ namespace LethalBots.AI
                 }
             }
             GrabbableObject? grabbableObject = slot == Const.RESERVED_EQUIPMENT_SLOT ? thisBot.ItemOnlySlot : itemSlots[slot];
-            if (grabbableObject!= null)
+            if (grabbableObject != null)
             {
                 grabbableObject.playerHeldBy = thisBot;
                 grabbableObject.EquipItem();
                 this.SetSpecialGrabAnimationBool(true, grabbableObject);
-                if (!this.AreHandsFree())
+                if (thisBot.currentlyHeldObjectServer != null)
                 {
                     if (grabbableObject.itemProperties.twoHandedAnimation || thisBot.currentlyHeldObjectServer.itemProperties.twoHandedAnimation)
                     {
@@ -7674,6 +7658,15 @@ namespace LethalBots.AI
             ourTerminal.terminalAudio.PlayOneShot(ourTerminal.leaveTerminalSFX);
         }
 
+        /// <summary>
+        /// Helper rpc that allows non owners to make the bot leave the terminal
+        /// </summary>
+        [Rpc(SendTo.Owner, RequireOwnership = false)]
+        public void LeaveTerminalRpc(bool syncTerminalInUse = true, bool forceEndUse = false)
+        {
+            LeaveTerminal(syncTerminalInUse, forceEndUse);
+        }
+
         private IEnumerator waitUntilFrameEndToSetActive(bool active, Terminal? ourTerminal)
         {
             yield return new WaitForEndOfFrame();
@@ -8343,16 +8336,39 @@ namespace LethalBots.AI
 
         #region Spawn animation
 
+        /// <summary>
+        /// Checks if the bot is currently in the spawn animation
+        /// </summary>
+        /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsSpawningAnimationRunning()
         {
             return spawnAnimationCoroutine != null;
         }
 
+        /// <summary>
+        /// Checks if the bot is currently in a special animation
+        /// </summary>
+        /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsInSpecialAnimation()
         {
             return NpcController.Npc.inSpecialInteractAnimation || NpcController.Npc.enteringSpecialAnimation;
+        }
+
+        /// <summary>
+        /// Checks if the bot is using the terminal
+        /// </summary>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsUsingTerminal()
+        {
+            if (base.IsOwner)
+            {
+                return NpcController.Npc.inTerminalMenu;
+            }
+            Terminal terminal = TerminalManager.Instance.GetTerminal();
+            return NpcController.Npc.currentTriggerInAnimationWith == terminal.terminalTrigger;
         }
 
         public Coroutine BeginLethalBotSpawnAnimation(EnumSpawnAnimation enumSpawnAnimation)
@@ -8779,8 +8795,9 @@ namespace LethalBots.AI
             }
 
             // HACKHACK: We do the logic checks here!
-            if (AreHandsFree() 
-                || !HeldItem.itemProperties.requiresBattery)
+            GrabbableObject? heldItem = this.HeldItem;
+            if (heldItem == null
+                || !heldItem.itemProperties.requiresBattery)
             {
                 // We are not holding anything!
                 // Or the item we are holding can't be recharged!
@@ -8806,7 +8823,7 @@ namespace LethalBots.AI
             {
                 StopCoroutine(useInteractTriggerCoroutine);
             }
-            useInteractTriggerCoroutine = StartCoroutine(useItemCharger(itemCharger, itemChargerTrigger, HeldItem));
+            useInteractTriggerCoroutine = StartCoroutine(useItemCharger(itemCharger, itemChargerTrigger, heldItem));
             return true;
         }
 

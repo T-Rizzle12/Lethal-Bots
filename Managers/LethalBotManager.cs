@@ -1159,7 +1159,6 @@ namespace LethalBots.Managers
             // Static value threats
             RegisterThreat(typeof(CrawlerAI), 20f, 10f, 20f); // Thumper
             RegisterThreat(typeof(ForestGiantAI), 30f, 10f, 40f); // Forest Giants
-            RegisterThreat(typeof(SandWormAI), 10f, null, 15f); // Earth Leviathans
             //RegisterThreat("ImmortalSnail", 10f, null, 10f);
             RegisterThreat(typeof(ClaySurgeonAI), 15f, null, 10f); // Barber
             RegisterThreat(typeof(FlowermanAI), 10f, null, 5f); // Bracken
@@ -1167,7 +1166,6 @@ namespace LethalBots.Managers
             RegisterThreat(typeof(PufferAI), 2f, null, 2f); // Spore Lizard
             RegisterThreat(typeof(RedLocustBees), 10f, null, 15f); // BEEEEEEESSS!
             RegisterThreat(typeof(ButlerBeesEnemyAI), 20f, null, 15f); // Butler Bees
-            RegisterThreat(typeof(BlobAI), 10f, null, 10f); // Blob
             RegisterThreat(typeof(BaboonBirdAI), 10f, 5f, 10f); // Annoying, Baboon Hawks......
             RegisterThreat(typeof(PumaAI), 10f, null, 10f); // Feiopars
             RegisterThreat(typeof(CadaverBloomAI), 20f, null, 20f); // Cadaver Bloom
@@ -1356,12 +1354,55 @@ namespace LethalBots.Managers
                 fq => fq.EnemyAI.currentBehaviourStateIndex > 1 ? 30f : 15f
             );
 
-            // Girl behavior (currently commented out for fixing bugs)
-            // DictionaryLethalBotThreats["Girl"] = new LethalBotThreat("Girl",
-            //     fq => fq.EnemyAI is DressGirlAI ghostGirl && ghostGirl.hauntingPlayer == NpcController.Npc && false && ghostGirl.currentBehaviourStateIndex > 0 ? 30f : null,
-            //     _ => null,  // No value for mission control
-            //     _ => null   // No value for pathfinding
-            // );
+            float? SandWormPanikFunc(LethalBotFearQuery fearQuery)
+            {
+                if (fearQuery.EnemyAI is SandWormAI sandWormAI)
+                {
+                    // If the Earth Leviathan is emerging, stay further away
+                    if (sandWormAI.inEmergingState)
+                    {
+                        return 20f;
+                    }
+                    // If the Earth Leviathan has finsihed its flight path, we are safe
+                    else if (sandWormAI.hitGroundInAnimation)
+                    {
+                        return null;
+                    }
+                }
+                return 10f;
+            }
+
+            float? SandWormPathFunc(LethalBotFearQuery fearQuery)
+            {
+                if (fearQuery.EnemyAI is SandWormAI sandWormAI)
+                {
+                    // If the Earth Leviathan is emerging, stay further away
+                    if (sandWormAI.inEmergingState)
+                    {
+                        return 20f;
+                    }
+                    // If the Earth Leviathan has finsihed its flight path, we are safe
+                    else if (sandWormAI.hitGroundInAnimation)
+                    {
+                        return null;
+                    }
+                }
+                return 15f;
+            }
+
+            // Earth Leviathans
+            RegisterThreat(typeof(SandWormAI),
+                SandWormPanikFunc, 
+                fq => null,
+                SandWormPathFunc
+            );
+
+            // Blob
+            RegisterThreat(typeof(BlobAI), 
+                fq => fq.EnemyAI is BlobAI blob && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f, 
+                fq => null, 
+                fq => fq.EnemyAI is BlobAI blob && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f
+            );
 
             // Girl aka Ghost Girl
             RegisterThreat(typeof(DressGirlAI), 
@@ -2596,7 +2637,7 @@ namespace LethalBots.Managers
                     //Plugin.LogDebug($"Bot {(botController.holdingWalkieTalkie ? "does" : "doesn't")} have a walkie-talkie!");
                     //Plugin.LogDebug($"Player who sent message {(playerWhoSentMessage.holdingWalkieTalkie ? "does" : "doesn't")} have a walkie-talkie!");
                     //Plugin.LogDebug($"Ignoring range: {flag}");
-                    ChatCommandsManager.OnPlayerChatMessageReceived(lethalBotAI.State, message, playerWhoSentMessage, false);
+                    ChatCommandsManager.OnPlayerChatMessageReceived(lethalBotAI.State, message, playerWhoSentMessage, isVoice: false);
                 }
             }
         }
@@ -2652,7 +2693,7 @@ namespace LethalBots.Managers
                     //Plugin.LogDebug($"Bot {(botController.holdingWalkieTalkie ? "does" : "doesn't")} have a walkie-talkie!");
                     //Plugin.LogDebug($"Player who said message {(playerWhoSaidMessage.holdingWalkieTalkie ? "does" : "doesn't")} have a walkie-talkie!");
                     //Plugin.LogDebug($"Ignoring range: {flag}");
-                    ChatCommandsManager.OnPlayerChatMessageReceived(lethalBotAI.State, message, playerWhoSaidMessage, true);
+                    ChatCommandsManager.OnPlayerChatMessageReceived(lethalBotAI.State, message, playerWhoSaidMessage, isVoice: true);
                 }
             }
         }
@@ -3170,7 +3211,7 @@ namespace LethalBots.Managers
                 // Update the XP of the bot
                 PlayerControllerB lethalBotController = botStats.BotController;
                 int currentBotXP = botStats.Identity.XP ?? 0;
-                int XPGain = GetLethalBotLevel(!botStats.IsAlive, lethalBotController == mostProfitablePlayer, instanceSOR.allPlayersDead);
+                int XPGain = GetLethalBotLevel(isDead: !botStats.IsAlive, lethalBotController == mostProfitablePlayer, instanceSOR.allPlayersDead);
                 int targetXPLevel = Mathf.Max(currentBotXP + XPGain, 0);
 
                 // Now update the bot's level if it has changed
@@ -3761,7 +3802,8 @@ namespace LethalBots.Managers
                     }
 
                     // Check if they are inside the elevator!
-                    return LethalBotAI.ElevatorScript.elevatorBounds.bounds.Contains(startPosition);
+                    Collider? elevatorBounds = LethalBotAI.ElevatorScript.elevatorBounds;
+                    return elevatorBounds != null && elevatorBounds.bounds.Contains(startPosition);
                 }
                 return false;
             }

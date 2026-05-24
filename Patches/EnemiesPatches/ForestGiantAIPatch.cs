@@ -41,7 +41,7 @@ namespace LethalBots.Patches.EnemiesPatches
                     //bool flag = false;
                     if (!lethalBotController.isInHangarShipRoom && __instance.CheckLineOfSightForPosition(lethalBotController.gameplayCamera.transform.position, 45f, 70))
                     {
-                        if (Vector3.Distance(__instance.transform.position, lethalBotController.transform.position) < 15f)
+                        if ((__instance.transform.position - lethalBotController.transform.position).sqrMagnitude < 15f * 15f)
                         {
                             lethalBotController.JumpToFearLevel(0.7f);
                         }

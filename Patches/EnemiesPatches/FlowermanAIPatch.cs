@@ -50,7 +50,7 @@ namespace LethalBots.Patches.EnemiesPatches
                             {
                                 __instance.ChangeOwnershipOfEnemy(lethalBotController.actualClientId);
                             }
-                            if (Vector3.Distance(__instance.transform.position, lethalBotController.transform.position) < 5f)
+                            if ((__instance.transform.position - lethalBotController.transform.position).sqrMagnitude < 5f * 5f)
                             {
                                 lethalBotController.JumpToFearLevel(0.6f);
                             }

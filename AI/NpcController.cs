@@ -82,7 +82,7 @@ namespace LethalBots.AI
                     field = LethalBotManager.Instance.GetLethalBotAI(Npc);
                     if (field == null)
                     {
-                        throw new NullReferenceException($"{MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION}: error no lethalBotAI attached to NpcController playerClientId {Npc.playerClientId}.");
+                        throw new NullReferenceException($"{Plugin.ModGUID} v{MyPluginInfo.PLUGIN_VERSION}: error no lethalBotAI attached to NpcController playerClientId {Npc.playerClientId}.");
                     }
                 }
                 return field;
@@ -102,7 +102,7 @@ namespace LethalBots.AI
         private bool disabledJetpackControlsThisFrame;
 
         private bool wasUnderwaterLastFrame;
-        public float DrowningTimer { internal set; get; } = 1f;
+        public float DrowningTimer { set; get; } = 1f;
         private bool setFaceUnderwater;
         private float syncUnderwaterInterval;
 
@@ -1558,9 +1558,7 @@ namespace LethalBots.AI
             }
 
             // Text billboard
-            // Only show the bot state indicator when debug logging is enabled,
-            // since they are only useful for debugging purposes.
-            if (Plugin.Config.EnableDebugLog.Value)
+            if (Plugin.Config.EnableDebugLog.Value || Plugin.Config.ShowBillboardStateIndicator.Value)
             { 
                 Npc.usernameBillboardText.text = LethalBotAIController.GetSizedBillboardStateIndicator(); 
             }
@@ -1756,11 +1754,12 @@ namespace LethalBots.AI
                 return false;
             }
 
-            if (Npc.currentFootstepSurfaceIndex != 1
-                && Npc.currentFootstepSurfaceIndex != 4
-                && Npc.currentFootstepSurfaceIndex != 8
-                && Npc.currentFootstepSurfaceIndex != 7
-                && (!Npc.isInsideFactory || Npc.currentFootstepSurfaceIndex != 5))
+            int currentFootstepSurfaceIndex = Npc.currentFootstepSurfaceIndex;
+            if (currentFootstepSurfaceIndex != 1
+                && currentFootstepSurfaceIndex != 4
+                && currentFootstepSurfaceIndex != 8
+                && currentFootstepSurfaceIndex != 7
+                && (!Npc.isInsideFactory || currentFootstepSurfaceIndex != 5))
             {
                 return false;
             }

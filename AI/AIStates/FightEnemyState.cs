@@ -21,10 +21,6 @@ namespace LethalBots.AI.AIStates
     /// </summary>
     public class FightEnemyState : AIState
     {
-        private static readonly AccessTools.FieldRef<KnifeItem, int> knifeMask = AccessTools.FieldRefAccess<int>(typeof(KnifeItem), "knifeMask");
-        private static readonly AccessTools.FieldRef<Shovel, int> shovelMask = AccessTools.FieldRefAccess<int>(typeof(Shovel), "shovelMask");
-        private static readonly AccessTools.FieldRef<PatcherTool, bool> isScanning = AccessTools.FieldRefAccess<bool>(typeof(PatcherTool), "isScanning");
-        private static readonly AccessTools.FieldRef<PatcherTool, int> anomalyMask = AccessTools.FieldRefAccess<int>(typeof(PatcherTool), "anomalyMask");
         private float attackFOV;
         private bool canHitTarget;
         private RaycastHit[] enemyColliders = null!;
@@ -461,7 +457,7 @@ namespace LethalBots.AI.AIStates
                         }
                     }
                     // We should already be on target, aim and FIRE
-                    else if (!isScanning.Invoke(patcherTool))
+                    else if (!patcherTool.isScanning)
                     {
                         heldItem.UseItemOnClient(true);
                     }
@@ -780,7 +776,7 @@ namespace LethalBots.AI.AIStates
                 maxFOV = 60f; // Found in source code!
                 radius = 5f;
                 maxRange = 5f;
-                hitMask = anomalyMask.Invoke(patcherTool);
+                hitMask = patcherTool.anomalyMask;
             }
             else if (weapon is KnifeItem knife)
             {
@@ -788,7 +784,7 @@ namespace LethalBots.AI.AIStates
                 maxFOV = 45f;
                 radius = 0.3f;
                 maxRange = 0.75f;
-                hitMask = knifeMask.Invoke(knife);
+                hitMask = knife.knifeMask;
             }
             else if (weapon is Shovel shovel)
             {
@@ -796,7 +792,7 @@ namespace LethalBots.AI.AIStates
                 maxFOV = 75f;
                 radius = 0.8f;
                 maxRange = 1.5f;
-                hitMask = shovelMask.Invoke(shovel);
+                hitMask = shovel.shovelMask;
             }
         }
 

@@ -27,7 +27,6 @@ namespace LethalBots.AI.AIStates
     {
         private static Func<RagdollGrabbableObject, bool>? ReviveCompanyCanReviveDelegate = null;
         private static Action<int>? BunkbedReviveRPCDelegate = null;
-        private static readonly AccessTools.FieldRef<PatcherTool, bool> isScanning = AccessTools.FieldRefAccess<bool>(typeof(PatcherTool), "isScanning");
 
         private PlayerControllerB playerToRevive;
         private GrabbableObject? neededReviveTool;
@@ -858,7 +857,7 @@ namespace LethalBots.AI.AIStates
             // Revive them now!
             heldItem.UseItemOnClient(true);
             yield return null;
-            yield return new WaitUntil(() => patcherTool == null || isScanning.Invoke(patcherTool) == false); // Wait a bit!
+            yield return new WaitUntil(() => patcherTool == null || !patcherTool.isScanning); // Wait a bit!
 
             // Did we hit em?
             if (!patcherTool.isShocking)

@@ -21,7 +21,7 @@ namespace LethalBots.Utils.Helpers
         private Func<T?> findSingletonFunc;
 
         /// <summary>
-        /// Gets or sets the cached singleton instance of <see cref="T"/>.<br/>
+        /// Gets or sets the cached singleton instance of <typeparamref name="T"/>.<br/>
         /// If the cached field is null and the <see cref="nextFindSingletonCheck"/> is allowed to update, 
         /// this invokes <see cref="findSingletonFunc"/> and caches its result.
         /// </summary>

@@ -17,9 +17,6 @@ namespace LethalBots.AI.AIStates
 {
     public class HealPlayerState : AIState
     {
-        private static readonly AccessTools.FieldRef<SprayPaintItem, float> sprayCanTank = AccessTools.FieldRefAccess<float>(typeof(SprayPaintItem), "sprayCanTank");
-        private static readonly AccessTools.FieldRef<SprayPaintItem, bool> isSpraying = AccessTools.FieldRefAccess<bool>(typeof(SprayPaintItem), "isSpraying");
-
         private PlayerControllerB healTarget;
         private GrabbableObject? neededMedicalTool;
         private bool allowRecharging;
@@ -60,7 +57,7 @@ namespace LethalBots.AI.AIStates
         {
             // If we got interupted while using the Weed Killer, stop spraying!
             GrabbableObject? heldItem = ai.HeldItem;
-            if (heldItem is SprayPaintItem sprayPaintItem && isSpraying.Invoke(sprayPaintItem))
+            if (heldItem is SprayPaintItem sprayPaintItem && sprayPaintItem.isSpraying)
             {
                 sprayPaintItem.UseItemOnClient(false);
             }
@@ -414,7 +411,7 @@ namespace LethalBots.AI.AIStates
             startTime = Time.timeSinceLevelLoad;
             weedKiller.UseItemOnClient(true);
             yield return null;
-            yield return new WaitUntil(() => weedKiller == null || isSpraying.Invoke(weedKiller) == false || (Time.timeSinceLevelLoad - startTime) > 5f);
+            yield return new WaitUntil(() => weedKiller == null || !weedKiller.isSpraying || (Time.timeSinceLevelLoad - startTime) > 5f);
             if (weedKiller != null && weedKiller.itemProperties.holdButtonUse)
             {
                 weedKiller.UseItemOnClient(false);
@@ -643,7 +640,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         private static bool FindWeedKiller(GrabbableObject item)
         {
-            return item is SprayPaintItem weedKiller && weedKiller.isWeedKillerSprayBottle && sprayCanTank.Invoke(weedKiller) > 0f; // For anyone wondering SprayPaintItem is the same class used for weed killer.
+            return item is SprayPaintItem weedKiller && weedKiller.isWeedKillerSprayBottle && weedKiller.sprayCanTank > 0f; // For anyone wondering SprayPaintItem is the same class used for weed killer.
         }
 
         /// <summary>

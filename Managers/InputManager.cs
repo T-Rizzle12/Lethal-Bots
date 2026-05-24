@@ -212,10 +212,18 @@ namespace LethalBots.Managers
                 if (lethalBot.OwnerClientId != localPlayer.actualClientId 
                     || !lethalBot.IsFollowingLocalPlayer())
                 {
-                    if (lethalBot.IsInSpecialAnimation())
+                    // Can't tell a bot to follow if they are in a special animation.
+                    bool isUsingTerminal = lethalBot.IsUsingTerminal();
+                    if (!isUsingTerminal && lethalBot.IsInSpecialAnimation())
                     {
-                        HUDManager.Instance.DisplayTip("Bot is busy!", "If the bot is on the terminal, you can type 'hop off the terminal' to get them to hop off for a few seconds.");
+                        HUDManager.Instance.DisplayTip("Bot is busy!", "Please wait for the bot to finish the special animation first.");
                         return;
+                    }
+
+                    // Force the bot off of the terminal
+                    if (isUsingTerminal)
+                    {
+                        lethalBot.LeaveTerminalRpc();
                     }
 
                     // Audio
