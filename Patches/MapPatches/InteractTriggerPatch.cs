@@ -1,6 +1,8 @@
-﻿using GameNetcodeStuff;
+﻿using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
+using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.AI;
+using LethalBots.Constants;
 using LethalBots.Managers;
 using LethalBots.Utils;
 using LethalMin;
@@ -226,8 +228,8 @@ namespace LethalBots.Patches.MapPatches
             playerController.inSpecialInteractAnimation = true;
             playerController.currentTriggerInAnimationWith = ladder;
             playerController.isCrouching = false;
-            playerController.playerBodyAnimator.SetBool("crouching", value: false);
-            playerController.playerBodyAnimator.SetTrigger("EnterLadder");
+            playerController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CROUCHING, value: false);
+            playerController.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_ENTERLADDER);
             playerController.thisController.enabled = false;
             float timer = 0f;
             while (timer <= ladder.animationWaitTime)
@@ -238,7 +240,7 @@ namespace LethalBots.Patches.MapPatches
                 playerController.thisPlayerBody.rotation = Quaternion.Lerp(playerController.thisPlayerBody.rotation, ladderAngle, Mathf.SmoothStep(0f, 1f, timer / ladder.animationWaitTime));
             }
             Plugin.LogDebug("Finished snapping to ladder");
-            playerController.playerBodyAnimator.SetBool("ClimbingLadder", value: true);
+            playerController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CLIMBINGLADDER, value: true);
             playerController.isClimbingLadder = true;
             if (lethalBotAI != null)
             {
@@ -247,8 +249,10 @@ namespace LethalBots.Patches.MapPatches
                     lethalBotAI.agent.CompleteOffMeshLink();
                 }
                 ladder.currentCooldownValue = 0f; // Force clear the cooldown!
-                lethalBotAI.SetAgent(false);
-                lethalBotAI.TeleportLethalBot(ladderPosition, lethalBotAI.isOutside, targetEntrance: null, withRotation: false, 0f, allowInteractTrigger: true, skipNavMeshCheck: true);
+                lethalBotAI.SetAgent(enabled: false);
+                bool isOutside = lethalBotAI.isOutside;
+                playerController.TeleportPlayer(ladderPosition, withRotation: false, 0f, allowInteractTrigger: true);
+                lethalBotAI.TeleportLethalBot(ladderPosition, isOutside, targetEntrance: null, withRotation: false, 0f, allowInteractTrigger: true, skipNavMeshCheck: true);
             }
             playerController.enteringSpecialAnimation = false;
             playerController.ladderCameraHorizontal = 0f;
@@ -270,7 +274,7 @@ namespace LethalBots.Patches.MapPatches
                 }
             }
             //playerController.isClimbingLadder = false;
-            playerController.playerBodyAnimator.SetBool("ClimbingLadder", value: false);
+            playerController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CLIMBINGLADDER, value: false);
             if (finishClimbingLadder == 1)
             {
                 ladderPosition = ladder.bottomOfLadderPosition.position;
@@ -313,14 +317,14 @@ namespace LethalBots.Patches.MapPatches
             playerController.thisController.enabled = true; // NEEDTOVALIDATE: What happens if this is true for players that are not the local player?
             if (lethalBotAI != null)
             {
+                lethalBotAI.SetAgent(enabled: true);
                 if (lethalBotAI.agent.isOnOffMeshLink)
                 {
                     lethalBotAI.agent.CompleteOffMeshLink();
                 }
-                lethalBotAI.SetAgent(true);
                 lethalBotAI.TeleportLethalBot(ladderPosition, lethalBotAI.isOutside, allowInteractTrigger: true);
+                lethalBotAI.useLadderCoroutine = null;
             }
-            lethalBotAI?.useLadderCoroutine = null;
             //ladder.currentCooldownValue = ladder.cooldownTime;
             ladder.onInteract.Invoke(null);
             #pragma warning restore Harmony003 // Harmony non-ref patch parameters modified
@@ -331,7 +335,7 @@ namespace LethalBots.Patches.MapPatches
             trigger.UpdateUsedByPlayerServerRpc((int)playerController.playerClientId);
             trigger.onInteractEarly.Invoke(null);
             trigger.isPlayingSpecialAnimation = true;
-            playerScriptInSpecialAnimationField.SetValue(trigger, playerController);
+            trigger.playerScriptInSpecialAnimation = playerController;
             if (trigger.clampLooking)
             {
                 playerController.minVerticalClamp = trigger.minVerticalClamp;

@@ -133,9 +133,6 @@ namespace LethalBots.AI
         {
             //Plugin.LogDebug("Awake bot controller.");
             Init(clientJoining);
-
-            PatchesUtil.FieldInfoPreviousAnimationStateHash.SetValue(Npc, new List<int>(new int[Npc.playerBodyAnimator.layerCount]));
-            PatchesUtil.FieldInfoCurrentAnimationStateHash.SetValue(Npc, new List<int>(new int[Npc.playerBodyAnimator.layerCount]));
         }
 
         private void Init(bool clientJoining = false)

@@ -719,7 +719,7 @@ namespace LethalBots.AI.AIStates
                 float score = 0f;
 
                 // Check the fear range
-                if (minPathDistanceToEnemy < fearRange)
+                if (minPathDistanceToEnemy < Const.DISTANCE_FLEEING_PATH_AVOIDANCE * Const.DISTANCE_FLEEING_PATH_AVOIDANCE) // Was fearRange, but was changed to a const number since it caused the bot to mark safe paths as dangerous.
                 {
                     score -= 100f; // Not good, really dislike this node!
 

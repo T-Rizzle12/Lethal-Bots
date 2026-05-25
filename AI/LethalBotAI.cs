@@ -220,7 +220,7 @@ namespace LethalBots.AI
         private float updateDestinationIntervalLethalBotAI;
         private CountdownTimer updateDestinationTimer = new CountdownTimer();
         private float healthRegenerateTimerMax;
-        private float timerCheckDoor;
+        private CountdownTimer timerCheckDoor = new CountdownTimer();
         private CountdownTimer timerCheckLockedDoor = new CountdownTimer();
         private float nextExposedToEnemyTimer;
         private bool _areWeExposed;
@@ -257,7 +257,7 @@ namespace LethalBots.AI
             {
                 agent = gameObject.GetComponentInChildren<NavMeshAgent>();
                 agent.acceleration = float.MaxValue; // Is THIS a good idea?
-                //agent.autoTraverseOffMeshLink = false;
+                agent.autoTraverseOffMeshLink = false;
                 Plugin.LogDebug($"LethalBot Agent Type ID {agent.agentTypeID}");
                 Plugin.LogDebug($"LethalBot Area Mask {agent.areaMask}");
                 SetAgent(enabled: false);
@@ -487,6 +487,11 @@ namespace LethalBots.AI
             // Not owner no AI
             if (!IsOwner && NpcController != null)
             {
+                if (IsUsingOffMeshLink())
+                {
+                    StopOffMeshLinkMovement();
+                }
+
                 SetAgent(enabled: false);
 
                 if (State == null
@@ -519,6 +524,9 @@ namespace LethalBots.AI
                     }
                 }
 
+                // Move the AI to where the bot controller is
+                this.transform.position = NpcController.Npc.transform.position;
+                this.serverPosition = NpcController.Npc.transform.position;
                 return;
             }
 
@@ -583,9 +591,14 @@ namespace LethalBots.AI
                     NpcController.Npc.thisPlayerBody.rotation = Quaternion.Lerp(NpcController.Npc.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
                     NpcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
                 }
-                SetAgent(enabled: false);
-                this.transform.position = NpcController.Npc.transform.position;
-                this.serverPosition = NpcController.Npc.transform.position;
+
+                // Don't do this if the bot is using an off the mesh link
+                if (!IsUsingOffMeshLink())
+                {
+                    SetAgent(enabled: false);
+                    this.transform.position = NpcController.Npc.transform.position;
+                    this.serverPosition = NpcController.Npc.transform.position;
+                }
                 return;
             }
 
@@ -638,7 +651,7 @@ namespace LethalBots.AI
 
             }
             // Disable agent if we are not moving!
-            else if (!IsInsideElevator && (State == null || !State.IsSafePathRunning()))
+            else if (!IsInsideElevator && !IsUsingOffMeshLink() && (State == null || !State.IsSafePathRunning()))
             {
                 SetAgent(enabled: false);
             }
@@ -766,7 +779,7 @@ namespace LethalBots.AI
             }
             else
             {
-                SetAgent(enabled: !shouldFixedMovement);
+                SetAgent(enabled: true);
 
                 // Do the actual AI calculation
                 DoAIInterval();
@@ -801,7 +814,7 @@ namespace LethalBots.AI
 
             // Ladders
             // FIXME: This causes TOO many issues to be used right now!
-            //UseLadderIfNeeded();
+            UseLadderIfNeeded();
 
             // Copy movement
             FollowCrouchStateIfCan();
@@ -2849,7 +2862,8 @@ namespace LethalBots.AI
             if (enemy is CentipedeAI 
                 || enemy is MaskedPlayerEnemy 
                 || enemy is CrawlerAI
-                || enemy is HoarderBugAI)
+                || enemy is HoarderBugAI
+                || enemy is BaboonBirdAI)
             {
                 return true;
             }
@@ -2861,8 +2875,7 @@ namespace LethalBots.AI
                 return true;
             }
             else if (enemy is FlowermanAI 
-                || enemy is SandSpiderAI
-                || enemy is BaboonBirdAI)
+                || enemy is SandSpiderAI)
             {
                 return hasRangedWeapon || isHumanPlayer || isEnemyStunned;
             }
@@ -3242,9 +3255,9 @@ namespace LethalBots.AI
         /// <returns>true: a door has been opened by lethalBot. Else false</returns>
         private bool OpenDoorIfNeeded()
         {
-            if (timerCheckDoor > Const.TIMER_CHECK_DOOR)
+            if (!timerCheckDoor.HasStarted() || timerCheckDoor.Elapsed())
             {
-                timerCheckDoor = 0f;
+                timerCheckDoor.Start(Const.TIMER_CHECK_DOOR);
 
                 DoorLock? door = GetDoorIfWantsToOpen();
                 if (door != null && !door.isDoorOpened)
@@ -3254,7 +3267,6 @@ namespace LethalBots.AI
                     return true;
                 }
             }
-            timerCheckDoor += AIIntervalTime;
             return false;
         }
 
@@ -3554,11 +3566,12 @@ namespace LethalBots.AI
                 return false;
             }
 
-            if ((player.transform.position - ElevatorScript.elevatorBottomPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_BOTTOM * Const.DISTANCE_TO_ELEVATOR_BOTTOM)
+            Vector3 playerPos = player.transform.position;
+            if ((playerPos - ElevatorScript.elevatorBottomPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_BOTTOM * Const.DISTANCE_TO_ELEVATOR_BOTTOM)
             {
                 return false;
             }
-            else if ((player.transform.position - ElevatorScript.elevatorTopPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_TOP * Const.DISTANCE_TO_ELEVATOR_TOP)
+            else if ((playerPos - ElevatorScript.elevatorTopPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_TOP * Const.DISTANCE_TO_ELEVATOR_TOP)
             {
                 return true;
             }
@@ -3605,9 +3618,23 @@ namespace LethalBots.AI
             if (ladder == null)
             {
                 // If this is a gap, do the default logic instead!
-                if (agent.isOnOffMeshLink && offMeshLinkCoroutine == null)
+                if (agent.isOnOffMeshLink)
                 {
-                    offMeshLinkCoroutine = StartCoroutine(offMeshLinkParabola(agent, 0.6f)); // NpcController.Npc.jumpForce
+                    if (agent.currentOffMeshLinkData.activated)
+                    {
+                        if (offMeshLinkCoroutine == null)
+                        {
+                            offMeshLinkCoroutine = StartCoroutine(offMeshLinkParabola(agent, 0.6f)); // NpcController.Npc.jumpForce
+                        }
+                    }
+                    else
+                    {
+                        StopOffMeshLinkMovement();
+                    }
+                }
+                else if (offMeshLinkCoroutine != null)
+                {
+                    StopOffMeshLinkMovement();
                 }
                 return false;
             }
@@ -3642,22 +3669,13 @@ namespace LethalBots.AI
             return true;
         }
 
-        private IEnumerator autoTraverseOffMeshLink()
-        {
-            agent.autoTraverseOffMeshLink = true;
-            yield return null;
-            yield return new WaitUntil(() => !agent.isOnOffMeshLink);
-            agent.autoTraverseOffMeshLink = false;
-            offMeshLinkCoroutine = null;
-        }
-
         /// <summary>
         /// Helper function to check if the bot is currently using an off mesh link.
         /// </summary>
         /// <returns>true if the bot is using an off mesh link, otherwise false</returns>
         public bool IsUsingOffMeshLink()
         {
-            return offMeshLinkCoroutine != null || agent.isOnOffMeshLink;
+            return offMeshLinkCoroutine != null || useLadderCoroutine != null || agent.isOnOffMeshLink;
         }
 
         /// <summary>
@@ -3701,33 +3719,39 @@ namespace LethalBots.AI
 
         public void StopOffMeshLinkMovement(bool warpToEnd = true)
         {
-            if (offMeshLinkCoroutine == null)
+            // Stop using the off mesh link
+            if (offMeshLinkCoroutine != null)
             {
-                return;
-            }
-            StopCoroutine(offMeshLinkCoroutine);
-            offMeshLinkCoroutine = null;
-            OffMeshLinkData currentOffMeshLinkData = agent.currentOffMeshLinkData;
-            agent.CompleteOffMeshLink();
-            if (currentOffMeshLinkData.valid)
-            {
-                Plugin.LogDebug($"Completed off mesh EARLY link due to an interruption; position: {base.transform.position}");
-                if (Vector3.Distance(base.transform.position, currentOffMeshLinkData.startPos) < Vector3.Distance(base.transform.position, currentOffMeshLinkData.endPos))
+                StopCoroutine(offMeshLinkCoroutine);
+                offMeshLinkCoroutine = null;
+                OffMeshLinkData currentOffMeshLinkData = agent.currentOffMeshLinkData;
+                agent.CompleteOffMeshLink();
+                if (currentOffMeshLinkData.valid)
                 {
-                    Plugin.LogDebug($"Warping agent to start position at {currentOffMeshLinkData.startPos}");
-                    if (warpToEnd)
-                        TeleportAgentAIAndBody(currentOffMeshLinkData.startPos);
+                    Plugin.LogDebug($"Completed off mesh EARLY link due to an interruption; position: {base.transform.position}");
+                    if (Vector3.Distance(base.transform.position, currentOffMeshLinkData.startPos) < Vector3.Distance(base.transform.position, currentOffMeshLinkData.endPos))
+                    {
+                        Plugin.LogDebug($"Warping agent to start position at {currentOffMeshLinkData.startPos}");
+                        if (warpToEnd)
+                            TeleportAgentAIAndBody(currentOffMeshLinkData.startPos);
+                    }
+                    else
+                    {
+                        Plugin.LogDebug($"Warping agent to end position at {currentOffMeshLinkData.endPos}");
+                        if (warpToEnd)
+                            TeleportAgentAIAndBody(currentOffMeshLinkData.endPos);
+                    }
                 }
                 else
                 {
-                    Plugin.LogDebug($"Warping agent to end position at {currentOffMeshLinkData.endPos}");
-                    if (warpToEnd)
-                        TeleportAgentAIAndBody(currentOffMeshLinkData.endPos);
+                    Plugin.LogDebug("Off mesh link data invalid; agent completing off mesh link anyway");
                 }
             }
-            else
+
+            // Stop using ladder
+            if (useLadderCoroutine != null)
             {
-                Plugin.LogDebug("Off mesh link data invalid; agent completing off mesh link anyway");
+                NpcController.Npc.CancelSpecialTriggerAnimations();
             }
         }
 
@@ -8638,7 +8662,7 @@ namespace LethalBots.AI
             }
             //leverTrigger.interactable = false; // Don't let other player use the lever!
             yield return new WaitForSeconds(leverTrigger.animationWaitTime);
-            leverTrigger.StopUsingServerRpc((int)localPlayerController.playerClientId);
+            leverTrigger.StopSpecialAnimation();
             leverTrigger.isPlayingSpecialAnimation = false;
             localPlayerController.inSpecialInteractAnimation = false;
             if ((bool)leverTrigger.overridePlayerParent && localPlayerController.overridePhysicsParent == leverTrigger.overridePlayerParent)
@@ -8647,6 +8671,7 @@ namespace LethalBots.AI
             }
             localPlayerController.currentTriggerInAnimationWith = null;
             leverTrigger.currentCooldownValue = leverTrigger.cooldownTime;
+            leverTrigger.StopUsingServerRpc((int)localPlayerController.playerClientId); // Just in case.
             //startMatchLever.PullLever();
             DoPullLever(startMatchLever);
         }
@@ -8874,7 +8899,7 @@ namespace LethalBots.AI
             // we have to manually do its logic here. Subtracting the cooldown time is needed to keep the animations
             // and effects in sync!
             yield return new WaitForSeconds(Mathf.Max(itemChargerTrigger.animationWaitTime - 0.75f, 0f));
-            itemChargerTrigger.StopUsingServerRpc((int)localPlayerController.playerClientId);
+            itemChargerTrigger.StopSpecialAnimation();
             itemChargerTrigger.isPlayingSpecialAnimation = false;
             localPlayerController.inSpecialInteractAnimation = false;
             if ((bool)itemChargerTrigger.overridePlayerParent && localPlayerController.overridePhysicsParent == itemChargerTrigger.overridePlayerParent)
@@ -8883,7 +8908,7 @@ namespace LethalBots.AI
             }
             localPlayerController.currentTriggerInAnimationWith = null;
             itemChargerTrigger.currentCooldownValue = itemChargerTrigger.cooldownTime;
-            itemChargerTrigger.StopSpecialAnimation();
+            itemChargerTrigger.StopUsingServerRpc((int)localPlayerController.playerClientId); // Just in case
         }
 
         #endregion

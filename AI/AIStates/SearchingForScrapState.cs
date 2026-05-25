@@ -488,15 +488,6 @@ namespace LethalBots.AI.AIStates
             });
         }
 
-        /// <summary>
-        /// Simple function that checks if the give <paramref name="item"/> is scrap.
-        /// </summary>
-        /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
-        protected override bool FindObject(GrabbableObject item)
-        {
-            return !ai.IsGrabbableObjectInLoadout(item) || ai.HasDuplicateLoadoutItems(item, out _); // Found a scrap item, great, we want to drop it!
-        }
-
         /// <remarks>
         /// We give the position of the entrance we want a safe path to!<br/>
         /// We return null if we are not outside or our target entrance is null!

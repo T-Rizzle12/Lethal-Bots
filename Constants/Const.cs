@@ -109,11 +109,13 @@ namespace LethalBots.Constants
         public const string PLAYER_ANIMATION_BOOL_FALLNOJUMP = "FallNoJump";
         public const string PLAYER_ANIMATION_BOOL_SHORTFALLLANDING = "ShortFallLanding";
         public const string PLAYER_ANIMATION_BOOL_LIMP = "Limp";
+        public const string PLAYER_ANIMATION_BOOL_CLIMBINGLADDER = "ClimbingLadder";
 
         public const string PLAYER_ANIMATION_TRIGGER_THROW = "Throw";
         public const string PLAYER_ANIMATION_TRIGGER_DAMAGE = "Damage";
         public const string PLAYER_ANINATION_TRIGGER_TERMINAL = "Terminal";
         public const string PLAYER_ANIMATION_TRIGGER_SHORTFALLLANDING = "ShortFallLanding";
+        public const string PLAYER_ANIMATION_TRIGGER_ENTERLADDER = "EnterLadder";
 
         public const string PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED = "animationSpeed";
         public const string PLAYER_ANIMATION_FLOAT_TIREDAMOUNT = "tiredAmount";
@@ -200,6 +202,7 @@ namespace LethalBots.Constants
         // PanikState
         public const float DISTANCE_FLEEING = 20f;
         public const float DISTANCE_FLEEING_NO_LOS = 5f;
+        public const float DISTANCE_FLEEING_PATH_AVOIDANCE = 5f;
         public const float FLEEING_UPDATE_ENTRANCE = 2f;
         public const float DISTANCE_NEARBY_ENTRANCE = 20f;
         public const float FLEEING_CALM_DOWN_TIME = 10f;

@@ -3,9 +3,11 @@ using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Managers;
 using LethalBots.Utils;
+using LethalBots.Utils.Helpers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace LethalBots.Patches.EnemiesPatches
@@ -16,40 +18,47 @@ namespace LethalBots.Patches.EnemiesPatches
     [HarmonyPatch(typeof(SpringManAI))]
     public class SpringManAIPatch
     {
+        // Static variables
+        // Conditional Weak Table since when the SpringManAI is removed, the table automatically cleans itself!
+        private static ConditionalWeakTable<SpringManAI, SpringManMonitor> springManMonitorList = new ConditionalWeakTable<SpringManAI, SpringManMonitor>();
+
         /// <summary>
-        /// Make the sping man use all array of player + bots to target
+        /// Helper function that retrieves the <see cref="SpringManMonitor"/>
+        /// for the given <see cref="SpringManAI"/>
         /// </summary>
-        /// <param name="instructions"></param>
-        /// <param name="generator"></param>
+        /// <param name="ai"></param>
+        /// <returns>The <see cref="SpringManMonitor"/> associated with the given <see cref="SpringManAI"/></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static SpringManMonitor GetOrCreateMonitor(SpringManAI ai)
+        {
+            return springManMonitorList.GetValue(ai, key => new SpringManMonitor(key));
+        }
+
+        /// <summary>
+        /// Used to fixed the infinite scream and stare at coilhead bug for bots
+        /// </summary>
         /// <returns></returns>
         [HarmonyPatch("Update")]
-        [HarmonyTranspiler]
-        public static IEnumerable<CodeInstruction> Update_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        [HarmonyPostfix]
+        public static void Update_Postfix(SpringManAI __instance)
         {
-            var startIndex = -1;
-            var codes = new List<CodeInstruction>(instructions);
-
-            // ----------------------------------------------------------------------
-            for (var i = 0; i < codes.Count; i++)
+            if (__instance.isEnemyDead)
             {
-                if (codes[i].ToString() == "ldc.i4.4 NULL" || codes[i].ToString() == "ldsfld int MoreCompany.MainClass::newPlayerCount")//110
-                {
-                    startIndex = i;
-                    break;
-                }
-            }
-            if (startIndex > -1)
-            {
-                codes[startIndex].opcode = OpCodes.Call;
-                codes[startIndex].operand = PatchesUtil.AllEntitiesCountMethod;
-                startIndex = -1;
-            }
-            else
-            {
-                Plugin.LogError($"LethalBot.Patches.EnemiesPatches.SpringManAIPatch.Update_Transpiler could not change size of player array to look up.");
+                return;
             }
 
-            return codes.AsEnumerable();
+            UpdateLimiter updateLimiter = UpdateLimiter.GetOrCreateMonitor(__instance, 0.1f);
+            if (!updateLimiter.CanUpdate())
+            {
+                return;
+            }
+
+            updateLimiter.Invalidate();
+            if (!__instance.stoppingMovement)
+            {
+                SpringManMonitor springManMonitor = GetOrCreateMonitor(__instance);
+                springManMonitor.HasMoved();
+            }
         }
 
         [HarmonyPatch("DoSpringAnimation")]
@@ -75,6 +84,43 @@ namespace LethalBots.Patches.EnemiesPatches
                         }
                     }
                 }
+            }
+        }
+
+        public sealed class SpringManMonitor
+        {
+            private SpringManAI springManAI = null!;
+            private IntervalTimer lastMoveTimer = new IntervalTimer();
+
+            internal SpringManMonitor(SpringManAI springManAI)
+            {
+                this.springManAI = springManAI;
+            }
+
+            /// <summary>
+            /// Checks if the Coil Head has moved within the last <paramref name="timeThreshold"/> seconds.
+            /// </summary>
+            /// <param name="timeThreshold">How long to check for movement (in seconds)</param>
+            /// <returns><see langword="true"/> if the Coil Head has moved recently; otherwise, <see langword="false"/>.</returns>
+            public bool HasMovedRecently(float timeThreshold = 10f)
+            {
+                if (springManAI == null || springManAI.isEnemyDead)
+                {
+                    return false;
+                }
+                if (lastMoveTimer.HasStarted())
+                {
+                    return lastMoveTimer.IsLessThan(timeThreshold);
+                }
+                return false;
+            }
+
+            /// <summary>
+            /// Resets the movement timer, indicating that the Coil Head has moved.
+            /// </summary>
+            public void HasMoved()
+            {
+                lastMoveTimer.Reset();
             }
         }
     }

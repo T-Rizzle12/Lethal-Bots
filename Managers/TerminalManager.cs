@@ -1,6 +1,7 @@
 ﻿using HarmonyLib;
 using LethalBots.AI.AIStates;
 using LethalBots.Utils;
+using LethalBots.Utils.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -19,7 +20,7 @@ namespace LethalBots.Managers
     {
         public static TerminalManager Instance { get; internal set; } = null!;
 
-        private Terminal? terminalScript = null;
+        private Terminal terminalScript = null!;
 
         private void Awake()
         {
@@ -65,19 +66,6 @@ namespace LethalBots.Managers
                 terminalScript = GameObject.Find("TerminalScript").GetComponent<Terminal>();
             }
             return terminalScript;
-        }
-
-        private static string RemovePunctuation(string s)
-        {
-            StringBuilder stringBuilder = new StringBuilder();
-            foreach (char c in s)
-            {
-                if (!char.IsPunctuation(c))
-                {
-                    stringBuilder.Append(c);
-                }
-            }
-            return stringBuilder.ToString().ToLower();
         }
 
         /// <summary>
@@ -143,7 +131,7 @@ namespace LethalBots.Managers
         {
             // Start of copied code!
             ourTerminal.broadcastedCodeThisFrame = false;
-            string s = RemovePunctuation(text);
+            string s = ourTerminal.RemovePunctuation(text);
             string[] array = s.Split(" ", StringSplitOptions.RemoveEmptyEntries);
             TerminalKeyword? terminalKeyword = null;
             if (ourTerminal.currentNode != null && ourTerminal.currentNode.overrideOptions)
@@ -247,7 +235,6 @@ namespace LethalBots.Managers
             }
             TerminalKeyword? terminalKeyword2 = null;
             TerminalKeyword? terminalKeyword3 = null;
-            new List<TerminalKeyword>();
             bool flag = false;
             ourTerminal.hasGottenNoun = false;
             ourTerminal.hasGottenVerb = false;

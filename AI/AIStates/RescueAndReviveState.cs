@@ -1210,7 +1210,8 @@ namespace LethalBots.AI.AIStates
                 }
 
                 int reviveCost = BunkbedController.GetReviveCost();
-                if (TerminalManager.Instance.GetTerminal().groupCredits < reviveCost)
+                Terminal terminalScript = TerminalManager.Instance.GetTerminal();
+                if (terminalScript.groupCredits < reviveCost)
                 {
                     return;
                 }
@@ -1218,7 +1219,6 @@ namespace LethalBots.AI.AIStates
                 {
                     return;
                 }
-                Terminal terminalScript = TerminalManager.Instance.GetTerminal();
                 terminalScript.groupCredits -= reviveCost;
                 LethalBotManager.Instance.SyncGroupCreditsForNotOwnerTerminalServerRpc(terminalScript.groupCredits, terminalScript.numberOfItemsInDropship);
                 BunkbedReviveRPCDelegate.Invoke(ragdollGrabbableObject.bodyID);
@@ -1253,7 +1253,8 @@ namespace LethalBots.AI.AIStates
             }
 
             int reviveCost = BunkbedController.GetReviveCost();
-            if (TerminalManager.Instance.GetTerminal().groupCredits < reviveCost)
+            Terminal terminalScript = TerminalManager.Instance.GetTerminal();
+            if (terminalScript.groupCredits < reviveCost)
             {
                 return;
             }
@@ -1261,7 +1262,6 @@ namespace LethalBots.AI.AIStates
             {
                 return;
             }
-            Terminal terminalScript = TerminalManager.Instance.GetTerminal();
             terminalScript.groupCredits -= reviveCost;
             LethalBotManager.Instance.SyncGroupCreditsForNotOwnerTerminalServerRpc(terminalScript.groupCredits, terminalScript.numberOfItemsInDropship);
 

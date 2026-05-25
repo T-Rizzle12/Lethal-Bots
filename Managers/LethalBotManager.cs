@@ -6,6 +6,7 @@ using LethalBots.AI.AIStates;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.NetworkSerializers;
+using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.AutoRevive;
@@ -1224,12 +1225,15 @@ namespace LethalBots.Managers
 
             float? CoilHeadPanikFunc(LethalBotFearQuery fearQuery)
             {
-                // If the coil hasn't moved for 10 seconds, stop being afraid of it!
-                const float stopFearTimer = 10f;
-                if (fearQuery.EnemyAI is SpringManAI coilHead 
-                    && coilHead.stopMovementTimer > stopFearTimer)
+                // If the coil hasn't moved for 8 seconds, stop being afraid of it!
+                const float stopFearTimer = 8f;
+                if (fearQuery.EnemyAI is SpringManAI coilHead)
                 {
-                    return null;
+                    SpringManAIPatch.SpringManMonitor coilHeadMonitor = SpringManAIPatch.GetOrCreateMonitor(coilHead);
+                    if (!coilHeadMonitor.HasMovedRecently(stopFearTimer))
+                    {
+                        return null;
+                    }
                 }
                 return fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null;
             }
@@ -1337,11 +1341,11 @@ namespace LethalBots.Managers
                 int stateIndex = fearQuery.EnemyAI.currentBehaviourStateIndex;
                 if (stateIndex == 1)
                 {
-                    return 15f; // Not attacking, but getting close will cause the Giant Sapsucker to retaliate!
+                    return 8f; // Not attacking, but getting close will cause the Giant Sapsucker to retaliate!
                 }
                 else if (stateIndex == 2)
                 { 
-                    return 30f; // Attacking, get the hell out of there!
+                    return 40f; // Attacking, get the hell out of there!
                 }
 
                 return 5f; // Giant Sapsucker is idle, only a threat if we get too close
@@ -1351,7 +1355,7 @@ namespace LethalBots.Managers
             RegisterThreat(typeof(GiantKiwiAI),
                 GiantKiwiPanikFunc,
                 _ => null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 1 ? 30f : 15f
+                GiantKiwiPanikFunc
             );
 
             float? SandWormPanikFunc(LethalBotFearQuery fearQuery)
