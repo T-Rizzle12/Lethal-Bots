@@ -155,6 +155,10 @@ namespace LethalBots.Constants
         public static readonly string[] HOP_OFF_THE_TERMINAL_COMMANDS = { "hop off the terminal", "get off the terminal", "get off", "hop off" };
         public static readonly string[] USE_KEY_COMMANDS = { "use key", "open the door", "unlock the door" };
 
+        // Mission Control State Consts
+        public const string ROUTE_MOON_COMMAND = "route"; // keeps "route" as the only trigger word to avoid accidental triggering
+        public static readonly int ROUTE_MOON_KEYWORD_LENGTH = ROUTE_MOON_COMMAND.Length; // Length of the word "route"
+
         // Signal Translator command consts
         public const string RETURN_COMMAND = "return";
 
