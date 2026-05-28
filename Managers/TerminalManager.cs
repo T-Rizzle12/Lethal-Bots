@@ -1,6 +1,7 @@
 ﻿using HarmonyLib;
 using LethalBots.AI.AIStates;
 using LethalBots.Utils;
+using LethalBots.Utils.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -19,29 +20,7 @@ namespace LethalBots.Managers
     {
         public static TerminalManager Instance { get; internal set; } = null!;
 
-        private Terminal? terminalScript = null;
-
-        #region Reflection
-
-        private static readonly MethodInfo loadNewNodeIfAffordableMethod = AccessTools.Method(typeof(Terminal), "LoadNewNodeIfAffordable");
-
-        private static readonly MethodInfo attemptLoadCreatureFileNodeMethod = AccessTools.Method(typeof(Terminal), "AttemptLoadCreatureFileNode");
-
-        private static readonly MethodInfo attemptLoadStoryLogFileNodeMethod = AccessTools.Method(typeof(Terminal), "AttemptLoadStoryLogFileNode");
-
-        private static readonly MethodInfo parseWordOverrideOptionsMethod = AccessTools.Method(typeof(Terminal), "ParseWordOverrideOptions");
-
-        private static readonly MethodInfo checkForPlayerNameCommandMethod = AccessTools.Method(typeof(Terminal), "CheckForPlayerNameCommand");
-
-        private static readonly MethodInfo checkForExactSentencesMethod = AccessTools.Method(typeof(Terminal), "CheckForExactSentences");
-
-        private static readonly MethodInfo callFunctionInAccessibleTerminalObjectMethod = AccessTools.Method(typeof(Terminal), "CallFunctionInAccessibleTerminalObject");
-
-        private static readonly MethodInfo playBroadcastCodeEffectMethod = AccessTools.Method(typeof(Terminal), "PlayBroadcastCodeEffect");
-
-        private static readonly MethodInfo parseWordMethod = AccessTools.Method(typeof(Terminal), "ParseWord");
-
-        #endregion
+        private Terminal terminalScript = null!;
 
         private void Awake()
         {
@@ -89,19 +68,6 @@ namespace LethalBots.Managers
             return terminalScript;
         }
 
-        private static string RemovePunctuation(string s)
-        {
-            StringBuilder stringBuilder = new StringBuilder();
-            foreach (char c in s)
-            {
-                if (!char.IsPunctuation(c))
-                {
-                    stringBuilder.Append(c);
-                }
-            }
-            return stringBuilder.ToString().ToLower();
-        }
-
         /// <summary>
         /// Carbon copy of <see cref="Terminal.OnSubmit"/>, but made to work with bots
         /// </summary>
@@ -124,26 +90,25 @@ namespace LethalBots.Managers
                 TerminalNode? terminalNode = ParsePlayerSentence(ourTerminal, text);
                 if (terminalNode != null)
                 {
-                    ref int totalCostOfItems = ref PatchesUtil.totalCostOfItemsField.Invoke(ourTerminal);
                     if (terminalNode.buyRerouteToMoon == -2)
                     {
-                        totalCostOfItems = terminalNode.itemCost;
+                        ourTerminal.totalCostOfItems = terminalNode.itemCost;
                     }
                     else if (terminalNode.itemCost != 0)
                     {
-                        totalCostOfItems = terminalNode.itemCost * ourTerminal.playerDefinedAmount;
+                        ourTerminal.totalCostOfItems = terminalNode.itemCost * ourTerminal.playerDefinedAmount;
                     }
                     if (terminalNode.buyItemIndex != -1 || (terminalNode.buyRerouteToMoon != -1 && terminalNode.buyRerouteToMoon != -2) || terminalNode.shipUnlockableID != -1 || terminalNode.buyVehicleIndex != -1)
                     {
-                        loadNewNodeIfAffordableMethod.Invoke(ourTerminal, new object[] { terminalNode });
+                        ourTerminal.LoadNewNodeIfAffordable(terminalNode);
                     }
                     else if (terminalNode.creatureFileID != -1)
                     {
-                        attemptLoadCreatureFileNodeMethod.Invoke(ourTerminal, new object[] { terminalNode });
+                        ourTerminal.AttemptLoadCreatureFileNode(terminalNode);
                     }
                     else if (terminalNode.storyLogFileID != -1)
                     {
-                        attemptLoadStoryLogFileNodeMethod.Invoke(ourTerminal, new object[] { terminalNode });
+                        ourTerminal.AttemptLoadStoryLogFileNode(terminalNode);
                     }
                     else
                     {
@@ -164,21 +129,16 @@ namespace LethalBots.Managers
         /// <returns></returns>
         private TerminalNode? ParsePlayerSentence(Terminal ourTerminal, string text)
         {
-            // Reflection setup!
-            ref bool broadcastedCodeThisFrame = ref PatchesUtil.broadcastedCodeThisFrameField.Invoke(ourTerminal);
-            ref bool hasGottenNoun = ref PatchesUtil.hasGottenNounField.Invoke(ourTerminal);
-            ref bool hasGottenVerb = ref PatchesUtil.hasGottenVerbField.Invoke(ourTerminal);
-
             // Start of copied code!
-            broadcastedCodeThisFrame = false;
-            string s = RemovePunctuation(text);
+            ourTerminal.broadcastedCodeThisFrame = false;
+            string s = ourTerminal.RemovePunctuation(text);
             string[] array = s.Split(" ", StringSplitOptions.RemoveEmptyEntries);
             TerminalKeyword? terminalKeyword = null;
             if (ourTerminal.currentNode != null && ourTerminal.currentNode.overrideOptions)
             {
                 for (int i = 0; i < array.Length; i++)
                 {
-                    TerminalNode terminalNode = (TerminalNode)parseWordOverrideOptionsMethod.Invoke(ourTerminal, new object[] { array[i], ourTerminal.currentNode.terminalOptions } );
+                    TerminalNode terminalNode = ourTerminal.ParseWordOverrideOptions(array[i], ourTerminal.currentNode.terminalOptions);
                     if (terminalNode != null)
                     {
                         return terminalNode;
@@ -192,7 +152,7 @@ namespace LethalBots.Managers
                 {
                     case "switch":
                         {
-                            int num = (int)checkForPlayerNameCommandMethod.Invoke(ourTerminal, new object[] { array[0], array[1] });
+                            int num = ourTerminal.CheckForPlayerNameCommand(array[0], array[1]);
                             if (num != -1)
                             {
                                 StartOfRound.Instance.mapScreen.SwitchRadarTargetAndSync(num);
@@ -202,7 +162,7 @@ namespace LethalBots.Managers
                         }
                     case "flash":
                         {
-                            int num = (int)checkForPlayerNameCommandMethod.Invoke(ourTerminal, new object[] { array[0], array[1] });
+                            int num = ourTerminal.CheckForPlayerNameCommand(array[0], array[1]);
                             if (num != -1)
                             {
                                 StartOfRound.Instance.mapScreen.FlashRadarBooster(num);
@@ -217,7 +177,7 @@ namespace LethalBots.Managers
                         }
                     case "ping":
                         {
-                            int num = (int)checkForPlayerNameCommandMethod.Invoke(ourTerminal, new object[] { array[0], array[1] });
+                            int num = ourTerminal.CheckForPlayerNameCommand(array[0], array[1]);
                             if (num != -1)
                             {
                                 StartOfRound.Instance.mapScreen.PingRadarBooster(num);
@@ -227,7 +187,7 @@ namespace LethalBots.Managers
                         }
                     case "transmit":
                         {
-                            SignalTranslator? signalTranslator = MissionControlState.SignalTranslator;
+                            SignalTranslator? signalTranslator = SingletonManager.SignalTranslator.Instance;
                             if (signalTranslator == null || !(Time.realtimeSinceStartup - signalTranslator.timeLastUsingSignalTranslator > 8f) || array.Length < 2)
                             {
                                 break;
@@ -246,13 +206,13 @@ namespace LethalBots.Managers
                         }
                 }
             }
-            terminalKeyword = (TerminalKeyword)checkForExactSentencesMethod.Invoke(ourTerminal, new object[] { s });
+            terminalKeyword = ourTerminal.CheckForExactSentences(s);
             if (terminalKeyword != null)
             {
                 if (terminalKeyword.accessTerminalObjects)
                 {
-                    callFunctionInAccessibleTerminalObjectMethod.Invoke(ourTerminal, new object[] { terminalKeyword.word });
-                    playBroadcastCodeEffectMethod.Invoke(ourTerminal, null);
+                    ourTerminal.CallFunctionInAccessibleTerminalObject(terminalKeyword.word);
+                    ourTerminal.PlayBroadcastCodeEffect();
                     return null;
                 }
                 if (terminalKeyword.specialKeywordResult != null)
@@ -275,41 +235,40 @@ namespace LethalBots.Managers
             }
             TerminalKeyword? terminalKeyword2 = null;
             TerminalKeyword? terminalKeyword3 = null;
-            new List<TerminalKeyword>();
             bool flag = false;
-            hasGottenNoun = false;
-            hasGottenVerb = false;
+            ourTerminal.hasGottenNoun = false;
+            ourTerminal.hasGottenVerb = false;
             for (int j = 0; j < array.Length; j++)
             {
-                terminalKeyword = (TerminalKeyword)parseWordMethod.Invoke(ourTerminal, new object[] { array[j], 2 }); // Sigh, I have to provide the default parameter as well.....
+                terminalKeyword = ourTerminal.ParseWord(array[j]);
                 if (terminalKeyword != null)
                 {
                     Plugin.LogInfo("Parsed word: " + array[j]);
                     if (terminalKeyword.isVerb)
                     {
-                        if (hasGottenVerb)
+                        if (ourTerminal.hasGottenVerb)
                         {
                             continue;
                         }
-                        hasGottenVerb = true;
+                        ourTerminal.hasGottenVerb = true;
                         terminalKeyword2 = terminalKeyword;
                     }
                     else
                     {
-                        if (hasGottenNoun)
+                        if (ourTerminal.hasGottenNoun)
                         {
                             continue;
                         }
-                        hasGottenNoun = true;
+                        ourTerminal.hasGottenNoun = true;
                         terminalKeyword3 = terminalKeyword;
                         if (terminalKeyword.accessTerminalObjects)
                         {
-                            broadcastedCodeThisFrame = true;
-                            callFunctionInAccessibleTerminalObjectMethod.Invoke(ourTerminal, new object[] { terminalKeyword.word });
+                            ourTerminal.broadcastedCodeThisFrame = true;
+                            ourTerminal.CallFunctionInAccessibleTerminalObject(terminalKeyword.word);
                             flag = true;
                         }
                     }
-                    if (!flag && hasGottenNoun && hasGottenVerb)
+                    if (!flag && ourTerminal.hasGottenNoun && ourTerminal.hasGottenVerb)
                     {
                         break;
                     }
@@ -319,13 +278,13 @@ namespace LethalBots.Managers
                     Plugin.LogInfo("Could not parse word: " + array[j]);
                 }
             }
-            if (broadcastedCodeThisFrame)
+            if (ourTerminal.broadcastedCodeThisFrame)
             {
-                playBroadcastCodeEffectMethod.Invoke(ourTerminal, null);
+                ourTerminal.PlayBroadcastCodeEffect();
                 return ourTerminal.terminalNodes.specialNodes[19];
             }
-            hasGottenNoun = false;
-            hasGottenVerb = false;
+            ourTerminal.hasGottenNoun = false;
+            ourTerminal.hasGottenVerb = false;
             if (terminalKeyword3 == null)
             {
                 return ourTerminal.terminalNodes.specialNodes[10];

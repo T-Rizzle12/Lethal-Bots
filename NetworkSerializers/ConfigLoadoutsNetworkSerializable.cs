@@ -51,15 +51,4 @@ namespace LethalBots.NetworkSerializers
             return sb.ToString();
         }
     }
-
-    public struct ConfigLoadoutsNetworkSerializable : INetworkSerializable
-    {
-        public ConfigLoadout[] ConfigLoadouts;
-
-        // INetworkSerializable
-        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
-        {
-            serializer.SerializeValue(ref ConfigLoadouts);
-        }
-    }
 }

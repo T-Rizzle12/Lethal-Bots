@@ -481,7 +481,7 @@ namespace LethalBots.AI
             foreach (var entrance in LethalBotAI.EntrancesTeleportArray)
             {
                 // If we are avoiding specific entrances, we should skip it!
-                if (entrancesToAvoid != null && entrancesToAvoid.Contains(entrance))
+                if (entrance == null || (entrancesToAvoid != null && entrancesToAvoid.Contains(entrance)))
                 {
                     continue;
                 }
@@ -588,11 +588,11 @@ namespace LethalBots.AI
             if (targetPos != null)
             {
                 Vector3 entrancePos = instanceRM.GetNavMeshPosition(targetPos, instanceRM.navHit, 2.7f, ai.agent.areaMask);
-                float quicksandBuffer = 2f;
+                const float quicksandBuffer = 2f;
                 Plugin.LogDebug($"Testing quicksand safety for pos {targetPos}");
                 foreach (var quicksand in LethalBotAI.QuicksandArray)
                 {
-                    if (!quicksand.isActiveAndEnabled)
+                    if (quicksand == null || !quicksand.isActiveAndEnabled)
                         continue;
 
                     Collider? collider = quicksand.gameObject.GetComponent<Collider>();
@@ -604,7 +604,7 @@ namespace LethalBots.AI
                         Plugin.LogDebug("This is quicksand!");
 
                         // Check if the closest point is within or on the collider
-                        Vector3 testPoint = Physics.ClosestPoint(entrancePos, collider, collider.transform.position, collider.transform.rotation);
+                        Vector3 testPoint = collider.ClosestPoint(entrancePos);
                         if ((testPoint - entrancePos).sqrMagnitude < quicksandBuffer * quicksandBuffer)
                         {
                             Plugin.LogDebug("Segment intersects solid quicksand!");
@@ -727,7 +727,7 @@ namespace LethalBots.AI
             foreach (EnemyAI enemy in RoundManager.Instance.SpawnedEnemies)
             {
                 const float dangerRange = 7.7f; // 7.7f is the same distance used by the base game to show the enemy activity nearby message!
-                if (!enemy.isEnemyDead && enemy is not LethalBotAI && (enemy.transform.position - entrancePoint).sqrMagnitude < dangerRange * dangerRange)
+                if (enemy != null && !enemy.isEnemyDead && enemy is not LethalBotAI && (enemy.transform.position - entrancePoint).sqrMagnitude < dangerRange * dangerRange)
                 {
                     // We found an enemy near the exit point, so we should not use this entrance!
                     entranceSafetyCache[entrance] = (false, Time.timeSinceLevelLoad);
@@ -958,13 +958,13 @@ namespace LethalBots.AI
                             {
                                 // Check if the maneater doesn't like us, if it doesn't, we should drop it!
                                 // We also check if the config option is enabled or not!
-                                BabyPlayerMemory playerMemory = CaveDwellerAIPatch.GetBabyMemoryOfPlayer_ReversePatch(caveDwellerAI, npcController.Npc);
+                                BabyPlayerMemory playerMemory = caveDwellerAI.GetBabyMemoryOfPlayer(npcController.Npc);
                                 if ((playerMemory != null && playerMemory.likeMeter < 0.1f)
                                     || !Plugin.Config.AdvancedManeaterBabyAI.Value)
                                 {
                                     // The maneater doesn't like us, so we should drop it!
                                     // or else it will be mad at us after a while and would try to kill us!
-                                    ai.DropItem();
+                                    npcController.Npc.DiscardHeldObject();
                                 }
                             }
                         }
@@ -1302,7 +1302,9 @@ namespace LethalBots.AI
                         for (int j = 0; j < instanceRM.SpawnedEnemies.Count; j++)
                         {
                             EnemyAI checkLOSToTarget = instanceRM.SpawnedEnemies[j];
-                            if (checkLOSToTarget.isEnemyDead || ourWeOutside != checkLOSToTarget.isOutside)
+                            if (checkLOSToTarget == null 
+                                || checkLOSToTarget.isEnemyDead 
+                                || ourWeOutside != checkLOSToTarget.isOutside)
                             {
                                 continue;
                             }

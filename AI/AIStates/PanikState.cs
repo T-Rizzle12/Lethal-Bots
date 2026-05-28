@@ -29,7 +29,6 @@ namespace LethalBots.AI.AIStates
         private const float declareJesterCooldownTime = 30f;
         private float lastDeclaredJesterTimer;
         private bool wasFleeingJester;
-        private Vector3? _retreatPos = null;
         private Vector3? RetreatPos
         {
             set
@@ -37,15 +36,15 @@ namespace LethalBots.AI.AIStates
                 Vector3? newPos = value;
                 if (newPos.HasValue)
                 {
-                    _retreatPos = RoundManager.Instance.GetNavMeshPosition(newPos.Value, RoundManager.Instance.navHit, 2.7f);
+                    field = RoundManager.Instance.GetNavMeshPosition(newPos.Value, RoundManager.Instance.navHit, 2.7f);
                 }
                 else
                 {
-                    _retreatPos = null;
+                    field = null;
                 }
                 updateRetreatPosTimer.Start(Const.FLEEING_UPDATE_FALLBACK_TIME);
             }
-            get => _retreatPos;
+            get;
         }
 
         /// <summary>
@@ -302,7 +301,7 @@ namespace LethalBots.AI.AIStates
                     if (!ai.AreHandsFree() && ai.HeldItem is CaveDwellerPhysicsProp)
                     {
                         // We must drop the maneater baby before we use the entrance!
-                        ai.DropItem();
+                        npcController.Npc.DiscardHeldObject();
                         return;
                     }
                     else if (Time.timeSinceLevelLoad - ai.TimeSinceTeleporting > Const.WAIT_TIME_TO_TELEPORT)
@@ -314,7 +313,7 @@ namespace LethalBots.AI.AIStates
                             if (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)
                             {
                                 EntranceTeleport entrance = targetEntrance;
-                                ref InteractTrigger interactTrigger = ref PatchesUtil.triggerScriptField.Invoke(entrance);
+                                InteractTrigger interactTrigger = entrance!.triggerScript;
                                 LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
                                 {
                                     Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
@@ -511,7 +510,7 @@ namespace LethalBots.AI.AIStates
                 CaveDwellerAI? caveDwellerAI = caveDwellerGrabbableObject.caveDwellerScript;
                 if (caveDwellerAI == null || !caveDwellerAI.babyCrying)
                 {
-                    ai.DropItem();
+                    npcController.Npc.DiscardHeldObject();
                     return;
                 }
             }
@@ -601,7 +600,7 @@ namespace LethalBots.AI.AIStates
             {
                 // If the feiopar stops moving towards us, we can assume its scared and we should assert dominance to scare it away!
                 npcController.OrderToLookAtPosition(CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f);
-                if (PatchesUtil.stalkingFrozenField(pumaAI))
+                if (pumaAI.stalkingFrozen)
                 {
                     return true;
                 }
@@ -720,7 +719,7 @@ namespace LethalBots.AI.AIStates
                 float score = 0f;
 
                 // Check the fear range
-                if (minPathDistanceToEnemy < fearRange)
+                if (minPathDistanceToEnemy < Const.DISTANCE_FLEEING_PATH_AVOIDANCE * Const.DISTANCE_FLEEING_PATH_AVOIDANCE) // Was fearRange, but was changed to a const number since it caused the bot to mark safe paths as dangerous.
                 {
                     score -= 100f; // Not good, really dislike this node!
 

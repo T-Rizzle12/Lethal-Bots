@@ -103,16 +103,16 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
-            Plugin.LogDebug($"{npcController.Npc.playerUsername} distance to last position {Vector3.Distance(targetLastKnownPosition.Value, npcController.Npc.transform.position)}");
             // If the bot is close enough to the last known position
+            Plugin.LogDebug($"{npcController.Npc.playerUsername} distance to last position {Vector3.Distance(targetLastKnownPosition.Value, npcController.Npc.transform.position)}");
             float sqrDistanceToTargetLastKnownPosition = (targetLastKnownPosition.Value - npcController.Npc.transform.position).sqrMagnitude;
             if (sqrDistanceToTargetLastKnownPosition < Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {
                 // Check for teleport entrance
-                if (!ai.AreHandsFree() && ai.HeldItem is CaveDwellerPhysicsProp)
+                if (ai.HeldItem is CaveDwellerPhysicsProp)
                 {
                     // We must drop the maneater baby before we use the entrance!
-                    ai.DropItem();
+                    npcController.Npc.DiscardHeldObject();
                     return;
                 }
                 else if (Time.timeSinceLevelLoad - ai.TimeSinceTeleporting > Const.WAIT_TIME_TO_TELEPORT)
@@ -124,7 +124,7 @@ namespace LethalBots.AI.AIStates
                         ai.StopMoving();
                         if (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)
                         {
-                            ref InteractTrigger interactTrigger = ref PatchesUtil.triggerScriptField.Invoke(entrance!);
+                            InteractTrigger interactTrigger = entrance!.triggerScript;
                             LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
                             {
                                 Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
@@ -178,10 +178,9 @@ namespace LethalBots.AI.AIStates
                 // If we are going to use the elevator to go up,
                 // we must drop the baby maneater before using the elevator
                 if (usingElevator
-                && !ai.AreHandsFree()
                 && ai.HeldItem is CaveDwellerPhysicsProp)
                 {
-                    ai.DropItem();
+                    npcController.Npc.DiscardHeldObject();
                 }
             }
             else if (!isPositionNearEntrance && ai.IsInElevatorStartRoom)

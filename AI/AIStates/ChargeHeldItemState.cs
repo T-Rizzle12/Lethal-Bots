@@ -1,5 +1,6 @@
 ﻿using LethalBots.Constants;
 using LethalBots.Enums;
+using LethalBots.Managers;
 using System;
 
 namespace LethalBots.AI.AIStates
@@ -75,7 +76,7 @@ namespace LethalBots.AI.AIStates
                     if (heldItem != null && heldItem.itemProperties.twoHanded)
                     {
                         // We are holding an two handed item, we should drop it!
-                        ai.DropItem();
+                        npcController.Npc.DiscardHeldObject();
                         LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
                         return;
                     }
@@ -93,8 +94,7 @@ namespace LethalBots.AI.AIStates
                     || this.itemToCharge.insertedBattery.charge < 0.9f))
             {
                 // We should charge the item if we can!
-                ItemCharger itemCharger = UnityEngine.Object.FindObjectOfType<ItemCharger>();
-                if (itemCharger != null)
+                if (SingletonManager.ItemCharger.TryGet(out ItemCharger? itemCharger))
                 {
                     InteractTrigger itemChargerTrigger = itemCharger.triggerScript;
                     if (itemChargerTrigger != null)

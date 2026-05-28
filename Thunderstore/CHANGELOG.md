@@ -1,5 +1,51 @@
 # Changelog
 
+## 8.0.0 2026-5-27
+Ever since I added support for V80, the mod got a lot slower due to some of the new logic I had to add. It also didn't help the some of the code was pretty unoptimized and made redundant or expensive calls too often. I dedicated this update to improve and **optimize** a ton of stuff. As usual, I made some bug fixes and added a few easy to add requests!
+
+## Optimizations
+This is the main focus point for the update. Most of the stuff is under the hood changed, but even I noticed considerable performance improvements. I was testing this update with around 7 bots, so 8 players in total, and never really had a moment where the game would lag considerably. There is probably still more I could optimize, but I think I got the main gist of it!
+- Refactor singleton access with SingletonManager
+  - Replaced scattered Object.FindObjectOfType<T>() and custom static singleton logic with a generic Singleton<T> helper used by the SingletonManager.
+  - Updated all Singleton usage to the new pattern and removed redundant fields based on the old system.
+- Optimized a bunch of distance checks by using squared magnitude instead of Vector3.Distance.
+- Removed obsolete config/network structs
+
+Tkronix in the Lethal Company Modding Discord server showed me that I could force publicize the base game fields and functions. This means I no longer have to do reflection, which was also causing some optimization issues.
+- Replaced most reflection and Harmony reverse patches with direct field/property/method access using BepInEx.AssemblyPublicizer.
+
+## Bot Item Grab and Drop System Rework
+Bots used to use an entire custom item pickup and drop system. This made the bots not compatable with mods that ran their logic on player item pickup or drop. For example: BetterEXP by Swaggies would fail to detect when a bot picks up scrap. Bots will now call base game item pickup and drop methods, improving compatibility with other mods!
+- Added transpilers for PlayerControllerB item drop/despawn to skip HUD updates for bots. Bots now use the same item pickup and drop code as human players.
+  - Also refactored LethalBotAI.HeldItem to rely on the Player Controller's currentlyHeldObjectServer field.
+  - Replaced custom DropItem logic with PlayerControllerB.DiscardHeldObject and related base game methods for bots.
+  - Added new GrabObject and CanGrabObject methods to LethalBotAI, mirroring player item pickup checks and animation.
+  - Updated Harmony patches and transpilers to redirect or skip HUDManager logic for bots.
+  - Removed custom RPCs and networking for item drops, relying mostly on the base game's implementation.
+
+## AI Improvements
+Yep, I made some more improvements to the bots AI and even fixed a bug with the Coil Heads.......again. Besides that, there are some amazing improvements I think all of you are going to love!
+- Added "route" chat command so players can tell bots to route to specified moons.
+- Introduced ShowBillboardStateIndicator config option. This is for the people who like the Debug state indicators for the bots.
+- Refactored timerCheckLockedDoor to use CountdownTimer.
+- Added LethalBotAI.IsUsingTerminal, so I can check if the bot is using the terminal for players who don't have network ownership over the bot.
+- Added LeaveTerminalRpc, so players who don't have network ownership over bots can get the bot off of the terminal.
+- Telling a bot to follow you while they are on the terminal, will now get them to automatically leave said terminal. Closes #116
+- Updated threat logic for Earth Leviathans and Blobs to use dynamic distances. Bots are no longer afraid of tamed Blobs and bots are smarter about the Earth Leviathan.
+- Updated enemy fear levels, especially for the Coil Head and Giant Sapsucker using new monitoring logic. Also, bots are not longer afraid of Coil Heads if they haven't moved for more than 8 seconds.
+- Removed DisableNameBillBoards config option. I let the base game handle the billboard rendering now.
+
+## Custom OffMeshLink Movement
+You may ask, what is OffMeshLink Movement. Its the movement you see the bots do when going up ladders and jumping gaps as an example. Right now, I changed it for Ladders. Yes, bots will now properly climb up and climb down ladders. There may be some edge cases where they fly up them, but at the moment, it works perfectly.
+- Refactored OffMeshLink and ladder movement. Yay, bots now use ladders.
+
+## Bug Fixes & Misc Changes
+Last but not least, the bug fixes. There was a few logic errors that I fixed and I also fixed a rare edge case where the bots chat commands could fail to register if you had too many custom moons installed.
+- Added some null checks and remove outdated code
+- Added some null checks to loops and removed some unused code
+- Added another null check to LethalBotAI.IsInsideElevator
+- Added a ton of null checks........ok, yeah, I added a bunch of null checks and cleaned up the code.
+
 ## 7.1.0 2026-5-16
 Back again with another update. I would have added more support for other mods, but the bug list was starting to pile up and I needed to release the fixes I have been sitting on. Anyhow, lets get on with the update.
 

@@ -55,46 +55,12 @@ namespace LethalBots.AI.AIStates
         private Coroutine? restockShip;
         private Coroutine? orbitLogic;
         private float leavePlanetTimer;
+        private string? moonToRouteTo = null;
         private static Dictionary<Turret, TerminalAccessibleObject> turrets = new Dictionary<Turret, TerminalAccessibleObject>();
         private static Dictionary<Landmine, TerminalAccessibleObject> landmines = new Dictionary<Landmine, TerminalAccessibleObject>();
         private static Dictionary<SpikeRoofTrap, TerminalAccessibleObject> spikeRoofTraps = new Dictionary<SpikeRoofTrap, TerminalAccessibleObject>();
         private Dictionary<string, float> calledOutEnemies = new Dictionary<string, float>(); // Should this be an enemy name rather than the AI itself?
         private PriorityQueue<string> messageQueue = new PriorityQueue<string>();
-        private static readonly AccessTools.FieldRef<TerminalAccessibleObject, bool> isDoorOpen = AccessTools.FieldRefAccess<bool>(typeof(TerminalAccessibleObject), "isDoorOpen");
-        private static readonly AccessTools.FieldRef<TerminalAccessibleObject, bool> inCooldown = AccessTools.FieldRefAccess<bool>(typeof(TerminalAccessibleObject), "inCooldown");
-        private static ShipTeleporter? ShipTeleporter
-        {
-            get
-            {
-                if (field == null)
-                {
-                    field = LethalBotAI.FindTeleporter();
-                }
-                return field;
-            }
-        }
-        internal static SignalTranslator? SignalTranslator
-        {
-            get
-            {
-                if (field == null)
-                {
-                    field = UnityEngine.Object.FindObjectOfType<SignalTranslator>();
-                }
-                return field;
-            }
-        }
-        private static ShipAlarmCord? ShipHorn
-        {
-            get
-            {
-                if (field == null)
-                {
-                    field = UnityEngine.Object.FindObjectOfType<ShipAlarmCord>();
-                }
-                return field;
-            }
-        }
 
         public MissionControlState(AIState oldState) : base(oldState)
         {
@@ -256,14 +222,15 @@ namespace LethalBots.AI.AIStates
             }
 
             // Bot drop item
-            if (!ai.AreHandsFree() 
-                && FindObject(ai.HeldItem))
+            GrabbableObject? heldItem = ai.HeldItem;
+            if (heldItem != null 
+                && FindObject(heldItem))
             {
                 if (GetOffTerminal())
                 {
                     return;
                 }
-                ai.DropItem();
+                npcController.Npc.DiscardHeldObject();
                 return;
             }
             // If we still have stuff in our inventory,
@@ -325,8 +292,7 @@ namespace LethalBots.AI.AIStates
                         if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
                             && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
-                            StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
-                            if (startMatchLever != null)
+                            if (SingletonManager.StartMatchLevel.TryGet(out StartMatchLever? startMatchLever))
                             {
                                 ai.PullShipLever(startMatchLever);
                                 playerRequestLeave = false;
@@ -365,8 +331,7 @@ namespace LethalBots.AI.AIStates
                         if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
                             && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
-                            StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
-                            if (startMatchLever != null)
+                            if (SingletonManager.StartMatchLevel.TryGet(out StartMatchLever? startMatchLever))
                             {
                                 ai.PullShipLever(startMatchLever);
                                 playerRequestLeave = false;
@@ -495,7 +460,7 @@ namespace LethalBots.AI.AIStates
                     return;
                 }
                 // Check if we are holding the walkie-talkie, if not we should switch to it!
-                else if (walkieTalkie != null && ai.HeldItem != walkieTalkie)
+                else if (walkieTalkie != null && heldItem != walkieTalkie)
                 {
                     // We should switch to the walkie-talkie if we can!
                     ai.SwitchItemSlotsAndSync(walkieSlot);
@@ -504,7 +469,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // If we are not at the ship or terminal, we should move there now!
-            ref InteractTrigger terminalTrigger = ref PatchesUtil.terminalTriggerField.Invoke(ourTerminal);
+            InteractTrigger terminalTrigger = ourTerminal.terminalTrigger;
             float sqrDistFromTerminal = (terminalTrigger.playerPositionNode.position - npcController.Npc.transform.position).sqrMagnitude;
             if (sqrDistFromTerminal > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {
@@ -615,7 +580,7 @@ namespace LethalBots.AI.AIStates
                     {
                         monitorCrew = ai.StartCoroutine(MissionSurveillanceRoutine());
                     }
-                    if (useSignalTranslator == null && SignalTranslator != null)
+                    if (useSignalTranslator == null && SingletonManager.SignalTranslator.IsValid())
                     {
                         useSignalTranslator = ai.StartCoroutine(UseSignalTranslator());
                     }
@@ -656,9 +621,10 @@ namespace LethalBots.AI.AIStates
                 targetPlayerUpdated = true;
 
                 // Get the next queued message!
+                SignalTranslator? signalTranslator = SingletonManager.SignalTranslator.Instance;
                 if (HasMessageToSend() 
-                    && SignalTranslator != null 
-                    && Time.realtimeSinceStartup - SignalTranslator.timeLastUsingSignalTranslator >= 8f)
+                    && signalTranslator != null 
+                    && Time.realtimeSinceStartup - signalTranslator.timeLastUsingSignalTranslator >= 8f)
                 {
                     // Make sure the message is vaild
                     string messageToSend = GetNextMessageToSend();
@@ -761,16 +727,16 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         private IEnumerator TryTeleportPlayer(bool isDeadBody = false, bool skipPostCheck = false)
         {
-            if (ShipTeleporter != null && (!isDeadBody || ShipTeleporter.buttonTrigger.interactable))
+            if (SingletonManager.ShipTeleporter.TryGet(out ShipTeleporter? shipTeleporter) && (!isDeadBody || shipTeleporter.buttonTrigger.interactable))
             {
                 // Make sure we lift the glass first
-                if (ShipTeleporter.buttonAnimator.GetBool("GlassOpen") == false)
+                if (shipTeleporter.buttonAnimator.GetBool("GlassOpen") == false)
                 {
-                    ShipTeleporter.buttonAnimator.SetBool("GlassOpen", value: true);
+                    shipTeleporter.buttonAnimator.SetBool("GlassOpen", value: true);
                     yield return new WaitForSeconds(0.5f); // Wait for the glass to open
                 }
                 // HACKHACK: Fake pressing the button!
-                yield return new WaitUntil(() => ShipTeleporter.buttonTrigger.interactable);
+                yield return new WaitUntil(() => shipTeleporter.buttonTrigger.interactable);
                 yield return null; // Just in case the WaitUntil was already true;
 
                 // Make sure that in the period we were waiting to teleport the player or body
@@ -791,7 +757,7 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // FIXME: We need to hop off the terminal in order to push the teleport button!
-                ShipTeleporter.PressTeleportButtonOnLocalClient();
+                shipTeleporter.PressTeleportButtonOnLocalClient();
                 //ShipTeleporter.buttonTrigger.Interact(npcController.Npc.thisPlayerBody);
             }
         }
@@ -904,7 +870,7 @@ namespace LethalBots.AI.AIStates
             while (ai.State != null
                 && ai.State == this
                 && npcController.Npc.inTerminalMenu 
-                && SignalTranslator != null)
+                && SingletonManager.SignalTranslator.IsValid())
             {
                 // NOTE: Unlike MonitorCrew we don't update the targetedPlayer variable!
                 float startTime = Time.timeSinceLevelLoad;
@@ -931,6 +897,8 @@ namespace LethalBots.AI.AIStates
                 for (int i = 0; i < instanceRM.SpawnedEnemies.Count; i++)
                 {
                     EnemyAI spawnedEnemy = instanceRM.SpawnedEnemies[i];
+                    if (spawnedEnemy == null) continue;
+
                     string enemyName = GetEnemyName(spawnedEnemy);
                     if (!spawnedEnemy.isEnemyDead && (!calledOutEnemies.TryGetValue(enemyName, out var lastCalledTime) || Time.timeSinceLevelLoad - lastCalledTime > Const.TIMER_NEXT_ENEMY_CALL))
                     {
@@ -1057,7 +1025,7 @@ namespace LethalBots.AI.AIStates
                     }
 
                     // Check how much is already ordered.
-                    int totalOwned = GetPendingOrderCount(item, ourTerminal, CollectPurchasedItemsState.ItemDropship) + GetNumberOfItemAlreadyOwned(item);
+                    int totalOwned = GetPendingOrderCount(item, ourTerminal, SingletonManager.ItemDropship) + GetNumberOfItemAlreadyOwned(item);
 
                     // Make the purchase as needed.
                     int numToPurchase = requiredStock - totalOwned;
@@ -1223,7 +1191,7 @@ namespace LethalBots.AI.AIStates
             // Consider what is currently in the dropship as well
             if (itemDropship != null)
             {
-                foreach (int index in PatchesUtil.itemsToDeliverField.Invoke(itemDropship))
+                foreach (int index in itemDropship.itemsToDeliver)
                 {
                     if (index == itemIndex)
                         numOrdered++;
@@ -1303,16 +1271,25 @@ namespace LethalBots.AI.AIStates
             {
                 yield return new WaitForSeconds(1f); // One second cooldown on this!
 
+                // Check if we should route to the company building
                 if (Plugin.Config.AutoRouteToCompany.Value)
                 {
                     TimeOfDay instanceTOD = TimeOfDay.Instance;
                     if (instanceTOD != null
                         && instanceTOD.daysUntilDeadline <= 0
+                        && !HUDManager.Instance.displayingNewQuota // Make sure we don't reroute back to the company if we just finished this quota
                         && StartOfRound.Instance.currentLevel.planetHasTime // So bots don't auto route if on a "company building" like moon
                         && !LethalBotManager.AreWeAtTheCompanyBuilding(checkOrbit: false))
                     {
                         yield return RouteToMoon(TerminalConst.STRING_COMPANY_BUILDING);
                     }
+                }
+
+                // We were asked to route to a moon, lets do so now!
+                if (!string.IsNullOrWhiteSpace(moonToRouteTo))
+                {
+                    yield return RouteToMoon(moonToRouteTo);
+                    moonToRouteTo = null; // Clear this flag!
                 }
 
                 // Give the map a chance to update!
@@ -1321,9 +1298,10 @@ namespace LethalBots.AI.AIStates
                 targetPlayerUpdated = true;
 
                 // Get the next queued message!
+                SignalTranslator? signalTranslator = SingletonManager.SignalTranslator.Instance;
                 if (HasMessageToSend()
-                    && SignalTranslator != null
-                    && Time.realtimeSinceStartup - SignalTranslator.timeLastUsingSignalTranslator >= 8f)
+                    && signalTranslator != null
+                    && Time.realtimeSinceStartup - signalTranslator.timeLastUsingSignalTranslator >= 8f)
                 {
                     // Make sure the message is vaild
                     string messageToSend = GetNextMessageToSend();
@@ -1588,6 +1566,7 @@ namespace LethalBots.AI.AIStates
         {
             if (orbitLogic != null)
             {
+                moonToRouteTo = null; // Clear this!
                 ai.StopCoroutine(orbitLogic);
                 orbitLogic = null;
             }
@@ -1796,7 +1775,7 @@ namespace LethalBots.AI.AIStates
                         || (turret.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                     {
                         TerminalAccessibleObject accessibleObject = turretInfo.Value;
-                        if (accessibleObject != null && !inCooldown.Invoke(accessibleObject))
+                        if (accessibleObject != null && !accessibleObject.inCooldown)
                         { 
                             objectsToUse.Add(accessibleObject); 
                         }
@@ -1815,7 +1794,7 @@ namespace LethalBots.AI.AIStates
                     if ((landmine.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                     {
                         TerminalAccessibleObject accessibleObject = landmineInfo.Value;
-                        if (accessibleObject != null && !inCooldown.Invoke(accessibleObject))
+                        if (accessibleObject != null && !accessibleObject.inCooldown)
                         {
                             objectsToUse.Add(accessibleObject);
                         }
@@ -1834,7 +1813,7 @@ namespace LethalBots.AI.AIStates
                     if ((spikeRoofTrap.spikeTrapAudio.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                     {
                         TerminalAccessibleObject accessibleObject = spikeRoofTrapInfo.Value;
-                        if (accessibleObject != null && !inCooldown.Invoke(accessibleObject))
+                        if (accessibleObject != null && !accessibleObject.inCooldown)
                         {
                             objectsToUse.Add(accessibleObject);
                         }
@@ -1854,8 +1833,8 @@ namespace LethalBots.AI.AIStates
                 if (accessibleObject != null 
                     && accessibleObject.isBigDoor 
                     && !objectsToUse.Contains(accessibleObject)
-                    && !inCooldown.Invoke(accessibleObject)
-                    && !isDoorOpen.Invoke(accessibleObject))
+                    && !accessibleObject.inCooldown
+                    && !accessibleObject.isDoorOpen)
                 {
                     objectsToUse.Add(accessibleObject);
                 }
@@ -1920,7 +1899,6 @@ namespace LethalBots.AI.AIStates
             if (ai.HasGrabbableObjectInInventory(FindWalkieHelper, out int walkieSlot))
             {
                 // Check for the reserved equipment slot
-                // TODO: Add helper function to get grabbable object from inventory slot index, since this is used in multiple places now!
                 this.walkieTalkie = ai.GetItemAtSlot(walkieSlot) as WalkieTalkie;
 
                 // Make sure its valid!
@@ -1953,7 +1931,6 @@ namespace LethalBots.AI.AIStates
             if (ai.HasGrabbableObjectInInventory(FindWeaponHelper, out int weaponSlot))
             {
                 // Check for the reserved equipment slot
-                // TODO: Add helper function to get grabbable object from inventory slot index, since this is used in multiple places now!
                 this.weapon = ai.GetItemAtSlot(weaponSlot);
 
                 // Make sure its valid!
@@ -2074,7 +2051,8 @@ namespace LethalBots.AI.AIStates
             foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
             {
                 // Only check for alive and invading enemies!
-                if (spawnedEnemy.isEnemyDead 
+                if (spawnedEnemy == null
+                    || spawnedEnemy.isEnemyDead 
                     || (onlyKillable && !ai.CanEnemyBeKilled(spawnedEnemy, true)))
                 {
                     continue;
@@ -2206,7 +2184,7 @@ namespace LethalBots.AI.AIStates
             ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.REQUEST_TELEPORT_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
                 // Make sure we have a teleporter
-                if (ShipTeleporter == null)
+                if (!SingletonManager.ShipTeleporter.IsValid())
                 {
                     // Remind the player on their poor decision to not buy a teleporter.......
                     lethalBotAI.SendChatMessage("What do you mean, \"TELEPORT ME\"! We don't own a teleporter!");
@@ -2251,6 +2229,29 @@ namespace LethalBots.AI.AIStates
                 missionControlState.SendMessageUsingSignalTranslator(messageToTransmit, QueuePriority.High);
                 return true;
             }));
+
+            // A player is asking us to route to the specified moon
+            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.ROUTE_MOON_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            {
+                // First, make sure we are in orbit
+                if (!LethalBotManager.AreWeInOrbit())
+                {
+                    lethalBotAI.SendChatMessage($"I can't route to a moon unless we are in orbit.");
+                    return true;
+                }
+
+                // Next, we need to extract the message!
+                // FIXME: There has to be a better way to do this!
+                MissionControlState missionControlState = (MissionControlState)state; // We have bigger problems if this cast fails!
+                int routeIndex = message.IndexOf(Const.ROUTE_MOON_COMMAND) + Const.ROUTE_MOON_KEYWORD_LENGTH;
+                string moonToRouteTo = message.Substring(routeIndex).Trim();
+                lethalBotAI.SendChatMessage($"Alright, I will try to route to {moonToRouteTo}.");
+
+                // Queue what moon we were asked to route to.
+                missionControlState.moonToRouteTo = moonToRouteTo;
+                return true;
+            }
+            ));
         }
 
         /// <inheritdoc cref="AIState.RegisterSignalTranslatorCommands"/>
@@ -2330,6 +2331,7 @@ namespace LethalBots.AI.AIStates
             if (npcController.Npc.inTerminalMenu)
             {
                 StopAllCoroutines();
+                moonToRouteTo = null;
                 ai.LeaveTerminal();
                 return true;
             }

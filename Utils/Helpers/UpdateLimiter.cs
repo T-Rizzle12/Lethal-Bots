@@ -18,7 +18,7 @@ namespace LethalBots.Utils.Helpers
         /// Helper function that retrieves the <see cref="UpdateLimiter"/>
         /// for the given <see cref="EnemyAI"/>
         /// </summary>
-        /// <param name="ai"></param>
+        /// <param name="ai">The enemy AI instance to monitor</param>
         /// <param name="updateInterval">The amount of time that should pass between calls to the patch</param>
         /// <returns>The <see cref="UpdateLimiter"/> associated with the given <see cref="EnemyAI"/></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -37,7 +37,7 @@ namespace LethalBots.Utils.Helpers
             nextUpdateList.Remove(ai);
         }
 
-        // Memeber variables
+        // Member variables
         private readonly CountdownTimer nextUpdateTimer = new CountdownTimer();
         private float updateInterval;
 

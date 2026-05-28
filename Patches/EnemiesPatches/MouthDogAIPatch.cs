@@ -22,12 +22,7 @@ namespace LethalBots.Patches.EnemiesPatches
         [HarmonyPrefix]
         static bool OnCollideWithEnemy_PreFix(Collider other, EnemyAI collidedEnemy)
         {
-            if (collidedEnemy == null)
-            {
-                return true;
-            }
-
-            if (LethalBotManager.Instance.IsAILethalBotAi(collidedEnemy))
+            if (collidedEnemy is LethalBotAI)
             {
                 return false;
             }

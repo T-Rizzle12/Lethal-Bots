@@ -274,6 +274,8 @@ namespace LethalBots.AI.AIStates
                         bool areWeNearbyEntrance = false;
                         foreach (EntranceTeleport entrance in LethalBotAI.EntrancesTeleportArray)
                         {
+                            if (entrance == null) continue;
+
                             if (entrance.isEntranceToBuilding 
                                 && (entrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE)
                             {
@@ -291,7 +293,7 @@ namespace LethalBots.AI.AIStates
                             GrabbableObject? heldItem = ai.HeldItem;
                             if (heldItem != null && FindObject(heldItem))
                             {
-                                ai.DropItem();
+                                npcController.Npc.DiscardHeldObject();
                                 LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
                                 shouldWalkLootToShip = false;
                             }
@@ -366,7 +368,7 @@ namespace LethalBots.AI.AIStates
                         }
                         if (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)
                         {
-                            ref InteractTrigger interactTrigger = ref PatchesUtil.triggerScriptField.Invoke(entrance);
+                            InteractTrigger interactTrigger = entrance!.triggerScript;
                             LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
                             {
                                 Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
@@ -484,15 +486,6 @@ namespace LethalBots.AI.AIStates
                 IsLethalBotInside = npcController.Npc.isInsideFactory,
                 AllowSwearing = Plugin.Config.AllowSwearing.Value
             });
-        }
-
-        /// <summary>
-        /// Simple function that checks if the give <paramref name="item"/> is scrap.
-        /// </summary>
-        /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
-        protected override bool FindObject(GrabbableObject item)
-        {
-            return LethalBotAI.IsItemScrap(item) && (!ai.IsGrabbableObjectInLoadout(item) || ai.HasDuplicateLoadoutItems(item, out _)); // Found a scrap item, great, we want to drop it!
         }
 
         /// <remarks>

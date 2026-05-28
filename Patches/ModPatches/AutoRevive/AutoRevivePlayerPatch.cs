@@ -66,7 +66,7 @@ namespace LethalBots.Patches.ModPatches.AutoRevive
                                                                 ShouldDestroyDeadBody = true,
                                                                 ResetBodyBlood = true,
                                                                 enumSpawnAnimation = EnumSpawnAnimation.OnlyPlayerSpawnAnimation,
-                                                                SpawnPosition = StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, playerClientId, simpleTeleport: false),
+                                                                SpawnPosition = StartOfRound.Instance.GetPlayerSpawnPosition(playerClientId, simpleTeleport: false),
                                                                 YRot = 0,
                                                                 IsOutside = true,
                                                                 IndexNextPlayerObject = playerClientId

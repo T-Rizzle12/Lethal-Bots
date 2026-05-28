@@ -108,7 +108,7 @@ namespace LethalBots.Patches.EnemiesPatches
             }
         }
 
-        private class GiantKiwiPlayerMonitor
+        private sealed class GiantKiwiPlayerMonitor
         {
             public Dictionary<LethalBotAI, float> lethalBotAIs = new Dictionary<LethalBotAI, float>();
 

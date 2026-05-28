@@ -23,32 +23,34 @@ namespace LethalBots.Patches.GameEnginePatches
         {
             SaveManager.Instance.SavePluginInfos();
 
+            #if DEBUG
             // DISABLE-ANTI-SAVESCUM CODE!
             // This is for TESTING purposes only. I have to save and reload files A TON.
-            //if (!StartOfRound.Instance.inShipPhase)
-            //{
-            //    if (StartOfRound.Instance.connectedPlayersAmount <= 0)
-            //    {
-            //        return;
-            //    }
-            //    StartOfRound startOfRound = UnityEngine.Object.FindObjectOfType<StartOfRound>();
-            //    UnityEngine.Object.FindObjectOfType<MoldSpreadManager>();
-            //    int num = ES3.Load($"Level{startOfRound.currentLevel.levelID}TimesSavescumming", __instance.currentSaveFileName, 0);
-            //    ES3.Save($"Level{StartOfRound.Instance.currentLevel.levelID}TimesSavescumming", 0, __instance.currentSaveFileName); // SET THE DAMN THING BACK TO 0!
-            //    if (startOfRound != null && num >= 4 && StartOfRound.Instance.currentLevel.canSpawnMold)
-            //    {
-            //        if (startOfRound.currentLevel.moldSpreadIterations > 0 && startOfRound.currentLevel.moldSpreadIterations <= 5)
-            //        {
-            //            startOfRound.currentLevel.moldSpreadIterations -= 5;
-            //        }
-            //        else
-            //        {
-            //            startOfRound.currentLevel.moldSpreadIterations--;
-            //        }
-            //        ES3.Save($"Level{startOfRound.currentLevel.levelID}Mold", startOfRound.currentLevel.moldSpreadIterations, __instance.currentSaveFileName);
-            //        ES3.Save($"Level{startOfRound.currentLevel.levelID}MoldOrigin", startOfRound.currentLevel.moldStartPosition, __instance.currentSaveFileName);
-            //    }
-            //}
+            if (!StartOfRound.Instance.inShipPhase)
+            {
+                if (StartOfRound.Instance.connectedPlayersAmount <= 0)
+                {
+                    return;
+                }
+                StartOfRound startOfRound = UnityEngine.Object.FindObjectOfType<StartOfRound>();
+                UnityEngine.Object.FindObjectOfType<MoldSpreadManager>();
+                int num = ES3.Load($"Level{startOfRound.currentLevel.levelID}TimesSavescumming", __instance.currentSaveFileName, 0);
+                ES3.Save($"Level{StartOfRound.Instance.currentLevel.levelID}TimesSavescumming", 0, __instance.currentSaveFileName); // SET THE DAMN THING BACK TO 0!
+                if (startOfRound != null && num >= 4 && StartOfRound.Instance.currentLevel.canSpawnMold)
+                {
+                    if (startOfRound.currentLevel.moldSpreadIterations > 0 && startOfRound.currentLevel.moldSpreadIterations <= 5)
+                    {
+                        startOfRound.currentLevel.moldSpreadIterations -= 5;
+                    }
+                    else
+                    {
+                        startOfRound.currentLevel.moldSpreadIterations--;
+                    }
+                    ES3.Save($"Level{startOfRound.currentLevel.levelID}Mold", startOfRound.currentLevel.moldSpreadIterations, __instance.currentSaveFileName);
+                    ES3.Save($"Level{startOfRound.currentLevel.levelID}MoldOrigin", startOfRound.currentLevel.moldStartPosition, __instance.currentSaveFileName);
+                }
+            }
+            #endif
         }
 
         /// <summary>
@@ -81,7 +83,7 @@ namespace LethalBots.Patches.GameEnginePatches
                 }
 
                 Terminal terminal = TerminalManager.Instance.GetTerminal();
-                InteractTrigger terminalInteractTrigger = PatchesUtil.terminalTriggerField.Invoke(terminal);
+                InteractTrigger terminalInteractTrigger = terminal.terminalTrigger;
                 foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotAIs())
                 {
                     // Check to see if the bot is owned by the disconnecting client

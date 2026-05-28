@@ -6,46 +6,17 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace LethalBots.Utils
 {
     internal static class PatchesUtil
     {
-        public static readonly FieldInfo FieldInfoWasUnderwaterLastFrame = AccessTools.Field(typeof(PlayerControllerB), "wasUnderwaterLastFrame");
-        public static readonly FieldInfo FieldInfoPlayerClientId = AccessTools.Field(typeof(PlayerControllerB), "playerClientId");
-        public static readonly FieldInfo FieldInfoPreviousAnimationStateHash = AccessTools.Field(typeof(PlayerControllerB), "previousAnimationStateHash");
-        public static readonly FieldInfo FieldInfoCurrentAnimationStateHash = AccessTools.Field(typeof(PlayerControllerB), "currentAnimationStateHash");
         public static readonly FieldInfo FieldInfoTargetPlayer = AccessTools.Field(typeof(EnemyAI), "targetPlayer");
         public static readonly FieldInfo FieldInfoDraggingPlayer = AccessTools.Field(typeof(BushWolfEnemy), "draggingPlayer");
 
-        #region AccessTools FieldRefs
-
-        public static readonly AccessTools.FieldRef<Terminal, bool> usedTerminalThisSessionField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "usedTerminalThisSession");
-        public static readonly AccessTools.FieldRef<Terminal, bool> syncedTerminalValuesField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "syncedTerminalValues");
-        public static readonly AccessTools.FieldRef<Terminal, int> totalCostOfItemsField = AccessTools.FieldRefAccess<int>(typeof(Terminal), "totalCostOfItems");
-        public static readonly AccessTools.FieldRef<Terminal, bool> broadcastedCodeThisFrameField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "broadcastedCodeThisFrame");
-        public static readonly AccessTools.FieldRef<Terminal, bool> hasGottenNounField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "hasGottenNoun");
-        public static readonly AccessTools.FieldRef<Terminal, bool> hasGottenVerbField = AccessTools.FieldRefAccess<bool>(typeof(Terminal), "hasGottenVerb");
-        public static readonly AccessTools.FieldRef<Terminal, InteractTrigger> terminalTriggerField = AccessTools.FieldRefAccess<InteractTrigger>(typeof(Terminal), "terminalTrigger");
-
-        public static readonly AccessTools.FieldRef<ItemDropship, List<int>> itemsToDeliverField = AccessTools.FieldRefAccess<List<int>>(typeof(ItemDropship), "itemsToDeliver");
-
-        public static readonly AccessTools.FieldRef<PlayerControllerB, Vector3> positionOfDeathField = AccessTools.FieldRefAccess<Vector3>(typeof(PlayerControllerB), "positionOfDeath");
-        public static readonly AccessTools.FieldRef<PlayerControllerB, float> timeSinceSwitchingSlotsField = AccessTools.FieldRefAccess<float>(typeof(PlayerControllerB), "timeSinceSwitchingSlots");
-        public static readonly AccessTools.FieldRef<PlayerControllerB, float> slimeSlipAudioVolumeSyncField = AccessTools.FieldRefAccess<float>(typeof(PlayerControllerB), "slimeSlipAudioVolumeSync");
-        public static readonly AccessTools.FieldRef<EntranceTeleport, InteractTrigger> triggerScriptField = AccessTools.FieldRefAccess<InteractTrigger>(typeof(EntranceTeleport), "triggerScript");
-
-        public static readonly AccessTools.FieldRef<PumaAI, bool> stalkingFrozenField = AccessTools.FieldRefAccess<bool>(typeof(PumaAI), "stalkingFrozen");
-
-        public static readonly AccessTools.FieldRef<SpringManAI, float> stopMovementTimerField = AccessTools.FieldRefAccess<float>(typeof(SpringManAI), "stopMovementTimer");
-
-        #endregion
-
         #region Method Infos
-
-        public static readonly MethodInfo PlayerLoadedServerRpcMethod = AccessTools.Method(typeof(StartOfRound), "PlayerLoadedServerRpc");
-        public static readonly MethodInfo KillPlayerServerRpcMethod = AccessTools.Method(typeof(PlayerControllerB), "KillPlayerServerRpc");
 
         public static readonly MethodInfo AllEntitiesCountMethod = SymbolExtensions.GetMethodInfo(() => AllEntitiesCount());
         public static readonly MethodInfo AllRealPlayersCountMethod = SymbolExtensions.GetMethodInfo(() => AllRealPlayersCount());

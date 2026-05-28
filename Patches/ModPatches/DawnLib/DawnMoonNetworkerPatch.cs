@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Text;
 using Unity.Netcode;
 using UnityEngine;
+using static Unity.Netcode.NetworkBehaviour;
 
 namespace LethalBots.Patches.ModPatches.DawnLib
 {

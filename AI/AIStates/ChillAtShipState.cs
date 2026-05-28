@@ -85,7 +85,7 @@ namespace LethalBots.AI.AIStates
                     && FindObject(ai.HeldItem))
                 {
                     if (!ai.TurnOffHeldItem())
-                        ai.DropItem();
+                        npcController.Npc.DiscardHeldObject();
                     canInverseTeleport = false;
                 }
                 // If we still have stuff in our inventory,
@@ -304,8 +304,7 @@ namespace LethalBots.AI.AIStates
                         if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
                             && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
-                            StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
-                            if (startMatchLever != null)
+                            if (SingletonManager.StartMatchLevel.TryGet(out StartMatchLever? startMatchLever))
                             {
                                 ai.PullShipLever(startMatchLever);
                             }
@@ -359,8 +358,7 @@ namespace LethalBots.AI.AIStates
                         if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
                             && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
-                            StartMatchLever startMatchLever = UnityEngine.Object.FindObjectOfType<StartMatchLever>();
-                            if (startMatchLever != null)
+                            if (SingletonManager.StartMatchLevel.TryGet(out StartMatchLever? startMatchLever))
                             {
                                 ai.PullShipLever(startMatchLever);
                             }

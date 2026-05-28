@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using static Unity.Netcode.NetworkBehaviour;
 using Object = UnityEngine.Object;
 
 namespace LethalBots.Patches.GameEnginePatches
@@ -25,20 +26,6 @@ namespace LethalBots.Patches.GameEnginePatches
     [HarmonyAfter(Const.BETTER_EXP_GUID)]
     public class HUDManagerPatch
     {
-        #region Reverse patches
-
-        [HarmonyPatch("DisplayGlobalNotification")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static void DisplayGlobalNotification_ReversePatch(object instance, string displayText) => throw new NotImplementedException("Stub LethalBot.Patches.GameEnginePatches.HUDManagerPatch.DisplayGlobalNotification_ReversePatch");
-
-        [HarmonyPatch("AddPlayerChatMessageServerRpc")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static void AddPlayerChatMessageServerRpc_ReversePatch(object instance, string chatMessage, int playerId) => throw new NotImplementedException("Stub LethalBot.Patches.GameEnginePatches.HUDManagerPatch.AddPlayerChatMessageServerRpc_ReversePatch");
-
-        #endregion
-
         /// <summary>
         /// A postfix made to update the speaker icons for bots!
         /// </summary>
@@ -91,6 +78,7 @@ namespace LethalBots.Patches.GameEnginePatches
 
         [HarmonyPatch("AddPlayerChatMessageClientRpc")]
         [HarmonyPostfix]
+        [HarmonyPriority(Priority.Last)]
         public static void AddPlayerChatMessageClientRpc_Postfix(HUDManager __instance, string chatMessage, int playerId)
         {
             // Grandpa, why don't we use AddTextToChatOnServer or AddChatMessage?

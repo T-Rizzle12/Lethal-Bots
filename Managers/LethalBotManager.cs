@@ -6,6 +6,7 @@ using LethalBots.AI.AIStates;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.NetworkSerializers;
+using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.AutoRevive;
@@ -33,7 +34,6 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
-using static UnityEngine.InputSystem.InputRemoting;
 using Object = UnityEngine.Object;
 using Quaternion = UnityEngine.Quaternion;
 using Random = System.Random;
@@ -52,8 +52,7 @@ namespace LethalBots.Managers
     /// Other methods in class can retrieve the brain from the body index and vice versa with the use of arrays.<br/>
     /// <br/>
     /// Important points:<br/>
-    /// The <c>PlayerControllerB</c> instantiated for bots do not spawn on server, they are synchronized in each client.<br/>
-    /// This means that the <c>PlayerControllerB</c> of an bot is never owned, only the <c>LethalBotAI</c> associated is.<br/>
+    /// The <c>PlayerControllerB</c> instantiated for bots do not "spawn" on server in the traditional sense, they are synchronized in each client.<br/>
     /// The patches for the original game code need to always look for an <c>LethalBotAI</c> associated with <c>PlayerControllerB</c> they encounter.<br/>
     /// Typically, everything that happens to the player owner of his body (real player), should function the same to the body of an bot owned by this player,
     /// the local player.<br/>
@@ -195,36 +194,6 @@ namespace LethalBots.Managers
 
         #endregion
 
-        /// <summary>
-        /// Returns the <see cref="DepositItemsDesk"/> instance in the scene, if it exists.<br/>
-        /// </summary>
-        public static DepositItemsDesk? CompanyDesk 
-        {
-            get
-            {
-                if (field == null)
-                {
-                    field = UnityEngine.Object.FindObjectOfType<DepositItemsDesk>();
-                }
-                return field;
-            }
-        }
-
-        /// <summary>
-        /// Returns the <see cref="HangarShipDoor"/> instance in the scene, if it exists.<br/>
-        /// </summary>
-        public static HangarShipDoor? ShipDoor
-        {
-            get
-            {
-                if (field == null)
-                {
-                    field = UnityEngine.Object.FindObjectOfType<HangarShipDoor>();
-                }
-                return field;
-            }
-        }
-
         public VehicleController? VehicleController;
 
         // Variables that handle the ship's NavMesh
@@ -285,7 +254,6 @@ namespace LethalBots.Managers
         private float timerUpdateLightsOnMap;
         private static HashSet<Light> lightsOnMap = new HashSet<Light>();
         public static IReadOnlyCollection<Light> LightsOnMap => lightsOnMap;
-        public Dictionary<string, int> DictTagSurfaceIndex = new Dictionary<string, int>();
 
         private float timerSetLethalBotInElevator;
         private float timerUpdateOwnershipOfBot;
@@ -418,6 +386,8 @@ namespace LethalBots.Managers
             RoundManager instanceRM = RoundManager.Instance;
             foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
             {
+                if (spawnedEnemy == null) continue;
+
                 if (ListEnemyAINonNoiseListeners.Contains(spawnedEnemy))
                 {
                     continue;
@@ -949,13 +919,6 @@ namespace LethalBots.Managers
             // Load data from save
             SaveManager.Instance.LoadAllDataFromSave();
 
-            // Init footstep surfaces tags
-            DictTagSurfaceIndex.Clear();
-            for (int i = 0; i < StartOfRound.Instance.footstepSurfaces.Length; i++)
-            {
-                DictTagSurfaceIndex.Add(StartOfRound.Instance.footstepSurfaces[i].surfaceTag, i);
-            }
-
             // Register default threats
             DictionaryLethalBotThreats.Clear();
             RegisterDefaultThreats();
@@ -1185,12 +1148,10 @@ namespace LethalBots.Managers
         /// Unregisters a threat by its name.
         /// </summary>
         /// <param name="theatType">The type of the threat to unregister.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UnRegisterThreat(Type theatType)
         {
-            if (DictionaryLethalBotThreats.ContainsKey(theatType))
-            {
-                DictionaryLethalBotThreats.Remove(theatType);
-            }
+            DictionaryLethalBotThreats.Remove(theatType);
         }
 
         /// <summary>
@@ -1201,7 +1162,6 @@ namespace LethalBots.Managers
             // Static value threats
             RegisterThreat(typeof(CrawlerAI), 20f, 10f, 20f); // Thumper
             RegisterThreat(typeof(ForestGiantAI), 30f, 10f, 40f); // Forest Giants
-            RegisterThreat(typeof(SandWormAI), 10f, null, 15f); // Earth Leviathans
             //RegisterThreat("ImmortalSnail", 10f, null, 10f);
             RegisterThreat(typeof(ClaySurgeonAI), 15f, null, 10f); // Barber
             RegisterThreat(typeof(FlowermanAI), 10f, null, 5f); // Bracken
@@ -1209,7 +1169,6 @@ namespace LethalBots.Managers
             RegisterThreat(typeof(PufferAI), 2f, null, 2f); // Spore Lizard
             RegisterThreat(typeof(RedLocustBees), 10f, null, 15f); // BEEEEEEESSS!
             RegisterThreat(typeof(ButlerBeesEnemyAI), 20f, null, 15f); // Butler Bees
-            RegisterThreat(typeof(BlobAI), 10f, null, 10f); // Blob
             RegisterThreat(typeof(BaboonBirdAI), 10f, 5f, 10f); // Annoying, Baboon Hawks......
             RegisterThreat(typeof(PumaAI), 10f, null, 10f); // Feiopars
             RegisterThreat(typeof(CadaverBloomAI), 20f, null, 20f); // Cadaver Bloom
@@ -1225,9 +1184,9 @@ namespace LethalBots.Managers
             // Modded Enemy, Broken until I add a dll reference.
             // This should probably be in its own mod......
             //RegisterThreat("T-rex",
-            //    fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-            //    fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-            //    fq => 40f // Always 40 for pathfinding
+            //    fearQuery => fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
+            //    fearQuery => fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
+            //    fearQuery => 40f // Always 40 for pathfinding
             //);
 
             // Maneater
@@ -1268,12 +1227,15 @@ namespace LethalBots.Managers
 
             float? CoilHeadPanikFunc(LethalBotFearQuery fearQuery)
             {
-                // If the coil hasn't moved for 10 seconds, stop being afraid of it!
-                const float stopFearTimer = 10f;
-                if (fearQuery.EnemyAI is SpringManAI coilHead 
-                    && PatchesUtil.stopMovementTimerField.Invoke(coilHead) > stopFearTimer)
+                // If the coil hasn't moved for 8 seconds, stop being afraid of it!
+                const float stopFearTimer = 8f;
+                if (fearQuery.EnemyAI is SpringManAI coilHead)
                 {
-                    return null;
+                    SpringManAIPatch.SpringManMonitor coilHeadMonitor = SpringManAIPatch.GetOrCreateMonitor(coilHead);
+                    if (!coilHeadMonitor.HasMovedRecently(stopFearTimer))
+                    {
+                        return null;
+                    }
                 }
                 return fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null;
             }
@@ -1312,19 +1274,26 @@ namespace LethalBots.Managers
                 fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null
             );
 
+            float? MaskedPanikFunc(LethalBotFearQuery fearQuery)
+            {
+                bool aware =
+                fearQuery.EnemyAI is MaskedPlayerEnemy masked
+                && fearQuery.Bot is LethalBotAI lethalBotAI
+                && lethalBotAI.DictKnownMasked.TryGetValue(masked, out bool known)
+                && known;
+
+                bool handsOut =
+                    fearQuery.EnemyAI.creatureAnimator != null
+                    && fearQuery.EnemyAI.creatureAnimator.GetBool("HandsOut");
+
+                return (aware || handsOut) ? 30f : 15f;
+            }
+
             // Masked
             RegisterThreat(typeof(MaskedPlayerEnemy),
-                fq =>
-                {
-                    bool aware = fq.EnemyAI is MaskedPlayerEnemy masked && fq.Bot is LethalBotAI lethalBotAI && lethalBotAI.DictKnownMasked.TryGetValue(masked, out bool known) && known;
-                    return (aware || fq.EnemyAI.creatureAnimator.GetBool("HandsOut")) ? 30f : 15f;
-                },
+                MaskedPanikFunc,
                 _ => 8f, // Always 8 for mission control
-                fq =>
-                {
-                    bool aware = fq.EnemyAI is MaskedPlayerEnemy masked && fq.Bot is LethalBotAI lethalBotAI && lethalBotAI.DictKnownMasked.TryGetValue(masked, out bool known) && known;
-                    return (aware || fq.EnemyAI.creatureAnimator.GetBool("HandsOut")) ? 30f : 15f;
-                }
+                MaskedPanikFunc
             );
 
             // Spider!
@@ -1381,11 +1350,11 @@ namespace LethalBots.Managers
                 int stateIndex = fearQuery.EnemyAI.currentBehaviourStateIndex;
                 if (stateIndex == 1)
                 {
-                    return 15f; // Not attacking, but getting close will cause the Giant Sapsucker to retaliate!
+                    return 8f; // Not attacking, but getting close will cause the Giant Sapsucker to retaliate!
                 }
                 else if (stateIndex == 2)
                 { 
-                    return 30f; // Attacking, get the hell out of there!
+                    return 40f; // Attacking, get the hell out of there!
                 }
 
                 return 5f; // Giant Sapsucker is idle, only a threat if we get too close
@@ -1395,15 +1364,58 @@ namespace LethalBots.Managers
             RegisterThreat(typeof(GiantKiwiAI),
                 GiantKiwiPanikFunc,
                 _ => null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 1 ? 30f : 15f
+                GiantKiwiPanikFunc
             );
 
-            // Girl behavior (currently commented out for fixing bugs)
-            // DictionaryLethalBotThreats["Girl"] = new LethalBotThreat("Girl",
-            //     fq => fq.EnemyAI is DressGirlAI ghostGirl && ghostGirl.hauntingPlayer == NpcController.Npc && false && ghostGirl.currentBehaviourStateIndex > 0 ? 30f : null,
-            //     _ => null,  // No value for mission control
-            //     _ => null   // No value for pathfinding
-            // );
+            float? SandWormPanikFunc(LethalBotFearQuery fearQuery)
+            {
+                if (fearQuery.EnemyAI is SandWormAI sandWormAI)
+                {
+                    // If the Earth Leviathan is emerging, stay further away
+                    if (sandWormAI.inEmergingState)
+                    {
+                        return 20f;
+                    }
+                    // If the Earth Leviathan has finsihed its flight path, we are safe
+                    else if (sandWormAI.hitGroundInAnimation)
+                    {
+                        return null;
+                    }
+                }
+                return 10f;
+            }
+
+            float? SandWormPathFunc(LethalBotFearQuery fearQuery)
+            {
+                if (fearQuery.EnemyAI is SandWormAI sandWormAI)
+                {
+                    // If the Earth Leviathan is emerging, stay further away
+                    if (sandWormAI.inEmergingState)
+                    {
+                        return 20f;
+                    }
+                    // If the Earth Leviathan has finsihed its flight path, we are safe
+                    else if (sandWormAI.hitGroundInAnimation)
+                    {
+                        return null;
+                    }
+                }
+                return 15f;
+            }
+
+            // Earth Leviathans
+            RegisterThreat(typeof(SandWormAI),
+                SandWormPanikFunc, 
+                fq => null,
+                SandWormPathFunc
+            );
+
+            // Blob
+            RegisterThreat(typeof(BlobAI), 
+                fq => fq.EnemyAI is BlobAI blob && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f, 
+                fq => null, 
+                fq => fq.EnemyAI is BlobAI blob && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f
+            );
 
             // Girl aka Ghost Girl
             RegisterThreat(typeof(DressGirlAI), 
@@ -1640,7 +1652,7 @@ namespace LethalBots.Managers
             }
 
             GameObject objectParent = instance.allPlayerObjects[spawnParamsNetworkSerializable.IndexNextPlayerObject.Value];
-            objectParent.transform.position = spawnParamsNetworkSerializable.SpawnPosition ?? StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, spawnParamsNetworkSerializable.IndexNextPlayerObject.Value, simpleTeleport: false);
+            objectParent.transform.position = spawnParamsNetworkSerializable.SpawnPosition ?? instance.GetPlayerSpawnPosition(spawnParamsNetworkSerializable.IndexNextPlayerObject.Value, simpleTeleport: false);
             objectParent.transform.rotation = Quaternion.Euler(new Vector3(0f, spawnParamsNetworkSerializable.YRot, 0f));
 
             PlayerControllerB lethalBotController = instance.allPlayerScripts[spawnParamsNetworkSerializable.IndexNextPlayerObject.Value];
@@ -1698,7 +1710,7 @@ namespace LethalBots.Managers
             // Mimic base game join message
             if (!clientJoining && lethalBotIdentity.JustJoinedServer)
             {
-                AccessTools.Field(typeof(PlayerControllerB), "updatePositionForNewlyJoinedClient").SetValue(lethalBotController, true);
+                lethalBotController.updatePositionForNewlyJoinedClient = true;
                 HUDManager.Instance.AddTextToChatOnServer(lethalBotController.playerUsername + " joined the ship."); 
             }
 
@@ -1724,13 +1736,9 @@ namespace LethalBots.Managers
             //lethalBotAI.NetworkObject.AutoObjectParentSync = true;
             lethalBotAI.enabled = true;
             objectParent.SetActive(true); // Think that some optimization mods disable the player controller, we need to force renable them here
-            if (clientJoining && lethalBotController.currentlyHeldObject != null)
-            {
-                lethalBotAI.HeldItem = lethalBotController.currentlyHeldObject;
-            }
 
             // Unsuscribe from events to prevent double trigger
-            PlayerControllerBPatch.OnDisable_ReversePatch(lethalBotController);
+            lethalBotController.OnDisable();
 
             // Destroy dead body of identity
             if (spawnParamsNetworkSerializable.ShouldDestroyDeadBody)
@@ -2152,8 +2160,7 @@ namespace LethalBots.Managers
                 }
 
                 // Remove from quick menu
-                QuickMenuManager quickMenuManager = UnityEngine.Object.FindObjectOfType<QuickMenuManager>();
-                if (quickMenuManager != null)
+                if (SingletonManager.QuickMenuManager.TryGet(out QuickMenuManager? quickMenuManager))
                 {
                     quickMenuManager.RemoveUserFromPlayerList((int)lethalBotController.playerClientId);
                 }
@@ -2642,7 +2649,7 @@ namespace LethalBots.Managers
                     //Plugin.LogDebug($"Bot {(botController.holdingWalkieTalkie ? "does" : "doesn't")} have a walkie-talkie!");
                     //Plugin.LogDebug($"Player who sent message {(playerWhoSentMessage.holdingWalkieTalkie ? "does" : "doesn't")} have a walkie-talkie!");
                     //Plugin.LogDebug($"Ignoring range: {flag}");
-                    ChatCommandsManager.OnPlayerChatMessageReceived(lethalBotAI.State, message, playerWhoSentMessage, false);
+                    ChatCommandsManager.OnPlayerChatMessageReceived(lethalBotAI.State, message, playerWhoSentMessage, isVoice: false);
                 }
             }
         }
@@ -2698,7 +2705,7 @@ namespace LethalBots.Managers
                     //Plugin.LogDebug($"Bot {(botController.holdingWalkieTalkie ? "does" : "doesn't")} have a walkie-talkie!");
                     //Plugin.LogDebug($"Player who said message {(playerWhoSaidMessage.holdingWalkieTalkie ? "does" : "doesn't")} have a walkie-talkie!");
                     //Plugin.LogDebug($"Ignoring range: {flag}");
-                    ChatCommandsManager.OnPlayerChatMessageReceived(lethalBotAI.State, message, playerWhoSaidMessage, true);
+                    ChatCommandsManager.OnPlayerChatMessageReceived(lethalBotAI.State, message, playerWhoSaidMessage, isVoice: true);
                 }
             }
         }
@@ -3025,8 +3032,7 @@ namespace LethalBots.Managers
             {
                 return 0;
             }
-            DepositItemsDesk? companyDesk = CompanyDesk;
-            if (companyDesk != null)
+            if (SingletonManager.CompanyDesk.TryGet(out DepositItemsDesk? companyDesk))
             {
                 return companyDesk.deskObjectsContainer.GetComponentsInChildren<GrabbableObject>().Length;
             }
@@ -3043,8 +3049,7 @@ namespace LethalBots.Managers
             {
                 return 0;
             }
-            DepositItemsDesk? companyDesk = CompanyDesk;
-            if (companyDesk != null)
+            if (SingletonManager.CompanyDesk.TryGet(out DepositItemsDesk? companyDesk))
             {
                 int value = 0;
                 GrabbableObject[] grabbableObjects = companyDesk.deskObjectsContainer.GetComponentsInChildren<GrabbableObject>();
@@ -3216,7 +3221,7 @@ namespace LethalBots.Managers
                 // Update the XP of the bot
                 PlayerControllerB lethalBotController = botStats.BotController;
                 int currentBotXP = botStats.Identity.XP ?? 0;
-                int XPGain = GetLethalBotLevel(!botStats.IsAlive, lethalBotController == mostProfitablePlayer, instanceSOR.allPlayersDead);
+                int XPGain = GetLethalBotLevel(isDead: !botStats.IsAlive, lethalBotController == mostProfitablePlayer, instanceSOR.allPlayersDead);
                 int targetXPLevel = Mathf.Max(currentBotXP + XPGain, 0);
 
                 // Now update the bot's level if it has changed
@@ -3584,8 +3589,7 @@ namespace LethalBots.Managers
                 yield break;
             }
 
-            Vector3 teleportPos = default(Vector3);
-            AudioReverbPresets audioReverbPresets = Object.FindObjectOfType<AudioReverbPresets>();
+            Vector3 teleportPos;
             LethalBotAI[] lethalBotAIs = GetLethalBotsAIOwnedByLocal();
             foreach (LethalBotAI lethalBotAI in lethalBotAIs)
             {
@@ -3643,14 +3647,14 @@ namespace LethalBots.Managers
 
                 // Teleport bot
                 PlayerControllerB playerControllerB = lethalBotAI.NpcController.Npc;
-                ShipTeleporterPatch.SetPlayerTeleporterId_ReversePatch(teleporter, playerControllerB, 2);
-                teleportPos = ShipTeleporterPatch.GetInverseTelePosition_ReversePatch(teleporter);
+                teleporter.SetPlayerTeleporterId(playerControllerB, 2);
+                teleportPos = teleporter.GetInverseTelePosition();
                 if (playerControllerB.deadBody != null)
                 {
                     teleporter.TeleportPlayerBodyOutServerRpc((int)playerControllerB.playerClientId, teleportPos);
                     continue;
                 }
-                ShipTeleporterPatch.TeleportPlayerOutWithInverseTeleporter_ReversePatch(teleporter, (int)playerControllerB.playerClientId, teleportPos);
+                teleporter.TeleportPlayerOutWithInverseTeleporter((int)playerControllerB.playerClientId, teleportPos);
                 teleporter.TeleportPlayerOutServerRpc((int)playerControllerB.playerClientId, teleportPos);
             }
             IsInverseTeleporterActive = false;
@@ -3684,8 +3688,7 @@ namespace LethalBots.Managers
         [ClientRpc]
         public void SetHangarShipDoorStateClientRpc(bool isClosed)
         {
-            HangarShipDoor? hangarShipDoor = ShipDoor;
-            if (hangarShipDoor != null && hangarShipDoor.buttonsEnabled)
+            if (SingletonManager.ShipDoor.TryGet(out HangarShipDoor? hangarShipDoor) && hangarShipDoor.buttonsEnabled)
             {
                 hangarShipDoor.shipDoorsAnimator.SetBool("Closed", value: isClosed);
                 StartOfRound.Instance.SetShipDoorsClosed(closed: isClosed);
@@ -3765,6 +3768,8 @@ namespace LethalBots.Managers
             NavMeshPath path = new NavMeshPath();
             foreach (var entrance in LethalBotAI.EntrancesTeleportArray)
             {
+                if (entrance == null) continue;
+
                 if (((isOutside && entrance.isEntranceToBuilding)
                         || (!isOutside && !entrance.isEntranceToBuilding))
                     && entrance.FindExitPoint())
@@ -3805,7 +3810,8 @@ namespace LethalBots.Managers
                     }
 
                     // Check if they are inside the elevator!
-                    return LethalBotAI.ElevatorScript.elevatorBounds.bounds.Contains(startPosition);
+                    Collider? elevatorBounds = LethalBotAI.ElevatorScript.elevatorBounds;
+                    return elevatorBounds != null && elevatorBounds.bounds.Contains(startPosition);
                 }
                 return false;
             }
@@ -3934,7 +3940,7 @@ namespace LethalBots.Managers
         /// </summary>
         /// <param name="player"><c>PlayerControllerB</c> </param>
         /// <returns><c>LethalBotAI</c> if the <c>PlayerControllerB</c> has an <c>LethalBotAI</c> associated, else returns null</returns>
-        public LethalBotAI? GetLethalBotAI(PlayerControllerB player)
+        public LethalBotAI? GetLethalBotAI(PlayerControllerB? player)
         {
             if (AllLethalBotAIs == null 
                 || AllLethalBotAIs.Length == 0 
@@ -4072,15 +4078,7 @@ namespace LethalBots.Managers
         /// <returns><c>true</c> if <c>EnemyAI</c> is <c>LethalBotAI</c>, else <c>false</c></returns>
         public bool IsAILethalBotAi(EnemyAI ai)
         {
-            foreach (var lethalBotAI in AllLethalBotAIs)
-            {
-                if (lethalBotAI == ai)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return AllLethalBotAIs.Contains(ai);
         }
 
         /// <summary>
@@ -4469,8 +4467,7 @@ namespace LethalBots.Managers
                     lethalBotController.gameObject.GetComponent<NetworkObject>().RemoveOwnership();
                 }
                 // Remove from quick menu
-                QuickMenuManager quickMenuManager = UnityEngine.Object.FindObjectOfType<QuickMenuManager>();
-                if (quickMenuManager != null)
+                if (SingletonManager.QuickMenuManager.TryGet(out QuickMenuManager? quickMenuManager))
                 {
                     quickMenuManager.RemoveUserFromPlayerList(lethalBot);
                 }
@@ -4570,7 +4567,7 @@ namespace LethalBots.Managers
                                 lethalBotController.isInElevator = true;
                                 lethalBotController.isInHangarShipRoom = true;
                                 lethalBotAI.isInsidePlayerShip = true;
-                                Vector3 shipPos = StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, (int)lethalBotController.playerClientId, false);
+                                Vector3 shipPos = StartOfRound.Instance.GetPlayerSpawnPosition((int)lethalBotController.playerClientId, false);
                                 lethalBotController.thisController.enabled = false;
                                 lethalBotController.TeleportPlayer(shipPos);
                                 // HACKHACK: TeleportLethalBot acts weird at times, so we manually set the player position as well!
@@ -4717,7 +4714,7 @@ namespace LethalBots.Managers
                     || lethalBotController.isPlayerDead))
                 {
                     // This will network to all players that the bot is "ready"
-                    PatchesUtil.PlayerLoadedServerRpcMethod.Invoke(instanceSOR, new object[] { lethalBotController.actualClientId });
+                    instanceSOR.PlayerLoadedServerRpc(lethalBotController.actualClientId);
                 }
             }
         }
@@ -5040,10 +5037,7 @@ namespace LethalBots.Managers
             };
 
             SyncLoadedJsonIdentitiesClientRpc(
-                new ConfigIdentitiesNetworkSerializable()
-                {
-                    ConfigIdentities = Plugin.Config.ConfigIdentities.configIdentities
-                },
+                Plugin.Config.ConfigIdentities.configIdentities,
                 ClientRpcParams);
         }
 
@@ -5056,15 +5050,12 @@ namespace LethalBots.Managers
                 TargetClientIds = NetworkManager.ConnectedClientsIds.Where(x => x != NetworkManager.LocalClientId).ToArray()
             };
             SyncLoadedJsonIdentitiesClientRpc(
-                new ConfigIdentitiesNetworkSerializable()
-                {
-                    ConfigIdentities = Plugin.Config.ConfigIdentities.configIdentities
-                },
+                Plugin.Config.ConfigIdentities.configIdentities,
                 ClientRpcParams);
         }
 
         [ClientRpc]
-        private void SyncLoadedJsonIdentitiesClientRpc(ConfigIdentitiesNetworkSerializable configIdentityNetworkSerializable,
+        private void SyncLoadedJsonIdentitiesClientRpc(ConfigIdentity[] configIdentities,
                                                        ClientRpcParams clientRpcParams = default)
         {
             if (IsOwner)
@@ -5073,14 +5064,14 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogInfo($"Client {NetworkManager.LocalClientId} : sync json bots identities");
-            Plugin.LogDebug($"Loaded {configIdentityNetworkSerializable.ConfigIdentities.Length} identities from server");
-            foreach (ConfigIdentity configIdentity in configIdentityNetworkSerializable.ConfigIdentities)
+            Plugin.LogDebug($"Loaded {configIdentities.Length} identities from server");
+            foreach (ConfigIdentity configIdentity in configIdentities)
             {
                 Plugin.LogDebug($"{configIdentity.ToString()}");
             }
 
-            Plugin.LogDebug($"Recreate identities for {configIdentityNetworkSerializable.ConfigIdentities.Length} bots");
-            IdentityManager.Instance.InitIdentities(configIdentityNetworkSerializable.ConfigIdentities);
+            Plugin.LogDebug($"Recreate identities for {configIdentities.Length} bots");
+            IdentityManager.Instance.InitIdentities(configIdentities);
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -5093,15 +5084,12 @@ namespace LethalBots.Managers
             };
 
             SyncLoadedJsonLoadoutsClientRpc(
-                new ConfigLoadoutsNetworkSerializable()
-                {
-                    ConfigLoadouts = Plugin.Config.ConfigLoadouts.configLoadouts
-                },
+                Plugin.Config.ConfigLoadouts.configLoadouts,
                 ClientRpcParams);
         }
 
         [ClientRpc]
-        private void SyncLoadedJsonLoadoutsClientRpc(ConfigLoadoutsNetworkSerializable configLoadoutNetworkSerializable,
+        private void SyncLoadedJsonLoadoutsClientRpc(ConfigLoadout[] configLoadouts,
                                                        ClientRpcParams clientRpcParams = default)
         {
             if (IsOwner)
@@ -5110,14 +5098,14 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogInfo($"Client {NetworkManager.LocalClientId} : sync json bots loadouts");
-            Plugin.LogDebug($"Loaded {configLoadoutNetworkSerializable.ConfigLoadouts.Length} loadouts from server");
-            foreach (ConfigLoadout configLoadout in configLoadoutNetworkSerializable.ConfigLoadouts)
+            Plugin.LogDebug($"Loaded {configLoadouts.Length} loadouts from server");
+            foreach (ConfigLoadout configLoadout in configLoadouts)
             {
                 Plugin.LogDebug($"{configLoadout.ToString()}");
             }
 
-            Plugin.LogDebug($"Recreate loadouts for {configLoadoutNetworkSerializable.ConfigLoadouts.Length} bots");
-            LoadoutManager.Instance.InitLoadouts(configLoadoutNetworkSerializable.ConfigLoadouts);
+            Plugin.LogDebug($"Recreate loadouts for {configLoadouts.Length} bots");
+            LoadoutManager.Instance.InitLoadouts(configLoadouts);
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -5130,15 +5118,12 @@ namespace LethalBots.Managers
             };
 
             SyncLoadedJsonStockRequirementsClientRpc(
-                new ConfigStockRequirementNetworkSerializable()
-                {
-                    ConfigStockRequirements = Plugin.Config.ConfigStockRequirements.configStockRequirements
-                },
+                Plugin.Config.ConfigStockRequirements.configStockRequirements,
                 ClientRpcParams);
         }
 
         [ClientRpc]
-        private void SyncLoadedJsonStockRequirementsClientRpc(ConfigStockRequirementNetworkSerializable configLoadoutNetworkSerializable,
+        private void SyncLoadedJsonStockRequirementsClientRpc(ConfigStockRequirement[] configStockRequirements,
                                                        ClientRpcParams clientRpcParams = default)
         {
             if (IsOwner)
@@ -5147,14 +5132,14 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogInfo($"Client {NetworkManager.LocalClientId} : sync json bots stock requirements");
-            Plugin.LogDebug($"Loaded {configLoadoutNetworkSerializable.ConfigStockRequirements.Length} stock requirements from server");
-            foreach (ConfigStockRequirement configStockRequirement in configLoadoutNetworkSerializable.ConfigStockRequirements)
+            Plugin.LogDebug($"Loaded {configStockRequirements.Length} stock requirements from server");
+            foreach (ConfigStockRequirement configStockRequirement in configStockRequirements)
             {
                 Plugin.LogDebug($"{configStockRequirement.ToString()}");
             }
 
-            Plugin.LogDebug($"Recreate stock requirements for {configLoadoutNetworkSerializable.ConfigStockRequirements.Length} bots");
-            RestockManager.Instance.InitStockRequirements(configLoadoutNetworkSerializable.ConfigStockRequirements);
+            Plugin.LogDebug($"Recreate stock requirements for {configStockRequirements.Length} bots");
+            RestockManager.Instance.InitStockRequirements(configStockRequirements);
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -5183,7 +5168,7 @@ namespace LethalBots.Managers
                         LethalBotReference = lethalBotAI.NetworkObject,
                         IndexNextLethalBot = i,
                         IndexNextPlayerObject = i, // i should be (int)lethalBotAI.NpcController.Npc.playerClientId if everything is working correctly
-                        SpawnPosition = lethalBotAI.NpcController?.Npc.transform.position ?? null,
+                        SpawnPosition = lethalBotAI.NpcController?.Npc?.transform.position ?? null,
                         LethalBotIdentityID = lethalBotAI.LethalBotIdentity.IdIdentity,
                         enumSpawnAnimation = EnumSpawnAnimation.ReinitializePlayer,
                         SuitID = lethalBotAI.LethalBotIdentity.SuitID ?? 0,
@@ -5231,8 +5216,8 @@ namespace LethalBots.Managers
 
                 // The client just joined, they need some time to load all of the Network objects
                 NetworkObject? networkObject = null;
-                float startTime = Time.realtimeSinceStartup;
-                while ((Time.realtimeSinceStartup - startTime) < 5f)
+                CountdownTimer startTime = new CountdownTimer(time: 5f);
+                while (startTime.HasStarted() && !startTime.Elapsed())
                 {
                     // Keep trying until it finally loads
                     if (lethalBotData.LethalBotReference.Value.TryGet(out networkObject))

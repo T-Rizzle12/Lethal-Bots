@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Unity.Netcode;
 using UnityEngine;
@@ -9,7 +10,8 @@ namespace LethalBots.Utils.Helpers
     [Serializable]
     public class IntervalTimer : INetworkSerializable, IEquatable<IntervalTimer>
     {
-        public float timestamp = -1.0f;
+        public const float INVALID_TIME = -1.0f;
+        public float timestamp = INVALID_TIME;
 
         /// <summary>
         /// Restarts the Interval Timer
@@ -32,13 +34,14 @@ namespace LethalBots.Utils.Helpers
         /// </summary>
         public void Invalidate()
         {
-            timestamp = -1.0f;
+            timestamp = INVALID_TIME;
         }
 
         /// <summary>
         /// Was the Interval Timer started?
         /// </summary>
         /// <returns>true: if we were started; otherwise false</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasStarted()
         {
             return timestamp > 0f;
@@ -48,9 +51,10 @@ namespace LethalBots.Utils.Helpers
         /// How long has this timer been running!
         /// </summary>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetElapsedTime()
         {
-            return HasStarted() ? Time.realtimeSinceStartup - timestamp : -1.0f;
+            return HasStarted() ? Time.realtimeSinceStartup - timestamp : INVALID_TIME;
         }
 
         /// <summary>
@@ -58,6 +62,7 @@ namespace LethalBots.Utils.Helpers
         /// </summary>
         /// <param name="duration">The duration to test!</param>
         /// <returns>true: if we have been running longer than <paramref name="duration"/>; otherwise false</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsGreaterThan(float duration)
         {
             return GetElapsedTime() > duration;
@@ -68,6 +73,7 @@ namespace LethalBots.Utils.Helpers
         /// </summary>
         /// <param name="duration">The duration to test!</param>
         /// <returns>true: if we have been running less than <paramref name="duration"/>; otherwise false</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsLessThan(float duration)
         {
             return GetElapsedTime() < duration;

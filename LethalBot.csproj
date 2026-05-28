@@ -6,7 +6,7 @@
     <AssemblyName>LethalBots</AssemblyName>
     <Product>LethalBots</Product>
     <!-- Change to whatever version you're currently on. This will be used by tcli when building our Thunderstore package. -->
-    <Version>7.1.0</Version>
+    <Version>8.0.0</Version>
   </PropertyGroup>
 
   <!-- Project Properties -->
@@ -31,9 +31,10 @@
 
   <!-- Set NuGet Sources -->
   <PropertyGroup>
-	  <RestoreAdditionalProjectSources>
+	<RestoreAdditionalProjectSources>
       https://api.nuget.org/v3/index.json;
-      https://nuget.bepinex.dev/v3/index.json
+      https://nuget.bepinex.dev/v3/index.json;
+	  https://nuget.windows10ce.com/nuget/v3/index.json
     </RestoreAdditionalProjectSources>
   </PropertyGroup>
 
@@ -88,6 +89,7 @@
 
   <ItemGroup>
     <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" ExcludeAssets="runtime" />
     <PackageReference Include="BepInEx.Core" Version="5.*" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" PrivateAssets="all" />
     <PackageReference Include="Evaisa.LethalLib" Version="1.2.0" />
@@ -113,13 +115,17 @@
     <Folder Include="lib\LCv64\" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Assembly-CSharp">
+	<!-- 
+	Did you know that BepInEx.AssemblyPublicizer.MSBuild exists. I didn't until TKronix in the Lethal Company modding discord showed me.
+	It allows me to access what would normally be private variables without needing reflection!
+	-->
+    <Reference Include="Assembly-CSharp" Publicize="true">
       <HintPath>lib\Assembly-CSharp.dll</HintPath>
     </Reference>
-    <Reference Include="Assembly-CSharp-firstpass">
+    <Reference Include="Assembly-CSharp-firstpass" Publicize="true">
       <HintPath>lib\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
-	<Reference Include="DunGen">
+	<Reference Include="DunGen" Publicize="true">
 		<HintPath>lib\DunGen.dll</HintPath>
 	</Reference>
 	<Reference Include="DissonanceVoip">
@@ -218,7 +224,7 @@
     <Reference Include="Unity.InputSystem">
       <HintPath>lib\Unity.InputSystem.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.Netcode.Runtime">
+    <Reference Include="Unity.Netcode.Runtime" Publicize="true">
       <HintPath>lib\Unity.Netcode.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="Unity.TextMeshPro">
