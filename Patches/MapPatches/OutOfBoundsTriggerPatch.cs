@@ -60,7 +60,7 @@ namespace LethalBots.Patches.MapPatches
                     component.isInElevator = true;
                     component.isInHangarShipRoom = true;
                     lethalBotAI.isInsidePlayerShip = true;
-                    Vector3 shipPos = StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, (int)component.playerClientId, false);
+                    Vector3 shipPos = StartOfRound.Instance.GetPlayerSpawnPosition((int)component.playerClientId, false);
                     component.thisController.enabled = false;
                     component.TeleportPlayer(shipPos);
                     component.serverPlayerPosition = shipPos;

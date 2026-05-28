@@ -8,23 +8,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using static Unity.Netcode.NetworkBehaviour;
 
 namespace LethalBots.Patches.EnemiesPatches
 {
     [HarmonyPatch(typeof(CaveDwellerAI))]
     public class CaveDwellerAIPatch
     {
-        /// <summary>
-        /// Reverse patch for <c>GetBabyMemoryOfPlayer</c> method.
-        /// </summary>
-        /// <param name="instance"></param>
-        /// <param name="player"></param>
-        /// <exception cref="NotImplementedException"></exception>
-        [HarmonyPatch("GetBabyMemoryOfPlayer")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static BabyPlayerMemory GetBabyMemoryOfPlayer_ReversePatch(object instance, PlayerControllerB player) => throw new NotImplementedException("Stub LethalBot.Patches.EnemiesPatches.CaveDwellerAIPatch.GetBabyMemoryOfPlayer");
-
         [HarmonyPatch("OnCollideWithPlayer")]
         [HarmonyPrefix]
         static void OnCollideWithPlayer_PreFix(ref bool ___startingKillAnimationLocalClient)
@@ -49,19 +39,20 @@ namespace LethalBots.Patches.EnemiesPatches
                 return;
             }
 
-            if (__instance.propScript.playerHeldBy == null)
+            PlayerControllerB playerHeldBy = __instance.propScript.playerHeldBy;
+            if (playerHeldBy == null)
             {
                 return;
             }
 
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance.propScript.playerHeldBy);
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerHeldBy);
             if (lethalBotAI == null)
             {
                 return;
             }
 
             Plugin.LogDebug("ScareBaby_PostFix");
-            lethalBotAI.DropItem();
+            playerHeldBy.DiscardHeldObject();
         }
 
         [HarmonyPatch("ScareBabyClientRpc")]
@@ -73,24 +64,26 @@ namespace LethalBots.Patches.EnemiesPatches
                 return;
             }
 
-            if (__instance.propScript.playerHeldBy == null)
+            PlayerControllerB playerHeldBy = __instance.propScript.playerHeldBy;
+            if (playerHeldBy == null)
             {
                 return;
             }
 
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance.propScript.playerHeldBy);
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerHeldBy);
             if (lethalBotAI == null)
             {
                 return;
             }
 
             Plugin.LogDebug("ScareBabyClientRpc_PostFix");
-            lethalBotAI.DropItem();
+            playerHeldBy.DiscardHeldObject();
         }
 
         [HarmonyPatch("CancelKillAnimationClientRpc")]
         [HarmonyPostfix]
-        static void CancelKillAnimationClientRpc_PostFix(int playerObjectId,
+        static void CancelKillAnimationClientRpc_PostFix(CaveDwellerAI __instance, 
+                                                         int playerObjectId,
                                                          ref bool ___startingKillAnimationLocalClient)
         {
             Plugin.LogDebug($"CancelKillAnimationClientRpc_PostFix playerObjectId {playerObjectId}");
@@ -149,18 +142,19 @@ namespace LethalBots.Patches.EnemiesPatches
         [HarmonyPostfix]
         static void StartTransformationAnim_PostFix(CaveDwellerAI __instance)
         {
-            if (__instance.propScript.playerHeldBy == null)
+            PlayerControllerB playerHeldBy = __instance.propScript.playerHeldBy;
+            if (playerHeldBy == null)
             {
                 return;
             }
 
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance.propScript.playerHeldBy);
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerHeldBy);
             if (lethalBotAI == null)
             {
                 return;
             }
 
-            lethalBotAI.DropItem();
+            playerHeldBy.DiscardHeldObject();
         }
     }
 }

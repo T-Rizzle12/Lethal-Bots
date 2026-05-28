@@ -1,6 +1,8 @@
-﻿using GameNetcodeStuff;
+﻿using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
+using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.AI;
+using LethalBots.Constants;
 using LethalBots.Managers;
 using LethalBots.Utils;
 using LethalMin;
@@ -77,39 +79,6 @@ namespace LethalBots.Patches.MapPatches
             _ = Transpiler(null);
 #pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
         }*/
-
-        /// <summary>
-        /// Reverse patch to call <c>Interact</c>
-        /// </summary>
-        /// <exception cref="NotImplementedException"></exception>
-        //[HarmonyPatch("Interact")]
-        //[HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        //[HarmonyPriority(Priority.Last)]
-        //public static void Interact_ReversePatch(object instance, Transform playerTransform) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.InteractTriggerPatch.Interact_Transpiler");
-
-        ///<summary>
-        /// Reverse patch to call <c>StopUsingServerRpc</c>
-        ///</summary>
-        [HarmonyPatch("StopUsingServerRpc")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static void StopUsingServerRpc_ReversePatch(object instance, int playerNum) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.InteractTriggerPatch.StopUsingServerRpc_ReversePatch");
-
-        ///<summary>
-        /// Reverse patch to call <c>UpdateUsedByPlayerServerRpc</c>
-        ///</summary>
-        [HarmonyPatch("UpdateUsedByPlayerServerRpc")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static void UpdateUsedByPlayerServerRpc_ReversePatch(object instance, int playerNum) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.InteractTriggerPatch.UpdateUsedByPlayerServerRpc_ReversePatch");
-
-        ///<summary>
-        /// Reverse patch to call <c>LadderPositionObstructed</c>
-        ///</summary>
-        [HarmonyPatch("LadderPositionObstructed")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static bool LadderPositionObstructed_ReversePatch(object instance, PlayerControllerB playerController) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.InteractTriggerPatch.LadderPositionObstructed_ReversePatch");
 
         /*/// <summary>
         /// Patch for not making the bot not cancel the player ladder coroutine 
@@ -259,8 +228,8 @@ namespace LethalBots.Patches.MapPatches
             playerController.inSpecialInteractAnimation = true;
             playerController.currentTriggerInAnimationWith = ladder;
             playerController.isCrouching = false;
-            playerController.playerBodyAnimator.SetBool("crouching", value: false);
-            playerController.playerBodyAnimator.SetTrigger("EnterLadder");
+            playerController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CROUCHING, value: false);
+            playerController.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_ENTERLADDER);
             playerController.thisController.enabled = false;
             float timer = 0f;
             while (timer <= ladder.animationWaitTime)
@@ -271,7 +240,7 @@ namespace LethalBots.Patches.MapPatches
                 playerController.thisPlayerBody.rotation = Quaternion.Lerp(playerController.thisPlayerBody.rotation, ladderAngle, Mathf.SmoothStep(0f, 1f, timer / ladder.animationWaitTime));
             }
             Plugin.LogDebug("Finished snapping to ladder");
-            playerController.playerBodyAnimator.SetBool("ClimbingLadder", value: true);
+            playerController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CLIMBINGLADDER, value: true);
             playerController.isClimbingLadder = true;
             if (lethalBotAI != null)
             {
@@ -279,8 +248,11 @@ namespace LethalBots.Patches.MapPatches
                 {
                     lethalBotAI.agent.CompleteOffMeshLink();
                 }
-                lethalBotAI.SetAgent(false);
-                lethalBotAI.TeleportLethalBot(ladderPosition, lethalBotAI.isOutside, targetEntrance: null, withRotation: false, 0f, allowInteractTrigger: true, skipNavMeshCheck: true);
+                ladder.currentCooldownValue = 0f; // Force clear the cooldown!
+                lethalBotAI.SetAgent(enabled: false);
+                bool isOutside = lethalBotAI.isOutside;
+                playerController.TeleportPlayer(ladderPosition, withRotation: false, 0f, allowInteractTrigger: true);
+                lethalBotAI.TeleportLethalBot(ladderPosition, isOutside, targetEntrance: null, withRotation: false, 0f, allowInteractTrigger: true, skipNavMeshCheck: true);
             }
             playerController.enteringSpecialAnimation = false;
             playerController.ladderCameraHorizontal = 0f;
@@ -302,7 +274,7 @@ namespace LethalBots.Patches.MapPatches
                 }
             }
             //playerController.isClimbingLadder = false;
-            playerController.playerBodyAnimator.SetBool("ClimbingLadder", value: false);
+            playerController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CLIMBINGLADDER, value: false);
             if (finishClimbingLadder == 1)
             {
                 ladderPosition = ladder.bottomOfLadderPosition.position;
@@ -345,14 +317,14 @@ namespace LethalBots.Patches.MapPatches
             playerController.thisController.enabled = true; // NEEDTOVALIDATE: What happens if this is true for players that are not the local player?
             if (lethalBotAI != null)
             {
+                lethalBotAI.SetAgent(enabled: true);
                 if (lethalBotAI.agent.isOnOffMeshLink)
                 {
                     lethalBotAI.agent.CompleteOffMeshLink();
                 }
-                lethalBotAI.SetAgent(true);
                 lethalBotAI.TeleportLethalBot(ladderPosition, lethalBotAI.isOutside, allowInteractTrigger: true);
+                lethalBotAI.useLadderCoroutine = null;
             }
-            lethalBotAI?.useLadderCoroutine = null;
             //ladder.currentCooldownValue = ladder.cooldownTime;
             ladder.onInteract.Invoke(null);
             #pragma warning restore Harmony003 // Harmony non-ref patch parameters modified
@@ -360,10 +332,10 @@ namespace LethalBots.Patches.MapPatches
 
         private static IEnumerator specialInteractAnimation(InteractTrigger trigger, PlayerControllerB playerController)
         {
-            UpdateUsedByPlayerServerRpc_ReversePatch(trigger, (int)playerController.playerClientId);
+            trigger.UpdateUsedByPlayerServerRpc((int)playerController.playerClientId);
             trigger.onInteractEarly.Invoke(null);
             trigger.isPlayingSpecialAnimation = true;
-            playerScriptInSpecialAnimationField.SetValue(trigger, playerController);
+            trigger.playerScriptInSpecialAnimation = playerController;
             if (trigger.clampLooking)
             {
                 playerController.minVerticalClamp = trigger.minVerticalClamp;
@@ -418,7 +390,7 @@ namespace LethalBots.Patches.MapPatches
             playerController.gameplayCamera.transform.localEulerAngles = Vector3.zero;
             playerController.UpdateSpecialAnimationValue(specialAnimation: false, 0);
             playerController.inSpecialInteractAnimation = false;
-            ladder.currentCooldownValue = ladder.cooldownTime;
+            //ladder.currentCooldownValue = ladder.cooldownTime;
             if (ladder.hidePlayerItem && playerController.currentlyHeldObjectServer != null)
             {
                 playerController.currentlyHeldObjectServer.EnableItemMeshes(enable: true);
@@ -564,7 +536,7 @@ namespace LethalBots.Patches.MapPatches
             if (__instance.isPlayingSpecialAnimation && __instance.stopAnimationManually && playerTransform != null)
             {
                 Plugin.LogDebug($"Calling stop animation function StopUsing server rpc for playerController: {player.playerClientId}");
-                StopUsingServerRpc_ReversePatch(__instance, (int)player.playerClientId);
+                __instance.StopUsingServerRpc((int)player.playerClientId);
             }
             if (player != null)
             {

@@ -116,20 +116,5 @@ namespace LethalBots.Patches.MapPatches
 
             return codes.AsEnumerable();
         }
-
-        [HarmonyPatch("SetPlayerTeleporterId")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static void SetPlayerTeleporterId_ReversePatch(object instance, PlayerControllerB playerScript, int teleporterId) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.ShipTeleporterPatch.SetPlayerTeleporterId_ReversePatch");
-
-        [HarmonyPatch("TeleportPlayerOutWithInverseTeleporter")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static void TeleportPlayerOutWithInverseTeleporter_ReversePatch(object instance, int playerObj, Vector3 teleportPos) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.ShipTeleporterPatch.TeleportPlayerOutWithInverseTeleporter_ReversePatch");
-
-        [HarmonyPatch("GetInverseTelePosition")]
-        [HarmonyReversePatch(type: HarmonyReversePatchType.Snapshot)]
-        [HarmonyPriority(Priority.Last)]
-        public static Vector3 GetInverseTelePosition_ReversePatch(object instance) => throw new NotImplementedException("Stub LethalBot.Patches.MapPatches.ShipTeleporterPatch.GetInverseTelePosition_ReversePatch");
     }
 }

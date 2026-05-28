@@ -26,7 +26,7 @@ namespace LethalBots.Configs
         // Bot settings
         [SyncedEntryField] public SyncedEntry<int> MaxBotsAllowedToSpawn;
         [SyncedEntryField] public SyncedEntry<bool> AllowBotsInOrbit;
-        public ConfigEntry<bool> DisableNameBillBoards;
+        [SyncedEntryField] public SyncedEntry<bool> ShowBillboardStateIndicator;
 
         // Identity  
         [SyncedEntryField] public SyncedEntry<bool> SpawnIdentitiesRandomly;
@@ -89,10 +89,10 @@ namespace LethalBots.Configs
                                             defaultVal: true,
                                             "Are bots allowed to stay on the ship while its in orbit? If false, bots will automatically leave and rejoin between rounds.");
 
-            DisableNameBillBoards = cfg.Bind(ConfigConst.ConfigSectionMain,
-                                            "Should bots have their name tags disabled (Client only)",
-                                            defaultValue: false,
-                                            "Although bots call the base game name billboard display code, you can manually disable their name tags here.");
+            ShowBillboardStateIndicator = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMain,
+                                            "Show bot Billboard State Indicator",
+                                            defaultVal: false,
+                                            "Should bots display their Billboard State Indicator?");
 
             // Identities
             SpawnIdentitiesRandomly = cfg.BindSyncedEntry(ConfigConst.ConfigSectionIdentities,

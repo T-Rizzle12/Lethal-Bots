@@ -219,7 +219,7 @@ namespace LethalBots.AI.AIStates
                         if (!ai.AreHandsFree()
                             && ai.HeldItem is CaveDwellerPhysicsProp)
                         {
-                            ai.DropItem();
+                            npcController.Npc.DiscardHeldObject();
                         }
                     }
                 }
@@ -282,7 +282,7 @@ namespace LethalBots.AI.AIStates
                     if (!ai.AreHandsFree() && ai.HeldItem is CaveDwellerPhysicsProp)
                     {
                         // We must drop the maneater baby before we use the entrance!
-                        ai.DropItem();
+                        npcController.Npc.DiscardHeldObject();
                         return;
                     }
                     else if (Time.timeSinceLevelLoad - ai.TimeSinceTeleporting > Const.WAIT_TIME_TO_TELEPORT)
@@ -294,7 +294,7 @@ namespace LethalBots.AI.AIStates
                             ai.StopMoving();
                             if (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)
                             {
-                                ref InteractTrigger interactTrigger = ref PatchesUtil.triggerScriptField.Invoke(entrance);
+                                InteractTrigger interactTrigger = entrance!.triggerScript;
                                 LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
                                 {
                                     Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
@@ -339,7 +339,7 @@ namespace LethalBots.AI.AIStates
                 if (!attemptedToUseTZP)
                 {
                     attemptedToUseTZP = true;
-                    if (ai.HasGrabbableObjectInInventory(typeof(TetraChemicalItem), out int _))
+                    if (ai.HasGrabbableObjectInInventory(FindObject, out int _))
                     {
                         ai.State = new UseTZPInhalantState(this, GetDesiredDrunknessAmount());
                         return;
@@ -417,6 +417,20 @@ namespace LethalBots.AI.AIStates
             });
         }
 
+        /// <summary>
+        /// Helper function to check if the given <paramref name="item"/> is a usable <see cref="TetraChemicalItem"/>!
+        /// </summary>
+        /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
+        protected override bool FindObject(GrabbableObject item)
+        {
+            if (item is TetraChemicalItem tempTZP
+                && !tempTZP.itemUsedUp)
+            {
+                return true;
+            }
+            return false;
+        }
+
         /// <inheritdoc cref="AIState.RegisterSignalTranslatorCommands"/>
         public static new void RegisterSignalTranslatorCommands()
         {
@@ -488,7 +502,7 @@ namespace LethalBots.AI.AIStates
                 return null;
             }
 
-            Plugin.LogError($"Bot {npcController.Npc.playerUsername} failed to find a valid position on the ship to return to! Falling back to middleOfShipNode");
+            Plugin.LogWarning($"Bot {npcController.Npc.playerUsername} failed to find a valid position on the ship to return to! Falling back to middleOfShipNode");
             return StartOfRound.Instance.middleOfShipNode;
         }
 

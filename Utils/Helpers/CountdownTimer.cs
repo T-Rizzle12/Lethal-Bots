@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Unity.Netcode;
 using UnityEngine;
@@ -9,16 +10,28 @@ namespace LethalBots.Utils.Helpers
     [Serializable]
     public class CountdownTimer : INetworkSerializable, IEquatable<CountdownTimer>
     {
-        public float startTime = -1.0f;
-        public float endTime = -1.0f;
+        public const float INVALID_TIME = -1.0f;
+        public float startTime;
+        public float endTime;
+
+        public CountdownTimer()
+        {
+            startTime = INVALID_TIME;
+            endTime = INVALID_TIME;
+        }
+
+        public CountdownTimer(float time) : this()
+        {
+            Start(time);
+        }
 
         /// <summary>
         /// Restarts the Interval Timer
         /// </summary>
         public void Reset()
         {
-            startTime = -1.0f;
-            endTime = -1.0f;
+            startTime = INVALID_TIME;
+            endTime = INVALID_TIME;
         }
 
         /// <summary>
@@ -35,6 +48,7 @@ namespace LethalBots.Utils.Helpers
         /// Was the Countdown Timer started?
         /// </summary>
         /// <returns>true: if we were started; otherwise false</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasStarted()
         {
             return endTime > 0f;
@@ -44,6 +58,7 @@ namespace LethalBots.Utils.Helpers
         /// How long has this timer been running!
         /// </summary>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetElapsedTime()
         {
             return HasStarted() ? Time.realtimeSinceStartup - startTime : -1.0f;
@@ -53,6 +68,7 @@ namespace LethalBots.Utils.Helpers
         /// Has this Countdown Timer elapsed
         /// </summary>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Elapsed()
         {
             return HasStarted() && endTime <= Time.realtimeSinceStartup;

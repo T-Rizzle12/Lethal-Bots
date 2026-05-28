@@ -4,6 +4,7 @@ using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Managers;
 using LethalBots.Utils;
+using LethalBots.Utils.Helpers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
@@ -96,6 +97,21 @@ namespace LethalBots.Patches.NpcPatches
             int areaMaskToAdd = (1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA) | (1 << Const.LETHAL_BOT_LANDMINE_NAVAREA) | (1 << Const.LETHAL_BOT_BRIDGE_NAVAREA);
             __instance.agentMask |= areaMaskToAdd;
             __instance.agent.areaMask |= areaMaskToAdd;
+        }
+
+        /// <summary>
+        /// Patch to clean up <see cref="UpdateLimiter"/>'s that are no longer needed.
+        /// </summary>
+        /// <remarks>
+        /// Although <see cref="ConditionalWeakTable{TKey, TValue}"/> can clean this for us,
+        /// it will only clean the table if nothing refrences the key anymore.
+        /// </remarks>
+        /// <param name="__instance"></param>
+        [HarmonyPatch("OnDestroy")]
+        [HarmonyPostfix]
+        private static void OnDestroy_Postfix(EnemyAI __instance)
+        {
+            UpdateLimiter.RemoveMonitor(__instance);
         }
 
         //[HarmonyPatch("EnableEnemyMesh")]

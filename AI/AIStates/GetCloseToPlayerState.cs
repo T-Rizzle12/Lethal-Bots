@@ -194,10 +194,9 @@ namespace LethalBots.AI.AIStates
                             // If we are going to use the elevator to go up,
                             // we must drop the baby maneater before using the elevator
                             if (usingElevator
-                            && !ai.AreHandsFree()
                             && ai.HeldItem is CaveDwellerPhysicsProp)
                             {
-                                ai.DropItem();
+                                npcController.Npc.DiscardHeldObject();
                             }
                         }
                         else if (!isPlayerNearElevatorEntrance && ai.IsInElevatorStartRoom)
@@ -246,10 +245,9 @@ namespace LethalBots.AI.AIStates
                                 // If we are going to use the elevator to go up,
                                 // we must drop the baby maneater before using the elevator
                                 if (usingElevator
-                                && !ai.AreHandsFree()
                                 && ai.HeldItem is CaveDwellerPhysicsProp)
                                 {
-                                    ai.DropItem();
+                                    npcController.Npc.DiscardHeldObject();
                                 }
                             }
                             else if (!isPlayerNearElevatorEntrance && ai.IsInElevatorStartRoom)

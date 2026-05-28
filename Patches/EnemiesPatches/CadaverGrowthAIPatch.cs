@@ -18,33 +18,12 @@ namespace LethalBots.Patches.EnemiesPatches
     [HarmonyPatch(typeof(CadaverGrowthAI))]
     public class CadaverGrowthAIPatch
     {
-        // TODO: Use delegates instead of using reflection to call the private methods
-        private static MethodInfo displayFeverStatusEffectMethod = AccessTools.Method(typeof(CadaverGrowthAI), "DisplayFeverStatusEffect");
-        private static MethodInfo increaseBackFlowersMethod = AccessTools.Method(typeof(CadaverGrowthAI), "IncreaseBackFlowers");
-        private static MethodInfo healPlayerSporeEffectMethod = AccessTools.Method(typeof(CadaverGrowthAI), "HealPlayerSporeEffect");
-
-        // Cache the reference to the CadaverGrowthAI since we need it for multiple patches
-        // and it's a pretty expensive call to do Object.FindObjectOfType every time we need it.
-        private static readonly UpdateLimiter nextCadaverGrowthCheck = new UpdateLimiter();
-        internal static CadaverGrowthAI? CadaverGrowthAI
-        {
-            set => field = value;
-            get
-            {
-                if (field == null && nextCadaverGrowthCheck.CanUpdate())
-                {
-                    nextCadaverGrowthCheck.Invalidate();
-                    field = Object.FindObjectOfType<CadaverGrowthAI>();
-                }
-                return field;
-            }
-        }
 
         [HarmonyPatch("OnEnable")]
         [HarmonyPostfix]
         public static void OnEnable_Postfix(CadaverGrowthAI __instance)
         {
-            CadaverGrowthAI = __instance;
+            SingletonManager.CadaverGrowthAI.Instance = __instance;
             LethalBotVoice.lethalBotTalkEvent.AddListener(OnLethalBotTalk);
         }
 
@@ -57,7 +36,7 @@ namespace LethalBots.Patches.EnemiesPatches
         [HarmonyPostfix]
         public static void OnDisable_Postfix(CadaverGrowthAI __instance)
         {
-            CadaverGrowthAI = null;
+            SingletonManager.CadaverGrowthAI.Instance = null;
             LethalBotVoice.lethalBotTalkEvent.RemoveListener(OnLethalBotTalk);
 
             PlayerControllerB localPlayerController = GameNetworkManager.Instance.localPlayerController;
@@ -88,13 +67,13 @@ namespace LethalBots.Patches.EnemiesPatches
         private static void OnLethalBotTalk(LethalBotVoice botVoice, float loudness)
         {
             LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(botVoice.BotID);
-            if (lethalBotAI == null || CadaverGrowthAI == null)
+            if (lethalBotAI == null || !SingletonManager.CadaverGrowthAI.TryGet(out CadaverGrowthAI? cadaverGrowthAI))
             {
                 return;
             }
 
             PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
-            PlayerInfection playerInfection = CadaverGrowthAI.playerInfections[lethalBotController.playerClientId];
+            PlayerInfection playerInfection = cadaverGrowthAI.playerInfections[lethalBotController.playerClientId];
             Plugin.LogDebug($"On Lethal Bot talk {lethalBotController.playerUsername}!");
             if (!playerInfection.infected)
             {
@@ -112,7 +91,7 @@ namespace LethalBots.Patches.EnemiesPatches
                     Plugin.LogDebug($"Face spore object position: {lethalBotController.gameplayCamera.transform.position}; {lethalBotController.gameplayCamera.transform.position + lethalBotController.gameplayCamera.transform.forward * 0.25f}");
                     playerInfection.faceSpores.transform.rotation = lethalBotController.gameplayCamera.transform.rotation;
                     playerInfection.faceSpores.Play();
-                    CadaverGrowthAI.CoughSporesRpc(loudness, (int)lethalBotController.playerClientId);
+                    cadaverGrowthAI.CoughSporesRpc(loudness, (int)lethalBotController.playerClientId);
                 }
             }
         }
@@ -123,9 +102,6 @@ namespace LethalBots.Patches.EnemiesPatches
         /// This is required for bots since GameNetworkManager.Instance.localPlayerController will be the local player, while the local variable will hold the correct player controller reference. 
         /// If this patch isn't applied, bots will trigger this as the local player in this function when they die.
         /// </summary>
-        /// <remarks>
-        /// TODO: Apply this to the OnLocalPlayerTalk function as well.
-        /// </remarks>
         /// <param name="instructions"></param>
         /// <param name="generator"></param>
         /// <returns></returns>
@@ -385,7 +361,7 @@ namespace LethalBots.Patches.EnemiesPatches
                 && playerInfection.infected 
                 && playerInfection.infectionMeter > 0.85f 
                 && StartOfRound.Instance.livingPlayers > 1
-                && Vector3.Distance(player.transform.position, cadaver.bloomEnemies[infectedNum].transform.position) < 14f)
+                && (player.transform.position - cadaver.bloomEnemies[infectedNum].transform.position).sqrMagnitude < 14f * 14f)
             {
                 cadaver.BurstFromPlayer(player, player.transform.position, player.transform.eulerAngles);
                 cadaver.SyncBurstFromPlayerRpc((int)player.playerClientId, player.transform.position, player.transform.eulerAngles);
@@ -457,7 +433,7 @@ namespace LethalBots.Patches.EnemiesPatches
             PlayerInfection obj = __instance.playerInfections[infectionId];
             LethalBotInfection lethalBotInfection = lethalBotAI.BotInfectionData.Value;
             int clipIndex = UnityEngine.Random.Range(0, __instance.healPlayerSFX.Length);
-            healPlayerSporeEffectMethod.Invoke(__instance, new object[] { infectionId, clipIndex });
+            __instance.HealPlayerSporeEffect(infectionId, clipIndex);
             obj.infectionMeter -= healAmount;
             lethalBotInfection.timeAtLastHealing = Time.realtimeSinceStartup;
             lethalBotInfection.totalTimeSpentInPlants = Mathf.Clamp(lethalBotInfection.totalTimeSpentInPlants - lethalBotInfection.totalTimeSpentInPlants / 4f, 0f, 100f);
@@ -643,7 +619,7 @@ namespace LethalBots.Patches.EnemiesPatches
                         float num6 = Mathf.Lerp(5f, 50f, Mathf.Clamp(playerInfection.infectionMeter / 0.9f, 0f, 1f));
                         if (UnityEngine.Random.Range(0f, 100f) < num6)
                         {
-                            increaseBackFlowersMethod.Invoke(__instance, new object[] { i });
+                            __instance.IncreaseBackFlowers(i);
                             __instance.IncreaseBackFlowersRpc(i, playerInfection.infectionMeter);
                         }
                         else

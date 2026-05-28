@@ -48,7 +48,7 @@ namespace LethalBots.Patches.ModPatches.ReviveCompany
             PlayerControllerB playerReviving = GeneralUtil.GetClosestAlivePlayer(ragdollGrabbableObjectToRevive.transform.position);
             Vector3 revivePos = ragdollGrabbableObjectToRevive.transform.position;
             float yRot = playerReviving.transform.rotation.eulerAngles.y;
-            if (Vector3.Distance(revivePos, playerReviving.transform.position) > 7f)
+            if ((revivePos - playerReviving.transform.position).sqrMagnitude > 7f * 7f)
             {
                 revivePos = playerReviving.transform.position;
             }

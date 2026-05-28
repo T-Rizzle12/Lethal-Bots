@@ -3,6 +3,7 @@ using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Managers;
 using UnityEngine;
+using static Unity.Netcode.NetworkBehaviour;
 
 namespace LethalBots.Patches.GameEnginePatches
 {

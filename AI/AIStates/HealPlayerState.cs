@@ -17,9 +17,6 @@ namespace LethalBots.AI.AIStates
 {
     public class HealPlayerState : AIState
     {
-        private static readonly AccessTools.FieldRef<SprayPaintItem, float> sprayCanTank = AccessTools.FieldRefAccess<float>(typeof(SprayPaintItem), "sprayCanTank");
-        private static readonly AccessTools.FieldRef<SprayPaintItem, bool> isSpraying = AccessTools.FieldRefAccess<bool>(typeof(SprayPaintItem), "isSpraying");
-
         private PlayerControllerB healTarget;
         private GrabbableObject? neededMedicalTool;
         private bool allowRecharging;
@@ -60,7 +57,7 @@ namespace LethalBots.AI.AIStates
         {
             // If we got interupted while using the Weed Killer, stop spraying!
             GrabbableObject? heldItem = ai.HeldItem;
-            if (heldItem is SprayPaintItem sprayPaintItem && isSpraying.Invoke(sprayPaintItem))
+            if (heldItem is SprayPaintItem sprayPaintItem && sprayPaintItem.isSpraying)
             {
                 sprayPaintItem.UseItemOnClient(false);
             }
@@ -199,13 +196,12 @@ namespace LethalBots.AI.AIStates
             {
                 return false; // We can't heal ourselves with weed killer, someone else has to do it for us.
             }
-
-            if (CadaverGrowthAIPatch.CadaverGrowthAI == null)
+            if (!SingletonManager.CadaverGrowthAI.TryGet(out CadaverGrowthAI? cadaverGrowthAI))
             {
                 //Plugin.LogDebug("HealPlayerState: Cannot find CadaverGrowthAI, cannot heal with weed killer!");
                 return false;
             }
-            PlayerInfection playerInfection = CadaverGrowthAIPatch.CadaverGrowthAI.playerInfections[healTarget.playerClientId];
+            PlayerInfection playerInfection = cadaverGrowthAI.playerInfections[healTarget.playerClientId];
             if (!playerInfection.infected || playerInfection.infectionMeter < requiredInfectionLevel)
             {
                 //Plugin.LogDebug("HealPlayerState: Player is not infected with the Cadaver infection, cannot heal with weed killer!");
@@ -381,7 +377,7 @@ namespace LethalBots.AI.AIStates
                 && (ai.HeldItem is not SprayPaintItem sprayPaintItem || !sprayPaintItem.isWeedKillerSprayBottle)
                 && ai.HeldItem.itemProperties.twoHanded)
             {
-                ai.DropItem();
+                npcController.Npc.DiscardHeldObject();
                 yield return null;
             }
 
@@ -413,7 +409,7 @@ namespace LethalBots.AI.AIStates
             startTime = Time.timeSinceLevelLoad;
             weedKiller.UseItemOnClient(true);
             yield return null;
-            yield return new WaitUntil(() => weedKiller == null || isSpraying.Invoke(weedKiller) == false || (Time.timeSinceLevelLoad - startTime) > 5f);
+            yield return new WaitUntil(() => weedKiller == null || !weedKiller.isSpraying || (Time.timeSinceLevelLoad - startTime) > 5f);
             if (weedKiller != null && weedKiller.itemProperties.holdButtonUse)
             {
                 weedKiller.UseItemOnClient(false);
@@ -494,7 +490,7 @@ namespace LethalBots.AI.AIStates
                 && !FindUsualScrapMedkit(ai.HeldItem)
                 && ai.HeldItem.itemProperties.twoHanded)
             {
-                ai.DropItem();
+                npcController.Npc.DiscardHeldObject();
                 yield return null;
             }
 
@@ -522,7 +518,7 @@ namespace LethalBots.AI.AIStates
             heldItem.UseItemOnClient(true);
             while (this.healTarget != null 
                 && this.healTarget.health < 100
-                && FindUsualScrapMedkit(ai.HeldItem))
+                && FindUsualScrapMedkit(heldItem = ai.HeldItem))
             {
                 // Ok, we keep looping until the player is fully healed
                 yield return null;
@@ -544,7 +540,7 @@ namespace LethalBots.AI.AIStates
                     yield return new WaitUntil(() => (int)healthpoolField.GetValue(heldItem) > 0);
                 }
             }
-            if (heldItem != null && heldItem == ai.HeldItem && heldItem.itemProperties.holdButtonUse)
+            if (heldItem != null && heldItem.itemProperties.holdButtonUse)
             {
                 heldItem.UseItemOnClient(false);
             }
@@ -616,12 +612,13 @@ namespace LethalBots.AI.AIStates
             }
 
             // Make sure we have the bandage equiped
-            if (!FindUsualScrapBandage(ai.HeldItem) 
+            GrabbableObject? heldItem = ai.HeldItem;
+            if (!FindUsualScrapBandage(heldItem) 
                 || npcController.Npc.currentItemSlot != bandageSlot)
             {
-                if (ai.HeldItem != null && ai.HeldItem.itemProperties.twoHanded)
+                if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
-                    ai.DropItem();
+                    npcController.Npc.DiscardHeldObject();
                     return;
                 }
                 ai.SwitchItemSlotsAndSync(bandageSlot);
@@ -629,7 +626,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Patch ourself up!
-            ai.HeldItem.UseItemOnClient(true);
+            heldItem.UseItemOnClient(true);
         }
 
         /// <summary>
@@ -641,7 +638,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         private static bool FindWeedKiller(GrabbableObject item)
         {
-            return item is SprayPaintItem weedKiller && weedKiller.isWeedKillerSprayBottle && sprayCanTank.Invoke(weedKiller) > 0f; // For anyone wondering SprayPaintItem is the same class used for weed killer.
+            return item is SprayPaintItem weedKiller && weedKiller.isWeedKillerSprayBottle && weedKiller.sprayCanTank > 0f; // For anyone wondering SprayPaintItem is the same class used for weed killer.
         }
 
         /// <summary>

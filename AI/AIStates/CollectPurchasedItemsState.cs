@@ -12,17 +12,6 @@ namespace LethalBots.AI.AIStates
     public class CollectPurchasedItemsState : AIState
     {
         private float waitNoItemTimer = 0f;
-        internal static ItemDropship? ItemDropship
-        {
-            get
-            {
-                if (field == null)
-                {
-                    field = Object.FindObjectOfType<ItemDropship>();
-                }
-                return field;
-            }
-        }
 
         public static bool CollectDeliveredItems { internal set; get; }
 
@@ -47,7 +36,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // We couldn't find the item dropship?
-            if (ItemDropship == null || !IsPossible())
+            if (!SingletonManager.ItemDropship.TryGet(out ItemDropship? itemDropship) || !IsPossible())
             {
                 ChangeBackToPreviousState();
                 return;
@@ -56,9 +45,9 @@ namespace LethalBots.AI.AIStates
             // Say hello to the ugliest thing in the world.
             // I got this from the mod Problematic Pilotry.
             Vector3 ourPos = npcController.Npc.transform.position;
-            Vector3 dropshipLandingPos = ItemDropship.transform.parent.gameObject.transform.position;
+            Vector3 dropshipLandingPos = itemDropship.transform.parent.gameObject.transform.position;
             float sqrDistToLandingSpot = (dropshipLandingPos - ourPos).sqrMagnitude;
-            float sqrDistToInteractTrigger = (ItemDropship.transform.position - ourPos).sqrMagnitude;
+            float sqrDistToInteractTrigger = (itemDropship.transform.position - ourPos).sqrMagnitude;
 
             // Move to the landing spot if we are not nearby it!
             float grabDistance = npcController.Npc.grabDistance; // grabDistance determines our interact trigger distance!
@@ -74,7 +63,7 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // If need to wait nearby the landing spot, we should do so!
-                if ((IsDropShipLanding() || IsPurchasedItemsInbound()) && !ItemDropship.shipLanded && sqrDistToLandingSpot <= Const.DISTANCE_TO_WAIT_FOR_DROPSHIP * Const.DISTANCE_TO_WAIT_FOR_DROPSHIP)
+                if ((IsDropShipLanding() || IsPurchasedItemsInbound()) && !itemDropship.shipLanded && sqrDistToLandingSpot <= Const.DISTANCE_TO_WAIT_FOR_DROPSHIP * Const.DISTANCE_TO_WAIT_FOR_DROPSHIP)
                 {
                     ai.StopMoving();
 
@@ -103,7 +92,7 @@ namespace LethalBots.AI.AIStates
                 ai.StopMoving();
 
                 // Don't get too close until it has landed!
-                if (IsDropShipLanding() || IsPurchasedItemsInbound() && !ItemDropship.shipLanded)
+                if (IsDropShipLanding() || IsPurchasedItemsInbound() && !itemDropship.shipLanded)
                 {
                     // We are WAY TOO CLOSE, FALLBACK!
                     if (sqrDistToLandingSpot < Const.DISTANCE_FALLBACK_FROM_DROPSHIP * Const.DISTANCE_FALLBACK_FROM_DROPSHIP)
@@ -120,9 +109,9 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // Collect the items!
-                if (!ItemDropship.shipDoorsOpened && ItemDropship.shipLanded)
+                if (!itemDropship.shipDoorsOpened && itemDropship.shipLanded)
                 {
-                    ItemDropship.triggerScript.Interact(npcController.Npc.thisPlayerBody);
+                    itemDropship.triggerScript.Interact(npcController.Npc.thisPlayerBody);
                     CollectDeliveredItems = true;
                 }
                 else
@@ -184,9 +173,9 @@ namespace LethalBots.AI.AIStates
                 return false; 
             }
 
-            if (ItemDropship != null 
-                && !ItemDropship.shipDoorsOpened
-                && (ItemDropship.shipLanded || PatchesUtil.itemsToDeliverField.Invoke(ItemDropship).Count > 0))
+            if (SingletonManager.ItemDropship.TryGet(out ItemDropship? itemDropship)
+                && !itemDropship.shipDoorsOpened
+                && (itemDropship.shipLanded || itemDropship.itemsToDeliver.Count > 0))
             {
                 return true; 
             }
@@ -205,11 +194,11 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         public static bool IsDropShipLanding()
         {
-            if (ItemDropship != null
-                && !ItemDropship.shipLanded
-                && (ItemDropship.deliveringOrder 
-                    || ItemDropship.deliveringVehicle 
-                    || PatchesUtil.itemsToDeliverField.Invoke(ItemDropship).Count > 0))
+            if (SingletonManager.ItemDropship.TryGet(out ItemDropship? itemDropship)
+                && !itemDropship.shipLanded
+                && (itemDropship.deliveringOrder 
+                    || itemDropship.deliveringVehicle 
+                    || itemDropship.itemsToDeliver.Count > 0))
             {
                 return true;
             }
@@ -237,12 +226,12 @@ namespace LethalBots.AI.AIStates
         private GrabbableObject? GrabDeliveredObjects()
         {
             // No dropship?
-            if (ItemDropship == null)
+            if (!SingletonManager.ItemDropship.TryGet(out ItemDropship? itemDropship))
             {
                 return null;
             }
 
-            Vector3 dropshipLandingPos = ItemDropship.transform.parent.gameObject.transform.position;
+            Vector3 dropshipLandingPos = itemDropship.transform.parent.gameObject.transform.position;
             Vector3 ourPos = npcController.Npc.transform.position;
             GrabbableObject? bestItem = null;
             float closestItemDistSqr = float.MaxValue;

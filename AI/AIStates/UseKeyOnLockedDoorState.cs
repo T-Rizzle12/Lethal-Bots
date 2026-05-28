@@ -205,7 +205,7 @@ namespace LethalBots.AI.AIStates
                     if (heldItem != null && !FindObject(heldItem) && heldItem.itemProperties.twoHanded)
                     {
                         droppedHeldItem = heldItem;
-                        ai.DropItem();
+                        npcController.Npc.DiscardHeldObject();
                         return;
                     }
                     else if (heldItem == null || !FindObject(heldItem))
@@ -224,10 +224,9 @@ namespace LethalBots.AI.AIStates
                         }
                         else if (heldItem is LockPicker lockPicker)
                         {
-                            MethodInfo getLockPickerDoorPositionMethod = AccessTools.Method(typeof(LockPicker), "GetLockPickerDoorPosition");
-                            bool lockPicker1 = (bool)getLockPickerDoorPositionMethod.Invoke(lockPicker, new object[] { this.targetDoor });
-                            lockPicker.PlaceLockPickerServerRpc(this.targetDoor.NetworkObject, lockPicker1);
-                            lockPicker.PlaceOnDoor(this.targetDoor, lockPicker1);
+                            _ = lockPicker.GetLockPickerDoorPosition(this.targetDoor);
+                            lockPicker.PlaceLockPickerServerRpc(this.targetDoor.NetworkObject, lockPicker.placeOnLockPicker1);
+                            lockPicker.PlaceOnDoor(this.targetDoor, lockPicker.placeOnLockPicker1);
                             placedLockpicker = true;
                         }
                         else

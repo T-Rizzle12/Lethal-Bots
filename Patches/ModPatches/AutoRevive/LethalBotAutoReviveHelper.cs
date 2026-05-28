@@ -82,11 +82,20 @@ namespace LethalBots.Patches.ModPatches.AutoRevive
             // Stop all revive coroutines at the end of the round!
             foreach (var handler in autoReviveHandlers.Values)
             {
-                if (handler.reviveCoroutine != null)
+                try
                 {
-                    handler.playerController.StopCoroutine(handler.reviveCoroutine);
-                    handler.reviveCoroutine = null;
+                    if (handler.reviveCoroutine != null &&
+                        handler.playerController != null)
+                    {
+                        handler.playerController.StopCoroutine(handler.reviveCoroutine);
+                    }
                 }
+                catch (Exception ex)
+                {
+                    Plugin.LogError($"Failed stopping revive coroutine: {ex}");
+                }
+
+                handler.reviveCoroutine = null;
             }
 
             // Purge the revive handlers at the end of the round!

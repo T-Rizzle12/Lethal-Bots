@@ -95,6 +95,7 @@ Also, the bot only checks for the keywords anywhere in the message, for example,
 </br>**leave group** - This causes you to leave the current group you are in.
 </br>**join group** - This lets you join a group. You must look at the bot of the group you want to join.
 </br>**use key** - This tells every bot that is following you to unlock the door you are looking at. NOTE: You must be standing within use range for this to work!
+</br>**route (desired message)** - The bot who is currently on the terminal will attempt to route to the given moon using the terminal. (WARNING: Be careful about using this as the bot may end up routing to the wrong moon!)
 </br>Please note that you must be in chat range for the bot to hear you. If you are too far away, the bot will not respond to your command.
 If both you and the bot have a walkie-talkie, you can use the command in the chat and the bot will respond to it.
 </br>Please note that these are also voice commands, but they require you to only say the word unlike how they work as said in the chat.

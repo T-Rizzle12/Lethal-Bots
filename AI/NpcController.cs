@@ -67,7 +67,6 @@ namespace LethalBots.AI
 
         public Vector3 MoveVector;
         public bool UpdatePositionForNewlyJoinedClient;
-        public bool GrabbedObjectValidated;
         public float UpdatePlayerLookInterval;
         public int PlayerMask;
         public bool IsTouchingGround;
@@ -83,7 +82,7 @@ namespace LethalBots.AI
                     field = LethalBotManager.Instance.GetLethalBotAI(Npc);
                     if (field == null)
                     {
-                        throw new NullReferenceException($"{MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION}: error no lethalBotAI attached to NpcController playerClientId {Npc.playerClientId}.");
+                        throw new NullReferenceException($"{Plugin.ModGUID} v{MyPluginInfo.PLUGIN_VERSION}: error no lethalBotAI attached to NpcController playerClientId {Npc.playerClientId}.");
                     }
                 }
                 return field;
@@ -103,7 +102,7 @@ namespace LethalBots.AI
         private bool disabledJetpackControlsThisFrame;
 
         private bool wasUnderwaterLastFrame;
-        public float DrowningTimer { internal set; get; } = 1f;
+        public float DrowningTimer { set; get; } = 1f;
         private bool setFaceUnderwater;
         private float syncUnderwaterInterval;
 
@@ -134,9 +133,6 @@ namespace LethalBots.AI
         {
             //Plugin.LogDebug("Awake bot controller.");
             Init(clientJoining);
-
-            PatchesUtil.FieldInfoPreviousAnimationStateHash.SetValue(Npc, new List<int>(new int[Npc.playerBodyAnimator.layerCount]));
-            PatchesUtil.FieldInfoCurrentAnimationStateHash.SetValue(Npc, new List<int>(new int[Npc.playerBodyAnimator.layerCount]));
         }
 
         private void Init(bool clientJoining = false)
@@ -165,10 +161,18 @@ namespace LethalBots.AI
             }
             Npc.gameObject.GetComponent<CharacterController>().enabled = true;
 
-            AudioReverbPresets audioReverbPresets = UnityEngine.Object.FindObjectOfType<AudioReverbPresets>();
-            if ((bool)audioReverbPresets)
+            // Sigh, try-catch here since SetPlayerSafeInShip doesn't null check the
+            // EnemyAI renderers, which causes the whole damn thing to error out
+            try
             {
-                audioReverbPresets.audioPresets[3].ChangeAudioReverbForPlayer(Npc);
+                if (SingletonManager.AudioReverbPresets.TryGet(out AudioReverbPresets? audioReverbPresets))
+                {
+                    audioReverbPresets.audioPresets[3].ChangeAudioReverbForPlayer(Npc);
+                }
+            }
+            catch (Exception ex)
+            {
+                Plugin.LogError($"Error occured when setting audio reverb for bot: {ex}");
             }
 
             foreach (var skinnedMeshRenderer in Npc.gameObject.GetComponentsInChildren<SkinnedMeshRenderer>())
@@ -320,7 +324,7 @@ namespace LethalBots.AI
             UpdateLineOfSightCube();
 
             // Update our player sanity
-            PlayerControllerBPatch.SetPlayerSanityLevel_ReversePatch(Npc);
+            Npc.SetPlayerSanityLevel();
         }
 
         /// <summary>
@@ -349,7 +353,7 @@ namespace LethalBots.AI
                     Npc.activeAudioListener.transform.localPosition = Vector3.zero;*/
                     UpdateRuntimeAnimatorController(isOwner);
                 }
-                PlayerControllerBPatch.SetNightVisionEnabled_ReversePatch(Npc, true);
+                Npc.SetNightVisionEnabled(isNotLocalClient: true);
             }
             else
             {
@@ -368,7 +372,7 @@ namespace LethalBots.AI
                         Npc.gameObject.GetComponent<Rigidbody>().interpolation = RigidbodyInterpolation.None;
                     }
                 }
-                PlayerControllerBPatch.SetNightVisionEnabled_ReversePatch(Npc, true);
+                Npc.SetNightVisionEnabled(isNotLocalClient: true);
             }
         }
 
@@ -793,7 +797,7 @@ namespace LethalBots.AI
             walkForce = Vector3.MoveTowards(walkForce, Npc.transform.right * Npc.moveInputVector.x + Npc.transform.forward * Npc.moveInputVector.y, num7 * Time.deltaTime);
             Vector3 vector2 = walkForce * num3 * sprintMultiplier + new Vector3(0f, Npc.fallValue, 0f) + NearEntitiesPushVector;
             vector2 += Npc.externalForces;
-            if (Npc.externalForceAutoFade.magnitude > 0.05f)
+            if (Npc.externalForceAutoFade.sqrMagnitude > 0.05f * 0.05f)
             {
                 vector2 += Npc.externalForceAutoFade;
                 Npc.externalForceAutoFade = Vector3.Lerp(Npc.externalForceAutoFade, Vector3.zero, 2f * Time.deltaTime);
@@ -872,7 +876,7 @@ namespace LethalBots.AI
                             Npc.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_SHORTFALLLANDING);
                         }
                         //Plugin.LogDebug($"{Npc.playerUsername} JustTouchedGround fallValue {Npc.fallValue}");
-                        PlayerControllerBPatch.PlayerHitGroundEffects_ReversePatch(this.Npc);
+                        this.Npc.PlayerHitGroundEffects();
                     }
                     //if (!IsFallingFromJump)
                     //{
@@ -895,9 +899,9 @@ namespace LethalBots.AI
             {
                 if (!this.TeleportingThisFrame && !Npc.inSpecialInteractAnimation && !Npc.enteringSpecialAnimation && !Npc.isClimbingLadder && (instanceSOR.timeSinceRoundStarted > 1f || instanceSOR.testRoom != null))
                 {
-                    float magnitude2 = Npc.thisController.velocity.magnitude;
                     if (Npc.getAverageVelocityInterval <= 0f)
                     {
+                        float magnitude2 = Npc.thisController.velocity.magnitude;
                         Npc.getAverageVelocityInterval = 0.04f;
                         Npc.velocityAverageCount++;
                         if (Npc.velocityAverageCount > Npc.velocityMovingAverageLength)
@@ -1559,9 +1563,7 @@ namespace LethalBots.AI
             }
 
             // Text billboard
-            // Only show the bot state indicator when debug logging is enabled,
-            // since they are only useful for debugging purposes.
-            if (Plugin.Config.EnableDebugLog.Value)
+            if (Plugin.Config.EnableDebugLog.Value || Plugin.Config.ShowBillboardStateIndicator.Value)
             { 
                 Npc.usernameBillboardText.text = LethalBotAIController.GetSizedBillboardStateIndicator(); 
             }
@@ -1663,7 +1665,7 @@ namespace LethalBots.AI
                         }
 
                         GrabbableObject? currentlyHeldObject = LethalBotAIController.HeldItem;
-                        if (currentlyHeldObject != null && Npc.isHoldingObject && this.GrabbedObjectValidated)
+                        if (currentlyHeldObject != null && Npc.isHoldingObject && Npc.grabbedObjectValidated)
                         {
                             currentlyHeldObject.transform.localPosition = currentlyHeldObject.itemProperties.positionOffset;
                             currentlyHeldObject.transform.localEulerAngles = currentlyHeldObject.itemProperties.rotationOffset;
@@ -1757,11 +1759,12 @@ namespace LethalBots.AI
                 return false;
             }
 
-            if (Npc.currentFootstepSurfaceIndex != 1
-                && Npc.currentFootstepSurfaceIndex != 4
-                && Npc.currentFootstepSurfaceIndex != 8
-                && Npc.currentFootstepSurfaceIndex != 7
-                && (!Npc.isInsideFactory || Npc.currentFootstepSurfaceIndex != 5))
+            int currentFootstepSurfaceIndex = Npc.currentFootstepSurfaceIndex;
+            if (currentFootstepSurfaceIndex != 1
+                && currentFootstepSurfaceIndex != 4
+                && currentFootstepSurfaceIndex != 8
+                && currentFootstepSurfaceIndex != 7
+                && (!Npc.isInsideFactory || currentFootstepSurfaceIndex != 5))
             {
                 return false;
             }
@@ -1813,7 +1816,7 @@ namespace LethalBots.AI
         /// <param name="allowTooManyEmotes">Should the bot be allowed to pick a random emote using the TooManyEmotes mod?</param>
         public void PerformRandomEmote(bool allowTooManyEmotes = true)
         {
-            if (!Npc.performingEmote && PlayerControllerBPatch.CheckConditionsForEmote_ReversePatch(Npc))
+            if (!Npc.performingEmote && Npc.CheckConditionsForEmote())
             {
                 // 50% chance to use the TooManyEmotes mod if it is loaded
                 if (allowTooManyEmotes && Plugin.IsModTooManyEmotesLoaded && Random.Range(1, 100) <= 50)
@@ -2001,7 +2004,7 @@ namespace LethalBots.AI
             int emoteNumberLethalBot = Npc.playerBodyAnimator.GetInteger("emoteNumber");
             if ((!Npc.performingEmote
                 || emoteNumberLethalBot != emoteNumberToMimic)
-                && PlayerControllerBPatch.CheckConditionsForEmote_ReversePatch(Npc))
+                && Npc.CheckConditionsForEmote())
             {
                 Npc.performingEmote = true;
                 Npc.PerformEmote(new UnityEngine.InputSystem.InputAction.CallbackContext(), emoteNumberToMimic);

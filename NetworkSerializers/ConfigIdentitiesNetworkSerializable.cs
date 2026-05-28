@@ -69,15 +69,4 @@ namespace LethalBots.NetworkSerializers
             return $"name: {name}, suitID {suitID}, suitConfigOption {suitConfigOption} {(EnumOptionSuitConfig)suitConfigOption}, defaultAIState {defaultAIState} {(EnumDefaultAIState)defaultAIState} voiceFolder {voiceFolder}, volume {volume}, voicePitch {voicePitch}, loadoutName {loadoutName}, more company cosmetics {moreCompanyCosmetics} internal groupID: {groupID}";
         }
     }
-
-    public struct ConfigIdentitiesNetworkSerializable : INetworkSerializable
-    {
-        public ConfigIdentity[] ConfigIdentities;
-
-        // INetworkSerializable
-        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
-        {
-            serializer.SerializeValue(ref ConfigIdentities);
-        }
-    }
 }

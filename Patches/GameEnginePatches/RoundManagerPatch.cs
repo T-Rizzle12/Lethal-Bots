@@ -14,6 +14,7 @@ using System.Reflection.Emit;
 using Unity.AI.Navigation;
 using Unity.Netcode;
 using UnityEngine;
+using static Unity.Netcode.NetworkBehaviour;
 
 namespace LethalBots.Patches.GameEnginePatches
 {
@@ -346,7 +347,7 @@ namespace LethalBots.Patches.GameEnginePatches
         /// </summary>
         [HarmonyPatch("FinishGeneratingNewLevelClientRpc")]
         [HarmonyPostfix]
-        static void FinishGeneratingNewLevelClientRpc_PostFix()
+        static void FinishGeneratingNewLevelClientRpc_PostFix(RoundManager __instance)
         {
             Plugin.LogDebug(
                 $"[SpawnLethalBotsAtShip] Manager Instance: {LethalBotManager.Instance}, " +

@@ -169,7 +169,7 @@ namespace LethalBots.Managers
             if (localPlayer.hoveringOverTrigger != null)
             {
                 if (localPlayer.hoveringOverTrigger.holdInteraction
-                    || !PlayerControllerBPatch.InteractTriggerUseConditionsMet_ReversePatch(localPlayer))
+                    || !localPlayer.InteractTriggerUseConditionsMet())
                 {
                     return false;
                 }
@@ -212,10 +212,18 @@ namespace LethalBots.Managers
                 if (lethalBot.OwnerClientId != localPlayer.actualClientId 
                     || !lethalBot.IsFollowingLocalPlayer())
                 {
-                    if (lethalBot.IsInSpecialAnimation())
+                    // Can't tell a bot to follow if they are in a special animation.
+                    bool isUsingTerminal = lethalBot.IsUsingTerminal();
+                    if (!isUsingTerminal && lethalBot.IsInSpecialAnimation())
                     {
-                        HUDManager.Instance.DisplayTip("Bot is busy!", "If the bot is on the terminal, you can type 'hop off the terminal' to get them to hop off for a few seconds.");
+                        HUDManager.Instance.DisplayTip("Bot is busy!", "Please wait for the bot to finish the special animation first.");
                         return;
+                    }
+
+                    // Force the bot off of the terminal
+                    if (isUsingTerminal)
+                    {
+                        lethalBot.LeaveTerminalRpc();
                     }
 
                     // Audio
@@ -289,12 +297,12 @@ namespace LethalBots.Managers
                 }
 
                 // To cut Discard_performed from triggering after this input
-                PatchesUtil.timeSinceSwitchingSlotsField.Invoke(localPlayer) = 0f;
+                localPlayer.timeSinceSwitchingSlots = 0f;
 
                 if (!lethalBot.AreHandsFree())
                 {
                     // Bot drop item
-                    lethalBot.DropItem();
+                    lethalBotController.DiscardHeldObject();
                 }
                 // If we still have stuff in our inventory,
                 // we should swap to it in case the player wants us to drop it!

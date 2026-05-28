@@ -39,13 +39,13 @@ namespace LethalBots.Patches.ModPatches.BunkbedRevive
             int reviveCost = BunkbedController.GetReviveCost();
             if (TerminalManager.Instance.GetTerminal().groupCredits < reviveCost)
             {
-                HUDManagerPatch.DisplayGlobalNotification_ReversePatch(HUDManager.Instance, "Not enough credits");
+                HUDManager.Instance.DisplayGlobalNotification("Not enough credits");
                 ___interactTrigger.StopInteraction();
                 return false;
             }
             if (!BunkbedController.CanRevive(ragdollGrabbableObject.bodyID, logStuff: true))
             {
-                HUDManagerPatch.DisplayGlobalNotification_ReversePatch(HUDManager.Instance, "Can't Revive");
+                HUDManager.Instance.DisplayGlobalNotification("Can't Revive");
                 ___interactTrigger.StopInteraction();
                 return false;
             }
@@ -59,7 +59,7 @@ namespace LethalBots.Patches.ModPatches.BunkbedRevive
                                                                 ShouldDestroyDeadBody = true,
                                                                 ResetBodyBlood = true,
                                                                 enumSpawnAnimation = EnumSpawnAnimation.OnlyPlayerSpawnAnimation,
-                                                                SpawnPosition = StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, playerClientId, simpleTeleport: false),
+                                                                SpawnPosition = StartOfRound.Instance.GetPlayerSpawnPosition(playerClientId, simpleTeleport: false),
                                                                 YRot = 0,
                                                                 IsOutside = true,
                                                                 IndexNextPlayerObject = playerClientId
@@ -70,7 +70,7 @@ namespace LethalBots.Patches.ModPatches.BunkbedRevive
             StartOfRound.Instance.livingPlayers++;
             GameNetworkManager.Instance.localPlayerController?.DespawnHeldObject();
 
-            HUDManagerPatch.DisplayGlobalNotification_ReversePatch(HUDManager.Instance, $"{lethalBotIdentity.Name} has been revived");
+            HUDManager.Instance.DisplayGlobalNotification($"{lethalBotIdentity.Name} has been revived");
             return false;
         }
 

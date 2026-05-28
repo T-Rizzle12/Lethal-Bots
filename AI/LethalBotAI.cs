@@ -125,11 +125,26 @@ namespace LethalBots.AI
         /// <summary>
         /// Currently held item by lethalBot
         /// </summary>
-        /// <remarks>
-        /// NEEDTOVALIDATE: Should I just make this a glorified call to <see cref="PlayerControllerB.currentlyHeldObjectServer"/>?<br/>
-        /// After all <see cref="PlayerControllerB.currentlyHeldObjectServer"/> is used internally by most of the game's code!
-        /// </remarks>
-        public GrabbableObject? HeldItem = null!;
+        public GrabbableObject? HeldItem
+        {
+            set
+            {
+                var player = NpcController?.Npc;
+                if (player != null)
+                {
+                    player.currentlyHeldObjectServer = value;
+                }
+                else
+                {
+                    Plugin.LogWarning($"LethalBotAI.HeldItem failed to set currentlyHeldObjectServer to {value}. Bot PlayerControllerB was null!");
+                }
+            }
+            get
+            {
+                var player = NpcController?.Npc;
+                return player != null ? player.currentlyHeldObjectServer : null;
+            }
+        }
         public Collider LethalBotBodyCollider = null!;
 
         public int BotId = -1;
@@ -147,28 +162,6 @@ namespace LethalBots.AI
         public static EntranceTeleport[] EntrancesTeleportArray { private set; get; } = null!;
         public static QuicksandTrigger[] QuicksandArray { private set; get; } = null!;
         private static DoorLock[] doorLocksArray = null!;
-        public static ShipTeleporter? InverseTeleporter
-        {
-            get
-            {
-                if (field == null)
-                {
-                    field = FindTeleporter(true);
-                }
-                return field;
-            }
-        }
-        public static DissonanceComms? DissonanceComms 
-        { 
-            get 
-            {
-                if (field == null)
-                {
-                    field = Object.FindObjectOfType<DissonanceComms>();
-                }
-                return field;
-            } 
-        }
         public static MineshaftElevatorController? ElevatorScript { private set; get; } = null;
         private float timerElevatorCooldown;
         private static float pressElevatorButtonCooldown;
@@ -227,8 +220,8 @@ namespace LethalBots.AI
         private float updateDestinationIntervalLethalBotAI;
         private CountdownTimer updateDestinationTimer = new CountdownTimer();
         private float healthRegenerateTimerMax;
-        private float timerCheckDoor;
-        private float timerCheckLockedDoor;
+        private CountdownTimer timerCheckDoor = new CountdownTimer();
+        private CountdownTimer timerCheckLockedDoor = new CountdownTimer();
         private float nextExposedToEnemyTimer;
         private bool _areWeExposed;
         private float nextEyelessdogCheckTimer;
@@ -264,7 +257,8 @@ namespace LethalBots.AI
             {
                 agent = gameObject.GetComponentInChildren<NavMeshAgent>();
                 agent.acceleration = float.MaxValue; // Is THIS a good idea?
-                //agent.autoTraverseOffMeshLink = false;
+                agent.autoTraverseOffMeshLink = false;
+                agent.autoBraking = false; // This causes the bot's agent to slow around corners and stuff, we don't want that!
                 Plugin.LogDebug($"LethalBot Agent Type ID {agent.agentTypeID}");
                 Plugin.LogDebug($"LethalBot Area Mask {agent.areaMask}");
                 SetAgent(enabled: false);
@@ -429,8 +423,7 @@ namespace LethalBots.AI
             this.LethalBotVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[(int)NpcController.Npc.playerClientId];
 
             // Copy player voice prefab values
-            DissonanceComms? dissonanceComms = DissonanceComms;
-            if (dissonanceComms != null)
+            if (SingletonManager.DissonanceComms.TryGet(out DissonanceComms? dissonanceComms))
             {
                 // Find the prefab
                 Plugin.LogDebug($"Lethal Bot {NpcController.Npc.playerUsername}: found DissonanceComms!");
@@ -494,6 +487,11 @@ namespace LethalBots.AI
             // Not owner no AI
             if (!IsOwner && NpcController != null)
             {
+                if (IsUsingOffMeshLink())
+                {
+                    StopOffMeshLinkMovement();
+                }
+
                 SetAgent(enabled: false);
 
                 if (State == null
@@ -526,6 +524,9 @@ namespace LethalBots.AI
                     }
                 }
 
+                // Move the AI to where the bot controller is
+                this.transform.position = NpcController.Npc.transform.position;
+                this.serverPosition = NpcController.Npc.transform.position;
                 return;
             }
 
@@ -590,9 +591,14 @@ namespace LethalBots.AI
                     NpcController.Npc.thisPlayerBody.rotation = Quaternion.Lerp(NpcController.Npc.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
                     NpcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
                 }
-                SetAgent(enabled: false);
-                this.transform.position = NpcController.Npc.transform.position;
-                this.serverPosition = NpcController.Npc.transform.position;
+
+                // Don't do this if the bot is using an off the mesh link
+                if (!IsUsingOffMeshLink())
+                {
+                    SetAgent(enabled: false);
+                    this.transform.position = NpcController.Npc.transform.position;
+                    this.serverPosition = NpcController.Npc.transform.position;
+                }
                 return;
             }
 
@@ -613,12 +619,12 @@ namespace LethalBots.AI
                 // Update if we are in the elevator start room or not!
                 if (IsInElevatorStartRoom || isOutside)
                 {
-                    if (isOutside || Vector3.Distance(NpcController.Npc.transform.position, ElevatorScript.elevatorBottomPoint.position) < Const.DISTANCE_TO_ELEVATOR_BOTTOM)
+                    if (isOutside || (NpcController.Npc.transform.position - ElevatorScript.elevatorBottomPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_BOTTOM * Const.DISTANCE_TO_ELEVATOR_BOTTOM)
                     {
                         IsInElevatorStartRoom = false;
                     }
                 }
-                else if (Vector3.Distance(NpcController.Npc.transform.position, ElevatorScript.elevatorTopPoint.position) < Const.DISTANCE_TO_ELEVATOR_TOP)
+                else if ((NpcController.Npc.transform.position - ElevatorScript.elevatorTopPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_TOP * Const.DISTANCE_TO_ELEVATOR_TOP)
                 {
                     IsInElevatorStartRoom = true;
                 }
@@ -645,7 +651,7 @@ namespace LethalBots.AI
 
             }
             // Disable agent if we are not moving!
-            else if (!IsInsideElevator && (State == null || !State.IsSafePathRunning()))
+            else if (!IsInsideElevator && !IsUsingOffMeshLink() && (State == null || !State.IsSafePathRunning()))
             {
                 SetAgent(enabled: false);
             }
@@ -733,6 +739,7 @@ namespace LethalBots.AI
                 // If we are stuck, teleport to the closest node!
                 StartOfRound instanceSOR = StartOfRound.Instance;
                 if (agent.velocity.sqrMagnitude < 0.002f
+                    && StateControllerMovement != EnumStateControllerMovement.Free
                     && !this.IsUsingOffMeshLink()
                     && !IsInsideElevator
                     && (LethalBotManager.AreWeInOrbit(instanceSOR) 
@@ -772,7 +779,7 @@ namespace LethalBots.AI
             }
             else
             {
-                SetAgent(enabled: !shouldFixedMovement);
+                SetAgent(enabled: true);
 
                 // Do the actual AI calculation
                 DoAIInterval();
@@ -807,7 +814,7 @@ namespace LethalBots.AI
 
             // Ladders
             // FIXME: This causes TOO many issues to be used right now!
-            //UseLadderIfNeeded();
+            UseLadderIfNeeded();
 
             // Copy movement
             FollowCrouchStateIfCan();
@@ -1287,7 +1294,9 @@ namespace LethalBots.AI
                         RoundManager instanceRM = RoundManager.Instance;
                         foreach (EnemyAI checkLOSToTarget in instanceRM.SpawnedEnemies)
                         {
-                            if (checkLOSToTarget.isEnemyDead || !checkLOSToTarget.isOutside)
+                            if (checkLOSToTarget == null 
+                                || checkLOSToTarget.isEnemyDead 
+                                || !checkLOSToTarget.isOutside)
                             {
                                 continue;
                             }
@@ -1333,7 +1342,7 @@ namespace LethalBots.AI
                     Plugin.LogDebug($"Testing quicksand safety between current node {nodePos} and previous node {previousNode}");
                     foreach (var quicksand in QuicksandArray)
                     {
-                        if (!quicksand.isActiveAndEnabled)
+                        if (quicksand == null || !quicksand.isActiveAndEnabled)
                             continue;
 
                         Bounds quicksandBounds = default;
@@ -1449,7 +1458,8 @@ namespace LethalBots.AI
                         RoundManager instanceRM = RoundManager.Instance;
                         foreach (EnemyAI checkLOSToTarget in instanceRM.SpawnedEnemies)
                         {
-                            if (checkLOSToTarget.isEnemyDead
+                            if (checkLOSToTarget == null 
+                                || checkLOSToTarget.isEnemyDead
                                 || !checkLOSToTarget.isOutside)
                             {
                                 continue;
@@ -1497,7 +1507,7 @@ namespace LethalBots.AI
                     Plugin.LogDebug($"Testing quicksand safety between current node {nodePos} and previous node {previousNode}");
                     foreach (var quicksand in QuicksandArray)
                     {
-                        if (!quicksand.isActiveAndEnabled)
+                        if (quicksand == null || !quicksand.isActiveAndEnabled)
                             continue;
 
                         Bounds quicksandBounds = default;
@@ -1817,13 +1827,13 @@ namespace LethalBots.AI
                     await Task.Yield();
                 }
 
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} is checking {enemy.enemyType.enemyName} for exposure...");
                 if (enemy == null)
                 {
                     Plugin.LogDebug($"Enemy At Index {i}: Skipped (null)");
                     continue;
                 }
 
+                Plugin.LogDebug($"{NpcController.Npc.playerUsername} is checking {enemy.enemyType.enemyName} for exposure...");
                 if (enemy.isEnemyDead || ourWeOutside != enemy.isOutside) 
                 {
                     Plugin.LogDebug($"{enemy.enemyType.enemyName}: Skipped (dead or {skipText})");
@@ -2176,7 +2186,6 @@ namespace LethalBots.AI
             return false;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetAgent(bool enabled)
         {
             if (agent != null && agent.enabled != enabled)
@@ -2386,7 +2395,7 @@ namespace LethalBots.AI
                 // Target close enough and nothing in between to break line of sight 
                 Vector3 to = posTargetCamera - thisLethalBotCamera.position;
                 if (Vector3.Angle(thisLethalBotCamera.forward, to) < width
-                    || (proximityAwareness != -1 && Vector3.Distance(thisLethalBotCamera.position, posTargetCamera) < (float)proximityAwareness))
+                    || (proximityAwareness != -1 && (thisLethalBotCamera.position - posTargetCamera).sqrMagnitude < (float)proximityAwareness * (float)proximityAwareness))
                 {
                     // Target in FOV or proximity awareness range
                     return targetPlayer;
@@ -2434,7 +2443,7 @@ namespace LethalBots.AI
                     // Target close enough and nothing in between to break line of sight 
                     Vector3 to = posLethalBotCamera - thisLethalBotCamera.position;
                     if (Vector3.Angle(thisLethalBotCamera.forward, to) < width
-                        || (proximityAwareness != -1 && Vector3.Distance(thisLethalBotCamera.position, posLethalBotCamera) < (float)proximityAwareness))
+                        || (proximityAwareness != -1 && (thisLethalBotCamera.position - posLethalBotCamera).sqrMagnitude < (float)proximityAwareness * (float)proximityAwareness))
                     {
                         // Target in FOV or proximity awareness range
                         if (lethalBotAI.targetPlayer == targetPlayer)
@@ -2749,7 +2758,9 @@ namespace LethalBots.AI
             RoundManager instanceRM = RoundManager.Instance;
             foreach (EnemyAI checkLOSToTarget in instanceRM.SpawnedEnemies)
             {
-                if (checkLOSToTarget.isEnemyDead || this.isOutside != checkLOSToTarget.isOutside)
+                if (checkLOSToTarget == null 
+                    || checkLOSToTarget.isEnemyDead 
+                    || this.isOutside != checkLOSToTarget.isOutside)
                 {
                     continue;
                 }
@@ -2824,14 +2835,6 @@ namespace LethalBots.AI
         }
 
         /// <summary>
-        /// Allows me to check if the nutcrackerIsInspecting field is true or not!
-        /// </summary>
-        /// <remarks>
-        /// Not up top like the others since this is only used by <see cref="CanEnemyBeKilled(EnemyAI)"/>
-        /// </remarks>
-        private static readonly AccessTools.FieldRef<NutcrackerEnemyAI, bool> nutcrackerIsInspecting = AccessTools.FieldRefAccess<bool>(typeof(NutcrackerEnemyAI), "isInspecting");
-
-        /// <summary>
         /// Returns true if the given EnemyAI can be killed!
         /// </summary>
         /// <inheritdoc cref="LethalBotAI.CanEnemyBeKilled(EnemyAI, bool, bool, bool)"/>
@@ -2864,20 +2867,20 @@ namespace LethalBots.AI
             if (enemy is CentipedeAI 
                 || enemy is MaskedPlayerEnemy 
                 || enemy is CrawlerAI
-                || enemy is HoarderBugAI)
+                || enemy is HoarderBugAI
+                || enemy is BaboonBirdAI)
             {
                 return true;
             }
             else if (enemy is NutcrackerEnemyAI nutcracker 
                 && (hasRangedWeapon || isHumanPlayer || isEnemyStunned)
                         && (enemy.currentBehaviourStateIndex == 2
-                            || nutcrackerIsInspecting.Invoke(nutcracker)))
+                            || nutcracker.isInspecting))
             {
                 return true;
             }
             else if (enemy is FlowermanAI 
-                || enemy is SandSpiderAI
-                || enemy is BaboonBirdAI)
+                || enemy is SandSpiderAI)
             {
                 return hasRangedWeapon || isHumanPlayer || isEnemyStunned;
             }
@@ -2961,7 +2964,7 @@ namespace LethalBots.AI
             Vector3 ourPos = NpcController.Npc.transform.position;
             foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
             {
-                if (!spawnedEnemy.isEnemyDead && (spawnedEnemy is MouthDogAI || spawnedEnemy.enemyType.enemyName == "MouthDog"))
+                if (spawnedEnemy != null && !spawnedEnemy.isEnemyDead && (spawnedEnemy is MouthDogAI || spawnedEnemy.enemyType.enemyName == "MouthDog"))
                 {
                     // NOTE: We don't use GetFearRangeForEnemies since
                     // we don't want to trigger the dog in the first place
@@ -3145,7 +3148,7 @@ namespace LethalBots.AI
             float closestLadderDistSqr = Const.DISTANCE_NPCBODY_FROM_LADDER * Const.DISTANCE_NPCBODY_FROM_LADDER;
             foreach (InteractTrigger ladder in laddersInteractTrigger)
             {
-                if (ladder == null) continue;
+                if (ladder == null || !ladder.interactable) continue;
 
                 // Setup important local variables
                 Vector3 ladderBottomPos = ladder.bottomOfLadderPosition.position;
@@ -3199,6 +3202,8 @@ namespace LethalBots.AI
         {
             foreach (var entrance in EntrancesTeleportArray)
             {
+                if (entrance == null) continue;
+
                 if ((entityPos1 - entrance.entrancePoint.position).sqrMagnitude < Const.DISTANCE_TO_ENTRANCE * Const.DISTANCE_TO_ENTRANCE
                     && (entityPos2 - entrance.entrancePoint.position).sqrMagnitude < Const.DISTANCE_TO_ENTRANCE * Const.DISTANCE_TO_ENTRANCE)
                 {
@@ -3249,27 +3254,24 @@ namespace LethalBots.AI
             return null;
         }
 
-        private static readonly AccessTools.FieldRef<DoorLock, bool> isDoorOpenedField = AccessTools.FieldRefAccess<bool>(typeof(DoorLock), "isDoorOpened");
-
         /// <summary>
         /// Check the doors after some interval of ms to see if lethalBot can open one to unstuck himself.
         /// </summary>
         /// <returns>true: a door has been opened by lethalBot. Else false</returns>
         private bool OpenDoorIfNeeded()
         {
-            if (timerCheckDoor > Const.TIMER_CHECK_DOOR)
+            if (!timerCheckDoor.HasStarted() || timerCheckDoor.Elapsed())
             {
-                timerCheckDoor = 0f;
+                timerCheckDoor.Start(Const.TIMER_CHECK_DOOR);
 
                 DoorLock? door = GetDoorIfWantsToOpen();
-                if (door != null && !isDoorOpenedField.Invoke(door))
+                if (door != null && !door.isDoorOpened)
                 {
                     // Open door
                     door.OpenOrCloseDoor(NpcController.Npc);
                     return true;
                 }
             }
-            timerCheckDoor += AIIntervalTime;
             return false;
         }
 
@@ -3279,9 +3281,11 @@ namespace LethalBots.AI
         /// <returns>the locked door has been found by lethalBot. Else null</returns>
         public DoorLock? UnlockDoorIfNeeded(float lockedDoorRange = Const.DISTANCE_NPCBODY_FROM_DOOR, bool checkLineOfSight = false, float proximityRange = -1f, bool bypassCooldown = false)
         {
-            if (bypassCooldown || (Time.timeSinceLevelLoad - timerCheckLockedDoor) > Const.TIMER_CHECK_DOOR)
+            if (bypassCooldown 
+                || !timerCheckLockedDoor.HasStarted() 
+                || timerCheckLockedDoor.Elapsed())
             {
-                timerCheckLockedDoor = Time.timeSinceLevelLoad;
+                timerCheckLockedDoor.Start(Const.TIMER_CHECK_DOOR);
 
                 if (!HasKeyInInventory())
                 {
@@ -3291,7 +3295,7 @@ namespace LethalBots.AI
                 Vector3 npcBodyPos = NpcController.Npc.thisController.transform.position;
                 foreach (var lockedDoor in doorLocksArray)
                 {
-                    if (lockedDoor.isLocked && !lockedDoor.isPickingLock)
+                    if (lockedDoor != null && lockedDoor.isLocked && !lockedDoor.isPickingLock)
                     {
                         float distSqrFromDoor = (lockedDoor.transform.position - npcBodyPos).sqrMagnitude;
                         if (distSqrFromDoor < lockedDoorRange * lockedDoorRange)
@@ -3567,11 +3571,12 @@ namespace LethalBots.AI
                 return false;
             }
 
-            if (Vector3.Distance(player.transform.position, ElevatorScript.elevatorBottomPoint.position) < Const.DISTANCE_TO_ELEVATOR_BOTTOM)
+            Vector3 playerPos = player.transform.position;
+            if ((playerPos - ElevatorScript.elevatorBottomPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_BOTTOM * Const.DISTANCE_TO_ELEVATOR_BOTTOM)
             {
                 return false;
             }
-            else if (Vector3.Distance(player.transform.position, ElevatorScript.elevatorTopPoint.position) < Const.DISTANCE_TO_ELEVATOR_TOP)
+            else if ((playerPos - ElevatorScript.elevatorTopPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_TOP * Const.DISTANCE_TO_ELEVATOR_TOP)
             {
                 return true;
             }
@@ -3587,11 +3592,11 @@ namespace LethalBots.AI
             // NEEDTOVALIDATE: Does this work as expected?
             if (ElevatorScript != null)
             {
-                if (Vector3.Distance(position, ElevatorScript.elevatorBottomPoint.position) < Const.DISTANCE_TO_ELEVATOR_BOTTOM)
+                if ((position - ElevatorScript.elevatorBottomPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_BOTTOM * Const.DISTANCE_TO_ELEVATOR_BOTTOM)
                 {
                     return false;
                 }
-                else if (Vector3.Distance(position, ElevatorScript.elevatorTopPoint.position) < Const.DISTANCE_TO_ELEVATOR_TOP)
+                else if ((position - ElevatorScript.elevatorTopPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_TOP * Const.DISTANCE_TO_ELEVATOR_TOP)
                 {
                     return true;
                 }
@@ -3618,9 +3623,23 @@ namespace LethalBots.AI
             if (ladder == null)
             {
                 // If this is a gap, do the default logic instead!
-                if (agent.isOnOffMeshLink && offMeshLinkCoroutine == null)
+                if (agent.isOnOffMeshLink)
                 {
-                    offMeshLinkCoroutine = StartCoroutine(offMeshLinkParabola(agent, 0.6f)); // NpcController.Npc.jumpForce
+                    if (agent.currentOffMeshLinkData.activated)
+                    {
+                        if (offMeshLinkCoroutine == null)
+                        {
+                            offMeshLinkCoroutine = StartCoroutine(offMeshLinkParabola(agent, 0.6f)); // NpcController.Npc.jumpForce
+                        }
+                    }
+                    else
+                    {
+                        StopOffMeshLinkMovement();
+                    }
+                }
+                else if (offMeshLinkCoroutine != null)
+                {
+                    StopOffMeshLinkMovement();
                 }
                 return false;
             }
@@ -3655,22 +3674,13 @@ namespace LethalBots.AI
             return true;
         }
 
-        private IEnumerator autoTraverseOffMeshLink()
-        {
-            agent.autoTraverseOffMeshLink = true;
-            yield return null;
-            yield return new WaitUntil(() => !agent.isOnOffMeshLink);
-            agent.autoTraverseOffMeshLink = false;
-            offMeshLinkCoroutine = null;
-        }
-
         /// <summary>
         /// Helper function to check if the bot is currently using an off mesh link.
         /// </summary>
         /// <returns>true if the bot is using an off mesh link, otherwise false</returns>
         public bool IsUsingOffMeshLink()
         {
-            return offMeshLinkCoroutine != null || agent.isOnOffMeshLink;
+            return offMeshLinkCoroutine != null || useLadderCoroutine != null || agent.isOnOffMeshLink;
         }
 
         /// <summary>
@@ -3697,8 +3707,13 @@ namespace LethalBots.AI
             float duration = horizontalDistance / agent.speed;
 
             Plugin.LogDebug($"Beginning off mesh link movement. {data.valid}; {data.activated}; {base.IsOwner}");
-            while (normalizedTime < 1f && data.valid && data.activated && base.IsOwner)
+            while (normalizedTime < 1f && base.IsOwner)
             {
+                data = agent.currentOffMeshLinkData; // Update our data!
+                if (!data.valid || !data.activated)
+                {
+                    break;
+                }
                 float num = height * 4f * (normalizedTime - normalizedTime * normalizedTime);
                 Plugin.LogDebug($"Moving on off mesh link; time: {normalizedTime}; y: {num}");
                 this.transform.position = Vector3.Lerp(startPos, endPos, normalizedTime) + num * Vector3.up;
@@ -3714,33 +3729,39 @@ namespace LethalBots.AI
 
         public void StopOffMeshLinkMovement(bool warpToEnd = true)
         {
-            if (offMeshLinkCoroutine == null)
+            // Stop using the off mesh link
+            if (offMeshLinkCoroutine != null)
             {
-                return;
-            }
-            StopCoroutine(offMeshLinkCoroutine);
-            offMeshLinkCoroutine = null;
-            OffMeshLinkData currentOffMeshLinkData = agent.currentOffMeshLinkData;
-            agent.CompleteOffMeshLink();
-            if (currentOffMeshLinkData.valid)
-            {
-                Plugin.LogDebug($"Completed off mesh EARLY link due to an interruption; position: {base.transform.position}");
-                if (Vector3.Distance(base.transform.position, currentOffMeshLinkData.startPos) < Vector3.Distance(base.transform.position, currentOffMeshLinkData.endPos))
+                StopCoroutine(offMeshLinkCoroutine);
+                offMeshLinkCoroutine = null;
+                OffMeshLinkData currentOffMeshLinkData = agent.currentOffMeshLinkData;
+                agent.CompleteOffMeshLink();
+                if (currentOffMeshLinkData.valid)
                 {
-                    Plugin.LogDebug($"Warping agent to start position at {currentOffMeshLinkData.startPos}");
-                    if (warpToEnd)
-                        TeleportAgentAIAndBody(currentOffMeshLinkData.startPos);
+                    Plugin.LogDebug($"Completed off mesh EARLY link due to an interruption; position: {base.transform.position}");
+                    if (Vector3.Distance(base.transform.position, currentOffMeshLinkData.startPos) < Vector3.Distance(base.transform.position, currentOffMeshLinkData.endPos))
+                    {
+                        Plugin.LogDebug($"Warping agent to start position at {currentOffMeshLinkData.startPos}");
+                        if (warpToEnd)
+                            TeleportAgentAIAndBody(currentOffMeshLinkData.startPos);
+                    }
+                    else
+                    {
+                        Plugin.LogDebug($"Warping agent to end position at {currentOffMeshLinkData.endPos}");
+                        if (warpToEnd)
+                            TeleportAgentAIAndBody(currentOffMeshLinkData.endPos);
+                    }
                 }
                 else
                 {
-                    Plugin.LogDebug($"Warping agent to end position at {currentOffMeshLinkData.endPos}");
-                    if (warpToEnd)
-                        TeleportAgentAIAndBody(currentOffMeshLinkData.endPos);
+                    Plugin.LogDebug("Off mesh link data invalid; agent completing off mesh link anyway");
                 }
             }
-            else
+
+            // Stop using ladder
+            if (useLadderCoroutine != null)
             {
-                Plugin.LogDebug("Off mesh link data invalid; agent completing off mesh link anyway");
+                NpcController.Npc.CancelSpecialTriggerAnimations();
             }
         }
 
@@ -3765,11 +3786,12 @@ namespace LethalBots.AI
         public bool IsHoldingCombatWeapon()
         {
             // Need ammo in order to use this weapon!
-            if (!HasAmmoForWeapon(HeldItem))
+            GrabbableObject? heldItem = this.HeldItem;
+            if (!HasAmmoForWeapon(heldItem))
             {
                 return false;
             }
-            return IsItemWeapon(HeldItem);
+            return IsItemWeapon(heldItem);
         }
 
         /// <summary>
@@ -3780,11 +3802,12 @@ namespace LethalBots.AI
         public bool IsHoldingRangedWeapon()
         {
             // Need ammo in order to use this weapon!
-            if (!HasAmmoForWeapon(HeldItem))
+            GrabbableObject? heldItem = this.HeldItem;
+            if (!HasAmmoForWeapon(heldItem))
             {
                 return false;
             }
-            return IsItemRangedWeapon(HeldItem);
+            return IsItemRangedWeapon(heldItem);
         }
 
         /// <summary>
@@ -3795,7 +3818,7 @@ namespace LethalBots.AI
         [MemberNotNullWhen(true, nameof(HeldItem))]
         public bool IsHoldingKey(bool keyOnly = false)
         {
-            return IsItemKey(HeldItem, keyOnly);
+            return IsItemKey(this.HeldItem, keyOnly);
         }
 
         /// <summary>
@@ -4064,7 +4087,7 @@ namespace LethalBots.AI
             }
 
             // Check if the lethalBot is holding the object
-            if (HeldItem == grabbableObject)
+            if (this.HeldItem == grabbableObject)
             {
                 objectSlot = NpcController.Npc.currentItemSlot;
                 return true;
@@ -4101,6 +4124,7 @@ namespace LethalBots.AI
         /// <param name="typeOfObject">The type of the object in the inventory!</param>
         /// <param name="objectSlot">The slot of where the object was found at! Is set to <see cref="Const.INVALID_ITEM_SLOT"/> if item was not found!</param>
         /// <returns>true: the bot has the object in its inventory, false: the bot doesn't have the given object in its inventory</returns>
+        [Obsolete("Its not recommended to use this function as it has been superseded by HasGrabbableObjectInInventory(Func<GrabbableObject, bool>, out int). Use that instead!")]
         public bool HasGrabbableObjectInInventory(Type typeOfObject, out int objectSlot)
         {
             // Check if the lethalBot is holding the object
@@ -4146,7 +4170,8 @@ namespace LethalBots.AI
         {
             // Check if the lethalBot is holding the object
             objectSlot = Const.INVALID_ITEM_SLOT;
-            if (!AreHandsFree() && objectPredicate(HeldItem))
+            GrabbableObject? heldItem = this.HeldItem;
+            if (heldItem != null && objectPredicate(heldItem))
             {
                 objectSlot = NpcController.Npc.currentItemSlot;
                 return true;
@@ -4310,9 +4335,10 @@ namespace LethalBots.AI
         /// <returns>I mean come on</returns>
         public bool HasScrapInInventory()
         {
-            if (!AreHandsFree() 
-                && IsItemScrap(HeldItem) 
-                && !IsGrabbableObjectInLoadout(HeldItem))
+            GrabbableObject? heldItem = this.HeldItem;
+            if (heldItem != null
+                && IsItemScrap(heldItem) 
+                && !IsGrabbableObjectInLoadout(heldItem))
             {
                 return true;
             }
@@ -4340,7 +4366,8 @@ namespace LethalBots.AI
         /// <returns>I mean come on</returns>
         public bool HasSellableItemInInventory()
         {
-            if (!AreHandsFree() && IsGrabbableObjectSellable(HeldItem, true, true))
+            GrabbableObject? heldItem = this.HeldItem;
+            if (heldItem != null && IsGrabbableObjectSellable(heldItem, true, true))
             {
                 return true;
             }
@@ -4425,7 +4452,6 @@ namespace LethalBots.AI
         /// Basically a carbon copy of <see cref="PlayerControllerB.CanUseItem"/>, but made for bots
         /// </summary>
         /// <returns></returns>
-        [MemberNotNullWhen(true, nameof(HeldItem))]
         public bool CanUseHeldItem()
         {
             PlayerControllerB lethalBotController = NpcController.Npc;
@@ -4433,7 +4459,8 @@ namespace LethalBots.AI
             {
                 return false;
             }
-            if (AreHandsFree())
+            GrabbableObject? heldItem = lethalBotController.currentlyHeldObjectServer;
+            if (heldItem == null)
             {
                 return false;
             }
@@ -4441,7 +4468,7 @@ namespace LethalBots.AI
             {
                 return false;
             }
-            if (!HeldItem.itemProperties.usableInSpecialAnimations 
+            if (!heldItem.itemProperties.usableInSpecialAnimations 
                 && (lethalBotController.isGrabbingObjectAnimation 
                     || lethalBotController.inTerminalMenu 
                     || lethalBotController.isTypingChat 
@@ -4459,7 +4486,7 @@ namespace LethalBots.AI
         /// <returns>false: we didn't press a button to turn off the held item. true: we pressed a button to turn off the held item</returns>
         public bool TurnOffHeldItem()
         {
-            GrabbableObject? grabbableObject = HeldItem;
+            GrabbableObject? grabbableObject = this.HeldItem;
             if (grabbableObject == null)
             {
                 return false;
@@ -4646,7 +4673,7 @@ namespace LethalBots.AI
         public GrabbableObject? LookingForObjectToGrab()
         {
             GrabbableObject? closestObject = null;
-            float closestObjectDistSqr = float.MaxValue;
+            float closestObjectDistSqr = Const.LETHAL_BOT_OBJECT_RANGE * Const.LETHAL_BOT_OBJECT_RANGE;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
                 GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
@@ -4672,8 +4699,7 @@ namespace LethalBots.AI
                 // Check if object is further away from the closest object
                 // FIXME: This should be PATH distance not elucian!
                 float sqrDistanceEyeGameObject = (gameObjectPosition - this.eye.position).sqrMagnitude;
-                if (sqrDistanceEyeGameObject > Const.LETHAL_BOT_OBJECT_RANGE * Const.LETHAL_BOT_OBJECT_RANGE 
-                    || sqrDistanceEyeGameObject > closestObjectDistSqr)
+                if (sqrDistanceEyeGameObject > closestObjectDistSqr)
                 {
                     continue;
                 }
@@ -4906,7 +4932,7 @@ namespace LethalBots.AI
                 }
 
                 // Object not outside when ai inside and vice versa
-                bool isHeld = grabbableObject.isHeld;
+                bool isHeld = grabbableObject.isHeld || grabbableObject.isPocketed;
                 Vector3 deadBodyPosition = gameObject.transform.position;
                 if (!isHeld)
                 {
@@ -5125,7 +5151,8 @@ namespace LethalBots.AI
 
             // If its held, check if we are reviving the player or not
             bool skipPathCheck = false;
-            if (grabbableObject.isHeld)
+            bool isHeld = grabbableObject.isHeld || grabbableObject.isPocketed;
+            if (isHeld)
             {
                 // Alright, if we are picking up a player to revive them, check if we are already holding their body!
                 skipPathCheck = true;
@@ -5137,6 +5164,13 @@ namespace LethalBots.AI
 
             if (!grabbableObject.grabbable
                 || grabbableObject.deactivated)
+            {
+                return false;
+            }
+
+            if (!GameNetworkManager.Instance.gameHasStarted 
+                && !grabbableObject.itemProperties.canBeGrabbedBeforeGameStart 
+                && StartOfRound.Instance.testRoom == null)
             {
                 return false;
             }
@@ -5172,7 +5206,7 @@ namespace LethalBots.AI
 
             // Item just dropped, should wait a bit before grab it again
             CaveDwellerPhysicsProp? caveDwellerGrabbableObject = grabbableObject as CaveDwellerPhysicsProp;
-            if (!grabbableObject.isHeld 
+            if (!isHeld
                 && (caveDwellerGrabbableObject == null
                 || !caveDwellerGrabbableObject.caveDwellerScript.babyCrying)
                 && DictJustDroppedItems.TryGetValue(grabbableObject, out float justDroppedItemTime))
@@ -5184,7 +5218,8 @@ namespace LethalBots.AI
             }
 
             // Are we holding a two handed item and is the item we are grabbing two handed
-            if (!AreHandsFree() && enumGrabbable != EnumGrabbableObjectCall.Reviving && HeldItem.itemProperties.twoHanded)
+            GrabbableObject? heldItem = this.HeldItem;
+            if (heldItem != null && enumGrabbable != EnumGrabbableObjectCall.Reviving && heldItem.itemProperties.twoHanded)
             {
                 // If the item requires one hand then we can set down our large item and pick up the small one!
                 if (grabbableObject.itemProperties.twoHanded 
@@ -5206,6 +5241,8 @@ namespace LethalBots.AI
             {
                 foreach (EntranceTeleport entrance in EntrancesTeleportArray)
                 {
+                    if (entrance == null) continue;
+
                     if (entrance.isEntranceToBuilding 
                         && (grabbableObject.transform.position - entrance.entrancePoint.position).sqrMagnitude < Const.DISTANCE_ITEMS_TO_ENTRANCE * Const.DISTANCE_ITEMS_TO_ENTRANCE)
                     {
@@ -5245,7 +5282,7 @@ namespace LethalBots.AI
                 return false;
             }
 
-            if ((!ignoreHeldFlag && grabbableObject.isHeld)
+            if ((!ignoreHeldFlag && (grabbableObject.isHeld || grabbableObject.isPocketed))
                 || !grabbableObject.grabbable
                 || grabbableObject.deactivated 
                 || !IsItemScrap(grabbableObject))
@@ -5300,7 +5337,8 @@ namespace LethalBots.AI
             // Are we holding a two handed item and is the item we are grabbing two handed
             if (!ignoreHeldFlag)
             {
-                if (!AreHandsFree() && HeldItem.itemProperties.twoHanded)
+                GrabbableObject? heldItem = this.HeldItem;
+                if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
                     // If the item requires one hand then we can set down our large item and pick up the small one!
                     if (grabbableObject.itemProperties.twoHanded)
@@ -5399,7 +5437,7 @@ namespace LethalBots.AI
                     if (choseRandomFlyDirForPlayer)
                     {
                         choseRandomFlyDirForPlayer = false;
-                        lethalBotController.TeleportPlayer(StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(instanceSOR, (int)lethalBotController.playerClientId, false));
+                        lethalBotController.TeleportPlayer(instanceSOR.GetPlayerSpawnPosition((int)lethalBotController.playerClientId, false));
                     }
 
                     // Just in case.....
@@ -5413,7 +5451,7 @@ namespace LethalBots.AI
 
                     if (instanceSOR.testRoom == null && !shipInnerRoomBounds.Contains(playerPos + Vector3.up * 0.25f))
                     {
-                        lethalBotController.TeleportPlayer(StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(instanceSOR, (int)lethalBotController.playerClientId, true));
+                        lethalBotController.TeleportPlayer(instanceSOR.GetPlayerSpawnPosition((int)lethalBotController.playerClientId, true));
                     }
                 }
 
@@ -5424,7 +5462,7 @@ namespace LethalBots.AI
                         lethalBotController.parentedToElevatorLastFrame = false;
                         lethalBotController.lastSyncedPhysicsParent = lethalBotController.overridePhysicsParent;
                         this.ReParentLethalBot(lethalBotController.overridePhysicsParent);
-                        PlayerControllerBPatch.UpdatePlayerPhysicsParentServerRpc_ReversePatch(lethalBotController, lethalBotController.thisPlayerBody.localPosition, lethalBotController.overridePhysicsParent.GetComponent<NetworkObject>(), isOverride: true, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
+                        lethalBotController.UpdatePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, lethalBotController.overridePhysicsParent.GetComponent<NetworkObject>(), isOverride: true, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
                     }
                 }
                 else if (lethalBotController.physicsParent != null)
@@ -5434,7 +5472,7 @@ namespace LethalBots.AI
                         lethalBotController.parentedToElevatorLastFrame = false;
                         lethalBotController.lastSyncedPhysicsParent = lethalBotController.physicsParent;
                         this.ReParentLethalBot(lethalBotController.physicsParent);
-                        PlayerControllerBPatch.UpdatePlayerPhysicsParentServerRpc_ReversePatch(lethalBotController, lethalBotController.thisPlayerBody.localPosition, lethalBotController.physicsParent.GetComponent<NetworkObject>(), isOverride: false, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
+                        lethalBotController.UpdatePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, lethalBotController.physicsParent.GetComponent<NetworkObject>(), isOverride: false, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
                     }
                 }
                 else
@@ -5443,7 +5481,7 @@ namespace LethalBots.AI
                     {
                         lethalBotController.lastSyncedPhysicsParent = null;
                         this.ReParentLethalBot(lethalBotController.playersManager.playersContainer);
-                        PlayerControllerBPatch.RemovePlayerPhysicsParentServerRpc_ReversePatch(lethalBotController, lethalBotController.thisPlayerBody.localPosition, removeOverride: false, removeBoth: true, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
+                        lethalBotController.RemovePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, removeOverride: false, removeBoth: true, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
                     }
                     if (lethalBotController.isInElevator)
                     {
@@ -5462,14 +5500,6 @@ namespace LethalBots.AI
             }
             lethalBotController.previousElevatorPosition = lethalBotController.playersManager.elevatorTransform.position;
         }
-
-        /// <summary>
-        /// Allows me to check if the extensionLadderItemLadderActivated field is true or not!
-        /// </summary>
-        /// <remarks>
-        /// Not up top like the others since this is only used by <see cref="IsGrabbableObjectBlackListed(GrabbableObject, EnumGrabbableObjectCall)"/>
-        /// </remarks>
-        private static readonly AccessTools.FieldRef<ExtensionLadderItem, bool> extensionLadderItemLadderActivated = AccessTools.FieldRefAccess<bool>(typeof(ExtensionLadderItem), "ladderActivated");
 
         /// <summary>
         /// Checks if the given object is blacklisted
@@ -5541,7 +5571,7 @@ namespace LethalBots.AI
                 }
 
                 // If the bot is not liked by the maneater baby, then only grab it if the maneater baby is crying
-                BabyPlayerMemory? playerMemory = CaveDwellerAIPatch.GetBabyMemoryOfPlayer_ReversePatch(caveDwellerAI, NpcController.Npc);
+                BabyPlayerMemory? playerMemory = caveDwellerAI.GetBabyMemoryOfPlayer(NpcController.Npc);
                 if ((playerMemory == null 
                     || playerMemory.likeMeter < 0.1f) 
                     && !caveDwellerAI.babyCrying)
@@ -5583,7 +5613,7 @@ namespace LethalBots.AI
             }
 
             // Don't pickup extended extention ladders
-            if (grabbableObjectToEvaluate is ExtensionLadderItem extensionLadder && (!shouldReturnToShip || extensionLadderItemLadderActivated.Invoke(extensionLadder)))
+            if (grabbableObjectToEvaluate is ExtensionLadderItem extensionLadder && (!shouldReturnToShip || extensionLadder.ladderActivated))
             {
                 return true;
             }
@@ -5645,17 +5675,19 @@ namespace LethalBots.AI
             foreach (var bridge in bridgeTriggers)
             {
                 // It was the animator that held the bridge colliders, not the physics parts container
+                HashSet<Collider> fallenBridgeColliders = bridge.fallenBridgeColliders.ToHashSet();
                 Collider[] bridgePhysicsPartsContainerComponents = bridge.bridgeAnimator.gameObject.GetComponentsInChildren<Collider>();
-                foreach (var component in bridgePhysicsPartsContainerComponents)
+                foreach (var collider in bridgePhysicsPartsContainerComponents)
                 {
-                    //if (component.name == "Mesh")
+                    //if (collider.name == "Mesh")
                     //{
                     //    continue;
                     //}
 
-                    if (!dictColliderToBridge.ContainsKey(component))
+                    if (!dictColliderToBridge.ContainsKey(collider) 
+                        && !fallenBridgeColliders.Contains(collider))
                     {
-                        dictColliderToBridge.Add(component, bridge);
+                        dictColliderToBridge.Add(collider, bridge);
                     }
                 }
             }
@@ -6011,9 +6043,8 @@ namespace LethalBots.AI
                 targetEntrance.timeAtLastUse = Time.realtimeSinceStartup;
                 targetEntrance.FinishOpeningEntrance(playShutAudio: false);
                 //EntranceTeleport entranceTeleport = RoundManager.FindMainEntranceScript(setOutside.Value);
-                AudioReverbPresets audioReverbPresets = Object.FindObjectOfType<AudioReverbPresets>();
                 //audioReverbPresets.audioPresets[targetEntrance.audioReverbPreset].ChangeAudioReverbForPlayer(NpcController.Npc);
-                if (targetEntrance.audioReverbPreset != -1)
+                if (SingletonManager.AudioReverbPresets.TryGet(out AudioReverbPresets? audioReverbPresets) && targetEntrance.audioReverbPreset != -1)
                 {
                     audioReverbPresets.audioPresets[targetEntrance.audioReverbPreset].ChangeAudioReverbForPlayer(lethalBotController);
                     if (targetEntrance.entrancePointAudio != null)
@@ -6047,9 +6078,10 @@ namespace LethalBots.AI
             agent?.Warp(navMeshPosition);
 
             // For CullFactory mod
-            if (!AreHandsFree())
+            GrabbableObject? heldItem = this.HeldItem;
+            if (heldItem != null)
             {
-                HeldItem.EnableItemMeshes(true);
+                heldItem.EnableItemMeshes(true);
             }
         }
 
@@ -6152,7 +6184,7 @@ namespace LethalBots.AI
             }
 
             this.allAINodes = nodeList.ToArray();
-            if (outside && searchForScrap != null && (searchForScrap.searchInProgress || searchForScrap.visitInProgress))
+            if (searchForScrap != null && (searchForScrap.searchInProgress || searchForScrap.visitInProgress))
             {
                 searchForScrap.StopSearch();
             }
@@ -6557,7 +6589,7 @@ namespace LethalBots.AI
                 return;
             }
 
-            PlayerControllerBPatch.IsInSpecialAnimationClientRpc_ReversePatch(NpcController.Npc, specialAnimation, timed, climbingLadder);
+            NpcController.Npc.IsInSpecialAnimationClientRpc(specialAnimation, timed, climbingLadder);
             NpcController.Npc.ResetZAndXRotation();
         }
 
@@ -6582,139 +6614,117 @@ namespace LethalBots.AI
         #region Grab item RPC
 
         /// <summary>
-        /// Server side, call clients to make the lethalBot grab item on their side to sync everyone
+        /// Carbon Copy of <see cref="PlayerControllerB.BeginGrabObject"/>, but made for bots
         /// </summary>
-        /// <param name="networkObjectReference">Item reference over the network</param>
-        [ServerRpc(RequireOwnership = false)]
-        public void GrabItemServerRpc(NetworkObjectReference networkObjectReference, bool itemGiven)
+        /// <param name="grabbableObject"></param>
+        public void GrabObject(GrabbableObject grabbableObject)
         {
-            if (!networkObjectReference.TryGet(out NetworkObject networkObject))
+            // Only the owner can call this
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            if (!base.IsOwner)
             {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} GrabItem for LethalBotAI {this.BotId} {NpcController.Npc.playerUsername}: Unknown to get network object from network object reference (Grab item RPC)");
+                Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not owner.");
                 return;
             }
 
-            GrabbableObject grabbableObject = networkObject.GetComponent<GrabbableObject>();
-            if (grabbableObject == null)
+            // NOTE: IsGrabbableObjectGrabbable doesn't work here since we are just checking the same conditions as the human player
+            if (!CanGrabObject(grabbableObject))
             {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} GrabItem for LethalBotAI {this.BotId} {NpcController.Npc.playerUsername}: Unknown to get GrabbableObject component from network object (Grab item RPC)");
+                Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. A");
                 return;
             }
 
-            if (!itemGiven)
+            lethalBotController.currentlyGrabbingObject = grabbableObject;
+            if (!GameNetworkManager.Instance.gameHasStarted && !lethalBotController.currentlyGrabbingObject.itemProperties.canBeGrabbedBeforeGameStart && StartOfRound.Instance.testRoom == null)
             {
-                if (!IsGrabbableObjectGrabbable(grabbableObject) && !IsGrabbableObjectSellable(grabbableObject))
+                Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. B");
+                return;
+            }
+            lethalBotController.grabInvalidated = false;
+            if (lethalBotController.currentlyGrabbingObject == null 
+                || lethalBotController.inSpecialInteractAnimation 
+                || lethalBotController.currentlyGrabbingObject.isHeld 
+                || lethalBotController.currentlyGrabbingObject.isPocketed)
+            {
+                Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. C");
+                return;
+            }
+
+            NetworkObject networkObject = lethalBotController.currentlyGrabbingObject.NetworkObject;
+            if (networkObject == null || !networkObject.IsSpawned)
+            {
+                Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. D");
+                return;
+            }
+
+            lethalBotController.currentlyGrabbingObject.InteractItem();
+            if (lethalBotController.currentlyGrabbingObject.grabbable && FirstEmptyItemSlot(lethalBotController.currentlyGrabbingObject) != Const.INVALID_ITEM_SLOT)
+            {
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABINVALIDATED, value: false);
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, value: false);
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, value: false);
+                lethalBotController.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
+                SetSpecialGrabAnimationBool(setBool: true, grabbableObject);
+                lethalBotController.isGrabbingObjectAnimation = true;
+                lethalBotController.twoHanded = lethalBotController.currentlyGrabbingObject.itemProperties.twoHanded;
+                lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight + (lethalBotController.currentlyGrabbingObject.itemProperties.weight - 1f), 1f, 10f);
+                if (lethalBotController.currentlyGrabbingObject.itemProperties.grabAnimationTime > 0f)
                 {
-                    Plugin.LogDebug($"{NpcController.Npc.playerUsername} grabbableObject {grabbableObject} not grabbable");
-                    return;
+                    lethalBotController.grabObjectAnimationTime = lethalBotController.currentlyGrabbingObject.itemProperties.grabAnimationTime;
                 }
+                else
+                {
+                    lethalBotController.grabObjectAnimationTime = 0.4f;
+                }
+                lethalBotController.GrabObjectServerRpc(networkObject);
+                if (grabObjectCoroutine != null)
+                {
+                    StopCoroutine(grabObjectCoroutine);
+                }
+                grabObjectCoroutine = StartCoroutine(this.GrabAnimationCoroutine());
             }
-
-            // Items need to be owned by the owner of the bot so client code
-            // can be executed properly
-            // NOTE: We do this here since we should be on the server
-            if (networkObject.OwnerClientId != this.OwnerClientId)
-            { 
-                networkObject.ChangeOwnership(this.OwnerClientId);
+            else
+            {
+                Plugin.LogDebug($"{lethalBotController.playerUsername} grabbableObject {grabbableObject} not grabbable. E");
             }
-            GrabItemClientRpc(networkObjectReference);
         }
 
         /// <summary>
-        /// Client side, make the lethalBot grab item
+        /// Helper function for <see cref="GrabObject(GrabbableObject)"/>
         /// </summary>
-        /// <param name="networkObjectReference">Item reference over the network</param>
-        [ClientRpc]
-        private void GrabItemClientRpc(NetworkObjectReference networkObjectReference)
-        {
-            if (!networkObjectReference.TryGet(out NetworkObject networkObject))
-            {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} GrabItem for LethalBotAI {this.BotId} {NpcController.Npc.playerUsername}: Unknown to get network object from network object reference (Grab item RPC)");
-                return;
-            }
-
-            GrabbableObject grabbableObject = networkObject.GetComponent<GrabbableObject>();
-            if (grabbableObject == null)
-            {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} GrabItem for LethalBotAI {this.BotId} {NpcController.Npc.playerUsername}: Unknown to get GrabbableObject component from network object (Grab item RPC)");
-                return;
-            }
-
-            if (this.HasGrabbableObjectInInventory(grabbableObject, out _))
-            {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} cannot grab already held item {grabbableObject} on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            GrabItem(grabbableObject);
-        }
-
-        /// <summary>
-        /// Make the lethalBot grab an item like an enemy would, but update the body (<c>PlayerControllerB</c>) too.
-        /// </summary>
-        /// <param name="grabbableObject">Item to grab</param>
-        private void GrabItem(GrabbableObject grabbableObject)
+        /// <remarks>
+        /// This is basically a copy of the checks called by <see cref="PlayerControllerB.Interact_performed"/><br/>
+        /// While this is similar to <see cref="IsGrabbableObjectGrabbable(GrabbableObject, EnumGrabbableObjectCall)"/>, 
+        /// its only the same code human players go through before an item can be picked up
+        /// </remarks>
+        /// <param name="grabbableObject"></param>
+        /// <returns></returns>
+        public bool CanGrabObject(GrabbableObject? grabbableObject)
         {
             PlayerControllerB lethalBotController = NpcController.Npc;
-            Plugin.LogDebug($"{lethalBotController.playerUsername} try to grab item {grabbableObject} on client #{NetworkManager.LocalClientId}");
-            int itemSlot = FirstEmptyItemSlot(grabbableObject);
-            if (itemSlot == Const.INVALID_ITEM_SLOT)
+            if (lethalBotController.twoHanded
+                || lethalBotController.sinkingValue > 0.73f
+                || lethalBotController.inSpecialMenu 
+                || NpcController.TimeSinceSwitchingSlots < 0.2f)
             {
-                Plugin.LogDebug($"{lethalBotController.playerUsername} failed to grab item on client #{NetworkManager.LocalClientId}, no free slots!");
-                return;
+                return false;
             }
-            //this.HeldItem = grabbableObject;
-
-            //grabbableObject.GrabItemFromEnemy(this); //NEEDTOVALIDATE: Should I keep this?
-            //grabbableObject.GrabItem();
-            SwitchToItemSlot(itemSlot, grabbableObject);
-            grabbableObject.EnablePhysics(enable: false);
-            grabbableObject.isHeld = true;
-            grabbableObject.hasHitGround = false;
-            grabbableObject.isInFactory = lethalBotController.isInsideFactory;
-            lethalBotController.SetItemInElevator(lethalBotController.isInHangarShipRoom, lethalBotController.isInElevator, grabbableObject);
-            lethalBotController.twoHanded = grabbableObject.itemProperties.twoHanded;
-            lethalBotController.twoHandedAnimation = grabbableObject.itemProperties.twoHandedAnimation;
-            grabbableObject.parentObject = lethalBotController.serverItemHolder;
-            lethalBotController.isHoldingObject = true;
-            if (grabbableObject.itemProperties.grabSFX != null)
+            if (!lethalBotController.isGrabbingObjectAnimation 
+                && !lethalBotController.isTypingChat 
+                && !lethalBotController.inTerminalMenu 
+                && !NpcController.ThrowingObject 
+                && !lethalBotController.IsInspectingItem 
+                && lethalBotController.inAnimationWithEnemy == null 
+                && !lethalBotController.jetpackControls 
+                && !lethalBotController.disablingJetpackControls 
+                && !StartOfRound.Instance.suckingPlayersOutOfShip)
             {
-                lethalBotController.itemAudio.PlayOneShot(grabbableObject.itemProperties.grabSFX, 1f);
+                if (!lethalBotController.activatingItem && !lethalBotController.waitingToDropItem)
+                {
+                    return true;
+                }
             }
-
-            lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight + (grabbableObject.itemProperties.weight - 1f), 1f, 10f);
-            NpcController.GrabbedObjectValidated = true;
-
-            // Only call this on the owner, it will be networked if needed!
-            if (IsOwner)
-            { 
-                grabbableObject.GrabItemOnClient(); 
-            }
-            // Should I just call GrabItemOnClient instead?
-            /*if (IsOwner || grabbableObject.itemProperties.syncGrabFunction)
-            {
-                grabbableObject.GrabItem();
-            }*/
-            /*if (grabbableObject.itemProperties.grabSFX != null)
-            {
-                NpcController.Npc.itemAudio.PlayOneShot(grabbableObject.itemProperties.grabSFX, 1f);
-            }*/
-
-            // animations
-            lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABINVALIDATED, false);
-            lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, false);
-            lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, false);
-            lethalBotController.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
-            lethalBotController.isGrabbingObjectAnimation = true;
-            this.SetSpecialGrabAnimationBool(true, grabbableObject);
-
-            if (this.grabObjectCoroutine != null)
-            {
-                base.StopCoroutine(this.grabObjectCoroutine);
-            }
-            this.grabObjectCoroutine = base.StartCoroutine(this.GrabAnimationCoroutine());
-
-            Plugin.LogDebug($"{lethalBotController.playerUsername} Grabbed item {grabbableObject} on client #{NetworkManager.LocalClientId}");
+            return false; ;
         }
 
         /// <summary>
@@ -6935,11 +6945,11 @@ namespace LethalBots.AI
                     itemSlots[slot] = fillSlotWithItem;
                 }
             }
-            if (!this.AreHandsFree())
+            if (thisBot.currentlyHeldObjectServer != null)
             {
-                this.HeldItem.playerHeldBy = thisBot;
-                this.SetSpecialGrabAnimationBool(false, this.HeldItem);
-                this.HeldItem.PocketItem();
+                thisBot.currentlyHeldObjectServer.playerHeldBy = thisBot;
+                this.SetSpecialGrabAnimationBool(false, thisBot.currentlyHeldObjectServer);
+                thisBot.currentlyHeldObjectServer.PocketItem();
                 if (slot == Const.RESERVED_EQUIPMENT_SLOT)
                 {
                     if (thisBot.ItemOnlySlot != null && !string.IsNullOrEmpty(thisBot.ItemOnlySlot.itemProperties.pocketAnim))
@@ -6953,14 +6963,14 @@ namespace LethalBots.AI
                 }
             }
             GrabbableObject? grabbableObject = slot == Const.RESERVED_EQUIPMENT_SLOT ? thisBot.ItemOnlySlot : itemSlots[slot];
-            if (grabbableObject!= null)
+            if (grabbableObject != null)
             {
                 grabbableObject.playerHeldBy = thisBot;
                 grabbableObject.EquipItem();
                 this.SetSpecialGrabAnimationBool(true, grabbableObject);
-                if (!this.AreHandsFree())
+                if (thisBot.currentlyHeldObjectServer != null)
                 {
-                    if (grabbableObject.itemProperties.twoHandedAnimation || this.HeldItem.itemProperties.twoHandedAnimation)
+                    if (grabbableObject.itemProperties.twoHandedAnimation || thisBot.currentlyHeldObjectServer.itemProperties.twoHandedAnimation)
                     {
                         thisBot.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATIONTWOHANDED);
                         thisBot.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_BOOL_SWITCHHOLDANIMATIONTWOHANDED);
@@ -6974,15 +6984,13 @@ namespace LethalBots.AI
                 thisBot.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, false);
                 thisBot.isHoldingObject = true;
                 thisBot.currentlyHeldObjectServer = grabbableObject;
-                this.HeldItem = grabbableObject;
                 if (fillSlotWithItem == null)
                 {
-                    this.HeldItem.gameObject.GetComponent<AudioSource>().PlayOneShot(this.HeldItem.itemProperties.grabSFX, 0.6f);
+                    thisBot.currentlyHeldObjectServer.gameObject.GetComponent<AudioSource>().PlayOneShot(thisBot.currentlyHeldObjectServer.itemProperties.grabSFX, 0.6f);
                 }
             }
             else
             {
-                this.HeldItem = null;
                 thisBot.currentlyHeldObject = null;
                 thisBot.currentlyHeldObjectServer = null;
                 thisBot.isHoldingObject = false;
@@ -6998,17 +7006,80 @@ namespace LethalBots.AI
         /// <returns></returns>
         private IEnumerator GrabAnimationCoroutine()
         {
-            if (!this.AreHandsFree())
+            // Grab our player controller
+            PlayerControllerB lethalBotController = NpcController.Npc;
+
+            // Clear the validated grab flag
+            lethalBotController.grabbedObjectValidated = false;
+
+            // Yield just like the base game
+            yield return new WaitForSeconds(0.1f);
+
+            // Play pickup audio
+            lethalBotController.itemAudio.PlayOneShot(StartOfRound.Instance.playerGrabSFX[UnityEngine.Random.Range(0, StartOfRound.Instance.playerGrabSFX.Length)]);
+
+            // Play item pickup audio
+            lethalBotController.currentlyGrabbingObject.parentObject = lethalBotController.serverItemHolder;
+            if (lethalBotController.currentlyGrabbingObject.itemProperties.grabSFX != null)
             {
-                float grabAnimationTime = this.HeldItem.itemProperties.grabAnimationTime > 0f ? this.HeldItem.itemProperties.grabAnimationTime : 0.4f;
-                yield return new WaitForSeconds(grabAnimationTime - 0.2f);
-                NpcController.Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, true);
-                NpcController.Npc.isGrabbingObjectAnimation = false;
+                lethalBotController.itemAudio.PlayOneShot(lethalBotController.currentlyGrabbingObject.itemProperties.grabSFX, 1f);
+            }
+
+            // For the the grab to be validated by the server
+            while ((lethalBotController.currentlyGrabbingObject != lethalBotController.currentlyHeldObjectServer || !lethalBotController.currentlyHeldObjectServer.wasOwnerLastFrame) && !lethalBotController.grabInvalidated)
+            {
+                yield return null;
+            }
+
+            // Update local variable with our new field
+            if (lethalBotController.grabInvalidated)
+            {
+                // If the grab was marked as invalid by the server, let the user know!
+                lethalBotController.grabInvalidated = false;
+                Plugin.LogInfo("Grab was invalidated on object: " + lethalBotController.currentlyGrabbingObject.name);
+                if (lethalBotController.currentlyGrabbingObject.playerHeldBy != null)
+                {
+                    Plugin.LogInfo($"playerHeldBy on currentlyGrabbingObject 2: {lethalBotController.currentlyGrabbingObject.playerHeldBy}");
+                }
+                if (lethalBotController.currentlyGrabbingObject.parentObject == lethalBotController.serverItemHolder)
+                {
+                    if (lethalBotController.currentlyGrabbingObject.playerHeldBy != null)
+                    {
+                        Plugin.LogInfo($"Grab invalidated; giving grabbed object to the client who got it first; {lethalBotController.currentlyGrabbingObject.playerHeldBy}");
+                        lethalBotController.currentlyGrabbingObject.parentObject = lethalBotController.currentlyGrabbingObject.playerHeldBy.serverItemHolder;
+                    }
+                    else
+                    {
+                        Plugin.LogInfo("Grab invalidated; no other client has possession of it, so set its parent object to null.");
+                        lethalBotController.currentlyGrabbingObject.parentObject = null;
+                    }
+                }
+                lethalBotController.twoHanded = false;
+                SetSpecialGrabAnimationBool(setBool: false, lethalBotController.currentlyGrabbingObject);
+                if (lethalBotController.currentlyHeldObjectServer != null)
+                {
+                    lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRAB, value: true);
+                }
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABINVALIDATED, value: true);
+                lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight - (lethalBotController.currentlyGrabbingObject.itemProperties.weight - 1f), 1f, 10f);
+                lethalBotController.isGrabbingObjectAnimation = false;
+                lethalBotController.currentlyGrabbingObject = null;
+                lethalBotController.queueDiscardObject = false;
             }
             else
             {
-                NpcController.Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABINVALIDATED, true);
-                NpcController.Npc.isGrabbingObjectAnimation = false;
+                lethalBotController.grabbedObjectValidated = true;
+                lethalBotController.currentlyHeldObjectServer.GrabItemOnClient();
+                lethalBotController.isHoldingObject = true;
+                yield return new WaitForSeconds(lethalBotController.grabObjectAnimationTime - 0.2f);
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, value: true);
+                lethalBotController.isGrabbingObjectAnimation = false;
+                if (lethalBotController.queueDiscardObject)
+                {
+                    Plugin.LogInfo($"Activating queued DiscardHeldObject to force player #{lethalBotController.playerClientId} '{lethalBotController.playerUsername}' to drop their item! item: '{lethalBotController.currentlyHeldObjectServer.itemProperties.itemName}'");
+                    lethalBotController.DiscardHeldObject();
+                    lethalBotController.queueDiscardObject = false;
+                }
             }
             yield break;
         }
@@ -7018,7 +7089,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="setBool">Activate or deactivate special animation</param>
         /// <param name="item">Item that has the special grab animation</param>
-        private void SetSpecialGrabAnimationBool(bool setBool, GrabbableObject? item)
+        internal void SetSpecialGrabAnimationBool(bool setBool, GrabbableObject? item)
         {
             NpcController.Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRAB, setBool);
             if (item != null
@@ -7039,590 +7110,6 @@ namespace LethalBots.AI
         #endregion
 
         #region Drop item RPC
-
-        /// <summary>
-        /// Make the lethalBot drop his item like an enemy, but update the body (<c>PlayerControllerB</c>) too.
-        /// </summary>
-        public void DropItem(bool placeObject = false, NetworkObject parentObjectTo = null!, Vector3 placePosition = default(Vector3), bool matchRotationOfParent = true)
-        {
-            Plugin.LogDebug($"{NpcController.Npc.playerUsername} Try to drop item on client #{NetworkManager.LocalClientId}");
-            if (this.AreHandsFree())
-            {
-                Plugin.LogError($"{NpcController.Npc.playerUsername} Try to drop not held item on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            GrabbableObject grabbableObject = this.HeldItem;
-            Vector3 vector;
-            NetworkObject physicsRegionOfDroppedObject = grabbableObject.GetPhysicsRegionOfDroppedObject(NpcController.Npc, out vector);
-            if (!placeObject)
-            {
-                if (physicsRegionOfDroppedObject != null)
-                {
-                    placePosition = vector;
-                    parentObjectTo = physicsRegionOfDroppedObject;
-                    placeObject = true;
-                    matchRotationOfParent = false;
-                }
-            }
-
-            if (placeObject)
-            {
-                if (parentObjectTo == null)
-                {
-                    NpcController.ThrowingObject.Value = true; // Just like the base game!
-                    if (NpcController.Npc.isInElevator)
-                    {
-                        placePosition = StartOfRound.Instance.elevatorTransform.InverseTransformPoint(placePosition);
-                    }
-                    else
-                    {
-                        placePosition = StartOfRound.Instance.propsContainer.InverseTransformPoint(placePosition);
-                    }
-                    int floorYRot2 = (int)base.transform.localEulerAngles.y;
-
-                    // on client
-                    SetObjectAsNoLongerHeld(grabbableObject,
-                                            this.NpcController.Npc.isInElevator,
-                                            this.NpcController.Npc.isInHangarShipRoom,
-                                            placePosition,
-                                            floorYRot2);
-
-                    if (grabbableObject.NetworkObject == null || !grabbableObject.NetworkObject.IsSpawned)
-                    {
-                        Plugin.LogWarning($"{NpcController.Npc.playerUsername}: Tried to drop an unspawned object! Not networking to other clients!");
-                        return;
-                    }
-
-                    // for other clients
-                    SetObjectAsNoLongerHeldServerRpc(new DropItemNetworkSerializable()
-                    {
-                        DroppedInElevator = this.NpcController.Npc.isInElevator,
-                        DroppedInShipRoom = this.NpcController.Npc.isInHangarShipRoom,
-                        FloorYRot = floorYRot2,
-                        GrabbedObject = grabbableObject.NetworkObject,
-                        TargetFloorPosition = placePosition,
-                        SkipPlayer = NetworkManager.LocalClientId
-                    });
-                }
-                else
-                {
-                    // on client
-                    PlaceGrabbableObject(grabbableObject, parentObjectTo.transform, placePosition, matchRotationOfParent);
-
-                    if (grabbableObject.NetworkObject == null || !grabbableObject.NetworkObject.IsSpawned)
-                    {
-                        Plugin.LogWarning($"{NpcController.Npc.playerUsername}: Tried to drop an unspawned object! Not networking to other clients!");
-                        return;
-                    }
-
-                    // for other clients
-                    PlaceGrabbableObjectServerRpc(new PlaceItemNetworkSerializable()
-                    {
-                        GrabbedObject = grabbableObject.NetworkObject,
-                        MatchRotationOfParent = matchRotationOfParent,
-                        ParentObject = parentObjectTo,
-                        PlacePositionOffset = placePosition,
-                        SkipPlayer = NetworkManager.LocalClientId
-                    });
-                }
-                return;
-            }
-
-            // More base game logic!
-            NpcController.ThrowingObject.Value = true;
-            bool droppedInElevator = this.NpcController.Npc.isInElevator;
-            Vector3 targetFloorPosition;
-            if (!NpcController.Npc.isInElevator)
-            {
-                Vector3 vector2;
-                if (grabbableObject.itemProperties.allowDroppingAheadOfPlayer)
-                {
-                    vector2 = DropItemAheadOfPlayer(grabbableObject, NpcController.Npc);
-                }
-                else
-                {
-                    vector2 = grabbableObject.GetItemFloorPosition(default(Vector3));
-                }
-                if (!NpcController.Npc.playersManager.shipBounds.bounds.Contains(vector2))
-                {
-                    targetFloorPosition = NpcController.Npc.playersManager.propsContainer.InverseTransformPoint(vector2);
-                }
-                else
-                {
-                    droppedInElevator = true;
-                    targetFloorPosition = NpcController.Npc.playersManager.elevatorTransform.InverseTransformPoint(vector2);
-                }
-            }
-            else
-            {
-                Vector3 vector2 = grabbableObject.GetItemFloorPosition(default(Vector3));
-                if (!NpcController.Npc.playersManager.shipBounds.bounds.Contains(vector2))
-                {
-                    droppedInElevator = false;
-                    targetFloorPosition = NpcController.Npc.playersManager.propsContainer.InverseTransformPoint(vector2);
-                }
-                else
-                {
-                    targetFloorPosition = NpcController.Npc.playersManager.elevatorTransform.InverseTransformPoint(vector2);
-                }
-            }
-            int floorYRot = (int)base.transform.localEulerAngles.y;
-
-            // on client
-            SetObjectAsNoLongerHeld(grabbableObject,
-                                    droppedInElevator,
-                                    this.NpcController.Npc.isInHangarShipRoom,
-                                    targetFloorPosition,
-                                    floorYRot);
-
-            if (grabbableObject.NetworkObject == null || !grabbableObject.NetworkObject.IsSpawned)
-            {
-                Plugin.LogWarning($"{NpcController.Npc.playerUsername}: Tried to drop an unspawned object! Not networking to other clients!");
-                return;
-            }
-
-            // for other clients
-            SetObjectAsNoLongerHeldServerRpc(new DropItemNetworkSerializable()
-            {
-                DroppedInElevator = droppedInElevator,
-                DroppedInShipRoom = this.NpcController.Npc.isInHangarShipRoom,
-                FloorYRot = floorYRot,
-                GrabbedObject = grabbableObject.NetworkObject,
-                TargetFloorPosition = targetFloorPosition,
-                SkipPlayer = NetworkManager.LocalClientId
-            });
-        }
-
-        /// <summary>
-        /// Destorys the grabbable object in the given slot!
-        /// </summary>
-        /// <param name="itemSlot"></param>
-        public void DestroyItemInSlot(int itemSlot)
-        {
-            if (NetworkManager.Singleton == null || NetworkManager.Singleton.ShutdownInProgress)
-            {
-                return;
-            }
-
-            PlayerControllerB lethalBotController = NpcController.Npc;
-            Plugin.LogDebug($"Destroying item in slot {itemSlot}; {lethalBotController.currentItemSlot}; is helditem null: {AreHandsFree()}");
-            if (!AreHandsFree())
-            {
-                Plugin.LogDebug("HeldItem: " + HeldItem.itemProperties.itemName);
-            }
-
-            GrabbableObject? grabbableObject = itemSlot == Const.RESERVED_EQUIPMENT_SLOT ? lethalBotController.ItemOnlySlot : lethalBotController.ItemSlots[itemSlot];
-            if (lethalBotController.isHoldingObject)
-            {
-                if (lethalBotController.currentItemSlot == itemSlot)
-                {
-                    lethalBotController.carryWeight = Mathf.Clamp(lethalBotController.carryWeight - (grabbableObject.itemProperties.weight - 1f), 1f, 10f);
-                    lethalBotController.isHoldingObject = false;
-                    lethalBotController.twoHanded = false;
-                    lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, value: true);
-                    lethalBotController.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
-                    lethalBotController.activatingItem = false;
-                }
-
-                if (!AreHandsFree() && HeldItem == grabbableObject)
-                {
-                    SetSpecialGrabAnimationBool(setBool: false, HeldItem);
-                    if (IsOwner)
-                    {
-                        HeldItem.DiscardItemOnClient();
-                    }
-
-                    HeldItem = null;
-                    lethalBotController.currentlyHeldObjectServer = null;
-                }
-            }
-            if (itemSlot == Const.RESERVED_EQUIPMENT_SLOT)
-            {
-                lethalBotController.ItemOnlySlot = null;
-            }
-            else
-            { 
-                lethalBotController.ItemSlots[itemSlot] = null; 
-            }
-            if (IsServer)
-            {
-                grabbableObject?.NetworkObject.Despawn();
-            }
-        }
-
-        /// <summary>
-        /// Copied from <c>PlayerControllerB</c>, makes the bot drop everthing held! 
-        /// </summary>
-        public void DropAllHeldItems(bool itemsFall = true, bool setInShip = false, bool setInElevator = false, Vector3 syncedPlayerPosition = default(Vector3), Vector3 syncedHeldObjectPosition = default(Vector3), Vector3 syncedHeldObjectRotation = default(Vector3), Vector3 syncedPlayerCamPosition = default(Vector3), Vector3 syncedPlayerCamRotation = default(Vector3))
-        {
-            PlayerControllerB lethalBotController = NpcController.Npc;
-            GrabbableObject?[] itemSlots = lethalBotController.ItemSlots;
-            for (int i = 0; i < itemSlots.Length; i++)
-            {
-                GrabbableObject? grabbableObject = itemSlots[i];
-                if (grabbableObject == null)
-                {
-                    continue;
-                }
-                PlayerControllerBPatch.DropHeldItem_ReversePatch(lethalBotController, grabbableObject, itemsFall, false, syncedPlayerPosition, syncedHeldObjectPosition, syncedHeldObjectRotation, syncedPlayerCamPosition, syncedPlayerCamRotation, setInShip, setInElevator);
-                DictJustDroppedItems[grabbableObject] = Time.realtimeSinceStartup;
-                if (base.IsOwner)
-                {
-                    lethalBotController.activatingItem = false;
-                }
-                itemSlots[i] = null;
-            }
-            if (lethalBotController.ItemOnlySlot)
-            {
-                PlayerControllerBPatch.DropHeldItem_ReversePatch(lethalBotController, lethalBotController.ItemOnlySlot, itemsFall, false, syncedPlayerPosition, syncedHeldObjectPosition, syncedHeldObjectRotation, syncedPlayerCamPosition, syncedPlayerCamRotation, setInShip, setInElevator);
-                DictJustDroppedItems[lethalBotController.ItemOnlySlot] = Time.realtimeSinceStartup;
-                if (base.IsOwner)
-                {
-                    lethalBotController.activatingItem = false;
-                }
-                lethalBotController.ItemOnlySlot = null;
-            }
-            if (lethalBotController.isHoldingObject)
-            {
-                lethalBotController.isHoldingObject = false;
-                if (!this.AreHandsFree())
-                {
-                    this.SetSpecialGrabAnimationBool(false, this.HeldItem);
-                }
-                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, true);
-                lethalBotController.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
-            }
-            this.HeldItem = null;
-            lethalBotController.activatingItem = false;
-            lethalBotController.twoHanded = false;
-            lethalBotController.carryWeight = 1f;
-            lethalBotController.currentlyHeldObjectServer = null;
-        }
-
-        /// <summary>
-        /// Copied from <c>PlayerControllerB</c>, despawns the bot's currently held object! 
-        /// </summary>
-        public void DespawnHeldObject()
-        {
-            GrabbableObject? grabbableObject = this.HeldItem;
-            PlayerControllerB lethalBot = NpcController.Npc;
-            Plugin.LogDebug($"{lethalBot.playerUsername} Try to despawn held item");
-            if (grabbableObject == null)
-            {
-                Plugin.LogError($"{lethalBot.playerUsername} Try to despawn, but bot is holding nothing");
-                return;
-            }
-
-            // Discard for player
-            Plugin.LogDebug($"{lethalBot.playerUsername} Try to despawn held item {this.HeldItem} on owner #{this.OwnerClientId} and sync");
-            lethalBot.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, true);
-            lethalBot.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
-
-            // Despawn and sync with others!
-            NpcController.ThrowingObject.Value = true;
-            DespawnHeldObjectOnClient();
-            DespawnHeldObjectOnServerRpc();
-        }
-
-        /// <summary>
-        /// Actually does the action of despawning the object on this client
-        /// </summary>
-        private void DespawnHeldObjectOnClient()
-        {
-            // Discard for player
-            PlayerControllerB lethalBot = NpcController.Npc;
-            Plugin.LogDebug($"{lethalBot.playerUsername} Try to despawn held item on client #{NetworkManager.LocalClientId}");
-            if (this.AreHandsFree())
-            {
-                Plugin.LogError($"{lethalBot.playerUsername} Try to despawn, but bot is holding nothing on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            Plugin.LogDebug($"{lethalBot.playerUsername} Try to despawn held item {this.HeldItem} on client #{NetworkManager.LocalClientId}");
-            if (lethalBot.currentItemSlot == Const.RESERVED_EQUIPMENT_SLOT)
-            {
-                lethalBot.ItemOnlySlot = null;
-            }
-            else
-            {
-                lethalBot.ItemSlots[lethalBot.currentItemSlot] = null;
-            }
-
-            SetSpecialGrabAnimationBool(false, this.HeldItem);
-            lethalBot.isHoldingObject = false;
-            lethalBot.twoHanded = false;
-            lethalBot.twoHandedAnimation = false;
-            lethalBot.carryWeight = Mathf.Clamp(lethalBot.carryWeight - (this.HeldItem.itemProperties.weight - 1f), 1f, 10f);
-            // NOTE: SendChangedWeightEvent that Zeekerss added is used to update the weight display on the client,
-            // so its not need for bots.
-            //if (base.IsOwner && isPlayerControlled)
-            //{
-            //    StartOfRound.Instance.SendChangedWeightEvent();
-            //}
-        }
-
-        /// <summary>
-        /// Sends the despawn held object client RPC and despawns the network object as well!
-        /// </summary>
-        [ServerRpc]
-        private void DespawnHeldObjectOnServerRpc()
-        {
-            if (!this.AreHandsFree())
-            {
-                this.HeldItem.gameObject.GetComponent<NetworkObject>().Despawn();
-            }
-            DespawnHeldObjectClientRpc();
-        }
-
-        /// <summary>
-        /// Despawns the bot's currently held object for this client! 
-        /// </summary>
-        [ClientRpc]
-        private void DespawnHeldObjectClientRpc()
-        {
-            NpcController.ThrowingObject.Value = false; // Set false for all!
-            if (!IsOwner)
-            {
-                DespawnHeldObjectOnClient();
-            }
-        }
-
-        private Vector3 DropItemAheadOfPlayer(GrabbableObject grabbableObject, PlayerControllerB player)
-        {
-            Vector3 vector;
-            Ray ray = new Ray(base.transform.position + Vector3.up * 0.4f, player.gameplayCamera.transform.forward);
-            if (Physics.Raycast(ray, out RaycastHit hit, 1.7f, 268438273, QueryTriggerInteraction.Ignore))
-            {
-                vector = ray.GetPoint(Mathf.Clamp(hit.distance - 0.3f, 0.01f, 2f));
-            }
-            else
-            {
-                vector = ray.GetPoint(1.7f);
-            }
-            Vector3 itemFloorPosition = grabbableObject.GetItemFloorPosition(vector);
-            if (itemFloorPosition == vector)
-            {
-                itemFloorPosition = grabbableObject.GetItemFloorPosition(default(Vector3));
-            }
-            return itemFloorPosition;
-        }
-
-        [ServerRpc(RequireOwnership = false)]
-        private void SetObjectAsNoLongerHeldServerRpc(DropItemNetworkSerializable dropItemNetworkSerializable)
-        {
-            NetworkObject networkObject;
-            if (dropItemNetworkSerializable.GrabbedObject.TryGet(out networkObject, null))
-            {
-                SetObjectAsNoLongerHeldClientRpc(dropItemNetworkSerializable);
-            }
-            else
-            {
-                Plugin.LogError($"Lethal Bot {this.NpcController.Npc.playerUsername} on client #{NetworkManager.LocalClientId} (server) drop item : Object was not thrown because it does not exist on the server.");
-            }
-        }
-
-        [ClientRpc]
-        private void SetObjectAsNoLongerHeldClientRpc(DropItemNetworkSerializable dropItemNetworkSerializable)
-        {
-            // Always set ThrowingObject to false!
-            NpcController.ThrowingObject.Value = false;
-
-            // Skip the owner if we were told to!
-            ulong? skipClientId = dropItemNetworkSerializable.SkipPlayer;
-            if (skipClientId.HasValue && skipClientId.Value == NetworkManager.LocalClientId)
-            {
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} skipping drop held item, on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            if (this.AreHandsFree())
-            {
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} held item already dropped, on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            NetworkObject networkObject;
-            if (dropItemNetworkSerializable.GrabbedObject.TryGet(out networkObject, null))
-            {
-                SetObjectAsNoLongerHeld(networkObject.GetComponent<GrabbableObject>(),
-                                        dropItemNetworkSerializable.DroppedInElevator,
-                                        dropItemNetworkSerializable.DroppedInShipRoom,
-                                        dropItemNetworkSerializable.TargetFloorPosition,
-                                        dropItemNetworkSerializable.FloorYRot);
-            }
-            else
-            {
-                Plugin.LogError($"Lethal Bot {this.NpcController.Npc.playerUsername} on client #{NetworkManager.LocalClientId} drop item : The server did not have a reference to the held object");
-            }
-        }
-
-        private void SetObjectAsNoLongerHeld(GrabbableObject grabbableObject,
-                                             bool droppedInElevator,
-                                             bool droppedInShipRoom,
-                                             Vector3 targetFloorPosition,
-                                             int floorYRot = -1)
-        {
-            grabbableObject.heldByPlayerOnServer = false;
-            grabbableObject.parentObject = null;
-            if (droppedInElevator)
-            {
-                grabbableObject.transform.SetParent(NpcController.Npc.playersManager.elevatorTransform, true);
-            }
-            else
-            {
-                grabbableObject.transform.SetParent(NpcController.Npc.playersManager.propsContainer, true);
-            }
-
-            NpcController.Npc.SetItemInElevator(droppedInShipRoom, droppedInElevator, grabbableObject);
-            grabbableObject.EnablePhysics(true);
-            grabbableObject.EnableItemMeshes(true);
-            grabbableObject.isHeld = false;
-            grabbableObject.isPocketed = false;
-            grabbableObject.fallTime = 0f;
-            grabbableObject.startFallingPosition = grabbableObject.transform.parent.InverseTransformPoint(grabbableObject.transform.position);
-            grabbableObject.targetFloorPosition = targetFloorPosition;
-            grabbableObject.floorYRot = floorYRot;
-
-            EndDropItem(grabbableObject);
-        }
-
-        [ServerRpc(RequireOwnership = false)]
-        private void PlaceGrabbableObjectServerRpc(PlaceItemNetworkSerializable placeItemNetworkSerializable)
-        {
-            NetworkObject networkObject;
-            NetworkObject networkObject2;
-            if (placeItemNetworkSerializable.GrabbedObject.TryGet(out networkObject, null)
-                && placeItemNetworkSerializable.ParentObject.TryGet(out networkObject2, null))
-            {
-                PlaceGrabbableObjectClientRpc(placeItemNetworkSerializable);
-                return;
-            }
-
-            NetworkObject networkObject3;
-            if (!placeItemNetworkSerializable.GrabbedObject.TryGet(out networkObject3, null))
-            {
-                Plugin.LogError($"Object placement not synced to clients, missing reference to a network object: placing object with id: {placeItemNetworkSerializable.GrabbedObject.NetworkObjectId}; lethalBot {NpcController.Npc.playerUsername}");
-                return;
-            }
-            NetworkObject networkObject4;
-            if (!placeItemNetworkSerializable.ParentObject.TryGet(out networkObject4, null))
-            {
-                Plugin.LogError($"Object placement not synced to clients, missing reference to a network object: parent object with id: {placeItemNetworkSerializable.ParentObject.NetworkObjectId}; lethalBot {NpcController.Npc.playerUsername}");
-            }
-        }
-
-        [ClientRpc]
-        private void PlaceGrabbableObjectClientRpc(PlaceItemNetworkSerializable placeItemNetworkSerializable)
-        {
-            // Always set ThrowingObject to false!
-            NpcController.ThrowingObject.Value = false;
-
-            ulong? skipClientId = placeItemNetworkSerializable.SkipPlayer;
-            if (skipClientId.HasValue && skipClientId.Value == NetworkManager.LocalClientId)
-            {
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} skipping place held item, on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            NetworkObject networkObject;
-            if (placeItemNetworkSerializable.GrabbedObject.TryGet(out networkObject, null))
-            {
-                GrabbableObject grabbableObject = networkObject.GetComponent<GrabbableObject>();
-                NetworkObject networkObject2;
-                if (placeItemNetworkSerializable.ParentObject.TryGet(out networkObject2, null))
-                {
-                    this.PlaceGrabbableObject(grabbableObject,
-                                              networkObject2.transform,
-                                              placeItemNetworkSerializable.PlacePositionOffset,
-                                              placeItemNetworkSerializable.MatchRotationOfParent);
-                }
-                else
-                {
-                    Plugin.LogError($"Reference to parent object when placing was missing. object: {grabbableObject} placed by lethalBot #{NpcController.Npc.playerUsername}");
-                }
-            }
-            else
-            {
-                Plugin.LogError("The server did not have a reference to the held object (when attempting to PLACE object on client.)");
-            }
-        }
-
-        private void PlaceGrabbableObject(GrabbableObject placeObject, Transform parentObject, Vector3 positionOffset, bool matchRotationOfParent)
-        {
-            if (this.AreHandsFree())
-            {
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} held item already placed, on client #{NetworkManager.LocalClientId}");
-                return;
-            }
-
-            PlayerPhysicsRegion componentInChildren = parentObject.GetComponentInChildren<PlayerPhysicsRegion>();
-            if (componentInChildren != null && componentInChildren.allowDroppingItems)
-            {
-                parentObject = componentInChildren.physicsTransform;
-            }
-            placeObject.EnablePhysics(true);
-            placeObject.EnableItemMeshes(true);
-            placeObject.isHeld = false;
-            placeObject.isPocketed = false;
-            placeObject.heldByPlayerOnServer = false;
-            NpcController.Npc.SetItemInElevator(NpcController.Npc.isInHangarShipRoom, NpcController.Npc.isInElevator, placeObject);
-            placeObject.parentObject = null;
-            placeObject.transform.SetParent(parentObject, true);
-            placeObject.startFallingPosition = placeObject.transform.localPosition;
-            placeObject.transform.localScale = placeObject.originalScale;
-            placeObject.transform.localPosition = positionOffset;
-            placeObject.targetFloorPosition = positionOffset;
-            if (!matchRotationOfParent)
-            {
-                placeObject.fallTime = 0f;
-            }
-            else
-            {
-                placeObject.transform.localEulerAngles = new Vector3(0f, 0f, 0f);
-                placeObject.fallTime = 1.1f;
-            }
-            placeObject.OnPlaceObject();
-
-            EndDropItem(placeObject);
-        }
-
-        private void EndDropItem(GrabbableObject grabbableObject)
-        {
-            grabbableObject.DiscardItemOnClient();
-            this.SetSpecialGrabAnimationBool(false, grabbableObject);
-            NpcController.Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, true);
-            NpcController.Npc.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_THROW);
-            DictJustDroppedItems[grabbableObject] = Time.realtimeSinceStartup;
-            this.HeldItem = null;
-            NpcController.Npc.isHoldingObject = false;
-            NpcController.Npc.currentlyHeldObjectServer = null;
-            NpcController.Npc.twoHanded = false;
-            NpcController.Npc.twoHandedAnimation = false;
-            NpcController.GrabbedObjectValidated = false;
-            GrabbableObject?[] itemSlots = NpcController.Npc.ItemSlots;
-            for (int i = 0; i < itemSlots.Length; i++)
-            {
-                if (itemSlots[i] == grabbableObject)
-                {
-                    itemSlots[i] = null;
-                }
-            }
-            if (NpcController.Npc.ItemOnlySlot == grabbableObject)
-            {
-                NpcController.Npc.ItemOnlySlot = null;
-            }
-
-            NpcController.Npc.carryWeight = Mathf.Clamp(NpcController.Npc.carryWeight - (grabbableObject.itemProperties.weight - 1f), 1f, 10f);
-            // NOTE: SendChangedWeightEvent that Zeekerss added is used to update the weight display on the client,
-            // so its not need for bots.
-            //if (base.IsOwner && isPlayerControlled)
-            //{
-            //    StartOfRound.Instance.SendChangedWeightEvent();
-            //}
-            SyncBatteryLethalBot(grabbableObject, (int)(grabbableObject.insertedBattery.charge * 100f));
-            Plugin.LogDebug($"{NpcController.Npc.playerUsername} dropped {grabbableObject}, on client #{NetworkManager.LocalClientId}");
-        }
 
         [ServerRpc(RequireOwnership = false)]
         public void SyncBatteryLethalBotServerRpc(NetworkObjectReference networkObjectReferenceGrabbableObject, int charge)
@@ -7734,13 +7221,10 @@ namespace LethalBots.AI
             }
 
             // Send each message separately
+            int playerClientId = (int)NpcController.Npc.playerClientId;
             foreach (string msg in splitMessages)
             {
-                HUDManagerPatch.AddPlayerChatMessageServerRpc_ReversePatch(
-                    HUDManager.Instance,
-                    msg,
-                    (int)NpcController.Npc.playerClientId
-                );
+                HUDManager.Instance.AddPlayerChatMessageServerRpc(msg, playerClientId);
             }
         }
 
@@ -8131,7 +7615,7 @@ namespace LethalBots.AI
             ourTerminal.StartCoroutine(waitUntilFrameEndToSetActive(true, ourTerminal));
             //ourTerminal.terminalUIScreen.gameObject.SetActive(true);
             PlayerControllerB localPlayerController = NpcController.Npc;
-            InteractTriggerPatch.UpdateUsedByPlayerServerRpc_ReversePatch(terminalTrigger, (int)localPlayerController.playerClientId);
+            terminalTrigger.UpdateUsedByPlayerServerRpc((int)localPlayerController.playerClientId);
             localPlayerController.inSpecialInteractAnimation = true;
             localPlayerController.currentTriggerInAnimationWith = terminalTrigger;
             localPlayerController.inTerminalMenu = true;
@@ -8144,11 +7628,10 @@ namespace LethalBots.AI
                 localPlayerController.overridePhysicsParent = terminalTrigger.overridePlayerParent;
             }
             ourTerminal.LoadNewNode(ourTerminal.terminalNodes.specialNodes[TerminalConst.INDEX_DEFAULT_TERMINALNODE]);
-            ref bool usedTerminalThisSession = ref PatchesUtil.usedTerminalThisSessionField.Invoke(ourTerminal);
-            if (!usedTerminalThisSession)
+            if (!ourTerminal.usedTerminalThisSession)
             {
-                usedTerminalThisSession = true;
-                if (!PatchesUtil.syncedTerminalValuesField.Invoke(ourTerminal))
+                ourTerminal.usedTerminalThisSession = true;
+                if (!ourTerminal.syncedTerminalValues)
                 {
                     ourTerminal.SyncTerminalValuesServerRpc();
                 }
@@ -8182,7 +7665,7 @@ namespace LethalBots.AI
             }
 
             InteractTrigger terminalTrigger = ourTerminal.gameObject.GetComponent<InteractTrigger>();
-            InteractTriggerPatch.StopUsingServerRpc_ReversePatch(terminalTrigger, (int)localPlayerController.playerClientId);
+            terminalTrigger.StopUsingServerRpc((int)localPlayerController.playerClientId);
             //ourTerminal.terminalInUse = false;
             ourTerminal.StartCoroutine(waitUntilFrameEndToSetActive(active: false, ourTerminal));
             localPlayerController.inSpecialInteractAnimation = false;
@@ -8208,6 +7691,15 @@ namespace LethalBots.AI
             }
 
             ourTerminal.terminalAudio.PlayOneShot(ourTerminal.leaveTerminalSFX);
+        }
+
+        /// <summary>
+        /// Helper rpc that allows non owners to make the bot leave the terminal
+        /// </summary>
+        [Rpc(SendTo.Owner, RequireOwnership = false)]
+        public void LeaveTerminalRpc(bool syncTerminalInUse = true, bool forceEndUse = false)
+        {
+            LeaveTerminal(syncTerminalInUse, forceEndUse);
         }
 
         private IEnumerator waitUntilFrameEndToSetActive(bool active, Terminal? ourTerminal)
@@ -8551,7 +8043,7 @@ namespace LethalBots.AI
             lethalBotController.hinderedMultiplier = 1f;
             lethalBotController.isMovementHindered = 0;
             lethalBotController.inAnimationWithEnemy = null;
-            PatchesUtil.positionOfDeathField.Invoke(lethalBotController) = lethalBotController.transform.position;
+            lethalBotController.positionOfDeath = lethalBotController.transform.position;
             lethalBotController.bleedingHeavily = false;
             lethalBotController.setPositionOfDeadPlayer = true;
             lethalBotController.snapToServerPosition = false;
@@ -8562,7 +8054,7 @@ namespace LethalBots.AI
             lethalBotController.poisonInertia = 0f;
             lethalBotController.slipperyFloor = 0f;
             lethalBotController.slimeSlipAudio.Stop();
-            PatchesUtil.slimeSlipAudioVolumeSyncField.Invoke(lethalBotController) = 0f;
+            lethalBotController.slimeSlipAudioVolumeSync = 0f;
             lethalBotController.slimeOnFaceDecals[0].gameObject.SetActive(value: false);
             lethalBotController.slimeOnFaceDecals[1].gameObject.SetActive(value: false);
             if (spawnBody && !lethalBotController.overrideDontSpawnBody)
@@ -8596,7 +8088,7 @@ namespace LethalBots.AI
             lethalBotController.CancelSpecialTriggerAnimations();
             SoundManager.Instance.playerVoicePitchTargets[lethalBotController.playerClientId] = 1f;
             SoundManager.Instance.playerVoicePitchLerpSpeed[lethalBotController.playerClientId] = 3f;
-            PatchesUtil.KillPlayerServerRpcMethod.Invoke(lethalBotController, new object[] { (int)lethalBotController.playerClientId, spawnBody, bodyVelocity, (int)causeOfDeath, deathAnimation, positionOffset, setOverrideDropItems });
+            lethalBotController.KillPlayerServerRpc((int)lethalBotController.playerClientId, spawnBody, bodyVelocity, (int)causeOfDeath, deathAnimation, positionOffset, setOverrideDropItems);
             Plugin.LogInfo($"Override drop items : {lethalBotController.overrideDropItems}; overridedontspawnbody: {lethalBotController.overrideDontSpawnBody}");
             if (lethalBotController.overrideDropItems)
             {
@@ -8879,16 +8371,39 @@ namespace LethalBots.AI
 
         #region Spawn animation
 
+        /// <summary>
+        /// Checks if the bot is currently in the spawn animation
+        /// </summary>
+        /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsSpawningAnimationRunning()
         {
             return spawnAnimationCoroutine != null;
         }
 
+        /// <summary>
+        /// Checks if the bot is currently in a special animation
+        /// </summary>
+        /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsInSpecialAnimation()
         {
             return NpcController.Npc.inSpecialInteractAnimation || NpcController.Npc.enteringSpecialAnimation;
+        }
+
+        /// <summary>
+        /// Checks if the bot is using the terminal
+        /// </summary>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsUsingTerminal()
+        {
+            if (base.IsOwner)
+            {
+                return NpcController.Npc.inTerminalMenu;
+            }
+            Terminal terminal = TerminalManager.Instance.GetTerminal();
+            return NpcController.Npc.currentTriggerInAnimationWith == terminal.terminalTrigger;
         }
 
         public Coroutine BeginLethalBotSpawnAnimation(EnumSpawnAnimation enumSpawnAnimation)
@@ -9100,8 +8615,7 @@ namespace LethalBots.AI
             if (shipLever == null)
             {
                 // Fallback and find it ourselves
-                shipLever = Object.FindObjectOfType<StartMatchLever>();
-                if (shipLever == null)
+                if (!SingletonManager.StartMatchLevel.TryGet(out shipLever))
                 {
                     return false;
                 }
@@ -9139,7 +8653,7 @@ namespace LethalBots.AI
         private IEnumerator pullLeverCoroutine(StartMatchLever startMatchLever, InteractTrigger leverTrigger)
         {
             PlayerControllerB localPlayerController = NpcController.Npc;
-            InteractTriggerPatch.UpdateUsedByPlayerServerRpc_ReversePatch(leverTrigger, (int)localPlayerController.playerClientId);
+            leverTrigger.UpdateUsedByPlayerServerRpc((int)localPlayerController.playerClientId);
             // Grandpa? Why don't we just call startMatchLever.LeverAnimation() and startMatchLever.PullLever()
             // Well you see Timmy, they only work for the local player and since the bots are not the local player
             // we have to recreate them here
@@ -9158,7 +8672,7 @@ namespace LethalBots.AI
             }
             //leverTrigger.interactable = false; // Don't let other player use the lever!
             yield return new WaitForSeconds(leverTrigger.animationWaitTime);
-            InteractTriggerPatch.StopUsingServerRpc_ReversePatch(leverTrigger, (int)localPlayerController.playerClientId);
+            leverTrigger.StopSpecialAnimation();
             leverTrigger.isPlayingSpecialAnimation = false;
             localPlayerController.inSpecialInteractAnimation = false;
             if ((bool)leverTrigger.overridePlayerParent && localPlayerController.overridePhysicsParent == leverTrigger.overridePlayerParent)
@@ -9167,6 +8681,7 @@ namespace LethalBots.AI
             }
             localPlayerController.currentTriggerInAnimationWith = null;
             leverTrigger.currentCooldownValue = leverTrigger.cooldownTime;
+            leverTrigger.StopUsingServerRpc((int)localPlayerController.playerClientId); // Just in case.
             //startMatchLever.PullLever();
             DoPullLever(startMatchLever);
         }
@@ -9246,15 +8761,6 @@ namespace LethalBots.AI
         }
 
         /// <summary>
-        /// setStartingShipEffectsMethod is private, so we use reflection here to call it
-        /// </summary>
-        private static readonly Action<StartMatchLever> setStartingShipEffectsMethod = AccessTools.MethodDelegate<Action<StartMatchLever>>(AccessTools.Method(typeof(StartMatchLever), "SetStartingShipEffects"));
-
-        private static readonly Action<StartMatchLever, bool> pullLeverAnimMethod = AccessTools.MethodDelegate<Action<StartMatchLever, bool>>(AccessTools.Method(typeof(StartMatchLever), "PullLeverAnim"));
-
-        private static readonly AccessTools.FieldRef<StartMatchLever, bool> clientSentRPCField = AccessTools.FieldRefAccess<bool>(typeof(StartMatchLever), "clientSentRPC");
-
-        /// <summary>
         /// Carbon copy of <see cref="StartMatchLever.LeverAnimation"/>, but with support for bots
         /// </summary>
         /// <param name="startMatchLever"></param>
@@ -9286,15 +8792,15 @@ namespace LethalBots.AI
                 // Got to love the amount of reflection I have to do here, but oh well
                 if (playersManager.shipHasLanded)
                 {
-                    pullLeverAnimMethod.Invoke(startMatchLever, false);
-                    clientSentRPCField.Invoke(startMatchLever) = true;
+                    startMatchLever.PullLeverAnim(leverPulled: false);
+                    startMatchLever.clientSentRPC = true;
                     startMatchLever.PlayLeverPullEffectsServerRpc(leverPulled: false);
                 }
                 else if (playersManager.inShipPhase)
                 {
-                    pullLeverAnimMethod.Invoke(startMatchLever, true);
-                    clientSentRPCField.Invoke(startMatchLever) = true;
-                    setStartingShipEffectsMethod.Invoke(startMatchLever);
+                    startMatchLever.PullLeverAnim(leverPulled: true);
+                    startMatchLever.clientSentRPC = true;
+                    startMatchLever.SetStartingShipEffects();
                     startMatchLever.PlayLeverPullEffectsServerRpc(leverPulled: true);
                 }
             }
@@ -9316,16 +8822,16 @@ namespace LethalBots.AI
             if (itemCharger == null)
             {
                 // Fallback and find it ourselves
-                itemCharger = Object.FindObjectOfType<ItemCharger>();
-                if (itemCharger == null)
+                if (!SingletonManager.ItemCharger.TryGet(out itemCharger))
                 {
                     return false;
                 }
             }
 
             // HACKHACK: We do the logic checks here!
-            if (AreHandsFree() 
-                || !HeldItem.itemProperties.requiresBattery)
+            GrabbableObject? heldItem = this.HeldItem;
+            if (heldItem == null
+                || !heldItem.itemProperties.requiresBattery)
             {
                 // We are not holding anything!
                 // Or the item we are holding can't be recharged!
@@ -9351,7 +8857,7 @@ namespace LethalBots.AI
             {
                 StopCoroutine(useInteractTriggerCoroutine);
             }
-            useInteractTriggerCoroutine = StartCoroutine(useItemCharger(itemCharger, itemChargerTrigger, HeldItem));
+            useInteractTriggerCoroutine = StartCoroutine(useItemCharger(itemCharger, itemChargerTrigger, heldItem));
             return true;
         }
 
@@ -9365,7 +8871,7 @@ namespace LethalBots.AI
         private IEnumerator useItemCharger(ItemCharger itemCharger, InteractTrigger itemChargerTrigger, GrabbableObject itemToCharge)
         {
             PlayerControllerB localPlayerController = NpcController.Npc;
-            InteractTriggerPatch.UpdateUsedByPlayerServerRpc_ReversePatch(itemChargerTrigger, (int)localPlayerController.playerClientId);
+            itemChargerTrigger.UpdateUsedByPlayerServerRpc((int)localPlayerController.playerClientId);
             // Grandpa? Why don't we just call itemCharger.ChargeItem()
             // Well you see Timmy, they only work for the local player and since the bots are not the local player
             // we have to recreate them here
@@ -9402,7 +8908,7 @@ namespace LethalBots.AI
             // we have to manually do its logic here. Subtracting the cooldown time is needed to keep the animations
             // and effects in sync!
             yield return new WaitForSeconds(Mathf.Max(itemChargerTrigger.animationWaitTime - 0.75f, 0f));
-            InteractTriggerPatch.StopUsingServerRpc_ReversePatch(itemChargerTrigger, (int)localPlayerController.playerClientId);
+            itemChargerTrigger.StopSpecialAnimation();
             itemChargerTrigger.isPlayingSpecialAnimation = false;
             localPlayerController.inSpecialInteractAnimation = false;
             if ((bool)itemChargerTrigger.overridePlayerParent && localPlayerController.overridePhysicsParent == itemChargerTrigger.overridePlayerParent)
@@ -9411,7 +8917,7 @@ namespace LethalBots.AI
             }
             localPlayerController.currentTriggerInAnimationWith = null;
             itemChargerTrigger.currentCooldownValue = itemChargerTrigger.cooldownTime;
-            itemChargerTrigger.StopSpecialAnimation();
+            itemChargerTrigger.StopUsingServerRpc((int)localPlayerController.playerClientId); // Just in case
         }
 
         #endregion
@@ -9451,7 +8957,7 @@ namespace LethalBots.AI
         {
             if (!IsClientOwnerOfLethalBot())
             {
-                PlayerControllerBPatch.PlayJumpAudio_ReversePatch(this.NpcController.Npc);
+                this.NpcController.Npc.PlayJumpAudio();
             }
         }
 

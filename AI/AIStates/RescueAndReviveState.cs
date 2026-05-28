@@ -27,7 +27,6 @@ namespace LethalBots.AI.AIStates
     {
         private static Func<RagdollGrabbableObject, bool>? ReviveCompanyCanReviveDelegate = null;
         private static Action<int>? BunkbedReviveRPCDelegate = null;
-        private static readonly AccessTools.FieldRef<PatcherTool, bool> isScanning = AccessTools.FieldRefAccess<bool>(typeof(PatcherTool), "isScanning");
 
         private PlayerControllerB playerToRevive;
         private GrabbableObject? neededReviveTool;
@@ -113,7 +112,7 @@ namespace LethalBots.AI.AIStates
                 {
                     if (heldItem != null && (heldItem.itemProperties.twoHanded || !ai.HasSpaceInInventory()))
                     {
-                        ai.DropItem();
+                        npcController.Npc.DiscardHeldObject();
                     }
                     LethalBotAI.DictJustDroppedItems.Remove(playerBody); // HACKHACK: Skip the dropped item cooldown so bot can grab the body immediately
                     if (ai.IsGrabbableObjectGrabbable(playerBody, EnumGrabbableObjectCall.Reviving))
@@ -798,7 +797,7 @@ namespace LethalBots.AI.AIStates
                 shouldPickupBody = false; // Don't try to pick up the body again, we need it on the ground for the revive
                 if (!ai.AreHandsFree())
                 {
-                    ai.DropItem();
+                    npcController.Npc.DiscardHeldObject();
                     return;
                 }
 
@@ -837,7 +836,7 @@ namespace LethalBots.AI.AIStates
                 && ai.HeldItem is not PatcherTool 
                 && ai.HeldItem.itemProperties.twoHanded)
             {
-                ai.DropItem();
+                npcController.Npc.DiscardHeldObject();
                 yield return null;
             }
 
@@ -858,7 +857,7 @@ namespace LethalBots.AI.AIStates
             // Revive them now!
             heldItem.UseItemOnClient(true);
             yield return null;
-            yield return new WaitUntil(() => patcherTool == null || isScanning.Invoke(patcherTool) == false); // Wait a bit!
+            yield return new WaitUntil(() => patcherTool == null || !patcherTool.isScanning); // Wait a bit!
 
             // Did we hit em?
             if (!patcherTool.isShocking)
@@ -981,7 +980,7 @@ namespace LethalBots.AI.AIStates
                 shouldPickupBody = false; // Don't try to pick up the body again, we need it on the ground for the revive
                 if (!ai.AreHandsFree() && ai.HeldItem is not PatcherTool)
                 {
-                    ai.DropItem();
+                    npcController.Npc.DiscardHeldObject();
                     return;
                 }
 
@@ -1020,7 +1019,7 @@ namespace LethalBots.AI.AIStates
                 && !IsUsualScrapDefibUnit(ai.HeldItem)
                 && ai.HeldItem.itemProperties.twoHanded)
             {
-                ai.DropItem();
+                npcController.Npc.DiscardHeldObject();
                 yield return null;
             }
 
@@ -1142,7 +1141,7 @@ namespace LethalBots.AI.AIStates
                 shouldPickupBody = false; // Don't try to pick up the body again, we need it on the ground for the revive
                 if (!ai.AreHandsFree() && ai.HeldItem is not DefibrillatorScript)
                 {
-                    ai.DropItem();
+                    npcController.Npc.DiscardHeldObject();
                     return;
                 }
 
@@ -1211,7 +1210,8 @@ namespace LethalBots.AI.AIStates
                 }
 
                 int reviveCost = BunkbedController.GetReviveCost();
-                if (TerminalManager.Instance.GetTerminal().groupCredits < reviveCost)
+                Terminal terminalScript = TerminalManager.Instance.GetTerminal();
+                if (terminalScript.groupCredits < reviveCost)
                 {
                     return;
                 }
@@ -1219,7 +1219,6 @@ namespace LethalBots.AI.AIStates
                 {
                     return;
                 }
-                Terminal terminalScript = TerminalManager.Instance.GetTerminal();
                 terminalScript.groupCredits -= reviveCost;
                 LethalBotManager.Instance.SyncGroupCreditsForNotOwnerTerminalServerRpc(terminalScript.groupCredits, terminalScript.numberOfItemsInDropship);
                 BunkbedReviveRPCDelegate.Invoke(ragdollGrabbableObject.bodyID);
@@ -1254,7 +1253,8 @@ namespace LethalBots.AI.AIStates
             }
 
             int reviveCost = BunkbedController.GetReviveCost();
-            if (TerminalManager.Instance.GetTerminal().groupCredits < reviveCost)
+            Terminal terminalScript = TerminalManager.Instance.GetTerminal();
+            if (terminalScript.groupCredits < reviveCost)
             {
                 return;
             }
@@ -1262,7 +1262,6 @@ namespace LethalBots.AI.AIStates
             {
                 return;
             }
-            Terminal terminalScript = TerminalManager.Instance.GetTerminal();
             terminalScript.groupCredits -= reviveCost;
             LethalBotManager.Instance.SyncGroupCreditsForNotOwnerTerminalServerRpc(terminalScript.groupCredits, terminalScript.numberOfItemsInDropship);
 
@@ -1272,7 +1271,7 @@ namespace LethalBots.AI.AIStates
                                                                 ShouldDestroyDeadBody = true,
                                                                 ResetBodyBlood = true,
                                                                 enumSpawnAnimation = EnumSpawnAnimation.OnlyPlayerSpawnAnimation,
-                                                                SpawnPosition = StartOfRoundPatch.GetPlayerSpawnPosition_ReversePatch(StartOfRound.Instance, playerClientId, simpleTeleport: false),
+                                                                SpawnPosition = StartOfRound.Instance.GetPlayerSpawnPosition(playerClientId, simpleTeleport: false),
                                                                 YRot = 0,
                                                                 IsOutside = true,
                                                                 IndexNextPlayerObject = playerClientId
