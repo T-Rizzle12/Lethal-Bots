@@ -258,6 +258,7 @@ namespace LethalBots.AI
                 agent = gameObject.GetComponentInChildren<NavMeshAgent>();
                 agent.acceleration = float.MaxValue; // Is THIS a good idea?
                 agent.autoTraverseOffMeshLink = false;
+                agent.autoBraking = false; // This causes the bot's agent to slow around corners and stuff, we don't want that!
                 Plugin.LogDebug($"LethalBot Agent Type ID {agent.agentTypeID}");
                 Plugin.LogDebug($"LethalBot Area Mask {agent.areaMask}");
                 SetAgent(enabled: false);
@@ -422,8 +423,7 @@ namespace LethalBots.AI
             this.LethalBotVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[(int)NpcController.Npc.playerClientId];
 
             // Copy player voice prefab values
-            DissonanceComms? dissonanceComms = SingletonManager.DissonanceComms.Instance;
-            if (dissonanceComms != null)
+            if (SingletonManager.DissonanceComms.TryGet(out DissonanceComms? dissonanceComms))
             {
                 // Find the prefab
                 Plugin.LogDebug($"Lethal Bot {NpcController.Npc.playerUsername}: found DissonanceComms!");
@@ -1294,7 +1294,9 @@ namespace LethalBots.AI
                         RoundManager instanceRM = RoundManager.Instance;
                         foreach (EnemyAI checkLOSToTarget in instanceRM.SpawnedEnemies)
                         {
-                            if (checkLOSToTarget.isEnemyDead || !checkLOSToTarget.isOutside)
+                            if (checkLOSToTarget == null 
+                                || checkLOSToTarget.isEnemyDead 
+                                || !checkLOSToTarget.isOutside)
                             {
                                 continue;
                             }
@@ -1456,7 +1458,8 @@ namespace LethalBots.AI
                         RoundManager instanceRM = RoundManager.Instance;
                         foreach (EnemyAI checkLOSToTarget in instanceRM.SpawnedEnemies)
                         {
-                            if (checkLOSToTarget.isEnemyDead
+                            if (checkLOSToTarget == null 
+                                || checkLOSToTarget.isEnemyDead
                                 || !checkLOSToTarget.isOutside)
                             {
                                 continue;
@@ -1824,13 +1827,13 @@ namespace LethalBots.AI
                     await Task.Yield();
                 }
 
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} is checking {enemy.enemyType.enemyName} for exposure...");
                 if (enemy == null)
                 {
                     Plugin.LogDebug($"Enemy At Index {i}: Skipped (null)");
                     continue;
                 }
 
+                Plugin.LogDebug($"{NpcController.Npc.playerUsername} is checking {enemy.enemyType.enemyName} for exposure...");
                 if (enemy.isEnemyDead || ourWeOutside != enemy.isOutside) 
                 {
                     Plugin.LogDebug($"{enemy.enemyType.enemyName}: Skipped (dead or {skipText})");
@@ -2755,7 +2758,9 @@ namespace LethalBots.AI
             RoundManager instanceRM = RoundManager.Instance;
             foreach (EnemyAI checkLOSToTarget in instanceRM.SpawnedEnemies)
             {
-                if (checkLOSToTarget.isEnemyDead || this.isOutside != checkLOSToTarget.isOutside)
+                if (checkLOSToTarget == null 
+                    || checkLOSToTarget.isEnemyDead 
+                    || this.isOutside != checkLOSToTarget.isOutside)
                 {
                     continue;
                 }
@@ -2959,7 +2964,7 @@ namespace LethalBots.AI
             Vector3 ourPos = NpcController.Npc.transform.position;
             foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
             {
-                if (!spawnedEnemy.isEnemyDead && (spawnedEnemy is MouthDogAI || spawnedEnemy.enemyType.enemyName == "MouthDog"))
+                if (spawnedEnemy != null && !spawnedEnemy.isEnemyDead && (spawnedEnemy is MouthDogAI || spawnedEnemy.enemyType.enemyName == "MouthDog"))
                 {
                     // NOTE: We don't use GetFearRangeForEnemies since
                     // we don't want to trigger the dog in the first place
@@ -3143,7 +3148,7 @@ namespace LethalBots.AI
             float closestLadderDistSqr = Const.DISTANCE_NPCBODY_FROM_LADDER * Const.DISTANCE_NPCBODY_FROM_LADDER;
             foreach (InteractTrigger ladder in laddersInteractTrigger)
             {
-                if (ladder == null) continue;
+                if (ladder == null || !ladder.interactable) continue;
 
                 // Setup important local variables
                 Vector3 ladderBottomPos = ladder.bottomOfLadderPosition.position;
@@ -3702,8 +3707,13 @@ namespace LethalBots.AI
             float duration = horizontalDistance / agent.speed;
 
             Plugin.LogDebug($"Beginning off mesh link movement. {data.valid}; {data.activated}; {base.IsOwner}");
-            while (normalizedTime < 1f && data.valid && data.activated && base.IsOwner)
+            while (normalizedTime < 1f && base.IsOwner)
             {
+                data = agent.currentOffMeshLinkData; // Update our data!
+                if (!data.valid || !data.activated)
+                {
+                    break;
+                }
                 float num = height * 4f * (normalizedTime - normalizedTime * normalizedTime);
                 Plugin.LogDebug($"Moving on off mesh link; time: {normalizedTime}; y: {num}");
                 this.transform.position = Vector3.Lerp(startPos, endPos, normalizedTime) + num * Vector3.up;
@@ -5665,17 +5675,19 @@ namespace LethalBots.AI
             foreach (var bridge in bridgeTriggers)
             {
                 // It was the animator that held the bridge colliders, not the physics parts container
+                HashSet<Collider> fallenBridgeColliders = bridge.fallenBridgeColliders.ToHashSet();
                 Collider[] bridgePhysicsPartsContainerComponents = bridge.bridgeAnimator.gameObject.GetComponentsInChildren<Collider>();
-                foreach (var component in bridgePhysicsPartsContainerComponents)
+                foreach (var collider in bridgePhysicsPartsContainerComponents)
                 {
-                    //if (component.name == "Mesh")
+                    //if (collider.name == "Mesh")
                     //{
                     //    continue;
                     //}
 
-                    if (!dictColliderToBridge.ContainsKey(component))
+                    if (!dictColliderToBridge.ContainsKey(collider) 
+                        && !fallenBridgeColliders.Contains(collider))
                     {
-                        dictColliderToBridge.Add(component, bridge);
+                        dictColliderToBridge.Add(collider, bridge);
                     }
                 }
             }
@@ -6031,9 +6043,8 @@ namespace LethalBots.AI
                 targetEntrance.timeAtLastUse = Time.realtimeSinceStartup;
                 targetEntrance.FinishOpeningEntrance(playShutAudio: false);
                 //EntranceTeleport entranceTeleport = RoundManager.FindMainEntranceScript(setOutside.Value);
-                AudioReverbPresets? audioReverbPresets = SingletonManager.AudioReverbPresets.Instance;
                 //audioReverbPresets.audioPresets[targetEntrance.audioReverbPreset].ChangeAudioReverbForPlayer(NpcController.Npc);
-                if (audioReverbPresets != null && targetEntrance.audioReverbPreset != -1)
+                if (SingletonManager.AudioReverbPresets.TryGet(out AudioReverbPresets? audioReverbPresets) && targetEntrance.audioReverbPreset != -1)
                 {
                     audioReverbPresets.audioPresets[targetEntrance.audioReverbPreset].ChangeAudioReverbForPlayer(lethalBotController);
                     if (targetEntrance.entrancePointAudio != null)
@@ -8604,8 +8615,7 @@ namespace LethalBots.AI
             if (shipLever == null)
             {
                 // Fallback and find it ourselves
-                shipLever = SingletonManager.StartMatchLevel.Instance;
-                if (shipLever == null)
+                if (!SingletonManager.StartMatchLevel.TryGet(out shipLever))
                 {
                     return false;
                 }
@@ -8812,8 +8822,7 @@ namespace LethalBots.AI
             if (itemCharger == null)
             {
                 // Fallback and find it ourselves
-                itemCharger = SingletonManager.ItemCharger.Instance;
-                if (itemCharger == null)
+                if (!SingletonManager.ItemCharger.TryGet(out itemCharger))
                 {
                     return false;
                 }

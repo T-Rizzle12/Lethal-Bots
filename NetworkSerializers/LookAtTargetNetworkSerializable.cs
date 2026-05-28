@@ -298,6 +298,19 @@ namespace LethalBots.NetworkSerializers
                 isSightedIn = false;
             }
 
+            // HACKHACK: Fix the look at code rather than doing this
+            if (lethalBotController.isClimbingLadder)
+            {
+                // If we are using a ladder, set our rotation to it!
+                InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
+                if (ourTrigger != null && ourTrigger.isLadder)
+                {
+                    lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
+                    npcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
+                    return;
+                }
+            }
+
             // Check whether we are set to look forward or at a certain position
             if (enumObjectsLookingAt == EnumObjectsLookingAt.Forward)
             {

@@ -84,15 +84,4 @@ namespace LethalBots.NetworkSerializers
             return $"Item Name: {itemName} and Requred Stock: {requiredStock}";
         }
     }
-
-    public struct ConfigStockRequirementNetworkSerializable : INetworkSerializable
-    {
-        public ConfigStockRequirement[] ConfigStockRequirements;
-
-        // INetworkSerializable
-        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
-        {
-            serializer.SerializeValue(ref ConfigStockRequirements);
-        }
-    }
 }

@@ -301,6 +301,7 @@ namespace LethalBots.AI
                 int checkAmount = ai.agent.isOnNavMesh ? (int)Mathf.Ceil(Mathf.Lerp(0f, unsearchedNodes.Count, Mathf.Min((ai.transform.position - lastVisitCheckPos).magnitude / checkDist, 1.0f))) : 0;
                 // if (checkAmount > 0)
                 // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: iterated through {checkAmount} nodes in a single frame");
+                visitCheckIndex = Mathf.Clamp(visitCheckIndex, 0, unsearchedNodes.Count); // Sanity check to stop index out of bounds errors!
                 for (int i = 0;i < checkAmount;i++)
                 {
                     GameObject? node = unsearchedNodes[visitCheckIndex];

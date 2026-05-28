@@ -27,8 +27,7 @@ namespace LethalBots.Patches.MapPatches
             PlayerControllerB component = other.gameObject.GetComponent<PlayerControllerB>();
             if (component != null && !component.isPlayerDead && component.IsOwner && LethalBotManager.Instance.IsPlayerLethalBot(component))
             {
-                DepositItemsDesk? companyDesk = SingletonManager.CompanyDesk.Instance;
-                if (companyDesk != null)
+                if (SingletonManager.CompanyDesk.TryGet(out DepositItemsDesk? companyDesk))
                 {
                     // HACKHACK: We CANNOT call the base method, as its set to kill the local player!
                     // We recreate the logic here

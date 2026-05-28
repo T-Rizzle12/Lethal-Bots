@@ -292,8 +292,7 @@ namespace LethalBots.AI.AIStates
                         if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
                             && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
-                            StartMatchLever? startMatchLever = SingletonManager.StartMatchLevel.Instance;
-                            if (startMatchLever != null)
+                            if (SingletonManager.StartMatchLevel.TryGet(out StartMatchLever? startMatchLever))
                             {
                                 ai.PullShipLever(startMatchLever);
                                 playerRequestLeave = false;
@@ -332,8 +331,7 @@ namespace LethalBots.AI.AIStates
                         if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
                             && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
-                            StartMatchLever? startMatchLever = SingletonManager.StartMatchLevel.Instance;
-                            if (startMatchLever != null)
+                            if (SingletonManager.StartMatchLevel.TryGet(out StartMatchLever? startMatchLever))
                             {
                                 ai.PullShipLever(startMatchLever);
                                 playerRequestLeave = false;
@@ -582,7 +580,7 @@ namespace LethalBots.AI.AIStates
                     {
                         monitorCrew = ai.StartCoroutine(MissionSurveillanceRoutine());
                     }
-                    if (useSignalTranslator == null && SingletonManager.SignalTranslator.Instance != null)
+                    if (useSignalTranslator == null && SingletonManager.SignalTranslator.IsValid())
                     {
                         useSignalTranslator = ai.StartCoroutine(UseSignalTranslator());
                     }
@@ -729,8 +727,7 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         private IEnumerator TryTeleportPlayer(bool isDeadBody = false, bool skipPostCheck = false)
         {
-            ShipTeleporter? shipTeleporter = SingletonManager.ShipTeleporter.Instance;
-            if (shipTeleporter != null && (!isDeadBody || shipTeleporter.buttonTrigger.interactable))
+            if (SingletonManager.ShipTeleporter.TryGet(out ShipTeleporter? shipTeleporter) && (!isDeadBody || shipTeleporter.buttonTrigger.interactable))
             {
                 // Make sure we lift the glass first
                 if (shipTeleporter.buttonAnimator.GetBool("GlassOpen") == false)
@@ -873,7 +870,7 @@ namespace LethalBots.AI.AIStates
             while (ai.State != null
                 && ai.State == this
                 && npcController.Npc.inTerminalMenu 
-                && SingletonManager.SignalTranslator.Instance != null)
+                && SingletonManager.SignalTranslator.IsValid())
             {
                 // NOTE: Unlike MonitorCrew we don't update the targetedPlayer variable!
                 float startTime = Time.timeSinceLevelLoad;
@@ -900,6 +897,8 @@ namespace LethalBots.AI.AIStates
                 for (int i = 0; i < instanceRM.SpawnedEnemies.Count; i++)
                 {
                     EnemyAI spawnedEnemy = instanceRM.SpawnedEnemies[i];
+                    if (spawnedEnemy == null) continue;
+
                     string enemyName = GetEnemyName(spawnedEnemy);
                     if (!spawnedEnemy.isEnemyDead && (!calledOutEnemies.TryGetValue(enemyName, out var lastCalledTime) || Time.timeSinceLevelLoad - lastCalledTime > Const.TIMER_NEXT_ENEMY_CALL))
                     {
@@ -2052,7 +2051,8 @@ namespace LethalBots.AI.AIStates
             foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
             {
                 // Only check for alive and invading enemies!
-                if (spawnedEnemy.isEnemyDead 
+                if (spawnedEnemy == null
+                    || spawnedEnemy.isEnemyDead 
                     || (onlyKillable && !ai.CanEnemyBeKilled(spawnedEnemy, true)))
                 {
                     continue;
@@ -2184,7 +2184,7 @@ namespace LethalBots.AI.AIStates
             ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.REQUEST_TELEPORT_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
                 // Make sure we have a teleporter
-                if (SingletonManager.ShipTeleporter.Instance == null)
+                if (!SingletonManager.ShipTeleporter.IsValid())
                 {
                     // Remind the player on their poor decision to not buy a teleporter.......
                     lethalBotAI.SendChatMessage("What do you mean, \"TELEPORT ME\"! We don't own a teleporter!");

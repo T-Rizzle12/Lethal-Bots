@@ -304,8 +304,7 @@ namespace LethalBots.AI.AIStates
                         if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
                             && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
-                            StartMatchLever? startMatchLever = SingletonManager.StartMatchLevel.Instance;
-                            if (startMatchLever != null)
+                            if (SingletonManager.StartMatchLevel.TryGet(out StartMatchLever? startMatchLever))
                             {
                                 ai.PullShipLever(startMatchLever);
                             }
@@ -359,8 +358,7 @@ namespace LethalBots.AI.AIStates
                         if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
                             && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
-                            StartMatchLever? startMatchLever = SingletonManager.StartMatchLevel.Instance;
-                            if (startMatchLever != null)
+                            if (SingletonManager.StartMatchLevel.TryGet(out StartMatchLever? startMatchLever))
                             {
                                 ai.PullShipLever(startMatchLever);
                             }

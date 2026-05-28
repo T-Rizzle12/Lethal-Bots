@@ -161,10 +161,18 @@ namespace LethalBots.AI
             }
             Npc.gameObject.GetComponent<CharacterController>().enabled = true;
 
-            AudioReverbPresets? audioReverbPresets = SingletonManager.AudioReverbPresets.Instance;
-            if (audioReverbPresets != null)
+            // Sigh, try-catch here since SetPlayerSafeInShip doesn't null check the
+            // EnemyAI renderers, which causes the whole damn thing to error out
+            try
             {
-                audioReverbPresets.audioPresets[3].ChangeAudioReverbForPlayer(Npc);
+                if (SingletonManager.AudioReverbPresets.TryGet(out AudioReverbPresets? audioReverbPresets))
+                {
+                    audioReverbPresets.audioPresets[3].ChangeAudioReverbForPlayer(Npc);
+                }
+            }
+            catch (Exception ex)
+            {
+                Plugin.LogError($"Error occured when setting audio reverb for bot: {ex}");
             }
 
             foreach (var skinnedMeshRenderer in Npc.gameObject.GetComponentsInChildren<SkinnedMeshRenderer>())
@@ -789,7 +797,7 @@ namespace LethalBots.AI
             walkForce = Vector3.MoveTowards(walkForce, Npc.transform.right * Npc.moveInputVector.x + Npc.transform.forward * Npc.moveInputVector.y, num7 * Time.deltaTime);
             Vector3 vector2 = walkForce * num3 * sprintMultiplier + new Vector3(0f, Npc.fallValue, 0f) + NearEntitiesPushVector;
             vector2 += Npc.externalForces;
-            if (Npc.externalForceAutoFade.magnitude > 0.05f)
+            if (Npc.externalForceAutoFade.sqrMagnitude > 0.05f * 0.05f)
             {
                 vector2 += Npc.externalForceAutoFade;
                 Npc.externalForceAutoFade = Vector3.Lerp(Npc.externalForceAutoFade, Vector3.zero, 2f * Time.deltaTime);

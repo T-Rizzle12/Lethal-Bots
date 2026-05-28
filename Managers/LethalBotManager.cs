@@ -386,6 +386,8 @@ namespace LethalBots.Managers
             RoundManager instanceRM = RoundManager.Instance;
             foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
             {
+                if (spawnedEnemy == null) continue;
+
                 if (ListEnemyAINonNoiseListeners.Contains(spawnedEnemy))
                 {
                     continue;
@@ -1182,9 +1184,9 @@ namespace LethalBots.Managers
             // Modded Enemy, Broken until I add a dll reference.
             // This should probably be in its own mod......
             //RegisterThreat("T-rex",
-            //    fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-            //    fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-            //    fq => 40f // Always 40 for pathfinding
+            //    fearQuery => fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
+            //    fearQuery => fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
+            //    fearQuery => 40f // Always 40 for pathfinding
             //);
 
             // Maneater
@@ -1272,19 +1274,26 @@ namespace LethalBots.Managers
                 fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null
             );
 
+            float? MaskedPanikFunc(LethalBotFearQuery fearQuery)
+            {
+                bool aware =
+                fearQuery.EnemyAI is MaskedPlayerEnemy masked
+                && fearQuery.Bot is LethalBotAI lethalBotAI
+                && lethalBotAI.DictKnownMasked.TryGetValue(masked, out bool known)
+                && known;
+
+                bool handsOut =
+                    fearQuery.EnemyAI.creatureAnimator != null
+                    && fearQuery.EnemyAI.creatureAnimator.GetBool("HandsOut");
+
+                return (aware || handsOut) ? 30f : 15f;
+            }
+
             // Masked
             RegisterThreat(typeof(MaskedPlayerEnemy),
-                fq =>
-                {
-                    bool aware = fq.EnemyAI is MaskedPlayerEnemy masked && fq.Bot is LethalBotAI lethalBotAI && lethalBotAI.DictKnownMasked.TryGetValue(masked, out bool known) && known;
-                    return (aware || fq.EnemyAI.creatureAnimator.GetBool("HandsOut")) ? 30f : 15f;
-                },
+                MaskedPanikFunc,
                 _ => 8f, // Always 8 for mission control
-                fq =>
-                {
-                    bool aware = fq.EnemyAI is MaskedPlayerEnemy masked && fq.Bot is LethalBotAI lethalBotAI && lethalBotAI.DictKnownMasked.TryGetValue(masked, out bool known) && known;
-                    return (aware || fq.EnemyAI.creatureAnimator.GetBool("HandsOut")) ? 30f : 15f;
-                }
+                MaskedPanikFunc
             );
 
             // Spider!
@@ -2151,8 +2160,7 @@ namespace LethalBots.Managers
                 }
 
                 // Remove from quick menu
-                QuickMenuManager? quickMenuManager = SingletonManager.QuickMenuManager.Instance;
-                if (quickMenuManager != null)
+                if (SingletonManager.QuickMenuManager.TryGet(out QuickMenuManager? quickMenuManager))
                 {
                     quickMenuManager.RemoveUserFromPlayerList((int)lethalBotController.playerClientId);
                 }
@@ -3024,8 +3032,7 @@ namespace LethalBots.Managers
             {
                 return 0;
             }
-            DepositItemsDesk? companyDesk = SingletonManager.CompanyDesk.Instance;
-            if (companyDesk != null)
+            if (SingletonManager.CompanyDesk.TryGet(out DepositItemsDesk? companyDesk))
             {
                 return companyDesk.deskObjectsContainer.GetComponentsInChildren<GrabbableObject>().Length;
             }
@@ -3042,8 +3049,7 @@ namespace LethalBots.Managers
             {
                 return 0;
             }
-            DepositItemsDesk? companyDesk = SingletonManager.CompanyDesk.Instance;
-            if (companyDesk != null)
+            if (SingletonManager.CompanyDesk.TryGet(out DepositItemsDesk? companyDesk))
             {
                 int value = 0;
                 GrabbableObject[] grabbableObjects = companyDesk.deskObjectsContainer.GetComponentsInChildren<GrabbableObject>();
@@ -3583,8 +3589,7 @@ namespace LethalBots.Managers
                 yield break;
             }
 
-            Vector3 teleportPos = default(Vector3);
-            AudioReverbPresets? audioReverbPresets = SingletonManager.AudioReverbPresets.Instance;
+            Vector3 teleportPos;
             LethalBotAI[] lethalBotAIs = GetLethalBotsAIOwnedByLocal();
             foreach (LethalBotAI lethalBotAI in lethalBotAIs)
             {
@@ -3683,8 +3688,7 @@ namespace LethalBots.Managers
         [ClientRpc]
         public void SetHangarShipDoorStateClientRpc(bool isClosed)
         {
-            HangarShipDoor? hangarShipDoor = SingletonManager.ShipDoor.Instance;
-            if (hangarShipDoor != null && hangarShipDoor.buttonsEnabled)
+            if (SingletonManager.ShipDoor.TryGet(out HangarShipDoor? hangarShipDoor) && hangarShipDoor.buttonsEnabled)
             {
                 hangarShipDoor.shipDoorsAnimator.SetBool("Closed", value: isClosed);
                 StartOfRound.Instance.SetShipDoorsClosed(closed: isClosed);
@@ -3936,7 +3940,7 @@ namespace LethalBots.Managers
         /// </summary>
         /// <param name="player"><c>PlayerControllerB</c> </param>
         /// <returns><c>LethalBotAI</c> if the <c>PlayerControllerB</c> has an <c>LethalBotAI</c> associated, else returns null</returns>
-        public LethalBotAI? GetLethalBotAI(PlayerControllerB player)
+        public LethalBotAI? GetLethalBotAI(PlayerControllerB? player)
         {
             if (AllLethalBotAIs == null 
                 || AllLethalBotAIs.Length == 0 
@@ -4074,15 +4078,7 @@ namespace LethalBots.Managers
         /// <returns><c>true</c> if <c>EnemyAI</c> is <c>LethalBotAI</c>, else <c>false</c></returns>
         public bool IsAILethalBotAi(EnemyAI ai)
         {
-            foreach (var lethalBotAI in AllLethalBotAIs)
-            {
-                if (lethalBotAI == ai)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return AllLethalBotAIs.Contains(ai);
         }
 
         /// <summary>
@@ -4471,8 +4467,7 @@ namespace LethalBots.Managers
                     lethalBotController.gameObject.GetComponent<NetworkObject>().RemoveOwnership();
                 }
                 // Remove from quick menu
-                QuickMenuManager? quickMenuManager = SingletonManager.QuickMenuManager.Instance;
-                if (quickMenuManager != null)
+                if (SingletonManager.QuickMenuManager.TryGet(out QuickMenuManager? quickMenuManager))
                 {
                     quickMenuManager.RemoveUserFromPlayerList(lethalBot);
                 }
@@ -5042,10 +5037,7 @@ namespace LethalBots.Managers
             };
 
             SyncLoadedJsonIdentitiesClientRpc(
-                new ConfigIdentitiesNetworkSerializable()
-                {
-                    ConfigIdentities = Plugin.Config.ConfigIdentities.configIdentities
-                },
+                Plugin.Config.ConfigIdentities.configIdentities,
                 ClientRpcParams);
         }
 
@@ -5058,15 +5050,12 @@ namespace LethalBots.Managers
                 TargetClientIds = NetworkManager.ConnectedClientsIds.Where(x => x != NetworkManager.LocalClientId).ToArray()
             };
             SyncLoadedJsonIdentitiesClientRpc(
-                new ConfigIdentitiesNetworkSerializable()
-                {
-                    ConfigIdentities = Plugin.Config.ConfigIdentities.configIdentities
-                },
+                Plugin.Config.ConfigIdentities.configIdentities,
                 ClientRpcParams);
         }
 
         [ClientRpc]
-        private void SyncLoadedJsonIdentitiesClientRpc(ConfigIdentitiesNetworkSerializable configIdentityNetworkSerializable,
+        private void SyncLoadedJsonIdentitiesClientRpc(ConfigIdentity[] configIdentities,
                                                        ClientRpcParams clientRpcParams = default)
         {
             if (IsOwner)
@@ -5075,14 +5064,14 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogInfo($"Client {NetworkManager.LocalClientId} : sync json bots identities");
-            Plugin.LogDebug($"Loaded {configIdentityNetworkSerializable.ConfigIdentities.Length} identities from server");
-            foreach (ConfigIdentity configIdentity in configIdentityNetworkSerializable.ConfigIdentities)
+            Plugin.LogDebug($"Loaded {configIdentities.Length} identities from server");
+            foreach (ConfigIdentity configIdentity in configIdentities)
             {
                 Plugin.LogDebug($"{configIdentity.ToString()}");
             }
 
-            Plugin.LogDebug($"Recreate identities for {configIdentityNetworkSerializable.ConfigIdentities.Length} bots");
-            IdentityManager.Instance.InitIdentities(configIdentityNetworkSerializable.ConfigIdentities);
+            Plugin.LogDebug($"Recreate identities for {configIdentities.Length} bots");
+            IdentityManager.Instance.InitIdentities(configIdentities);
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -5095,15 +5084,12 @@ namespace LethalBots.Managers
             };
 
             SyncLoadedJsonLoadoutsClientRpc(
-                new ConfigLoadoutsNetworkSerializable()
-                {
-                    ConfigLoadouts = Plugin.Config.ConfigLoadouts.configLoadouts
-                },
+                Plugin.Config.ConfigLoadouts.configLoadouts,
                 ClientRpcParams);
         }
 
         [ClientRpc]
-        private void SyncLoadedJsonLoadoutsClientRpc(ConfigLoadoutsNetworkSerializable configLoadoutNetworkSerializable,
+        private void SyncLoadedJsonLoadoutsClientRpc(ConfigLoadout[] configLoadouts,
                                                        ClientRpcParams clientRpcParams = default)
         {
             if (IsOwner)
@@ -5112,14 +5098,14 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogInfo($"Client {NetworkManager.LocalClientId} : sync json bots loadouts");
-            Plugin.LogDebug($"Loaded {configLoadoutNetworkSerializable.ConfigLoadouts.Length} loadouts from server");
-            foreach (ConfigLoadout configLoadout in configLoadoutNetworkSerializable.ConfigLoadouts)
+            Plugin.LogDebug($"Loaded {configLoadouts.Length} loadouts from server");
+            foreach (ConfigLoadout configLoadout in configLoadouts)
             {
                 Plugin.LogDebug($"{configLoadout.ToString()}");
             }
 
-            Plugin.LogDebug($"Recreate loadouts for {configLoadoutNetworkSerializable.ConfigLoadouts.Length} bots");
-            LoadoutManager.Instance.InitLoadouts(configLoadoutNetworkSerializable.ConfigLoadouts);
+            Plugin.LogDebug($"Recreate loadouts for {configLoadouts.Length} bots");
+            LoadoutManager.Instance.InitLoadouts(configLoadouts);
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -5132,15 +5118,12 @@ namespace LethalBots.Managers
             };
 
             SyncLoadedJsonStockRequirementsClientRpc(
-                new ConfigStockRequirementNetworkSerializable()
-                {
-                    ConfigStockRequirements = Plugin.Config.ConfigStockRequirements.configStockRequirements
-                },
+                Plugin.Config.ConfigStockRequirements.configStockRequirements,
                 ClientRpcParams);
         }
 
         [ClientRpc]
-        private void SyncLoadedJsonStockRequirementsClientRpc(ConfigStockRequirementNetworkSerializable configLoadoutNetworkSerializable,
+        private void SyncLoadedJsonStockRequirementsClientRpc(ConfigStockRequirement[] configStockRequirements,
                                                        ClientRpcParams clientRpcParams = default)
         {
             if (IsOwner)
@@ -5149,14 +5132,14 @@ namespace LethalBots.Managers
             }
 
             Plugin.LogInfo($"Client {NetworkManager.LocalClientId} : sync json bots stock requirements");
-            Plugin.LogDebug($"Loaded {configLoadoutNetworkSerializable.ConfigStockRequirements.Length} stock requirements from server");
-            foreach (ConfigStockRequirement configStockRequirement in configLoadoutNetworkSerializable.ConfigStockRequirements)
+            Plugin.LogDebug($"Loaded {configStockRequirements.Length} stock requirements from server");
+            foreach (ConfigStockRequirement configStockRequirement in configStockRequirements)
             {
                 Plugin.LogDebug($"{configStockRequirement.ToString()}");
             }
 
-            Plugin.LogDebug($"Recreate stock requirements for {configLoadoutNetworkSerializable.ConfigStockRequirements.Length} bots");
-            RestockManager.Instance.InitStockRequirements(configLoadoutNetworkSerializable.ConfigStockRequirements);
+            Plugin.LogDebug($"Recreate stock requirements for {configStockRequirements.Length} bots");
+            RestockManager.Instance.InitStockRequirements(configStockRequirements);
         }
 
         [ServerRpc(RequireOwnership = false)]
@@ -5185,7 +5168,7 @@ namespace LethalBots.Managers
                         LethalBotReference = lethalBotAI.NetworkObject,
                         IndexNextLethalBot = i,
                         IndexNextPlayerObject = i, // i should be (int)lethalBotAI.NpcController.Npc.playerClientId if everything is working correctly
-                        SpawnPosition = lethalBotAI.NpcController?.Npc.transform.position ?? null,
+                        SpawnPosition = lethalBotAI.NpcController?.Npc?.transform.position ?? null,
                         LethalBotIdentityID = lethalBotAI.LethalBotIdentity.IdIdentity,
                         enumSpawnAnimation = EnumSpawnAnimation.ReinitializePlayer,
                         SuitID = lethalBotAI.LethalBotIdentity.SuitID ?? 0,
@@ -5233,8 +5216,8 @@ namespace LethalBots.Managers
 
                 // The client just joined, they need some time to load all of the Network objects
                 NetworkObject? networkObject = null;
-                float startTime = Time.realtimeSinceStartup;
-                while ((Time.realtimeSinceStartup - startTime) < 5f)
+                CountdownTimer startTime = new CountdownTimer(time: 5f);
+                while (startTime.HasStarted() && !startTime.Elapsed())
                 {
                     // Keep trying until it finally loads
                     if (lethalBotData.LethalBotReference.Value.TryGet(out networkObject))

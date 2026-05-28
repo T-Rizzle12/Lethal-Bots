@@ -67,8 +67,7 @@ namespace LethalBots.Patches.EnemiesPatches
         private static void OnLethalBotTalk(LethalBotVoice botVoice, float loudness)
         {
             LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(botVoice.BotID);
-            CadaverGrowthAI? cadaverGrowthAI = SingletonManager.CadaverGrowthAI.Instance;
-            if (lethalBotAI == null || cadaverGrowthAI == null)
+            if (lethalBotAI == null || !SingletonManager.CadaverGrowthAI.TryGet(out CadaverGrowthAI? cadaverGrowthAI))
             {
                 return;
             }
@@ -103,9 +102,6 @@ namespace LethalBots.Patches.EnemiesPatches
         /// This is required for bots since GameNetworkManager.Instance.localPlayerController will be the local player, while the local variable will hold the correct player controller reference. 
         /// If this patch isn't applied, bots will trigger this as the local player in this function when they die.
         /// </summary>
-        /// <remarks>
-        /// TODO: Apply this to the OnLocalPlayerTalk function as well.
-        /// </remarks>
         /// <param name="instructions"></param>
         /// <param name="generator"></param>
         /// <returns></returns>

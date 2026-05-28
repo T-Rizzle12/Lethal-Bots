@@ -31,8 +31,7 @@ namespace LethalBots.AI.AIStates
                 // If we still don't have the company desk, we can't sell scrap!
                 // We also need to be at the company building to sell scrap!
                 // If either of these conditions are not met, we return to our ship!
-                DepositItemsDesk? companyDesk = SingletonManager.CompanyDesk.Instance;
-                if (companyDesk == null
+                if (!SingletonManager.CompanyDesk.IsValid()
                     || !LethalBotManager.AreWeAtTheCompanyBuilding())
                 {
                     ai.State = new ReturnToShipState(this);
@@ -81,8 +80,7 @@ namespace LethalBots.AI.AIStates
         {
             // The company desk is invaild, we are not at the company building,
             // or the company is pissed, return!
-            DepositItemsDesk? companyDesk = SingletonManager.CompanyDesk.Instance;
-            if (companyDesk == null 
+            if (!SingletonManager.CompanyDesk.TryGet(out DepositItemsDesk? companyDesk)
                 || !LethalBotManager.AreWeAtTheCompanyBuilding() 
                 || companyDesk.attacking)
             {

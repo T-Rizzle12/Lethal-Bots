@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Text;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -49,6 +51,31 @@ namespace LethalBots.Utils.Helpers
         {
             nextFindSingletonCheck = new UpdateLimiter(updateInterval);
             this.findSingletonFunc = findSingletonFunc;
+        }
+
+        /// <summary>
+        /// Checks if the instance of <typeparamref name="T"/> is not <see langword="null"/>
+        /// </summary>
+        /// <returns><see langword="true"/> if we have a valid instance of <typeparamref name="T"/>; otherwise <see langword="false"/></returns>
+        [MemberNotNullWhen(true, nameof(Instance))]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsValid()
+        {
+            return Instance != null;
+        }
+
+        /// <summary>
+        /// Checks if the instance of <typeparamref name="T"/> is not <see langword="null"/>
+        /// </summary>
+        /// <remarks>
+        /// This also returns the instance as well for easy access. This will be <see langword="null"/> if instance is invalid
+        /// </remarks>
+        /// <returns><see langword="true"/> if we have a valid instance of <typeparamref name="T"/>; otherwise <see langword="false"/></returns>
+        [MemberNotNullWhen(true, nameof(Instance))]
+        public bool TryGet([NotNullWhen(true)] out T? instance)
+        {
+            instance = Instance;
+            return instance != null;
         }
 
         public static implicit operator T?(Singleton<T> instance)

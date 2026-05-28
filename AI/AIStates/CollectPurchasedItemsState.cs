@@ -36,8 +36,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // We couldn't find the item dropship?
-            ItemDropship? itemDropship = SingletonManager.ItemDropship.Instance;
-            if (itemDropship == null || !IsPossible())
+            if (!SingletonManager.ItemDropship.TryGet(out ItemDropship? itemDropship) || !IsPossible())
             {
                 ChangeBackToPreviousState();
                 return;
@@ -174,8 +173,7 @@ namespace LethalBots.AI.AIStates
                 return false; 
             }
 
-            ItemDropship? itemDropship = SingletonManager.ItemDropship.Instance;
-            if (itemDropship != null 
+            if (SingletonManager.ItemDropship.TryGet(out ItemDropship? itemDropship)
                 && !itemDropship.shipDoorsOpened
                 && (itemDropship.shipLanded || itemDropship.itemsToDeliver.Count > 0))
             {
@@ -196,8 +194,7 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         public static bool IsDropShipLanding()
         {
-            ItemDropship? itemDropship = SingletonManager.ItemDropship.Instance;
-            if (itemDropship != null
+            if (SingletonManager.ItemDropship.TryGet(out ItemDropship? itemDropship)
                 && !itemDropship.shipLanded
                 && (itemDropship.deliveringOrder 
                     || itemDropship.deliveringVehicle 
@@ -229,8 +226,7 @@ namespace LethalBots.AI.AIStates
         private GrabbableObject? GrabDeliveredObjects()
         {
             // No dropship?
-            ItemDropship? itemDropship = SingletonManager.ItemDropship.Instance;
-            if (itemDropship == null)
+            if (!SingletonManager.ItemDropship.TryGet(out ItemDropship? itemDropship))
             {
                 return null;
             }

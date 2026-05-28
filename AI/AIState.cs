@@ -604,7 +604,7 @@ namespace LethalBots.AI
                         Plugin.LogDebug("This is quicksand!");
 
                         // Check if the closest point is within or on the collider
-                        Vector3 testPoint = Physics.ClosestPoint(entrancePos, collider, collider.transform.position, collider.transform.rotation);
+                        Vector3 testPoint = collider.ClosestPoint(entrancePos);
                         if ((testPoint - entrancePos).sqrMagnitude < quicksandBuffer * quicksandBuffer)
                         {
                             Plugin.LogDebug("Segment intersects solid quicksand!");
@@ -727,7 +727,7 @@ namespace LethalBots.AI
             foreach (EnemyAI enemy in RoundManager.Instance.SpawnedEnemies)
             {
                 const float dangerRange = 7.7f; // 7.7f is the same distance used by the base game to show the enemy activity nearby message!
-                if (!enemy.isEnemyDead && enemy is not LethalBotAI && (enemy.transform.position - entrancePoint).sqrMagnitude < dangerRange * dangerRange)
+                if (enemy != null && !enemy.isEnemyDead && enemy is not LethalBotAI && (enemy.transform.position - entrancePoint).sqrMagnitude < dangerRange * dangerRange)
                 {
                     // We found an enemy near the exit point, so we should not use this entrance!
                     entranceSafetyCache[entrance] = (false, Time.timeSinceLevelLoad);
@@ -1302,7 +1302,9 @@ namespace LethalBots.AI
                         for (int j = 0; j < instanceRM.SpawnedEnemies.Count; j++)
                         {
                             EnemyAI checkLOSToTarget = instanceRM.SpawnedEnemies[j];
-                            if (checkLOSToTarget.isEnemyDead || ourWeOutside != checkLOSToTarget.isOutside)
+                            if (checkLOSToTarget == null 
+                                || checkLOSToTarget.isEnemyDead 
+                                || ourWeOutside != checkLOSToTarget.isOutside)
                             {
                                 continue;
                             }

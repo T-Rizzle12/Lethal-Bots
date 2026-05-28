@@ -27,8 +27,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Teleporter has finished teleporting players, but we didn't make it!
-            ShipTeleporter? inverseTeleporter = SingletonManager.InverseTeleporter.Instance;
-            if (inverseTeleporter == null 
+            if (!SingletonManager.InverseTeleporter.TryGet(out ShipTeleporter? inverseTeleporter)
                 || !LethalBotManager.IsInverseTeleporterActive)
             {
                 // Took this from the TimeOfDay class file,

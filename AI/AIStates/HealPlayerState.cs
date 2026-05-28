@@ -196,9 +196,7 @@ namespace LethalBots.AI.AIStates
             {
                 return false; // We can't heal ourselves with weed killer, someone else has to do it for us.
             }
-
-            CadaverGrowthAI? cadaverGrowthAI = SingletonManager.CadaverGrowthAI.Instance;
-            if (cadaverGrowthAI == null)
+            if (!SingletonManager.CadaverGrowthAI.TryGet(out CadaverGrowthAI? cadaverGrowthAI))
             {
                 //Plugin.LogDebug("HealPlayerState: Cannot find CadaverGrowthAI, cannot heal with weed killer!");
                 return false;

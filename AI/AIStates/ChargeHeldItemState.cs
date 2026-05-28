@@ -94,8 +94,7 @@ namespace LethalBots.AI.AIStates
                     || this.itemToCharge.insertedBattery.charge < 0.9f))
             {
                 // We should charge the item if we can!
-                ItemCharger? itemCharger = SingletonManager.ItemCharger.Instance;
-                if (itemCharger != null)
+                if (SingletonManager.ItemCharger.TryGet(out ItemCharger? itemCharger))
                 {
                     InteractTrigger itemChargerTrigger = itemCharger.triggerScript;
                     if (itemChargerTrigger != null)
