@@ -5,7 +5,6 @@ name: Build LethalBots
 
 on:
   push:
-    - 'master`
   pull_request:
 
 jobs:
