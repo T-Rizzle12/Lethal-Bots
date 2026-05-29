@@ -1,33 +1,41 @@
 name: Build Test Package
 
-on: workflow_dispatch
+on: 
+  issue_comment:
+    types: [created]
 
 jobs:
   package:
-    runs-on: windows-latest
-
-    env:
-      CI: true
-    
-    steps:
-      - uses: actions/checkout@v4
-    
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-    
-      - name: Restore tools
-        run: dotnet tool restore
-    
-      - name: Restore packages
-        run: dotnet restore
-    
-      - name: Build Release Package
-        run: dotnet build --configuration Release --no-restore
-    
-      - name: Upload package
-        uses: actions/upload-artifact@v4
-        with:
-          name: LethalBots-${{ github.ref_name }}
-          path: Thunderstore/Packages/*.zip
-          overwrite: true
+    if: |
+        github.event.issue.pull_request &&
+        github.event.comment.body == '/build-artifact'
+      
+      runs-on: windows-latest
+  
+      env:
+        CI: true
+      
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.event.issue.pull_request.head.sha }}
+      
+        - uses: actions/setup-dotnet@v4
+          with:
+            dotnet-version: 8.0.x
+      
+        - name: Restore tools
+          run: dotnet tool restore
+      
+        - name: Restore packages
+          run: dotnet restore
+      
+        - name: Build Release Package
+          run: dotnet build --configuration Release --no-restore
+      
+        - name: Upload package
+          uses: actions/upload-artifact@v4
+          with:
+            name: LethalBots-${{ github.ref_name }}
+            path: Thunderstore/Packages/*.zip
+            overwrite: true
