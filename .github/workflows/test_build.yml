@@ -7,35 +7,36 @@ on:
 jobs:
   package:
     if: |
-        github.event.issue.pull_request &&
-        github.event.comment.body == '/build-artifact'
+      github.event.issue.pull_request &&
+      github.event.comment.body == '/build-artifact' &&
+      github.event.comment.author_association == 'OWNER'
       
-      runs-on: windows-latest
+    runs-on: windows-latest
   
-      env:
-        CI: true
+    env:
+      CI: true
       
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            ref: ${{ github.event.issue.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/head
       
-        - uses: actions/setup-dotnet@v4
-          with:
-            dotnet-version: 8.0.x
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
       
-        - name: Restore tools
-          run: dotnet tool restore
+      - name: Restore tools
+        run: dotnet tool restore
       
-        - name: Restore packages
-          run: dotnet restore
+      - name: Restore packages
+        run: dotnet restore
       
-        - name: Build Release Package
-          run: dotnet build --configuration Release --no-restore
+      - name: Build Release Package
+        run: dotnet build --configuration Release --no-restore
       
-        - name: Upload package
-          uses: actions/upload-artifact@v4
-          with:
-            name: LethalBots-${{ github.ref_name }}
-            path: Thunderstore/Packages/*.zip
-            overwrite: true
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: LethalBots-PR-${{ github.event.issue.number }}
+          path: Thunderstore/Packages/*.zip
+          overwrite: true
