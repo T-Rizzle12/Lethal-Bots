@@ -27,7 +27,7 @@ jobs:
       run: dotnet tool restore
     
     - name: Restore dependencies
-      run: dotnet restore --configuration Release
+      run: dotnet restore -c Release --verbosity normal
     
     - name: Build
-      run: dotnet build --configuration Release --no-restore --verbosity normal
+      run: dotnet build -c Release --no-restore --verbosity normal
