@@ -44,10 +44,6 @@ namespace LethalBots.AI
         private float[] rightSamples = new float[256];
         private bool aboutToTalk;
 
-        // Whether the currently playing voice lines is from the talkativeness state
-        // Used to determine if a responsiveness line can interrupt the currently playing voice line
-        private bool isTalkingnessPlaying = false;
-
         public EnumVoicesState LastVoiceState
         {
             get;
@@ -77,7 +73,8 @@ namespace LethalBots.AI
             if (IsResponsivenessState(voiceState))
             {
                 cooldownResponsiveness = cooldown;
-            } else
+            }
+            else
             {
                 cooldownTalkativeness = cooldown;
             }
@@ -88,7 +85,8 @@ namespace LethalBots.AI
             if (IsResponsivenessState(voiceState))
             {
                 cooldownResponsiveness = GetRandomCooldown(voiceState);
-            } else
+            }
+            else
             {
                 cooldownTalkativeness = GetRandomCooldown(voiceState);
             }
@@ -185,18 +183,11 @@ namespace LethalBots.AI
                 {
                     return;
                 }
-
-                // If a talkativeness line is currently playing, cut it so the reactive line can play immediately (responsiveness takes priority)
-                if (IsTalking() && isTalkingnessPlaying)
-                {
-                    StopAudioFadeOut();
-                }
             }
             else
             {
                 if (Plugin.Config.Talkativeness.Value == (int)EnumTalkativeness.NoTalking)
                 {
-
                     return;
                 }
 
@@ -244,10 +235,6 @@ namespace LethalBots.AI
                     return;
                 }
             }
-
-            // Track which category is now playing so future responsiveness
-            // triggers know whether they can interrupt.
-            isTalkingnessPlaying = !isResponsiveness;
 
             PlayRandomVoiceAudio(parameters.VoiceState, parameters);
             LastVoiceState = parameters.VoiceState;
@@ -450,8 +437,7 @@ namespace LethalBots.AI
             if (CurrentAudioSource.isPlaying)
             {
                 CurrentAudioSource.Stop();
-                LastVoiceState = EnumVoicesState.None;
-                isTalkingnessPlaying = false;
+                LastVoiceState = EnumVoicesState.None;;
             }
         }
     }
