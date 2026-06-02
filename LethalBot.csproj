@@ -260,8 +260,26 @@
     <Exec Command="netcode-patch -nv 1.5.2 &quot;$(TargetPath)&quot; @(ReferencePathWithRefAssemblies->'&quot;%(Identity)&quot;', ' ')" />
   </Target>-->
   <Target Name="NetcodePatch" AfterTargets="PostBuildEvent">
-	<Exec Command="dotnet tool restore" />
-	<Exec Command="dotnet netcode-patch -uv 2022.3.62 -nv 1.12.0 -tv 1.0.0 &quot;$(TargetPath)&quot; @(ReferencePathWithRefAssemblies->'&quot;%(Identity)&quot;', ' ')" />
+	  
+	  <!-- Make sure our tools are setup -->
+	  <Exec Command="dotnet tool restore" />
+	  
+	  <!-- Put our dependencies into a list-->
+	  <PropertyGroup>
+		  <NetcodePatcherDepsListFile>$(IntermediateOutputPath)ncp-deps.list</NetcodePatcherDepsListFile>
+	  </PropertyGroup>
+
+	  <!-- Put our dependencies into a file -->
+	  <WriteLinesToFile
+		File="$(NetcodePatcherDepsListFile)"
+		Lines="@(ReferencePathWithRefAssemblies)"
+		Overwrite="true" />
+
+	  <!-- Actually run Netcode patcher -->
+	  <Exec Command="dotnet netcode-patch -uv 2022.3.62 -nv 1.12.0 -tv 1.0.0 &quot;$(TargetPath)&quot; --dependency-file &quot;$(NetcodePatcherDepsListFile)&quot;" />
+
+	  <!-- Remove the temporary file -->
+	  <Delete Files="$(NetcodePatcherDepsListFile)" />
   </Target>
 
   <!-- Build our Thunderstore package when making a release build. This does not publish our package. -->
