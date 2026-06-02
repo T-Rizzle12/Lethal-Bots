@@ -80,15 +80,38 @@ namespace LethalBots.AI
             }
         }
 
+        /// <summary>
+        /// Set a new random cooldown for both types/states of the voice lines.
+        /// </summary>
+        public void SetNewRandomCooldownForBothAudio()
+        {
+            // Reset Talkativeness cooldown
+            SetNewRandomCooldownAudio(isResponsiveness: false); // Added 'isResponsiveness:' for clarity
+            // Reset Responsiveness cooldown
+            SetNewRandomCooldownAudio(isResponsiveness: true); // Added 'isResponsiveness:' for clarity
+        }
+
+        // inputs EnumVoicesState, meaning it will run the IsResponsivenessState()
+        // If IsResponsivenessState() already has run, then use the SetNewRandomCooldownAudio(bool isResponsiveness) instead
         public void SetNewRandomCooldownAudio(EnumVoicesState voiceState)
         {
-            if (IsResponsivenessState(voiceState))
+            SetNewRandomCooldownAudio(IsResponsivenessState(voiceState));
+        }
+
+        /// <summary>
+        /// Set a new random cooldown for the voice lines.
+        /// </summary>
+        public void SetNewRandomCooldownAudio(bool isResponsiveness) // Used for passing through the IsResponsivenessState() result
+        {
+            if (isResponsiveness)
             {
-                cooldownResponsiveness = GetRandomCooldown(voiceState);
+                cooldownResponsiveness = GetRandomCooldown(true);
+                //Plugin.LogInfo($"New cooldownResponsiveness value: {cooldownResponsiveness}");
             }
             else
             {
-                cooldownTalkativeness = GetRandomCooldown(voiceState);
+                cooldownTalkativeness = GetRandomCooldown(false);
+                //Plugin.LogInfo($"New cooldownTalkativeness value: {cooldownTalkativeness}");
             }
         }
 
@@ -280,14 +303,21 @@ namespace LethalBots.AI
             SetCooldownAudio(LastVoiceState, audioClip.length + GetRandomCooldown(LastVoiceState));
         }
 
+        // inputs EnumVoicesState, meaning it will run the IsResponsivenessState()
+        // If IsResponsivenessState() already has run, then use the GetRandomCooldown(bool isResponsiveness) instead
+        private float GetRandomCooldown(EnumVoicesState voiceState)
+        {
+            return GetRandomCooldown(IsResponsivenessState(voiceState));
+        }
+
         /// <summary>
         /// Returns a random cooldown duration using whichever slider (talkativeness or responsiveness) controls <paramref name="voiceState"/>.
         /// </summary>
-        private float GetRandomCooldown(EnumVoicesState voiceState)
+        private float GetRandomCooldown(bool isResponsiveness) // Used for passing through the IsResponsivenessState() result
         {
             // Set random cooldown
             Random randomInstance = new Random();
-            if (IsResponsivenessState(voiceState))
+            if (isResponsiveness)
             {
                 switch (Plugin.Config.Responsiveness.Value)
                 {
@@ -437,7 +467,7 @@ namespace LethalBots.AI
             if (CurrentAudioSource.isPlaying)
             {
                 CurrentAudioSource.Stop();
-                LastVoiceState = EnumVoicesState.None;;
+                LastVoiceState = EnumVoicesState.None;
             }
         }
     }

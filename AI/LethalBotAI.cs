@@ -1100,7 +1100,8 @@ namespace LethalBots.AI
 
             if (IsOwner)
             {
-                LethalBotIdentity.Voice.SetNewRandomCooldownAudio(LethalBotIdentity.Voice.LastVoiceState);
+                // Reset the cooldown for both types/states
+                LethalBotIdentity.Voice.SetNewRandomCooldownForBothAudio();
             }
 
             Plugin.LogDebug($"Lethal Bot {NpcController.Npc.playerUsername} detected noise noisePosition {noisePosition}, noiseLoudness {noiseLoudness}, timesPlayedInOneSpot {timesPlayedInOneSpot}, noiseID {noiseID}");
