@@ -248,6 +248,7 @@ These bots are to be more player like and this includes advantages such as count
 - [**Szumi57**](https://github.com/Szumi57) - Original idea and coding of the original mod, Lethal Internship.
 - [**T-Rizzle**](https://github.com/T-Rizzle12) - Major code refactor, bug fixes, and new features.
 - [**Gummar**](https://github.com/Gummar) - Created the new search algorithm for the bots.
+- [**PixelIndieDev**](https://github.com/PixelIndieDev) - Improved bot voice code and voice command system.
 - **Mathew Kelly** - Voice acting for the bots, over 700 voice lines!
 
 ## Things to add

@@ -2124,7 +2124,7 @@ namespace LethalBots.AI.AIStates
             ChatCommandsManager.RegisterIgnoreDefaultForState<MissionControlState>();
 
             // Someone requested that we start the ship!
-            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.START_THE_SHIP_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.START_THE_SHIP_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
                 // Make sure the sender is valid!
                 if (playerWhoSentMessage == null)
@@ -2159,7 +2159,7 @@ namespace LethalBots.AI.AIStates
             }));
 
             // A player is requesting we monitor them
-            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.REQUEST_MONITORING_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.REQUEST_MONITORING_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
                 MissionControlState missionControlState = (MissionControlState)state; // We have bigger problems if this cast fails!
                 lethalBotAI.SendChatMessage($"Roger, I will only monitor you, {playerWhoSentMessage.playerUsername}.");
@@ -2168,7 +2168,7 @@ namespace LethalBots.AI.AIStates
             }));
 
             // The player wants to stop being monitored
-            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.CLEAR_MONITORING_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.CLEAR_MONITORING_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
                 MissionControlState missionControlState = (MissionControlState)state; // We have bigger problems if this cast fails!
                 if (missionControlState.monitoredPlayer != playerWhoSentMessage)
@@ -2181,7 +2181,7 @@ namespace LethalBots.AI.AIStates
             }));
 
             // This player wants to be teleported back to the ship
-            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.REQUEST_TELEPORT_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.REQUEST_TELEPORT_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
                 // Make sure we have a teleporter
                 if (!SingletonManager.ShipTeleporter.IsValid())
@@ -2203,7 +2203,7 @@ namespace LethalBots.AI.AIStates
 
             // A player is asking us to get off the terminal,
             // probably so they can use it.
-            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.HOP_OFF_THE_TERMINAL_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.HOP_OFF_THE_TERMINAL_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
                 MissionControlState missionControlState = (MissionControlState)state; // We have bigger problems if this cast fails!
                 if (!missionControlState.playerRequestedTerminal)

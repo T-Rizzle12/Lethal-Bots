@@ -1100,7 +1100,8 @@ namespace LethalBots.AI
 
             if (IsOwner)
             {
-                LethalBotIdentity.Voice.SetNewRandomCooldownAudio();
+                // Reset the cooldown for both types/states
+                LethalBotIdentity.Voice.SetNewRandomCooldownForBothAudio();
             }
 
             Plugin.LogDebug($"Lethal Bot {NpcController.Npc.playerUsername} detected noise noisePosition {noisePosition}, noiseLoudness {noiseLoudness}, timesPlayedInOneSpot {timesPlayedInOneSpot}, noiseID {noiseID}");
@@ -5847,16 +5848,15 @@ namespace LethalBots.AI
 
 
         [ServerRpc(RequireOwnership = false)]
-        public void PlayAudioServerRpc(string smallPathAudioClip, int enumTalkativeness)
+        public void PlayAudioServerRpc(string smallPathAudioClip, int enumTalkativeness, int enumResponsiveness)
         {
-            PlayAudioClientRpc(smallPathAudioClip, enumTalkativeness);
+            PlayAudioClientRpc(smallPathAudioClip, enumTalkativeness, enumResponsiveness);
         }
 
         [ClientRpc]
-        private void PlayAudioClientRpc(string smallPathAudioClip, int enumTalkativeness)
+        private void PlayAudioClientRpc(string smallPathAudioClip, int enumTalkativeness, int enumResponsiveness)
         {
-            if (enumTalkativeness == Plugin.Config.Talkativeness.Value
-                || LethalBotIdentity.Voice.CanPlayAudioAfterCooldown())
+            if (enumTalkativeness == Plugin.Config.Talkativeness.Value || enumResponsiveness == Plugin.Config.Responsiveness.Value || LethalBotIdentity.Voice.CanPlayAudioAfterCooldown(LethalBotIdentity.Voice.LastVoiceState))
             {
                 Managers.AudioManager.Instance.PlayAudio(smallPathAudioClip, LethalBotIdentity.Voice);
             }

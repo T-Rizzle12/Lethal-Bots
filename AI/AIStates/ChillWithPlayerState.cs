@@ -274,13 +274,13 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.RegisterChatCommands"/>
         public static new void RegisterChatCommands()
         {
-            ChatCommandsManager.RegisterCommandForState<ChillWithPlayerState>(new ChatCommand(Const.GEAR_UP_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            ChatCommandsManager.RegisterCommandForState<ChillWithPlayerState>(new ChatCommand(Const.GEAR_UP_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
                 lethalBotAI.State = new GrabLoadoutState(state);
                 return true;
             }));
 
-            ChatCommandsManager.RegisterCommandForState<ChillWithPlayerState>(new ChatCommand(Const.USE_KEY_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            ChatCommandsManager.RegisterCommandForState<ChillWithPlayerState>(new ChatCommand(Const.USE_KEY_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
                 // Make sure we have a key or lockpicker
                 // Check what door the player is looking at
