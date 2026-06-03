@@ -1,5 +1,47 @@
 # Changelog
 
+## 9.0.0 2026-6-2
+Update was collaberated with most of the changes being made by [PixelIndieDev](https://github.com/PixelIndieDev)</br>
+Previously, all bot chat commands were single hardcoded strings, meaning players had to use exact phrasing to command the bots. This made communication feel robotic.
+
+I have changed the following commands into static readonly string[] instead of const string:
+
+MAN_THE_SHIP_COMMAND</br>
+TRANSFER_LOOT_COMMAND</br>
+GEAR_UP_COMMAND</br>
+START_THE_SHIP_COMMAND</br>
+REQUEST_MONITORING_COMMAND</br>
+CLEAR_MONITORING_COMMAND</br>
+REQUEST_TELEPORT_COMMAND</br>
+HOP_OFF_THE_TERMINAL_COMMAND</br>
+USE_KEY_COMMAND</br>
+This gives each command multiple valid phrases, allowing less robotic communication with the bots.</br>
+The multiple valid phrases also allows players to not have to memorize the exact sentences as variations exist that will still trigger the same command.
+
+From the voices, this is an idea of what folders should be affected by each slider:</br>
+Talkativeness
+
+Chilling</br>
+Entering Cruiser</br>
+Following Player</br>
+Found Loot</br>
+Hears player</br>
+Losing player</br>
+Lost</br>
+Lost and found</br>
+Waiting</br>
+Responsiveness
+
+Attacking with gun</br>
+Attacking with melee</br>
+Hit</br>
+Ordered to follow</br>
+Ordered to stay</br>
+Running from monster</br>
+Sinking</br>
+Stepped on trap</br>
+This way you can for say, make idle chat like voice lines less often, but the running from monster lines etc voice lines more often.
+
 ## 8.0.0 2026-5-27
 Ever since I added support for V80, the mod got a lot slower due to some of the new logic I had to add. It also didn't help the some of the code was pretty unoptimized and made redundant or expensive calls too often. I dedicated this update to improve and **optimize** a ton of stuff. As usual, I made some bug fixes and added a few easy to add requests!
 
