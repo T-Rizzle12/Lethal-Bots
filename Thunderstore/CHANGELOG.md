@@ -1,6 +1,6 @@
 # Changelog
 
-## 9.0.0 2026-6-2
+## 9.0.0 2026-6-3
 This update was collaberated with most of the changes being made by [PixelIndieDev](https://github.com/PixelIndieDev).</br>
 
 ## AI Voice Improvements
