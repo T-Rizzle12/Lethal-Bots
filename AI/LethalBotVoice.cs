@@ -8,7 +8,6 @@ using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.Events;
 using AudioManager = LethalBots.Managers.AudioManager;
-using Random = System.Random;
 
 namespace LethalBots.AI
 {
@@ -316,19 +315,18 @@ namespace LethalBots.AI
         private float GetRandomCooldown(bool isResponsiveness) // Used for passing through the IsResponsivenessState() result
         {
             // Set random cooldown
-            Random randomInstance = new Random();
             if (isResponsiveness)
             {
                 switch (Plugin.Config.Responsiveness.Value)
                 {
                     case (int)EnumResponsiveness.Shy:
-                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY);
+                        return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY);
                     case (int)EnumResponsiveness.Normal:
-                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL);
+                        return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL);
                     case (int)EnumResponsiveness.Responsive:
-                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_RESPONSIVE, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_RESPONSIVE);
+                        return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_RESPONSIVE, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_RESPONSIVE);
                     case (int)EnumResponsiveness.AlwaysRespond:
-                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_ALWAYSRESPOND, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_ALWAYSRESPOND);
+                        return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_ALWAYSRESPOND, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_ALWAYSRESPOND);
                     default:
                         return 0f;
                 }
@@ -338,13 +336,13 @@ namespace LethalBots.AI
                 switch (Plugin.Config.Talkativeness.Value)
                 {
                     case (int)EnumTalkativeness.Shy:
-                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_SHY, VoicesConst.MAX_COOLDOWN_PLAYVOICE_SHY);
+                        return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_SHY, VoicesConst.MAX_COOLDOWN_PLAYVOICE_SHY);
                     case (int)EnumTalkativeness.Normal:
-                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_NORMAL, VoicesConst.MAX_COOLDOWN_PLAYVOICE_NORMAL);
+                        return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_NORMAL, VoicesConst.MAX_COOLDOWN_PLAYVOICE_NORMAL);
                     case (int)EnumTalkativeness.Talkative:
-                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_TALKATIVE, VoicesConst.MAX_COOLDOWN_PLAYVOICE_TALKATIVE);
+                        return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_TALKATIVE, VoicesConst.MAX_COOLDOWN_PLAYVOICE_TALKATIVE);
                     case (int)EnumTalkativeness.CantStopTalking:
-                        return (float)randomInstance.Next(VoicesConst.MIN_COOLDOWN_PLAYVOICE_CANTSTOPTALKING, VoicesConst.MAX_COOLDOWN_PLAYVOICE_CANTSTOPTALKING);
+                        return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_CANTSTOPTALKING, VoicesConst.MAX_COOLDOWN_PLAYVOICE_CANTSTOPTALKING);
                     default:
                         return 0f;
                 }
@@ -388,8 +386,7 @@ namespace LethalBots.AI
             }
 
             string audioClipPath;
-            Random randomInstance = new Random();
-            int index = randomInstance.Next(0, audioClipPaths.Count);
+            int index = Random.Range(0, audioClipPaths.Count);
             audioClipPath = audioClipPaths[index];
             audioClipPaths.RemoveAt(index);
 

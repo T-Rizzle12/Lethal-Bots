@@ -15,31 +15,31 @@ namespace LethalBots.Constants
 
         // Talkativeness cooldowns
         // in seconds
-        public const int MIN_COOLDOWN_PLAYVOICE_SHY = 10;
-        public const int MAX_COOLDOWN_PLAYVOICE_SHY = 40;
+        public const float MIN_COOLDOWN_PLAYVOICE_SHY = 10f;
+        public const float MAX_COOLDOWN_PLAYVOICE_SHY = 40f;
 
-        public const int MIN_COOLDOWN_PLAYVOICE_NORMAL = 5;
-        public const int MAX_COOLDOWN_PLAYVOICE_NORMAL = 20;
+        public const float MIN_COOLDOWN_PLAYVOICE_NORMAL = 5f;
+        public const float MAX_COOLDOWN_PLAYVOICE_NORMAL = 20f;
 
-        public const int MIN_COOLDOWN_PLAYVOICE_TALKATIVE = 2;
-        public const int MAX_COOLDOWN_PLAYVOICE_TALKATIVE = 10;
+        public const float MIN_COOLDOWN_PLAYVOICE_TALKATIVE = 2f;
+        public const float MAX_COOLDOWN_PLAYVOICE_TALKATIVE = 10f;
 
-        public const int MIN_COOLDOWN_PLAYVOICE_CANTSTOPTALKING = 0;
-        public const int MAX_COOLDOWN_PLAYVOICE_CANTSTOPTALKING = 0;
+        public const float MIN_COOLDOWN_PLAYVOICE_CANTSTOPTALKING = 0f;
+        public const float MAX_COOLDOWN_PLAYVOICE_CANTSTOPTALKING = 0f;
 
         // Responsiveness cooldowns
         // in seconds
-        public const int MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY = 6;
-        public const int MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY = 12;
+        public const float MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY = 6f;
+        public const float MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY = 12f;
 
-        public const int MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL = 2;
-        public const int MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL = 6;
+        public const float MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL = 2f;
+        public const float MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL = 6f;
 
-        public const int MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_RESPONSIVE = 1;
-        public const int MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_RESPONSIVE = 4;
+        public const float MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_RESPONSIVE = 1f;
+        public const float MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_RESPONSIVE = 4f;
 
-        public const int MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_ALWAYSRESPOND = 0;
-        public const int MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_ALWAYSRESPOND = 0;
+        public const float MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_ALWAYSRESPOND = 0f;
+        public const float MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_ALWAYSRESPOND = 0f;
 
         /// <summary>
         /// Voice states that are driven by the responsiveness slider
