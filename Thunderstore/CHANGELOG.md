@@ -1,46 +1,53 @@
 # Changelog
 
 ## 9.0.0 2026-6-2
-Update was collaberated with most of the changes being made by [PixelIndieDev](https://github.com/PixelIndieDev)</br>
+This update was collaberated with most of the changes being made by [PixelIndieDev](https://github.com/PixelIndieDev).</br>
+
+## AI Voice Improvements
 Previously, all bot chat commands were single hardcoded strings, meaning players had to use exact phrasing to command the bots. This made communication feel robotic.
 
-I have changed the following commands into static readonly string[] instead of const string:
+I have changed the following commands into ``static readonly string[]`` instead of ``const string``:
+- MAN_THE_SHIP_COMMAND
+- TRANSFER_LOOT_COMMAND
+- GEAR_UP_COMMAND
+- START_THE_SHIP_COMMAND
+- REQUEST_MONITORING_COMMAND
+- CLEAR_MONITORING_COMMAND
+- REQUEST_TELEPORT_COMMAND
+- HOP_OFF_THE_TERMINAL_COMMAND
+- USE_KEY_COMMAND
 
-MAN_THE_SHIP_COMMAND</br>
-TRANSFER_LOOT_COMMAND</br>
-GEAR_UP_COMMAND</br>
-START_THE_SHIP_COMMAND</br>
-REQUEST_MONITORING_COMMAND</br>
-CLEAR_MONITORING_COMMAND</br>
-REQUEST_TELEPORT_COMMAND</br>
-HOP_OFF_THE_TERMINAL_COMMAND</br>
-USE_KEY_COMMAND</br>
 This gives each command multiple valid phrases, allowing less robotic communication with the bots.</br>
 The multiple valid phrases also allows players to not have to memorize the exact sentences as variations exist that will still trigger the same command.
 
 From the voices, this is an idea of what folders should be affected by each slider:</br>
-Talkativeness
+#### Talkativeness
+- Chilling
+- Entering Cruiser
+- Following Player
+- Found Loot
+- Hears player
+- Losing player
+- Lost
+- Lost and found
+- Waiting
 
-Chilling</br>
-Entering Cruiser</br>
-Following Player</br>
-Found Loot</br>
-Hears player</br>
-Losing player</br>
-Lost</br>
-Lost and found</br>
-Waiting</br>
-Responsiveness
+#### Responsiveness
+- Attacking with gun
+- Attacking with melee
+- Hit
+- Ordered to follow
+- Ordered to stay
+- Running from monster
+- Sinking
+- Stepped on trap
 
-Attacking with gun</br>
-Attacking with melee</br>
-Hit</br>
-Ordered to follow</br>
-Ordered to stay</br>
-Running from monster</br>
-Sinking</br>
-Stepped on trap</br>
-This way you can for say, make idle chat like voice lines less often, but the running from monster lines etc voice lines more often.
+This way you can, for say, make idle chat like voice lines less often, but the running from monster lines etc voice lines more often.
+
+The delay between each voice line is now also slightly more random.
+
+## Optimizations
+- Swapped ``System.Random`` for ``UnityEngine.Random`` in the voice code for the bots to eliminate unnecessary garbage collection.
 
 ## 8.0.0 2026-5-27
 Ever since I added support for V80, the mod got a lot slower due to some of the new logic I had to add. It also didn't help the some of the code was pretty unoptimized and made redundant or expensive calls too often. I dedicated this update to improve and **optimize** a ton of stuff. As usual, I made some bug fixes and added a few easy to add requests!
