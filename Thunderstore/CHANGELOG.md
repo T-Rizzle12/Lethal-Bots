@@ -1,5 +1,10 @@
 # Changelog
 
+## 9.0.1 2026-6-5
+Just a minor patch to fix some bugs that were found.
+- Fixed a rare bug where bots could get stuck on OffMeshLinks if they stopped moving right as they started crossing it.
+- Fixed bots not having the ability to use OffMeshLinks marked as BOT_ONLY.
+
 ## 9.0.0 2026-6-3
 This update was collaberated with most of the changes being made by [PixelIndieDev](https://github.com/PixelIndieDev).</br>
 

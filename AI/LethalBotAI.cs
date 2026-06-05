@@ -3703,9 +3703,7 @@ namespace LethalBots.AI
             // Calculate duration from speed
             Vector3 flatStart = Vector3.ProjectOnPlane(startPos, Vector3.up);
             Vector3 flatEnd = Vector3.ProjectOnPlane(endPos, Vector3.up);
-
             float horizontalDistance = Vector3.Distance(flatStart, flatEnd);
-            float duration = horizontalDistance / agent.speed;
 
             Plugin.LogDebug($"Beginning off mesh link movement. {data.valid}; {data.activated}; {base.IsOwner}");
             while (normalizedTime < 1f && base.IsOwner)
@@ -3715,6 +3713,7 @@ namespace LethalBots.AI
                 {
                     break;
                 }
+                float duration = horizontalDistance / agent.speed;
                 float num = height * 4f * (normalizedTime - normalizedTime * normalizedTime);
                 Plugin.LogDebug($"Moving on off mesh link; time: {normalizedTime}; y: {num}");
                 this.transform.position = Vector3.Lerp(startPos, endPos, normalizedTime) + num * Vector3.up;
@@ -8031,8 +8030,6 @@ namespace LethalBots.AI
             }
             lethalBotController.inTerminalMenu = false;
             lethalBotController.twoHanded = false;
-            lethalBotController.isHoldingObject = false;
-            lethalBotController.currentlyHeldObjectServer = null;
             lethalBotController.carryWeight = 1f;
             lethalBotController.fallValue = 0f;
             lethalBotController.fallValueUncapped = 0f;
@@ -8088,6 +8085,7 @@ namespace LethalBots.AI
             lethalBotController.CancelSpecialTriggerAnimations();
             SoundManager.Instance.playerVoicePitchTargets[lethalBotController.playerClientId] = 1f;
             SoundManager.Instance.playerVoicePitchLerpSpeed[lethalBotController.playerClientId] = 3f;
+            this.State?.LethalBotInteraction?.StopHoldInteractionOnTrigger();
             lethalBotController.KillPlayerServerRpc((int)lethalBotController.playerClientId, spawnBody, bodyVelocity, (int)causeOfDeath, deathAnimation, positionOffset, setOverrideDropItems);
             Plugin.LogInfo($"Override drop items : {lethalBotController.overrideDropItems}; overridedontspawnbody: {lethalBotController.overrideDontSpawnBody}");
             if (lethalBotController.overrideDropItems)

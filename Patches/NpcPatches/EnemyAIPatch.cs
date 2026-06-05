@@ -97,6 +97,19 @@ namespace LethalBots.Patches.NpcPatches
             int areaMaskToAdd = (1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA) | (1 << Const.LETHAL_BOT_LANDMINE_NAVAREA) | (1 << Const.LETHAL_BOT_BRIDGE_NAVAREA);
             __instance.agentMask |= areaMaskToAdd;
             __instance.agent.areaMask |= areaMaskToAdd;
+
+            // Make sure only Lethal Bots path on the Lethal Bot Only areas
+            int areaMaskLethalBotsOnly = 1 << Const.LETHAL_BOT_ONLY_NAVAREA;
+            if (__instance is LethalBotAI)
+            {
+                __instance.agentMask |= areaMaskLethalBotsOnly;
+                __instance.agent.areaMask |= areaMaskLethalBotsOnly;
+            }
+            else
+            {
+                __instance.agentMask &= ~areaMaskLethalBotsOnly;
+                __instance.agent.areaMask &= ~areaMaskLethalBotsOnly;
+            }
         }
 
         /// <summary>

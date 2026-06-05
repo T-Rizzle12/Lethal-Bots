@@ -240,12 +240,23 @@ namespace LethalBots.Patches.GameEnginePatches
         /// <param name="__result"></param>
         [HarmonyPatch("GetLayermaskForEnemySizeLimit")]
         [HarmonyPostfix]
-        static void GetLayermaskForEnemySizeLimit_Postfix(RoundManager __instance, bool supplyExistingMask, ref int __result)
+        static void GetLayermaskForEnemySizeLimit_Postfix(RoundManager __instance, EnemyType enemyType, bool supplyExistingMask, ref int __result)
         {
             if (supplyExistingMask)
             {
                 int areaMaskToAdd = (1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA) | (1 << Const.LETHAL_BOT_LANDMINE_NAVAREA) | (1 << Const.LETHAL_BOT_BRIDGE_NAVAREA);
                 __result |= areaMaskToAdd;
+
+                // Make sure only Lethal Bots path on the Lethal Bot Only areas
+                int areaMaskLethalBotsOnly = 1 << Const.LETHAL_BOT_ONLY_NAVAREA;
+                if (enemyType.enemyPrefab.TryGetComponent<LethalBotAI>(out _))
+                {
+                    __result |= areaMaskLethalBotsOnly;
+                }
+                else
+                {
+                    __result &= ~areaMaskLethalBotsOnly;
+                }
             }
         }
 
