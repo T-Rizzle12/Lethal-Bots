@@ -22,6 +22,6 @@ namespace LethalBots.Constants
         public const string STRING_CONFIRM_COMMAND = "confirm"; // Helper string to confirm an option
         public const string STRING_CANCEL_COMMAND = "deny"; // Helper string to deny an option
         public const string STRING_TRANSMIT_COMMAND = "transmit {0}"; // Helper string for the transmit command
-        public const string STRING_COMPANY_BUILDING = "The Company building"; // Helper string to help with routing to the company building
+        public const string STRING_COMPANY_BUILDING = "Company building"; // Helper string to help with routing to the company building
     }
 }

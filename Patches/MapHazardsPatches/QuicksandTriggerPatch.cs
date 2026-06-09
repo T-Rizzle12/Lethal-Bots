@@ -53,7 +53,7 @@ namespace LethalBots.Patches.MapHazardsPatches
                         CanRepeatVoiceState = true,
 
                         ShouldSync = false,
-                        IsLethalBotInside = lethalBotAI.NpcController.Npc.isInsideFactory,
+                        IsLethalBotInside = lethalBotController.isInsideFactory,
                         AllowSwearing = Plugin.Config.AllowSwearing.Value
                     });
                 }

@@ -609,7 +609,7 @@ namespace LethalBots.Patches.NpcPatches
             }
             else
             {
-                Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.DestroyItemInSlot_Transpiler could not bypass HUDManager if player is bot");
+                Plugin.LogWarning($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.DestroyItemInSlot_Transpiler could not bypass HUDManager if player is bot");
             }
 
             // ----------------------------------------------------------------------
@@ -646,7 +646,7 @@ namespace LethalBots.Patches.NpcPatches
             }
             else
             {
-                Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.DestroyItemInSlot_Transpiler could not bypass HUDManager if player is bot 2");
+                Plugin.LogWarning($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.DestroyItemInSlot_Transpiler could not bypass HUDManager if player is bot 2");
             }
 
             return codes.AsEnumerable();

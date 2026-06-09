@@ -648,14 +648,7 @@ namespace LethalBots.AI.AIStates
             float closestFoundItemSqr = maxRange * maxRange;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
-                GrabbableObject? foundItem = gameObject.GetComponent<GrabbableObject>();
+                GrabbableObject? foundItem = LethalBotManager.grabbableObjectsInMap[i];
                 if (foundItem != null
                     && ai.HasAmmoForWeapon(foundItem))
                 {

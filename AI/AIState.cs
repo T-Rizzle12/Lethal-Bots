@@ -1618,7 +1618,7 @@ namespace LethalBots.AI
                     continue;
                 }
 
-                if (enemy.enemyType.enemyName != "Jester" && enemy is not JesterAI)
+                if (enemy is not JesterAI)
                 {
                     continue;
                 }

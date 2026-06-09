@@ -237,31 +237,26 @@ namespace LethalBots.AI.AIStates
             float closestItemDistSqr = float.MaxValue;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
+                GrabbableObject? item = LethalBotManager.grabbableObjectsInMap[i];
+                if (item == null)
                 {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
                     continue;
                 }
 
-                GrabbableObject? item = gameObject.GetComponent<GrabbableObject>();
-                if (item != null)
+                // Only grab stuff near the dropship!
+                float itemDistSqr = (item.transform.position - dropshipLandingPos).sqrMagnitude;
+                if (itemDistSqr > Const.DISTANCE_ITEM_TO_COLLECT * Const.DISTANCE_ITEM_TO_COLLECT) // Cheap way to limit range!
                 {
-                    // Only grab stuff near the dropship!
-                    float itemDistSqr = (item.transform.position - dropshipLandingPos).sqrMagnitude;
-                    if (itemDistSqr > Const.DISTANCE_ITEM_TO_COLLECT * Const.DISTANCE_ITEM_TO_COLLECT) // Cheap way to limit range!
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    // Check distance to us!
-                    itemDistSqr = (item.transform.position - ourPos).sqrMagnitude;
-                    if (itemDistSqr < closestItemDistSqr 
-                        && ai.IsGrabbableObjectGrabbable(item))
-                    {
-                        bestItem = item;
-                        closestItemDistSqr = itemDistSqr;
-                    }
+                // Check distance to us!
+                itemDistSqr = (item.transform.position - ourPos).sqrMagnitude;
+                if (itemDistSqr < closestItemDistSqr
+                    && ai.IsGrabbableObjectGrabbable(item))
+                {
+                    bestItem = item;
+                    closestItemDistSqr = itemDistSqr;
                 }
             }
             return bestItem;

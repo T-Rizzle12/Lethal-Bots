@@ -6,9 +6,9 @@ using LethalBots.Managers;
 namespace LethalBots.AI
 {
     /// <summary>
-    /// Class for the <c>LethalBotFearQuery</c> defines the fear query for use in <see cref="LethalBotThreat>"/> and <seealso cref="LethalBotManager.GetFearRangeForEnemy"/>
+    /// Struct for the <c>LethalBotFearQuery</c> defines the fear query for use in <see cref="LethalBotThreat>"/> and <seealso cref="LethalBotManager.GetFearRangeForEnemy"/>
     /// </summary>
-    public class LethalBotFearQuery
+    public readonly struct LethalBotFearQuery
     {
         public LethalBotFearQuery(EnemyAI? bot, EnemyAI enemyAI, PlayerControllerB? playerToCheck, EnumFearQueryType queryType) 
             : this(bot, enemyAI, queryType)
@@ -21,9 +21,9 @@ namespace LethalBots.AI
             EnemyAI = enemyAI;
             QueryType = queryType;
         }
-        public EnemyAI? Bot { get; private set; }
-        public EnemyAI EnemyAI { get; private set; }
-        public PlayerControllerB? PlayerToCheck { get; private set; }
-        public EnumFearQueryType QueryType { get; private set; }
+        public readonly EnemyAI? Bot;
+        public readonly EnemyAI EnemyAI;
+        public readonly PlayerControllerB? PlayerToCheck;
+        public readonly EnumFearQueryType QueryType;
     }
 }

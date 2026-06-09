@@ -34,7 +34,7 @@ namespace LethalBots.AI.AIStates
             {
                 if (_lastEnemy != CurrentEnemy || (Time.timeSinceLevelLoad - lastColliderUpdateTimer) > 2f)
                 {
-                    _enemyCollision = FindEnemyCollider(CurrentEnemy, npcController.Npc.transform.position);
+                    _enemyCollision = FindEnemyCollider(CurrentEnemy, npcController.Npc.gameplayCamera.transform.position);
                     _lastEnemy = CurrentEnemy;
                     lastColliderUpdateTimer = Time.timeSinceLevelLoad;
                     Plugin.LogDebug($"Enemy: {CurrentEnemy} Enemy Collider: {_enemyCollision}");
@@ -645,7 +645,7 @@ namespace LethalBots.AI.AIStates
                 else
                 {
                     // Check if we hit a valid target
-                    if (!hitInfo.transform.TryGetComponent<IHittable>(out var component) || (hitInfo.point != Vector3.zero && Physics.Linecast(lethalBotController.gameplayCamera.transform.position, hitInfo.point, out var _, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)))
+                    if (!hitInfo.transform.TryGetComponent<IHittable>(out var component) || (hitInfo.point != Vector3.zero && Physics.Linecast(lethalBotController.gameplayCamera.transform.position, hitInfo.point, out _, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)))
                     {
                         continue;
                     }
@@ -801,7 +801,7 @@ namespace LethalBots.AI.AIStates
             // Change where we are aiming based on the given network object
             if (subject != null && subject.TryGetComponent<EnemyAI>(out var enemyAI))
             {
-                Collider? lookAtSubjectCollider = enemyAI == this.CurrentEnemy ? EnemyCollision : FindEnemyCollider(enemyAI, ourController.transform.position);
+                Collider? lookAtSubjectCollider = enemyAI == this.CurrentEnemy ? EnemyCollision : FindEnemyCollider(enemyAI, ourController.gameplayCamera.transform.position);
                 if (lookAtSubjectCollider != null)
                 {
                     return lookAtSubjectCollider.bounds.center;

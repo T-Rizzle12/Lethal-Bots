@@ -34,6 +34,7 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
+using static LethalBots.AI.LethalBotThreat;
 using Object = UnityEngine.Object;
 using Quaternion = UnityEngine.Quaternion;
 using Random = System.Random;
@@ -164,20 +165,12 @@ namespace LethalBots.Managers
                     SetMissionControllerAndSync(default);
                 }
             }
-            get
-            {
-                if (_missionControlPlayer.Value.TryGet(out PlayerControllerB player))
-                {
-                    return player;
-                }
-                else
-                {
-                    return null;
-                }
-            }
+            get => _missionControlPlayer;
         }
 
-        private NetworkVariable<NetworkBehaviourReference> _missionControlPlayer = new NetworkVariable<NetworkBehaviourReference>(writePerm: NetworkVariableWritePermission.Server);
+        private PlayerControllerB? _missionControlPlayer;
+
+        private NetworkVariable<NetworkBehaviourReference> missionControlPlayerNetworkVar = new NetworkVariable<NetworkBehaviourReference>(writePerm: NetworkVariableWritePermission.Server);
 
         /// <summary>
         /// Gets the list of bots moving loot from the facility to the ship.
@@ -185,7 +178,12 @@ namespace LethalBots.Managers
         /// <remarks>
         /// Only the server can modify this list.
         /// </remarks>
-        public NetworkList<NetworkBehaviourReference> LootTransferPlayers = new NetworkList<NetworkBehaviourReference>(writePerm: NetworkVariableWritePermission.Server);
+        internal NetworkList<NetworkBehaviourReference> LootTransferPlayersNetworkList = new NetworkList<NetworkBehaviourReference>(writePerm: NetworkVariableWritePermission.Server);
+
+        /// <summary>
+        /// Gets the list of bots moving loot from the facility to the ship.
+        /// </summary>
+        public HashSet<PlayerControllerB> LootTransferPlayers = new HashSet<PlayerControllerB>();
 
         /// <summary>
         /// This is the last reported time of day from the last <see cref="MissionControlPlayer"/>.
@@ -250,10 +248,12 @@ namespace LethalBots.Managers
         private float timerRegisterAINoiseListener;
         private HashSet<EnemyAI> ListEnemyAINonNoiseListeners = new HashSet<EnemyAI>();
         private static Dictionary<Type, LethalBotThreat> DictionaryLethalBotThreats = new Dictionary<Type, LethalBotThreat>();
-        public static List<GameObject> grabbableObjectsInMap = new List<GameObject>();
+        public static List<GrabbableObject> grabbableObjectsInMap = new List<GrabbableObject>();
         private float timerUpdateLightsOnMap;
         private static HashSet<Light> lightsOnMap = new HashSet<Light>();
         public static IReadOnlyCollection<Light> LightsOnMap => lightsOnMap;
+        private static float timerUpdateHoardingBugItems;
+        internal static Dictionary<GrabbableObject, HoarderBugItem> DictHoardingBugItems = new Dictionary<GrabbableObject, HoarderBugItem>();
 
         private float timerSetLethalBotInElevator;
         private float timerUpdateOwnershipOfBot;
@@ -322,6 +322,8 @@ namespace LethalBots.Managers
             base.OnNetworkSpawn();
 
             blacklistedNetworkList.OnListChanged += OnBlacklistChanged;
+            LootTransferPlayersNetworkList.OnListChanged += OnLootTransferPlayersChanged;
+            missionControlPlayerNetworkVar.OnValueChanged += OnMissionControllerChanged;
 
             if (!base.NetworkManager.IsServer)
             {
@@ -338,6 +340,8 @@ namespace LethalBots.Managers
         {
             base.OnNetworkDespawn();
             blacklistedNetworkList.OnListChanged -= OnBlacklistChanged;
+            LootTransferPlayersNetworkList.OnListChanged -= OnLootTransferPlayersChanged;
+            missionControlPlayerNetworkVar.OnValueChanged -= OnMissionControllerChanged;
         }
 
         // If we get destroyed for some reason destory the NavMesh object we created as well!
@@ -372,6 +376,8 @@ namespace LethalBots.Managers
                 timerUpdateLightsOnMap = 0f;
                 RegisterItems(false); // Update items and lights!
             }
+
+            UpdateHoardingBugsItems(Time.fixedDeltaTime);
         }
 
         private void RegisterAINoiseListener(float deltaTime)
@@ -411,6 +417,36 @@ namespace LethalBots.Managers
             }
         }
 
+        private static void UpdateHoardingBugsItems(float deltaTime)
+        {
+            timerUpdateHoardingBugItems += deltaTime;
+            if (timerUpdateHoardingBugItems < 1f)
+            {
+                return;
+            }
+
+            // We update the list of hoarding bug items every second.
+            // Before we used to check per item per bot every bot AI think, but
+            // that was really bad for performance.
+            // Instead we now use a dictionary for its fast lookups.
+            timerUpdateHoardingBugItems = 0f;
+            DictHoardingBugItems.Clear();
+            if (HoarderBugAI.HoarderBugItems.Count == 0)
+            {
+                return; // We are done here, no items to update!
+            }
+
+            // Loop through all hoarding bug items and add them to the dictionary for fast lookups by the bots!
+            foreach (var item in HoarderBugAI.HoarderBugItems)
+            {
+                if (item != null
+                    && item.itemGrabbableObject != null)
+                {
+                    DictHoardingBugItems[item.itemGrabbableObject] = item;
+                }
+            }
+        }
+
         #region Items and Lights management
 
         /// <summary>
@@ -420,7 +456,7 @@ namespace LethalBots.Managers
         public void GrabbableObjectSpawned(GrabbableObject newItem)
         {
             // Don't add it again!
-            if (grabbableObjectsInMap.Contains(newItem.gameObject))
+            if (grabbableObjectsInMap.Contains(newItem))
             {
                 return;
             }
@@ -439,7 +475,7 @@ namespace LethalBots.Managers
 
             // Above code was from HordingBugAI, but it's not needed here!
             // After all we are player bots!
-            grabbableObjectsInMap.Add(newItem.gameObject);
+            grabbableObjectsInMap.Add(newItem);
         }
 
         public void RegisterItems(bool updateShipState = true)
@@ -453,7 +489,7 @@ namespace LethalBots.Managers
         private IEnumerator RegisterItemsCoroutine(bool updateShipState = true)
         {
             HashSet<Light> lightsOnMap = new HashSet<Light>();
-            List<GameObject> grabbableObjectsInMap = new List<GameObject>();
+            List<GrabbableObject> grabbableObjectsInMap = new List<GrabbableObject>();
             yield return null;
 
             Light[] lights = Object.FindObjectsOfType<Light>();
@@ -490,9 +526,9 @@ namespace LethalBots.Managers
                     }
 
                     // Don't add it again!
-                    if (!grabbableObjectsInMap.Contains(grabbableObject.gameObject))
+                    if (!grabbableObjectsInMap.Contains(grabbableObject))
                     { 
-                        grabbableObjectsInMap.Add(grabbableObject.gameObject); 
+                        grabbableObjectsInMap.Add(grabbableObject); 
                     }
 
                     // While we have the flashlight object, add its light objects to the ignore list!
@@ -527,6 +563,7 @@ namespace LethalBots.Managers
 
             LethalBotManager.lightsOnMap = lightsOnMap;
             LethalBotManager.grabbableObjectsInMap = grabbableObjectsInMap;
+            LethalBotAI.TrimDictJustDroppedItems();
             timerUpdateLightsOnMap = 0f;
             registerItemsCoroutine = null!;
             yield break;
@@ -868,6 +905,84 @@ namespace LethalBots.Managers
             }
         }
 
+        /// <summary>
+        /// Called when we recevive an update from the server that the <see cref="LootTransferPlayersNetworkList"/> has been modified
+        /// </summary>
+        /// <param name="change"></param>
+        private void OnLootTransferPlayersChanged(NetworkListEvent<NetworkBehaviourReference> change)
+        {
+            switch (change.Type)
+            {
+                case NetworkListEvent<NetworkBehaviourReference>.EventType.Add:
+                case NetworkListEvent<NetworkBehaviourReference>.EventType.Insert:
+                {
+                    // Validate the network object first
+                    if (!change.Value.TryGet(out PlayerControllerB player))
+                    {
+                        Plugin.LogWarning("LethalBotManager.OnLootTransferPlayer: Failed to resolve NetworkBehaviourReference (likely despawned).");
+                        return;
+                    }
+
+                    LootTransferPlayers.Add(player);
+                    break;
+                }
+                case NetworkListEvent<NetworkBehaviourReference>.EventType.Remove:
+                case NetworkListEvent<NetworkBehaviourReference>.EventType.RemoveAt:
+                {
+                    // Validate the network object first
+                    if (!change.Value.TryGet(out PlayerControllerB player))
+                    {
+                        Plugin.LogWarning("LethalBotManager.OnLootTransferPlayer: Failed to resolve NetworkBehaviourReference (likely despawned).");
+                        return;
+                    }
+
+                    LootTransferPlayers.Remove(player);
+                    break;
+                }
+                case NetworkListEvent<NetworkBehaviourReference>.EventType.Clear:
+                {
+                    LootTransferPlayers.Clear();
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Called when we recevive an update from the server that the <see cref="missionControlPlayerNetworkVar"/> has been modified
+        /// </summary>
+        /// <param name="previousValue"></param>
+        /// <param name="newValue"></param>
+        private void OnMissionControllerChanged(NetworkBehaviourReference previousValue, NetworkBehaviourReference newValue)
+        {
+            // Validate the network objects first
+            PlayerControllerB? previousMissionController;
+            PlayerControllerB? newMissionController;
+            if (previousValue.TryGet(out PlayerControllerB prevMC))
+            {
+                previousMissionController = prevMC;
+            }
+            else
+            {
+                previousMissionController = null;
+            }
+
+            // Validate the network objects first
+            if (newValue.TryGet(out PlayerControllerB newMC))
+            {
+                newMissionController = newMC;
+            }
+            else
+            {
+                newMissionController = null;
+            }
+
+            // Log the change for debugging purposes
+            Plugin.LogDebug($"Mission controller changed, old value: {previousMissionController}, new value: {newMissionController}");
+            _missionControlPlayer = newMissionController;
+        }
+
         #endregion
 
         private void Start()
@@ -1088,7 +1203,7 @@ namespace LethalBots.Managers
         /// </summary>
         /// <param name="fearQuery"></param>
         /// <returns>The fear range based on the given query</returns>
-        public static float? GetFearRangeForEnemy(LethalBotFearQuery fearQuery)
+        public static float? GetFearRangeForEnemy(in LethalBotFearQuery fearQuery)
         {
             // Make sure we have a valid enemyAI
             if (fearQuery.EnemyAI == null)
@@ -1116,9 +1231,9 @@ namespace LethalBots.Managers
         {
             RegisterThreat(
                 threatType,
-                _ => panik,
-                _ => mission,
-                _ => path
+                (in query) => panik,
+                (in query) => mission,
+                (in query) => path
             );
         }
 
@@ -1129,7 +1244,7 @@ namespace LethalBots.Managers
         /// <param name="panik">Bot panik function</param>
         /// <param name="mission">Bot teleport player function</param>
         /// <param name="path">Bot Avoid LOS function</param>
-        public static void RegisterThreat(Type threatType, Func<LethalBotFearQuery, float?> panik, Func<LethalBotFearQuery, float?> mission, Func<LethalBotFearQuery, float?> path)
+        public static void RegisterThreat(Type threatType, FearRangeDelegate panik, FearRangeDelegate mission, FearRangeDelegate path)
         {
             if (DictionaryLethalBotThreats.ContainsKey(threatType))
             {
@@ -1176,43 +1291,43 @@ namespace LethalBots.Managers
             // Dynamic behavior threats
             // Old Birds!
             RegisterThreat(typeof(RadMechAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null,
-                fq => 40f // Always 40 for pathfinding
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null,
+                (in fq) => 40f // Always 40 for pathfinding
             );
 
             // Modded Enemy, Broken until I add a dll reference.
             // This should probably be in its own mod......
             //RegisterThreat("T-rex",
-            //    fearQuery => fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-            //    fearQuery => fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-            //    fearQuery => 40f // Always 40 for pathfinding
+            //    (in fearQuery) => fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
+            //    (in fearQuery) => fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
+            //    (in fearQuery) => 40f // Always 40 for pathfinding
             //);
 
             // Maneater
             RegisterThreat(typeof(CaveDwellerAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 2 ? 30f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 2 ? 30f : null,
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null
             );
 
             // Jester
             RegisterThreat(typeof(JesterAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? float.MaxValue : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 && (fq.PlayerToCheck == null || fq.PlayerToCheck.isInsideFactory) ? float.MaxValue : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? null : 20f // Always 20 for pathfinding, unless they are winding up, then we need to move NOW!
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? float.MaxValue : null,
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 && (fq.PlayerToCheck == null || fq.PlayerToCheck.isInsideFactory) ? float.MaxValue : null,
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? null : 20f // Always 20 for pathfinding, unless they are winding up, then we need to move NOW!
             );
 
             // Eyeless dog
             RegisterThreat(typeof(MouthDogAI),
-                fq => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel >= 9 ? 20f : 5f,
-                fq => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel >= 9 ? 20f : null,
-                fq => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel > 0 ? 30f : 20f // Increase the danger range if they are angry!
+                (in fq) => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel >= 9 ? 20f : 5f,
+                (in fq) => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel >= 9 ? 20f : null,
+                (in fq) => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel > 0 ? 30f : 20f // Increase the danger range if they are angry!
             );
 
             // Snare Flea
             RegisterThreat(typeof(CentipedeAI),
-                fq =>
+                (in fq) =>
                 {
                     if (fq.EnemyAI is CentipedeAI c && c.clingingToPlayer != null)
                     {
@@ -1220,12 +1335,12 @@ namespace LethalBots.Managers
                     }
                     return fq.EnemyAI.currentBehaviourStateIndex > 1 ? 15f : 1f;
                 },
-                fq => fq.EnemyAI is CentipedeAI c && c.clingingToPlayer == fq.PlayerToCheck ? float.MaxValue : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 1 ||
+                (in fq) => fq.EnemyAI is CentipedeAI c && c.clingingToPlayer == fq.PlayerToCheck ? float.MaxValue : null,
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 1 ||
                       (fq.EnemyAI is CentipedeAI c && c.clingingToPlayer != null) ? 15f : 1f
             );
 
-            float? CoilHeadPanikFunc(LethalBotFearQuery fearQuery)
+            float? CoilHeadPanikFunc(in LethalBotFearQuery fearQuery)
             {
                 // If the coil hasn't moved for 8 seconds, stop being afraid of it!
                 const float stopFearTimer = 8f;
@@ -1240,7 +1355,7 @@ namespace LethalBots.Managers
                 return fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null;
             }
 
-            float? CoilHeadMissionFunc(LethalBotFearQuery fearQuery)
+            float? CoilHeadMissionFunc(in LethalBotFearQuery fearQuery)
             {
                 if (fearQuery.EnemyAI.currentBehaviourStateIndex > 0 && fearQuery.PlayerToCheck is PlayerControllerB playerToCheck)
                 {
@@ -1257,24 +1372,24 @@ namespace LethalBots.Managers
             RegisterThreat(typeof(SpringManAI),
                 CoilHeadPanikFunc,
                 CoilHeadMissionFunc,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null
             );
 
             // Butler
             RegisterThreat(typeof(ButlerEnemyAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
-                fq => (fq.EnemyAI.currentBehaviourStateIndex == 2 || (fq.Bot is LethalBotAI lethalBotAI && lethalBotAI.NpcController.Npc.isPlayerAlone)) ? 20f : null
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null,
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
+                (in fq) => (fq.EnemyAI.currentBehaviourStateIndex == 2 || (fq.Bot is LethalBotAI lethalBotAI && lethalBotAI.NpcController.Npc.isPlayerAlone)) ? 20f : null
             );
 
             // Loot Bugs
             RegisterThreat(typeof(HoarderBugAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 5f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null,
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 5f : null,
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null
             );
 
-            float? MaskedPanikFunc(LethalBotFearQuery fearQuery)
+            float? MaskedPanikFunc(in LethalBotFearQuery fearQuery)
             {
                 bool aware =
                 fearQuery.EnemyAI is MaskedPlayerEnemy masked
@@ -1292,20 +1407,20 @@ namespace LethalBots.Managers
             // Masked
             RegisterThreat(typeof(MaskedPlayerEnemy),
                 MaskedPanikFunc,
-                _ => 8f, // Always 8 for mission control
+                (in _) => 8f, // Always 8 for mission control
                 MaskedPanikFunc
             );
 
             // Spider!
             RegisterThreat(typeof(SandSpiderAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 5f, // Sigh, i may or may not of added this after a particular experience where bots got stuck in a loop of running away and coming back despite the spider not actually chasing them!
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 10f // Based on what the spider is doing!
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 5f, // Sigh, i may or may not of added this after a particular experience where bots got stuck in a loop of running away and coming back despite the spider not actually chasing them!
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
+                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 10f // Based on what the spider is doing!
             );
 
             // Register threat is compatable with functions!
             // This makes it really easy to add advanced logic for when the bot should be afraid!
-            float? NutcrackerPanikFunc(LethalBotFearQuery fearQuery)
+            float? NutcrackerPanikFunc(in LethalBotFearQuery fearQuery)
             {
                 // Ok, there are three state indexes to date!
                 // 0. Patroling
@@ -1324,7 +1439,7 @@ namespace LethalBots.Managers
                 return 15f; // Let's make sure not to walk into them, of course!
             }
 
-            float? NutcrackerMissionFunc(LethalBotFearQuery fearQuery)
+            float? NutcrackerMissionFunc(in LethalBotFearQuery fearQuery)
             {
                 // TODO: Add a check for if the player is holding a weapon, they may be attempting to fight it,
                 // and teleporting them is not a good idea!
@@ -1345,7 +1460,7 @@ namespace LethalBots.Managers
             );
 
             // TODO: Improve this as I study the AI!
-            float? GiantKiwiPanikFunc(LethalBotFearQuery fearQuery)
+            float? GiantKiwiPanikFunc(in LethalBotFearQuery fearQuery)
             {
                 int stateIndex = fearQuery.EnemyAI.currentBehaviourStateIndex;
                 if (stateIndex == 1)
@@ -1363,11 +1478,11 @@ namespace LethalBots.Managers
             // Giant Sapsucker
             RegisterThreat(typeof(GiantKiwiAI),
                 GiantKiwiPanikFunc,
-                _ => null,
+                (in fq) => null,
                 GiantKiwiPanikFunc
             );
 
-            float? SandWormPanikFunc(LethalBotFearQuery fearQuery)
+            float? SandWormPanikFunc(in LethalBotFearQuery fearQuery)
             {
                 if (fearQuery.EnemyAI is SandWormAI sandWormAI)
                 {
@@ -1385,7 +1500,7 @@ namespace LethalBots.Managers
                 return 10f;
             }
 
-            float? SandWormPathFunc(LethalBotFearQuery fearQuery)
+            float? SandWormPathFunc(in LethalBotFearQuery fearQuery)
             {
                 if (fearQuery.EnemyAI is SandWormAI sandWormAI)
                 {
@@ -1406,22 +1521,22 @@ namespace LethalBots.Managers
             // Earth Leviathans
             RegisterThreat(typeof(SandWormAI),
                 SandWormPanikFunc, 
-                fq => null,
+                (in fq) => null,
                 SandWormPathFunc
             );
 
             // Blob
             RegisterThreat(typeof(BlobAI), 
-                fq => fq.EnemyAI is BlobAI blob && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f, 
-                fq => null, 
-                fq => fq.EnemyAI is BlobAI blob && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f
+                (in fq) => fq.EnemyAI is BlobAI blob && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f, 
+                (in fq) => null, 
+                (in fq) => fq.EnemyAI is BlobAI blob && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f
             );
 
             // Girl aka Ghost Girl
             RegisterThreat(typeof(DressGirlAI), 
-                fq => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && (ghostGirl.staringInHaunt || ghostGirl.currentBehaviourStateIndex > 0) ? 40f : null,
-                _ => null,  // No value for mission control
-                fq => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && ghostGirl.staringInHaunt ? 60f : null   // We don't want to go near her.....
+                (in fq) => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && (ghostGirl.staringInHaunt || ghostGirl.currentBehaviourStateIndex > 0) ? 40f : null,
+                (in fq) => null,  // No value for mission control
+                (in fq) => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && ghostGirl.staringInHaunt ? 60f : null   // We don't want to go near her.....
             );
         }
 
@@ -3077,15 +3192,8 @@ namespace LethalBots.Managers
             int totalScrapValue = 0;
             for (int i = 0; i < grabbableObjectsInMap.Count; i++)
             {
-                GameObject gameObject = grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
                 // Get grabbable object infos
-                GrabbableObject? grabbableObject = gameObject.GetComponent<GrabbableObject>();
+                GrabbableObject? grabbableObject = grabbableObjectsInMap[i];
                 if (grabbableObject == null 
                     || grabbableObject is RagdollGrabbableObject)
                 {
@@ -3838,23 +3946,32 @@ namespace LethalBots.Managers
 
             nextCheckForShipSafety = Time.timeSinceLevelLoad;
 
+            Bounds insideShipBounds = StartOfRound.Instance.shipInnerRoomBounds.bounds;
             RoundManager instanceRM = RoundManager.Instance;
-            foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
+            List<EnemyAI> spawnedEnemies = instanceRM.SpawnedEnemies;
+            for (int i = 0; i < spawnedEnemies.Count; i++)
             {
+                // Make sure the enemy is valid and not already dead
+                EnemyAI spawnedEnemy = spawnedEnemies[i];
+                if (spawnedEnemy == null || spawnedEnemy.isEnemyDead)
+                {
+                    continue;
+                }
+
+                // If the enemy is not inside the ship and not inside the ship bounds, we ignore it since it can't hurt us!
+                if (!spawnedEnemy.isInsidePlayerShip
+                    && !insideShipBounds.Contains(spawnedEnemy.transform.position))
+                {
+                    continue;
+                }
+
                 // We check if the bots think this enemy is dangerous,
                 // we don't use fear range for anything else
                 float? fearRange = GetFearRangeForEnemy(new LethalBotFearQuery(lethalBotAI, spawnedEnemy, EnumFearQueryType.BotPanic));
                 if (fearRange.HasValue)
                 {
-                    // NEEDTOVALIDATE: Should using the ship bounds instead?
-                    int pathLayerMask = instanceRM.GetLayermaskForEnemySizeLimit(spawnedEnemy.enemyType);
-                    if ((NavSizeLimit)pathLayerMask != NavSizeLimit.MediumSpaces 
-                        && !spawnedEnemy.isEnemyDead 
-                        && spawnedEnemy.isInsidePlayerShip)
-                    {
-                        _isShipCompromised = true;
-                        return true;
-                    }
+                    _isShipCompromised = true;
+                    return true;
                 }
             }
             _isShipCompromised = false;
@@ -3875,8 +3992,10 @@ namespace LethalBots.Managers
 
             nextCheckForAliveHumanPlayers = Time.timeSinceLevelLoad;
 
-            foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
+            PlayerControllerB[] allPlayers = StartOfRound.Instance.allPlayerScripts;
+            for (int i = 0; i < allPlayers.Length; i++)
             {
+                PlayerControllerB player = allPlayers[i];
                 if (player.isPlayerControlled && !player.isPlayerDead)
                 {
                     if (!IsPlayerLethalBot(player) 
@@ -3905,8 +4024,10 @@ namespace LethalBots.Managers
 
             nextCheckForAllPlayersOnShip = Time.timeSinceLevelLoad;
 
-            foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
+            PlayerControllerB[] allPlayers = StartOfRound.Instance.allPlayerScripts;
+            for (int i = 0; i < allPlayers.Length; i++)
             {
+                PlayerControllerB player = allPlayers[i];
                 if (player.isPlayerControlled && !player.isPlayerDead 
                     && (!Plugin.IsModLethalInternsLoaded || !IsPlayerIntern(player)))
                 {
@@ -4344,7 +4465,7 @@ namespace LethalBots.Managers
             if (IsServer || IsHost)
             {
                 MissionControlPlayer = null;
-                LootTransferPlayers.Clear();
+                LootTransferPlayersNetworkList.Clear();
                 GroupManager.Instance.ResetAndRemoveAllGroups();
             }
             SetLastReportedTimeOfDay(DayMode.Dawn);
@@ -5427,7 +5548,7 @@ namespace LethalBots.Managers
         {
             if (base.IsServer)
             {
-                _missionControlPlayer.Value = playerToSync; // Sync to clients
+                missionControlPlayerNetworkVar.Value = playerToSync; // Sync to clients
             }
             else
             {
@@ -5455,9 +5576,9 @@ namespace LethalBots.Managers
         {
             if (base.IsServer)
             {
-                if (!LootTransferPlayers.Contains(playerToAdd))
+                if (!LootTransferPlayersNetworkList.Contains(playerToAdd))
                 { 
-                    LootTransferPlayers.Add(playerToAdd); 
+                    LootTransferPlayersNetworkList.Add(playerToAdd); 
                 }
             }
             else
@@ -5474,7 +5595,7 @@ namespace LethalBots.Managers
         {
             if (base.IsServer)
             {
-                LootTransferPlayers.Remove(playerToRemove);
+                LootTransferPlayersNetworkList.Remove(playerToRemove);
             }
             else
             {

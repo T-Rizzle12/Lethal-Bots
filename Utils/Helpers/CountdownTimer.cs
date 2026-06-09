@@ -40,8 +40,9 @@ namespace LethalBots.Utils.Helpers
         /// <param name="time">How long should this timer run</param>
         public void Start(float time)
         {
-            startTime = Time.realtimeSinceStartup;
-            endTime = Time.realtimeSinceStartup + (time >= 0 ? time : 0);
+            float now = Time.realtimeSinceStartup;
+            startTime = now;
+            endTime = now + (time >= 0 ? time : 0);
         }
 
         /// <summary>

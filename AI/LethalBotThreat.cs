@@ -1,16 +1,24 @@
-﻿using System;
-using LethalBots.Enums;
+﻿using LethalBots.Enums;
+using System;
+using System.Runtime.CompilerServices;
 
 namespace LethalBots.AI
 {
     /// <summary>
     /// Class for the <c>LethalBotThreat</c> defines the fear ranges of an enemy
     /// </summary>
-    public class LethalBotThreat
+    public sealed class LethalBotThreat
     {
-        public LethalBotThreat(EnemyAI enemyAI, Func<LethalBotFearQuery, float?> pankFunc, Func<LethalBotFearQuery, float?> missionControlFunc, Func<LethalBotFearQuery, float?> pathfindFunc) : this(enemyAI.GetType(), pankFunc, missionControlFunc, pathfindFunc) { }
+        /// <summary>
+        /// Delegate for getting the fear range of an enemy based on a <see cref="LethalBotFearQuery"/>.
+        /// </summary>
+        /// <param name="query"></param>
+        /// <returns></returns>
+        public delegate float? FearRangeDelegate(in LethalBotFearQuery query);
 
-        public LethalBotThreat(Type threatType, Func<LethalBotFearQuery, float?> pankFunc, Func<LethalBotFearQuery, float?> missionControlFunc, Func<LethalBotFearQuery, float?> pathfindFunc)
+        public LethalBotThreat(EnemyAI enemyAI, FearRangeDelegate pankFunc, FearRangeDelegate missionControlFunc, FearRangeDelegate pathfindFunc) : this(enemyAI.GetType(), pankFunc, missionControlFunc, pathfindFunc) { }
+
+        public LethalBotThreat(Type threatType, FearRangeDelegate pankFunc, FearRangeDelegate missionControlFunc, FearRangeDelegate pathfindFunc)
         {
             ThreatType = threatType;
             panikFearRange = pankFunc;
@@ -18,11 +26,12 @@ namespace LethalBots.AI
             pathfindingFearRange = pathfindFunc;
         }
         public Type ThreatType { get; private set; }
-        private readonly Func<LethalBotFearQuery, float?> panikFearRange;
-        private readonly Func<LethalBotFearQuery, float?> missionControlFearRange;
-        private readonly Func<LethalBotFearQuery, float?> pathfindingFearRange;
+        private readonly FearRangeDelegate panikFearRange;
+        private readonly FearRangeDelegate missionControlFearRange;
+        private readonly FearRangeDelegate pathfindingFearRange;
 
-        public float? GetFearRangeForEnemy(LethalBotFearQuery fearQuery)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public float? GetFearRangeForEnemy(in LethalBotFearQuery fearQuery)
         {
             switch (fearQuery.QueryType)
             {
