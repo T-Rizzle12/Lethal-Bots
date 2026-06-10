@@ -3137,18 +3137,15 @@ namespace LethalBots.AI
                 float ladderDistSqrToTop = (ladderTopPos - closestLinkPos).sqrMagnitude;
 
                 // Find the closest part of the ladder to us!
-                Vector3 closestLadderPos;
                 float bestLadderDistSqr;
                 bool climbUp;
                 if (ladderDistSqrToBottom < ladderDistSqrToTop)
                 {
-                    closestLadderPos = ladderBottomPos;
                     bestLadderDistSqr = ladderDistSqrToBottom;
                     climbUp = true;
                 }
                 else
                 {
-                    closestLadderPos = ladderTopPos;
                     bestLadderDistSqr = ladderDistSqrToTop;
                     climbUp = false;
                 }
@@ -3183,8 +3180,9 @@ namespace LethalBots.AI
                 var entrance = EntrancesTeleportArray[i];
                 if (entrance == null) continue;
 
-                if ((entityPos1 - entrance.entrancePoint.position).sqrMagnitude < Const.DISTANCE_TO_ENTRANCE * Const.DISTANCE_TO_ENTRANCE
-                    && (entityPos2 - entrance.entrancePoint.position).sqrMagnitude < Const.DISTANCE_TO_ENTRANCE * Const.DISTANCE_TO_ENTRANCE)
+                Vector3 entrancePos = entrance.entrancePoint.position;
+                if ((entityPos1 - entrancePos).sqrMagnitude < Const.DISTANCE_TO_ENTRANCE * Const.DISTANCE_TO_ENTRANCE
+                    && (entityPos2 - entrancePos).sqrMagnitude < Const.DISTANCE_TO_ENTRANCE * Const.DISTANCE_TO_ENTRANCE)
                 {
                     return entrance;
                 }
@@ -3204,15 +3202,6 @@ namespace LethalBots.AI
                 return null;
             }
 
-            /*for (int i = 0; i < entrancesTeleportArray.Length; i++)
-            {
-                EntranceTeleport entrance = entrancesTeleportArray[i];
-                if (entrance.entranceId == entranceToUse.entranceId
-                    && entrance.isEntranceToBuilding != entranceToUse.isEntranceToBuilding)
-                {
-                    return entrance.entrancePoint.position;
-                }
-            }*/
             return entranceToUse.exitScript.entrancePoint.position;
         }
 
