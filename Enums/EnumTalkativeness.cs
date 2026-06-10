@@ -1,6 +1,6 @@
 ﻿namespace LethalBots.Enums
 {
-    public enum EnumTalkativeness
+    public enum EnumTalkativeness : byte
     {
         NoTalking,
         Shy,
