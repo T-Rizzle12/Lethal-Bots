@@ -366,13 +366,13 @@ namespace LethalBots.AI
             {
                 switch (Plugin.Config.Responsiveness.Value)
                 {
-                    case (int)EnumResponsiveness.Shy:
+                    case EnumResponsiveness.Shy:
                         return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_SHY);
-                    case (int)EnumResponsiveness.Normal:
+                    case EnumResponsiveness.Normal:
                         return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_NORMAL);
-                    case (int)EnumResponsiveness.Responsive:
+                    case EnumResponsiveness.Responsive:
                         return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_RESPONSIVE, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_RESPONSIVE);
-                    case (int)EnumResponsiveness.AlwaysRespond:
+                    case EnumResponsiveness.AlwaysRespond:
                         return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_RESPONSIVE_ALWAYSRESPOND, VoicesConst.MAX_COOLDOWN_PLAYVOICE_RESPONSIVE_ALWAYSRESPOND);
                     default:
                         return 0f;
@@ -382,13 +382,13 @@ namespace LethalBots.AI
             {
                 switch (Plugin.Config.Talkativeness.Value)
                 {
-                    case (int)EnumTalkativeness.Shy:
+                    case EnumTalkativeness.Shy:
                         return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_SHY, VoicesConst.MAX_COOLDOWN_PLAYVOICE_SHY);
-                    case (int)EnumTalkativeness.Normal:
+                    case EnumTalkativeness.Normal:
                         return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_NORMAL, VoicesConst.MAX_COOLDOWN_PLAYVOICE_NORMAL);
-                    case (int)EnumTalkativeness.Talkative:
+                    case EnumTalkativeness.Talkative:
                         return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_TALKATIVE, VoicesConst.MAX_COOLDOWN_PLAYVOICE_TALKATIVE);
-                    case (int)EnumTalkativeness.CantStopTalking:
+                    case EnumTalkativeness.CantStopTalking:
                         return Random.Range(VoicesConst.MIN_COOLDOWN_PLAYVOICE_CANTSTOPTALKING, VoicesConst.MAX_COOLDOWN_PLAYVOICE_CANTSTOPTALKING);
                     default:
                         return 0f;

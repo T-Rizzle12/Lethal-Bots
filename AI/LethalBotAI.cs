@@ -5829,13 +5829,13 @@ namespace LethalBots.AI
 
 
         [ServerRpc(RequireOwnership = false)]
-        public void PlayAudioServerRpc(string smallPathAudioClip, int enumTalkativeness, int enumResponsiveness)
+        public void PlayAudioServerRpc(string smallPathAudioClip, EnumTalkativeness enumTalkativeness, EnumResponsiveness enumResponsiveness)
         {
             PlayAudioClientRpc(smallPathAudioClip, enumTalkativeness, enumResponsiveness);
         }
 
         [ClientRpc]
-        private void PlayAudioClientRpc(string smallPathAudioClip, int enumTalkativeness, int enumResponsiveness)
+        private void PlayAudioClientRpc(string smallPathAudioClip, EnumTalkativeness enumTalkativeness, EnumResponsiveness enumResponsiveness)
         {
             if (enumTalkativeness == Plugin.Config.Talkativeness.Value || enumResponsiveness == Plugin.Config.Responsiveness.Value || LethalBotIdentity.Voice.CanPlayAudioAfterCooldown(LethalBotIdentity.Voice.LastVoiceState))
             {
