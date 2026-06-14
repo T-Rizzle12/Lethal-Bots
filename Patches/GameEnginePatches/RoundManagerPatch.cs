@@ -372,6 +372,7 @@ namespace LethalBots.Patches.GameEnginePatches
             //Plugin.LogInfo("FinishGeneratingNewLevelClientRpc called!");
             LethalBotManager.Instance?.DisableShipNavMesh("Landing on a moon.");
             LethalBotManager.Instance?.SpawnLethalBotsAtShip();
+            LethalBotManager.botAutoLeaveTimer.Start();
         }
 
         [HarmonyPatch("RefreshEnemiesList")]

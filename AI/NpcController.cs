@@ -148,6 +148,7 @@ namespace LethalBots.AI
             this.IsCameraDisabled = true;
             Npc.sprintMeter = 1f;
             if (!clientJoining) Npc.ItemSlots ??= new GrabbableObject[4]; // Only create new array if it doesn't exist!
+            Npc.testGroundPositions = new Vector3[5];
             RightArmProceduralTargetBasePosition = Npc.rightArmProceduralTarget.localPosition;
 
             Npc.usernameBillboardText.text = Npc.playerUsername;
@@ -612,7 +613,7 @@ namespace LethalBots.AI
             {
                 if (Npc.isSinking)
                 {
-                    Npc.GetCurrentMaterialStandingOn();
+                    Npc.GetCurrentMaterialStandingOn(checkStandingOnTerrain: true);
                     if (!CheckConditionsForSinkingInQuicksandLethalBot())
                     {
                         Npc.isSinking = false;
@@ -627,7 +628,7 @@ namespace LethalBots.AI
                 if (Npc.sinkingValue >= 1f)
                 {
                     Plugin.LogDebug($"SyncKillLethalBot from sinkingValue for LOCAL client #{Npc.NetworkManager.LocalClientId}, lethalBot object: Bot #{Npc.playerClientId}");
-                    Npc.KillPlayer(Vector3.zero, spawnBody: false, CauseOfDeath.Suffocation, 0, default);
+                    Npc.KillPlayer(Vector3.zero, spawnBody: false, CauseOfDeath.Suffocation);
                 }
                 else if (Npc.sinkingValue > 0.5f)
                 {
@@ -1565,7 +1566,7 @@ namespace LethalBots.AI
             // Text billboard
             if (Plugin.Config.EnableDebugLog.Value || Plugin.Config.ShowBillboardStateIndicator.Value)
             { 
-                Npc.usernameBillboardText.text = LethalBotAIController.GetSizedBillboardStateIndicator(); 
+                Npc.usernameBillboardText.text = $"{LethalBotAIController.GetSizedBillboardStateIndicator()}\n"; 
             }
             else
             {
@@ -1574,7 +1575,7 @@ namespace LethalBots.AI
 
             if (instanceGNM.localPlayerController != null && Npc.usernameAlpha.alpha >= 0f)
             {
-                Npc.usernameBillboardText.text += $"\n{Npc.playerUsername}";
+                Npc.usernameBillboardText.text += Npc.playerUsername;
                 if (LethalBotAIController.IsClientOwnerOfLethalBot())
                 {
                     Npc.usernameBillboardText.text += $"\nv";
@@ -1774,9 +1775,10 @@ namespace LethalBots.AI
 
         private bool IsRealPlayerClose(Vector3 thisPosition, float distance)
         {
-            StartOfRound instanceSOR = StartOfRound.Instance;
-            foreach (PlayerControllerB player in instanceSOR.allPlayerScripts)
+            PlayerControllerB[] playerControllers = StartOfRound.Instance.allPlayerScripts;
+            for (int i = 0; i < playerControllers.Length; i++)
             {
+                PlayerControllerB player = playerControllers[i];
                 if (!LethalBotManager.Instance.IsPlayerLethalBot(player) 
                     && (!Plugin.IsModLethalInternsLoaded || !LethalBotManager.IsPlayerIntern(player)))
                 {
@@ -2098,8 +2100,7 @@ namespace LethalBots.AI
                 return;
             }
 
-            if (Npc.playersManager.connectedPlayersAmount < 1
-                || Npc.playersManager.newGameIsLoading
+            if (Npc.playersManager.newGameIsLoading
                 || Npc.disableLookInput)
             {
                 return;
@@ -2164,9 +2165,9 @@ namespace LethalBots.AI
                 return;
             }
             // Don't sprint if we are trying to crouch!
-            if (LethalBotAIController != null && LethalBotAIController.State != null)
+            if (LethalBotAIController != null)
             {
-                bool? shouldCrouch = LethalBotAIController.State.ShouldBotCrouch();
+                bool? shouldCrouch = LethalBotAIController.State?.ShouldBotCrouch();
                 if (shouldCrouch.HasValue && shouldCrouch.Value == true)
                 {
                     floatSprint = 0f;
@@ -2181,14 +2182,6 @@ namespace LethalBots.AI
         /// </summary>
         public void OrderToStopSprint()
         {
-            /*if (Npc.inSpecialInteractAnimation || !IsTouchingGround || Npc.isClimbingLadder)
-            {
-                return;
-            }
-            if (this.IsJumping)
-            {
-                return;
-            }*/
             if (!Npc.isSprinting)
             {
                 return;
@@ -2476,6 +2469,18 @@ namespace LethalBots.AI
             {
                 return;
             }
+
+            if (Npc.isMovementHindered <= 0 && Npc.isUnderwater && Npc.underwaterCollider != null && CheckConditionsForSinkingInQuicksandLethalBot())
+            {
+                QuicksandTrigger component = Npc.underwaterCollider.gameObject.GetComponent<QuicksandTrigger>();
+                if (component != null)
+                {
+                    component.OnExit(Npc.gameObject.GetComponent<Collider>());
+                    Npc.isUnderwater = false;
+                    setFaceUnderwater = false;
+                }
+            }
+
             if (Npc.underwaterCollider != null
                 && Npc.underwaterCollider.bounds.Contains(Npc.gameplayCamera.transform.position))
             {
@@ -2503,13 +2508,13 @@ namespace LethalBots.AI
                 if (setFaceUnderwater && !Npc.isUnderwater)
                 {
                     Npc.isUnderwater = true;
-                    LethalBotAIController.SyncSetFaceUnderwaterServerRpc(Npc.isUnderwater);
+                    Npc.SetFaceUnderwaterServerRpc();
                     return;
                 }
                 else if (!setFaceUnderwater && Npc.isUnderwater)
                 {
                     Npc.isUnderwater = false;
-                    LethalBotAIController.SyncSetFaceUnderwaterServerRpc(Npc.isUnderwater);
+                    Npc.SetFaceOutOfWaterServerRpc();
                     return;
                 }
             }

@@ -605,14 +605,18 @@ namespace LethalBots.AI.AIStates
                     return true;
                 }
 
-                // This is good if we have a weapon on us, or dropped nearby us!
-                float maxRange = Const.LETHAL_BOT_OBJECT_AWARNESS;
-                GrabbableObject? weapon = FindNearbyWeapon(maxRange);
-                if (weapon != null)
+                // Don't grab an weapon if already have one
+                if (!ai.HasCombatWeapon())
                 {
-                    // Try to grab it!
-                    ai.State = new FetchingObjectState(this, weapon, ignoreEnemies: true);
-                    return true;
+                    // This is good if we have a weapon on us, or dropped nearby us!
+                    float maxRange = Const.LETHAL_BOT_OBJECT_AWARNESS;
+                    GrabbableObject? weapon = FindNearbyWeapon(maxRange);
+                    if (weapon != null)
+                    {
+                        // Try to grab it!
+                        ai.State = new FetchingObjectState(this, weapon, ignoreEnemies: true);
+                        return true;
+                    }
                 }
             }
             // Ok, there are three state indexes for nutcrackers to date!

@@ -455,7 +455,8 @@ namespace LethalBots.AI
                 return;
             }
 
-            NpcController.IsTouchingGround = IsTouchingGroundTimedCheck.IsTouchingGround(NpcController.Npc.thisPlayerBody.position);
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            NpcController.IsTouchingGround = IsTouchingGroundTimedCheck.IsTouchingGround(lethalBotController.thisPlayerBody.position);
 
             // Update current material standing on
             if (NpcController.IsTouchingGround)
@@ -465,7 +466,8 @@ namespace LethalBots.AI
                 {
                     NpcController.Npc.currentFootstepSurfaceIndex = LethalBotManager.Instance.DictTagSurfaceIndex[groundRaycastHit.collider.tag];
                 }*/
-                NpcController.Npc.GetCurrentMaterialStandingOn();
+                lethalBotController.GetCurrentMaterialStandingOn();
+                lethalBotController.CalculateGroundNormal();
             }
         }
 
@@ -691,18 +693,8 @@ namespace LethalBots.AI
                 // Just use the character controller as this fixes multiple issues the old addon had!
                 lethalBotController.thisController.Move(NpcController.MoveVector * Time.deltaTime);
             }
-            else if (!shouldFixedMovement && StateControllerMovement == EnumStateControllerMovement.FollowAgent)
-            {
-                Vector3 aiPosition = this.transform.position;
-                lethalBotController.thisController.Move(NpcController.MoveVector * Time.deltaTime); // Update player controller.
-                //Plugin.LogDebug($"{lethalBotController.playerUsername} --> y {(NpcController.IsTouchingGround ? NpcController.GroundHit.point.y : aiPosition.y)} MoveVector {NpcController.MoveVector}");
-                lethalBotController.transform.position = new Vector3(x,
-                                                                   aiPosition.y,
-                                                                   z); // Override the player controller's movement, since the NavMeshAgent will handle the actual movement.
-                this.transform.position = aiPosition;
-                lethalBotController.ResetFallGravity();
-            }
-            else if (shouldFixedMovement)
+            else if (shouldFixedMovement 
+                || StateControllerMovement == EnumStateControllerMovement.Fixed)
             {
                 // If we are using a trigger, set our position and rotation to it!
                 InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
@@ -714,6 +706,17 @@ namespace LethalBots.AI
                 }
                 this.transform.position = lethalBotController.transform.position;
                 this.serverPosition = lethalBotController.transform.position;
+            }
+            else if (StateControllerMovement == EnumStateControllerMovement.FollowAgent)
+            {
+                Vector3 aiPosition = this.transform.position;
+                lethalBotController.thisController.Move(NpcController.MoveVector * Time.deltaTime); // Update player controller.
+                //Plugin.LogDebug($"{lethalBotController.playerUsername} --> y {(NpcController.IsTouchingGround ? NpcController.GroundHit.point.y : aiPosition.y)} MoveVector {NpcController.MoveVector}");
+                lethalBotController.transform.position = new Vector3(x,
+                                                                   aiPosition.y,
+                                                                   z); // Override the player controller's movement, since the NavMeshAgent will handle the actual movement.
+                this.transform.position = aiPosition;
+                lethalBotController.ResetFallGravity();
             }
 
             // Is still falling ?
@@ -918,9 +921,11 @@ namespace LethalBots.AI
                 return true;
             }
 
-            if (lethalBotController.externalForces.y > 7.1f)
+            Vector3 externalForces = lethalBotController.externalForces;
+            float externalForces2 = externalForces.x * externalForces.x + externalForces.z * externalForces.z;
+            if (externalForces.y > 7.1f || externalForces2 > 4f * 4f)
             {
-                Plugin.LogDebug($"{lethalBotController.playerUsername} externalForces {lethalBotController.externalForces.y}");
+                Plugin.LogDebug($"{lethalBotController.playerUsername} externalForces {externalForces}");
                 return true;
             }
 
@@ -3201,7 +3206,6 @@ namespace LethalBots.AI
             {
                 return null;
             }
-
             return entranceToUse.exitScript.entrancePoint.position;
         }
 
@@ -3803,7 +3807,7 @@ namespace LethalBots.AI
                 return true;
             }
             GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
-            if (itemOnlySlot != null && HasAmmoForWeapon(itemOnlySlot))
+            if (HasAmmoForWeapon(itemOnlySlot))
             {
                 return true;
             }
@@ -3833,8 +3837,7 @@ namespace LethalBots.AI
                 return true;
             }
             GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
-            if (itemOnlySlot != null 
-                && HasAmmoForWeapon(itemOnlySlot) 
+            if (HasAmmoForWeapon(itemOnlySlot) 
                 && IsItemRangedWeapon(itemOnlySlot))
             {
                 return true;
@@ -5362,8 +5365,6 @@ namespace LethalBots.AI
 
         public void SetLethalBotInElevator()
         {
-            StartOfRound instanceSOR = StartOfRound.Instance;
-
             if (this.NpcController == null)
             {
                 return;
@@ -5373,6 +5374,7 @@ namespace LethalBots.AI
             if (base.IsOwner && lethalBotController.isPlayerControlled)
             {
                 // Do the same ship checks as the base game.
+                StartOfRound instanceSOR = StartOfRound.Instance;
                 Vector3 playerPos = lethalBotController.transform.position;
                 Bounds shipBounds = instanceSOR.shipBounds.bounds;
                 Bounds shipInnerRoomBounds = instanceSOR.shipInnerRoomBounds.bounds;
@@ -6576,22 +6578,6 @@ namespace LethalBots.AI
 
             NpcController.Npc.IsInSpecialAnimationClientRpc(specialAnimation, timed, climbingLadder);
             NpcController.Npc.ResetZAndXRotation();
-        }
-
-        #endregion
-
-        #region SyncFaceUnderwater
-
-        [ServerRpc(RequireOwnership = false)]
-        public void SyncSetFaceUnderwaterServerRpc(bool isUnderwater)
-        {
-            SyncSetFaceUnderwaterClientRpc(isUnderwater);
-        }
-
-        [ClientRpc]
-        private void SyncSetFaceUnderwaterClientRpc(bool isUnderwater)
-        {
-            NpcController.Npc.isUnderwater = isUnderwater;
         }
 
         #endregion

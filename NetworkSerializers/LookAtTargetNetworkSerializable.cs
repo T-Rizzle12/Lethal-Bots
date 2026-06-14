@@ -158,7 +158,8 @@ namespace LethalBots.NetworkSerializers
                 hasBeenSightedIn = this.hasBeenSightedIn,
                 headSteadyTimer = this.headSteadyTimer.Clone(),
                 directionToUpdateTurnBodyTowardsTo = this.directionToUpdateTurnBodyTowardsTo,
-                maxBodyFOV = this.maxBodyFOV
+                maxBodyFOV = this.maxBodyFOV,
+                enumObjectsLookingAt = this.enumObjectsLookingAt
             };
         }
 
@@ -346,7 +347,8 @@ namespace LethalBots.NetworkSerializers
                 && hasBeenSightedIn == other.hasBeenSightedIn
                 && headSteadyTimer == other.headSteadyTimer
                 && directionToUpdateTurnBodyTowardsTo == other.directionToUpdateTurnBodyTowardsTo 
-                && maxBodyFOV == other.maxBodyFOV;
+                && maxBodyFOV == other.maxBodyFOV
+                && enumObjectsLookingAt == other.enumObjectsLookingAt;
         }
 
         public override bool Equals(object? obj)
@@ -368,6 +370,7 @@ namespace LethalBots.NetworkSerializers
             hash.Add(headSteadyTimer);
             hash.Add(directionToUpdateTurnBodyTowardsTo);
             hash.Add(maxBodyFOV);
+            hash.Add(enumObjectsLookingAt);
             return hash.ToHashCode();
         }
 

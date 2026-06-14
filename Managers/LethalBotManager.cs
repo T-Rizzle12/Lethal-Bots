@@ -195,6 +195,8 @@ namespace LethalBots.Managers
         public VehicleController? VehicleController;
 
         // Variables that handle the ship's NavMesh
+        #region Ship NavMesh
+
         public NavMeshSurface shipNavMeshSurface = null!;
         public GameObject? shipNavMeshInstance = null!;
         public bool shipNavMeshBuilt => shipNavMeshSurface != null
@@ -203,6 +205,13 @@ namespace LethalBots.Managers
         public bool shipNavMeshActive = false;
         public NavMeshObstacle landingShipNavObstacle = null!;
         public (float height, float radius) landingShipNavObstacleInfo = (0f, 0f);
+
+        #endregion
+
+        /// <summary>
+        /// A timer made if <see cref="Plugin.IsModSuperEclipseLoaded"/> is active and enabled
+        /// </summary>
+        public static IntervalTimer botAutoLeaveTimer { private set; get; } = new IntervalTimer(); 
 
         public Dictionary<EnemyAI, INoiseListener> DictEnemyAINoiseListeners = new Dictionary<EnemyAI, INoiseListener>();
 
@@ -979,7 +988,7 @@ namespace LethalBots.Managers
             }
 
             // Log the change for debugging purposes
-            Plugin.LogDebug($"Mission controller changed, old value: {previousMissionController}, new value: {newMissionController}");
+            Plugin.LogDebug($"Mission controller changed, old value: {previousMissionController?.playerUsername ?? "(None)"}, new value: {newMissionController?.playerUsername ?? "(None)"}");
             _missionControlPlayer = newMissionController;
         }
 
@@ -1206,12 +1215,12 @@ namespace LethalBots.Managers
         public static float? GetFearRangeForEnemy(in LethalBotFearQuery fearQuery)
         {
             // Make sure we have a valid enemyAI
-            if (fearQuery.EnemyAI == null)
+            if (!fearQuery.GetThreat(out EnemyAI? enemyAI)) // Until fear system is updated, only allow EnemyAI's fearQuery.Threat == null
             {
                 Plugin.LogWarning($"GetFearRangeForEnemy: EnemyAI is null");
                 return null;
             }
-            Type threatType = fearQuery.EnemyAI.GetType();
+            Type threatType = enemyAI.GetType();
             if (DictionaryLethalBotThreats.TryGetValue(threatType, out LethalBotThreat threatInfo))
             {
                 return threatInfo.GetFearRangeForEnemy(fearQuery);
@@ -1291,8 +1300,8 @@ namespace LethalBots.Managers
             // Dynamic behavior threats
             // Old Birds!
             RegisterThreat(typeof(RadMechAI),
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null,
+                (in fq) => fq.GetThreat(out RadMechAI? radMech) && radMech.currentBehaviourStateIndex > 0 ? 30f : null,
+                (in fq) => fq.GetThreat(out RadMechAI? radMech) && radMech.currentBehaviourStateIndex > 0 ? 20f : null,
                 (in fq) => 40f // Always 40 for pathfinding
             );
 
@@ -1306,58 +1315,71 @@ namespace LethalBots.Managers
 
             // Maneater
             RegisterThreat(typeof(CaveDwellerAI),
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 2 ? 30f : null,
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null
+                (in fq) => fq.GetThreat(out CaveDwellerAI? caveDweller) && caveDweller.currentBehaviourStateIndex > 0 ? 30f : null,
+                (in fq) => fq.GetThreat(out CaveDwellerAI? caveDweller) && caveDweller.currentBehaviourStateIndex > 2 ? 30f : null,
+                (in fq) => fq.GetThreat(out CaveDwellerAI? caveDweller) && caveDweller.currentBehaviourStateIndex > 0 ? 30f : null
             );
 
             // Jester
             RegisterThreat(typeof(JesterAI),
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? float.MaxValue : null,
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 && (fq.PlayerToCheck == null || fq.PlayerToCheck.isInsideFactory) ? float.MaxValue : null,
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? null : 20f // Always 20 for pathfinding, unless they are winding up, then we need to move NOW!
+                (in fq) => fq.GetThreat(out JesterAI? jesterAI) && jesterAI.currentBehaviourStateIndex > 0 ? float.MaxValue : null,
+                (in fq) => fq.GetThreat(out JesterAI? jesterAI) && jesterAI.currentBehaviourStateIndex == 2 && (fq.PlayerToCheck == null || fq.PlayerToCheck.isInsideFactory) ? float.MaxValue : null,
+                (in fq) => fq.GetThreat(out JesterAI? jesterAI) && jesterAI.currentBehaviourStateIndex > 0 ? null : 20f // Always 20 for pathfinding, unless they are winding up, then we need to move NOW!
             );
 
             // Eyeless dog
             RegisterThreat(typeof(MouthDogAI),
-                (in fq) => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel >= 9 ? 20f : 5f,
-                (in fq) => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel >= 9 ? 20f : null,
-                (in fq) => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel > 0 ? 30f : 20f // Increase the danger range if they are angry!
+                (in fq) => fq.GetThreat(out MouthDogAI? dog) && dog.suspicionLevel >= 9 ? 20f : 5f,
+                (in fq) => fq.GetThreat(out MouthDogAI? dog) && dog.suspicionLevel >= 9 ? 20f : null,
+                (in fq) => fq.GetThreat(out MouthDogAI? dog) && dog.suspicionLevel > 0 ? 30f : 20f // Increase the danger range if they are angry!
             );
 
             // Snare Flea
             RegisterThreat(typeof(CentipedeAI),
                 (in fq) =>
                 {
-                    if (fq.EnemyAI is CentipedeAI c && c.clingingToPlayer != null)
+                    if (fq.GetThreat(out CentipedeAI? c))
                     {
-                        return c.clingingToPlayer == fq.Bot ? 1f : 15f;
+                        if (c.clingingToPlayer != null)
+                        {
+                            return c.clingingToPlayer == fq.Bot ? 1f : 15f;
+                        }
+                        else
+                        {
+                            return c.currentBehaviourStateIndex > 1 ? 15f : 1f;
+                        }
                     }
-                    return fq.EnemyAI.currentBehaviourStateIndex > 1 ? 15f : 1f;
+                    return 1f;
                 },
-                (in fq) => fq.EnemyAI is CentipedeAI c && c.clingingToPlayer == fq.PlayerToCheck ? float.MaxValue : null,
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 1 ||
-                      (fq.EnemyAI is CentipedeAI c && c.clingingToPlayer != null) ? 15f : 1f
+                (in fq) => fq.GetThreat(out CentipedeAI? c) && c.clingingToPlayer == fq.PlayerToCheck ? float.MaxValue : null,
+                (in fq) => fq.GetThreat(out CentipedeAI? c) && (c.currentBehaviourStateIndex > 1 || c.clingingToPlayer != null) ? 15f : 1f
             );
 
             float? CoilHeadPanikFunc(in LethalBotFearQuery fearQuery)
             {
                 // If the coil hasn't moved for 8 seconds, stop being afraid of it!
                 const float stopFearTimer = 8f;
-                if (fearQuery.EnemyAI is SpringManAI coilHead)
+                if (fearQuery.GetThreat(out SpringManAI? coilHead))
                 {
                     SpringManAIPatch.SpringManMonitor coilHeadMonitor = SpringManAIPatch.GetOrCreateMonitor(coilHead);
                     if (!coilHeadMonitor.HasMovedRecently(stopFearTimer))
                     {
                         return null;
                     }
+
+                    if (coilHead.currentBehaviourStateIndex > 0)
+                    {
+                        return 20f;
+                    }
                 }
-                return fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null;
+                return null;
             }
 
             float? CoilHeadMissionFunc(in LethalBotFearQuery fearQuery)
             {
-                if (fearQuery.EnemyAI.currentBehaviourStateIndex > 0 && fearQuery.PlayerToCheck is PlayerControllerB playerToCheck)
+                if (fearQuery.GetThreat(out SpringManAI? coilHead) 
+                    && coilHead.currentBehaviourStateIndex > 0 
+                    && fearQuery.PlayerToCheck is PlayerControllerB playerToCheck)
                 {
                     const float trappedTeleportTimer = 10f;
                     if (playerToCheck.timeSincePlayerMoving > trappedTeleportTimer)
@@ -1372,34 +1394,39 @@ namespace LethalBots.Managers
             RegisterThreat(typeof(SpringManAI),
                 CoilHeadPanikFunc,
                 CoilHeadMissionFunc,
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null
+                (in fq) => fq.GetThreat(out SpringManAI? coilHead) && coilHead.currentBehaviourStateIndex > 0 ? 20f : null
             );
 
             // Butler
             RegisterThreat(typeof(ButlerEnemyAI),
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null,
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
-                (in fq) => (fq.EnemyAI.currentBehaviourStateIndex == 2 || (fq.Bot is LethalBotAI lethalBotAI && lethalBotAI.NpcController.Npc.isPlayerAlone)) ? 20f : null
+                (in fq) => fq.GetThreat(out ButlerEnemyAI? butlerEnemyAI) && butlerEnemyAI.currentBehaviourStateIndex == 2 ? 20f : null,
+                (in fq) => fq.GetThreat(out ButlerEnemyAI? butlerEnemyAI) && butlerEnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
+                (in fq) => ((fq.GetThreat(out ButlerEnemyAI? butlerEnemyAI) && butlerEnemyAI.currentBehaviourStateIndex == 2) || (fq.Bot is LethalBotAI lethalBotAI && lethalBotAI.NpcController.Npc.isPlayerAlone)) ? 20f : null
             );
 
             // Loot Bugs
             RegisterThreat(typeof(HoarderBugAI),
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null,
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 5f : null,
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null
+                (in fq) => fq.GetThreat(out HoarderBugAI? hoarderBug) && hoarderBug.currentBehaviourStateIndex == 2 ? 20f : null,
+                (in fq) => fq.GetThreat(out HoarderBugAI? hoarderBug) && hoarderBug.currentBehaviourStateIndex == 2 ? 5f : null,
+                (in fq) => fq.GetThreat(out HoarderBugAI? hoarderBug) && hoarderBug.currentBehaviourStateIndex == 2 ? 20f : null
             );
 
             float? MaskedPanikFunc(in LethalBotFearQuery fearQuery)
             {
+                MaskedPlayerEnemy? masked = fearQuery.GetThreat<MaskedPlayerEnemy>();
+                if (masked == null)
+                {
+                    return 15f;
+                }
+
                 bool aware =
-                fearQuery.EnemyAI is MaskedPlayerEnemy masked
-                && fearQuery.Bot is LethalBotAI lethalBotAI
+                fearQuery.Bot is LethalBotAI lethalBotAI
                 && lethalBotAI.DictKnownMasked.TryGetValue(masked, out bool known)
                 && known;
 
                 bool handsOut =
-                    fearQuery.EnemyAI.creatureAnimator != null
-                    && fearQuery.EnemyAI.creatureAnimator.GetBool("HandsOut");
+                    masked.creatureAnimator != null
+                    && masked.creatureAnimator.GetBool("HandsOut");
 
                 return (aware || handsOut) ? 30f : 15f;
             }
@@ -1413,22 +1440,28 @@ namespace LethalBots.Managers
 
             // Spider!
             RegisterThreat(typeof(SandSpiderAI),
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 5f, // Sigh, i may or may not of added this after a particular experience where bots got stuck in a loop of running away and coming back despite the spider not actually chasing them!
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
-                (in fq) => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 10f // Based on what the spider is doing!
+                (in fq) => fq.GetThreat(out SandSpiderAI? spiderAI) && spiderAI.currentBehaviourStateIndex == 2 ? 20f : 5f, // Sigh, i may or may not of added this after a particular experience where bots got stuck in a loop of running away and coming back despite the spider not actually chasing them!
+                (in fq) => fq.GetThreat(out SandSpiderAI? spiderAI) && spiderAI.currentBehaviourStateIndex == 2 ? 10f : null,
+                (in fq) => fq.GetThreat(out SandSpiderAI? spiderAI) && spiderAI.currentBehaviourStateIndex == 2 ? 20f : 10f // Based on what the spider is doing!
             );
 
             // Register threat is compatable with functions!
             // This makes it really easy to add advanced logic for when the bot should be afraid!
             float? NutcrackerPanikFunc(in LethalBotFearQuery fearQuery)
             {
+                NutcrackerEnemyAI? nutcracker = fearQuery.GetThreat<NutcrackerEnemyAI>();
+                if (nutcracker == null)
+                {
+                    return 15f;
+                }
+
                 // Ok, there are three state indexes to date!
                 // 0. Patroling
                 // 1. Scanning
                 // 2. Hunting/Attacking
-                int stateIndex = fearQuery.EnemyAI.currentBehaviourStateIndex;
+                int stateIndex = nutcracker.currentBehaviourStateIndex;
                 if (stateIndex == 1
-                    || (stateIndex == 2 && fearQuery.EnemyAI is NutcrackerEnemyAI nutcracker && fearQuery.Bot is LethalBotAI lethalBotAI && nutcracker.lastPlayerSeenMoving == (int)lethalBotAI.NpcController.Npc.playerClientId))
+                    || (stateIndex == 2 && fearQuery.Bot is LethalBotAI lethalBotAI && nutcracker.lastPlayerSeenMoving == (int)lethalBotAI.NpcController.Npc.playerClientId))
                 {
                     return 60f; // Got from the Nutcracker source code, 60f is the maximum range it can see moving players!
                 }
@@ -1462,7 +1495,13 @@ namespace LethalBots.Managers
             // TODO: Improve this as I study the AI!
             float? GiantKiwiPanikFunc(in LethalBotFearQuery fearQuery)
             {
-                int stateIndex = fearQuery.EnemyAI.currentBehaviourStateIndex;
+                GiantKiwiAI? giantKiwi = fearQuery.GetThreat<GiantKiwiAI>();
+                if (giantKiwi == null)
+                {
+                    return 5f;
+                }
+
+                int stateIndex = giantKiwi.currentBehaviourStateIndex;
                 if (stateIndex == 1)
                 {
                     return 8f; // Not attacking, but getting close will cause the Giant Sapsucker to retaliate!
@@ -1484,7 +1523,7 @@ namespace LethalBots.Managers
 
             float? SandWormPanikFunc(in LethalBotFearQuery fearQuery)
             {
-                if (fearQuery.EnemyAI is SandWormAI sandWormAI)
+                if (fearQuery.GetThreat(out SandWormAI? sandWormAI))
                 {
                     // If the Earth Leviathan is emerging, stay further away
                     if (sandWormAI.inEmergingState)
@@ -1502,7 +1541,7 @@ namespace LethalBots.Managers
 
             float? SandWormPathFunc(in LethalBotFearQuery fearQuery)
             {
-                if (fearQuery.EnemyAI is SandWormAI sandWormAI)
+                if (fearQuery.GetThreat(out SandWormAI? sandWormAI))
                 {
                     // If the Earth Leviathan is emerging, stay further away
                     if (sandWormAI.inEmergingState)
@@ -1527,16 +1566,16 @@ namespace LethalBots.Managers
 
             // Blob
             RegisterThreat(typeof(BlobAI), 
-                (in fq) => fq.EnemyAI is BlobAI blob && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f, 
+                (in fq) => fq.GetThreat(out BlobAI? blob) && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f, 
                 (in fq) => null, 
-                (in fq) => fq.EnemyAI is BlobAI blob && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f
+                (in fq) => fq.GetThreat(out BlobAI? blob) && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f
             );
 
             // Girl aka Ghost Girl
-            RegisterThreat(typeof(DressGirlAI), 
-                (in fq) => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && (ghostGirl.staringInHaunt || ghostGirl.currentBehaviourStateIndex > 0) ? 40f : null,
+            RegisterThreat(typeof(DressGirlAI),
+                (in fq) => fq.GetThreat(out DressGirlAI? ghostGirl) && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && (ghostGirl.staringInHaunt || ghostGirl.currentBehaviourStateIndex > 0) ? 40f : null,
                 (in fq) => null,  // No value for mission control
-                (in fq) => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && ghostGirl.staringInHaunt ? 60f : null   // We don't want to go near her.....
+                (in fq) => fq.GetThreat(out DressGirlAI? ghostGirl) && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && ghostGirl.staringInHaunt ? 60f : null   // We don't want to go near her.....
             );
         }
 
@@ -4372,27 +4411,6 @@ namespace LethalBots.Managers
             return results.ToArray();
         }
 
-        // NEEDTOVALIDATE: Should this be done in the NpcController's LateUpdate instead?
-        public void SetLethalBotsInElevatorLateUpdate(float deltaTime)
-        {
-            timerSetLethalBotInElevator += deltaTime;
-            if (timerSetLethalBotInElevator < 0.5)
-            {
-                return;
-            }
-            timerSetLethalBotInElevator = 0f;
-
-            foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
-            {
-                if (lethalBotAI == null)
-                {
-                    continue;
-                }
-
-                lethalBotAI.SetLethalBotInElevator();
-            }
-        }
-
         public void UpdateOwnershipOfBotServer(float deltaTime)
         {
             timerUpdateOwnershipOfBot += deltaTime;
@@ -4470,6 +4488,7 @@ namespace LethalBots.Managers
             }
             SetLastReportedTimeOfDay(DayMode.Dawn);
             AIState.ResetEntranceSafetyCache();
+            botAutoLeaveTimer.Invalidate();
 
             if (preRevive)
             {
@@ -5092,22 +5111,6 @@ namespace LethalBots.Managers
 
             if (base.IsServer)
             {
-                /*foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
-                {
-                    if (lethalBotAI == null
-                        || lethalBotAI.isEnemyDead
-                        || lethalBotAI.NpcController.Npc.isPlayerDead
-                        || !lethalBotAI.NpcController.Npc.isPlayerControlled
-                        || !lethalBotAI.HasSomethingInInventory())
-                    {
-                        continue;
-                    }
-
-                    // NOTE: Drop all held items handles all of this now!
-                    //lethalBotAI.DropItem();
-                    lethalBotAI.NpcController.Npc.DropAllHeldItems();
-                }*/
-
                 SyncEndOfRoundLethalBotsFromServerToClientRpc(preRevive);
             }
             else

@@ -151,7 +151,7 @@ namespace LethalBots.Configs
                                                 "Bot restock spending limit",
                                                 defaultValue: 550,
                                                 new ConfigDescription("How much money should the bot leave in reserve when restocking the ship. This is useful if you want the bot to keep some spare cash on hand.", 
-                                                    new AcceptableValueRange<int>(0, int.MaxValue)));
+                                                    new AcceptableValueRange<int>(0, 100000000))); // Was int.MaxValue, but the base game caps money to 100000000!
 
             ReturnToShipTime = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                 "Return to ship time",

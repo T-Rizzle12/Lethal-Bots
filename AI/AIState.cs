@@ -790,18 +790,27 @@ namespace LethalBots.AI
                 }
             }
 
-            // Took this from the TimeOfDay class file,
-            // if its getting late out, we should return to the ship!
-            TimeOfDay timeOfDay = TimeOfDay.Instance;
-            if (timeOfDay != null)
+            // Super Eclipse has special logic, as you can't vote and the day never auto ends!
+            if (Plugin.IsModSuperEclipseLoaded)
             {
-                // TODO: Change this to be better with longer day mods.
-                // I mean it works partially, but could be better!
-                if (timeOfDay.normalizedTimeOfDay > Plugin.Config.ReturnToShipTime
-                    || timeOfDay.votesForShipToLeaveEarly >= LethalBotManager.Instance.AllRealPlayersCount 
-                    || timeOfDay.shipLeavingAlertCalled)
+                float autoLeaveTime = LethalBotManager.Instance.AreAllHumanPlayersDead() ? 300f : 600f; // 600 seconds is 10 minutes, 300 seconds is 5 minutes
+                return LethalBotManager.botAutoLeaveTimer.HasStarted() && LethalBotManager.botAutoLeaveTimer.IsGreaterThan(autoLeaveTime);
+            }
+            else
+            {
+                // Took this from the TimeOfDay class file,
+                // if its getting late out, we should return to the ship!
+                TimeOfDay timeOfDay = TimeOfDay.Instance;
+                if (timeOfDay != null)
                 {
-                    return true;
+                    // TODO: Change this to be better with longer day mods.
+                    // I mean it works partially, but could be better!
+                    if (timeOfDay.normalizedTimeOfDay > Plugin.Config.ReturnToShipTime
+                        || timeOfDay.votesForShipToLeaveEarly >= LethalBotManager.Instance.AllRealPlayersCount
+                        || timeOfDay.shipLeavingAlertCalled)
+                    {
+                        return true;
+                    }
                 }
             }
 

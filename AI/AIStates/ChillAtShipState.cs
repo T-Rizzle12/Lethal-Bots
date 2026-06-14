@@ -287,7 +287,7 @@ namespace LethalBots.AI.AIStates
                             GrabbableObject? key = ai.FindItemOnShip(foundItem => foundItem is KeyItem) ?? ai.FindItemOnShip(foundItem => foundItem is LockPicker);
                             if (key != null)
                             {
-                                ai.State = new FetchingObjectState(this, key, EnumGrabbableObjectCall.Default, new SearchingForScrapState(this));
+                                ai.State = new FetchingObjectState(this, key, changeToOnEnd: new SearchingForScrapState(this));
                                 return true;
                             }
                         }

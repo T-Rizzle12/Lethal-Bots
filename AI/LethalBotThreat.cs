@@ -16,6 +16,7 @@ namespace LethalBots.AI
         /// <returns></returns>
         public delegate float? FearRangeDelegate(in LethalBotFearQuery query);
 
+        [Obsolete("Use the other constructor instead!")]
         public LethalBotThreat(EnemyAI enemyAI, FearRangeDelegate pankFunc, FearRangeDelegate missionControlFunc, FearRangeDelegate pathfindFunc) : this(enemyAI.GetType(), pankFunc, missionControlFunc, pathfindFunc) { }
 
         public LethalBotThreat(Type threatType, FearRangeDelegate pankFunc, FearRangeDelegate missionControlFunc, FearRangeDelegate pathfindFunc)

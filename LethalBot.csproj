@@ -94,6 +94,7 @@
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" PrivateAssets="all" />
     <PackageReference Include="Evaisa.LethalLib" Version="1.2.0" />
     <PackageReference Include="Lost.Compat.NullabilityAttributes" Version="0.0.4" PrivateAssets="all" />
+    <PackageReference Include="MillieTheSilly-SuperEclipse" Version="0.1.0" />
     <PackageReference Include="Mono.pdb2mdb" Version="0.1.0.20130128" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Rune580.Mods.LethalCompany.InputUtils" Version="0.7.13" />
@@ -270,10 +271,7 @@
 	  </PropertyGroup>
 
 	  <!-- Put our dependencies into a file -->
-	  <WriteLinesToFile
-		File="$(NetcodePatcherDepsListFile)"
-		Lines="@(ReferencePathWithRefAssemblies)"
-		Overwrite="true" />
+	  <WriteLinesToFile File="$(NetcodePatcherDepsListFile)" Lines="@(ReferencePathWithRefAssemblies)" Overwrite="true" />
 
 	  <!-- Actually run Netcode patcher -->
 	  <Exec Command="dotnet netcode-patch -uv 2022.3.62 -nv 1.12.0 -tv 1.0.0 &quot;$(TargetPath)&quot; --dependency-file &quot;$(NetcodePatcherDepsListFile)&quot;" />
