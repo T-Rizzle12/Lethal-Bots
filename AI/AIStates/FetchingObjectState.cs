@@ -1,5 +1,6 @@
 ﻿using LethalBots.Constants;
 using LethalBots.Enums;
+using System.Diagnostics.CodeAnalysis;
 using UnityEngine;
 
 namespace LethalBots.AI.AIStates
@@ -44,7 +45,7 @@ namespace LethalBots.AI.AIStates
 
             // Target item invalid to grab
             if (!ai.HasSpaceInInventory(this.TargetItem)
-                || this.TargetItem == null 
+                || this.TargetItem == null
                 || !IsObjectGrabbable() 
                 || grabAttempts > Const.MAX_GRAB_OBJECT_ATTEMPTS)
             {
@@ -140,14 +141,12 @@ namespace LethalBots.AI.AIStates
             ai.OrderMoveToDestination();
         }
 
-        // Checks if our target object is grabbable!
+        /// <summary>
+        /// Checks if our target object is grabbable!
+        /// </summary>
+        /// <returns></returns>
         private bool IsObjectGrabbable()
         {
-            if (this.TargetItem == null)
-            {  
-                return false; 
-            }
-
             if (enumGrabbable == EnumGrabbableObjectCall.Selling)
             {
                 return ai.IsGrabbableObjectSellable(TargetItem);

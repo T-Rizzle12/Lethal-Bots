@@ -304,7 +304,7 @@ namespace LethalBots.AI
             ElevatorScript = Object.FindObjectOfType<MineshaftElevatorController>();
 
             // Find all patches of quicksand and water
-            QuicksandArray = Object.FindObjectsOfType<QuicksandTrigger>();
+            QuicksandArray = Object.FindObjectsOfType<QuicksandTrigger>(includeInactive: true);
 
             // Important colliders
             InitImportantColliders();
@@ -923,7 +923,7 @@ namespace LethalBots.AI
 
             Vector3 externalForces = lethalBotController.externalForces;
             float externalForces2 = externalForces.x * externalForces.x + externalForces.z * externalForces.z;
-            if (externalForces.y > 7.1f || externalForces2 > 4f * 4f)
+            if (externalForces2 > 4f * 4f || externalForces.y > 7.1f)
             {
                 Plugin.LogDebug($"{lethalBotController.playerUsername} externalForces {externalForces}");
                 return true;
@@ -1367,18 +1367,19 @@ namespace LethalBots.AI
 
                         Bounds quicksandBounds = default;
                         bool foundCollider = false;
-                        foreach (Collider colldier in quicksand.gameObject.GetComponents<Collider>())
+                        Collider[] colliders = quicksand.gameObject.GetComponents<Collider>();
+                        foreach (Collider collider in colliders)
                         {
-                            if (colldier != null)
+                            if (collider != null)
                             {
                                 if (!foundCollider)
                                 {
-                                    quicksandBounds = colldier.bounds;
+                                    quicksandBounds = collider.bounds;
                                     foundCollider = true;
                                 }
                                 else
                                 {
-                                    quicksandBounds.Encapsulate(colldier.bounds);
+                                    quicksandBounds.Encapsulate(collider.bounds);
                                 }
                             }
                         }
@@ -1532,7 +1533,8 @@ namespace LethalBots.AI
 
                         Bounds quicksandBounds = default;
                         bool foundCollider = false;
-                        foreach (Collider colldier in quicksand.gameObject.GetComponents<Collider>())
+                        Collider[] colliders = quicksand.gameObject.GetComponents<Collider>();
+                        foreach (Collider colldier in colliders)
                         {
                             if (colldier != null)
                             {
@@ -2332,9 +2334,10 @@ namespace LethalBots.AI
             this.targetPlayer = null;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int MaxHealthPercent(int percentage)
         {
-            return LethalBotManager.Instance.MaxHealthPercent(percentage, MaxHealth);
+            return LethalBotManager.MaxHealthPercent(percentage, MaxHealth);
         }
 
         public void CheckAndBringCloserTeleportLethalBot(float percentageOfDestination)
@@ -3581,9 +3584,6 @@ namespace LethalBots.AI
         /// <summary>
         /// Check ladders if lethalBot needs to use one to follow player.
         /// </summary>
-        /// <remarks>
-        /// FIXME: This causes many issues that I can't seem to identify the cause yet!
-        /// </remarks>
         /// <returns>true: the lethalBot is using or is waiting to use the ladder, else false</returns>
         private bool UseLadderIfNeeded()
         {
@@ -3691,8 +3691,10 @@ namespace LethalBots.AI
                 float duration = horizontalDistance / agent.speed;
                 float num = height * 4f * (normalizedTime - normalizedTime * normalizedTime);
                 Plugin.LogDebug($"Moving on off mesh link; time: {normalizedTime}; y: {num}");
-                this.transform.position = Vector3.Lerp(startPos, endPos, normalizedTime) + num * Vector3.up;
-                agent.transform.position = this.transform.position;
+                Vector3 newPos = Vector3.Lerp(startPos, endPos, normalizedTime) + num * Vector3.up;
+                this.transform.position = newPos;
+                agent.transform.position = newPos;
+                NpcController.Npc.transform.position = newPos;
                 normalizedTime += Time.deltaTime / duration;
                 yield return null;
             }
@@ -5104,7 +5106,7 @@ namespace LethalBots.AI
         /// <param name="grabbableObject">Item to check</param>
         /// <param name="enumGrabbable">Type of blacklist checks that should be done or skipped</param>
         /// <returns></returns>
-        public bool IsGrabbableObjectGrabbable(GrabbableObject grabbableObject, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default)
+        public bool IsGrabbableObjectGrabbable(GrabbableObject? grabbableObject, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default)
         {
             if (enumGrabbable == EnumGrabbableObjectCall.Selling)
             {
@@ -5251,7 +5253,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="grabbableObject">Item to check</param>
         /// <returns></returns>
-        public bool IsGrabbableObjectSellable(GrabbableObject grabbableObject, bool ignoreHeldFlag = false, bool skipPathCheck = false)
+        public bool IsGrabbableObjectSellable(GrabbableObject? grabbableObject, bool ignoreHeldFlag = false, bool skipPathCheck = false)
         {
             if (grabbableObject == null
                 || !grabbableObject.gameObject.activeSelf)
@@ -5655,6 +5657,7 @@ namespace LethalBots.AI
                 dictColliderToBridge.Clear();
             }
 
+            // Find and cache the colliders associated with bridges!
             BridgeTrigger[] bridgeTriggers = Object.FindObjectsOfType<BridgeTrigger>(includeInactive: false);
             foreach (var bridge in bridgeTriggers)
             {
@@ -6676,14 +6679,14 @@ namespace LethalBots.AI
             if (lethalBotController.twoHanded
                 || lethalBotController.sinkingValue > 0.73f
                 || lethalBotController.inSpecialMenu 
-                || NpcController.TimeSinceSwitchingSlots < 0.2f)
+                || lethalBotController.timeSinceSwitchingSlots < 0.2f)
             {
                 return false;
             }
             if (!lethalBotController.isGrabbingObjectAnimation 
                 && !lethalBotController.isTypingChat 
                 && !lethalBotController.inTerminalMenu 
-                && !NpcController.ThrowingObject 
+                && !lethalBotController.throwingObject 
                 && !lethalBotController.IsInspectingItem 
                 && lethalBotController.inAnimationWithEnemy == null 
                 && !lethalBotController.jetpackControls 
@@ -6881,8 +6884,8 @@ namespace LethalBots.AI
                 || thisBot.activatingItem 
                 || thisBot.jetpackControls 
                 || thisBot.disablingJetpackControls
-                || NpcController.ThrowingObject
-                || NpcController.TimeSinceSwitchingSlots < 0.3f)
+                || thisBot.throwingObject
+                || thisBot.timeSinceSwitchingSlots < 0.3f)
             {
                 return false;
             }
@@ -6969,7 +6972,7 @@ namespace LethalBots.AI
                 thisBot.twoHanded = false;
                 thisBot.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, true);
             }
-            NpcController.TimeSinceSwitchingSlots.Value = 0f;
+            thisBot.timeSinceSwitchingSlots = 0f;
         }
 
         /// <summary>
@@ -7709,17 +7712,20 @@ namespace LethalBots.AI
                     continue;
 
                 // Have to be in range of the light to consider it
+                LightType lightType = light.type;
                 Vector3 toBot = ourPos - light.transform.position;
                 float dist = toBot.sqrMagnitude; // NOTE: We don't use sqr distance since we need to use the exact range later.
-                if (dist > light.range * light.range)
+                float lightRange = light.range;
+                if (lightType != LightType.Directional 
+                    && dist > lightRange * lightRange)
                     continue;
 
                 // Convert distance to squared distance for attenuation calculation
-                dist = Mathf.Sqrt(dist);
+                dist = lightType != LightType.Directional ? Mathf.Sqrt(dist) : 0f;
 
                 // Check the light direction (if applicable)
                 float coneFactor = 1f;
-                if (light.type == LightType.Spot)
+                if (lightType == LightType.Spot)
                 {
                     float angle = Vector3.Angle(light.transform.forward, toBot.normalized);
                     float halfAngle = light.spotAngle * 0.5f;
@@ -7731,7 +7737,7 @@ namespace LethalBots.AI
                 }
 
                 // Adjust the light strength based on its distance from the bot and its intensity
-                float atten = 1f - Mathf.Clamp01(dist / light.range);
+                float atten = lightType != LightType.Directional ? 1f - Mathf.Clamp01(dist / lightRange) : 1f;
                 atten *= atten;
                 float occlusion = GetLightOcclusionFactor(light.transform.position, ourPos);
                 lightLevel += light.intensity * atten * coneFactor * occlusion;
@@ -7745,6 +7751,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="light">The light to check</param>
         /// <returns>true: don't consider this light source; otherwise false</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool ShouldIgnoreLightSource([NotNullWhen(false)] Light? light)
         {
             // Make sure its a active light!
@@ -7778,11 +7785,12 @@ namespace LethalBots.AI
 
             right = right.normalized * 0.2f;
 
-            if (Physics.Linecast(lightPos, targetPos, instanceSOR.collidersAndRoomMaskAndDefault)) blocked++;
-            if (Physics.Linecast(lightPos + right, targetPos, instanceSOR.collidersAndRoomMaskAndDefault)) blocked++;
-            if (Physics.Linecast(lightPos - right, targetPos, instanceSOR.collidersAndRoomMaskAndDefault)) blocked++;
+            int layerMask = instanceSOR.collidersAndRoomMaskAndDefault;
+            if (Physics.Linecast(lightPos, targetPos, layerMask)) blocked++;
+            if (Physics.Linecast(lightPos + right, targetPos, layerMask)) blocked++;
+            if (Physics.Linecast(lightPos - right, targetPos, layerMask)) blocked++;
 
-            float occlusion = 1f - (blocked / (float)samples);
+            float occlusion = 1f - ((float)blocked / (float)samples);
             return Mathf.Max(occlusion, 0.15f); // light wrap
         }
 
@@ -7861,7 +7869,7 @@ namespace LethalBots.AI
                     && !lethalBotController.criticallyInjured)
                 {
                     // Client side only, since we are already in an rpc send to all clients
-                    lethalBotController.MakeCriticallyInjured(true);
+                    lethalBotController.MakeCriticallyInjured(enable: true);
                 }
                 else
                 {
@@ -7919,12 +7927,12 @@ namespace LethalBots.AI
 
         public void HealthRegen()
         {
-            if (NpcController.LimpMultiplier > 0f)
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            if (lethalBotController.limpMultiplier > 0f)
             {
-                NpcController.LimpMultiplier -= Time.deltaTime / 1.8f;
+                lethalBotController.limpMultiplier -= Time.deltaTime / 1.8f;
             }
 
-            PlayerControllerB lethalBotController = NpcController.Npc;
             if (lethalBotController.health < MaxHealthPercent(20)
                 || lethalBotController.health == MaxHealthPercent(5))
             {

@@ -72,7 +72,7 @@ namespace LethalBots.AI.AIStates
             // we should always recheck the nearest entrance
             EntranceTeleport? previousEntrance = this.targetEntrance;
             EntranceTeleport? entranceToAvoid = waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH ? previousEntrance : null;
-            targetEntrance = FindClosestEntrance(entranceToAvoid: entranceToAvoid);
+            targetEntrance = PickRandomEntrance(entranceToAvoid: entranceToAvoid);
             entranceAttempts = targetEntrance == previousEntrance ? entranceAttempts : 0;
             base.OnEnterState();
         }
@@ -271,13 +271,15 @@ namespace LethalBots.AI.AIStates
                     bool shouldWalkLootToShip = true;
                     if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
                     {
+                        Vector3 ourPos = npcController.Npc.transform.position;
                         bool areWeNearbyEntrance = false;
-                        foreach (EntranceTeleport entrance in LethalBotAI.EntrancesTeleportArray)
+                        for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
                         {
+                            EntranceTeleport entrance = LethalBotAI.EntrancesTeleportArray[i];
                             if (entrance == null) continue;
 
                             if (entrance.isEntranceToBuilding 
-                                && (entrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE)
+                                && (entrance.entrancePoint.position - ourPos).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE)
                             {
                                 areWeNearbyEntrance = true;
                                 break;
@@ -319,7 +321,7 @@ namespace LethalBots.AI.AIStates
                     || (entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS && (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)))
                 {
                     EntranceTeleport? entranceToAvoid = (waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH || entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS) ? this.targetEntrance : null;
-                    targetEntrance = FindClosestEntrance(entranceToAvoid: entranceToAvoid);
+                    targetEntrance = PickRandomEntrance(entranceToAvoid: entranceToAvoid);
                     waitForSafePathTimer = 0f;
                     entranceAttempts = 0;
                     if (targetEntrance == null)

@@ -36,24 +36,7 @@ namespace LethalBots.Patches.NpcPatches
         [HarmonyPatch("Update")]
         [HarmonyAfter(Const.MOREEMOTES_GUID)]
         [HarmonyPrefix]
-        static bool Update_PreFix(PlayerControllerB __instance,
-                                  ref bool ___isCameraDisabled,
-                                  bool ___isJumping,
-                                  bool ___isFallingFromJump,
-                                  ref float ___crouchMeter,
-                                  ref bool ___isWalking,
-                                  ref float ___playerSlidingTimer,
-                                  ref bool ___disabledJetpackControlsThisFrame,
-                                  ref bool ___startedJetpackControls,
-                                  ref float ___upperBodyAnimationsWeight,
-                                  ref bool ___throwingObject,
-                                  ref float ___timeSinceSwitchingSlots,
-                                  ref float ___timeSinceTakingGravityDamage,
-                                  ref bool ___teleportingThisFrame,
-                                  ref float ___previousFrameDeltaTime,
-                                  ref float ___cameraUp,
-                                  ref float ___updatePlayerLookInterval,
-                                  ref float ___bloodDropTimer)
+        static bool Update_PreFix(PlayerControllerB __instance)
         {
             LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
             if (lethalBotAI == null)
@@ -61,49 +44,10 @@ namespace LethalBots.Patches.NpcPatches
                 return true;
             }
 
-            // Use Bot update and pass all needed paramaters back and forth
             // The controller isn't set on bot creation, so null check it until our client receives the bot spawn RPC
-            NpcController npcController = lethalBotAI.NpcController;
-            if (npcController != null)
+            if (lethalBotAI.NpcController != null)
             {
-                npcController.IsCameraDisabled = ___isCameraDisabled;
-                npcController.IsJumping = ___isJumping;
-                npcController.IsFallingFromJump = ___isFallingFromJump;
-                npcController.CrouchMeter = ___crouchMeter;
-                npcController.IsWalking = ___isWalking;
-                npcController.PlayerSlidingTimer = ___playerSlidingTimer;
-
-                npcController.DisabledJetpackControlsThisFrame = ___disabledJetpackControlsThisFrame;
-                npcController.StartedJetpackControls = ___startedJetpackControls;
-                npcController.UpperBodyAnimationsWeight = ___upperBodyAnimationsWeight;
-                npcController.ThrowingObject.Apply(___throwingObject); // NOTE: ThrowingObject is updated in an RPC which is not during the standard update call
-                npcController.TimeSinceSwitchingSlots.Apply(___timeSinceSwitchingSlots); // NOTE: TimeSinceSwitchingSlots can be updated in an RPC which is not during the standard update call
-                npcController.TimeSinceTakingGravityDamage = ___timeSinceTakingGravityDamage;
-                npcController.TeleportingThisFrame = ___teleportingThisFrame;
-                npcController.PreviousFrameDeltaTime = ___previousFrameDeltaTime;
-
-                npcController.CameraUp = ___cameraUp;
-                npcController.UpdatePlayerLookInterval = ___updatePlayerLookInterval;
-                npcController.BloodDropTimer = ___bloodDropTimer;
-
                 lethalBotAI.UpdateController();
-
-                ___isCameraDisabled = npcController.IsCameraDisabled;
-                ___crouchMeter = npcController.CrouchMeter;
-                ___isWalking = npcController.IsWalking;
-                ___playerSlidingTimer = npcController.PlayerSlidingTimer;
-
-                ___startedJetpackControls = npcController.StartedJetpackControls;
-                ___upperBodyAnimationsWeight = npcController.UpperBodyAnimationsWeight;
-                ___throwingObject = npcController.ThrowingObject;
-                ___timeSinceSwitchingSlots = npcController.TimeSinceSwitchingSlots;
-                ___timeSinceTakingGravityDamage = npcController.TimeSinceTakingGravityDamage;
-                ___teleportingThisFrame = npcController.TeleportingThisFrame;
-                ___previousFrameDeltaTime = npcController.PreviousFrameDeltaTime;
-
-                ___cameraUp = npcController.CameraUp;
-                ___updatePlayerLookInterval = npcController.UpdatePlayerLookInterval;
-                ___bloodDropTimer = npcController.BloodDropTimer;
             }
 
             return false;
@@ -128,20 +72,9 @@ namespace LethalBots.Patches.NpcPatches
             {
                 // The controller isn't set on bot creation, so null check it until our client receives the bot spawn RPC
                 NpcController npcController = lethalBotAI.NpcController;
-                if (npcController != null)
+                if (lethalBotAI.NpcController != null)
                 {
-                    npcController.IsWalking = ___isWalking;
-                    npcController.UpdatePositionForNewlyJoinedClient = ___updatePositionForNewlyJoinedClient;
-                    npcController.UpdatePlayerLookInterval = ___updatePlayerLookInterval;
-                    npcController.LimpMultiplier = ___limpMultiplier;
-                    npcController.PlayerMask = ___playerMask;
-
                     npcController.LateUpdate();
-
-                    ___isWalking = npcController.IsWalking;
-                    ___updatePositionForNewlyJoinedClient = npcController.UpdatePositionForNewlyJoinedClient;
-                    ___updatePlayerLookInterval = npcController.UpdatePlayerLookInterval;
-                    ___limpMultiplier = npcController.LimpMultiplier;
                 }
 
                 return false;
@@ -507,7 +440,6 @@ namespace LethalBots.Patches.NpcPatches
         [HarmonyPrefix]
         static bool TeleportPlayer_PreFix(PlayerControllerB __instance,
                                           Vector3 pos,
-                                          ref bool ___teleportingThisFrame,
                                           bool withRotation = false,
                                           float rot = 0f,
                                           bool allowInteractTrigger = false)
@@ -516,8 +448,7 @@ namespace LethalBots.Patches.NpcPatches
             if (lethalBotAI != null)
             {
                 StartOfRound.Instance.playerTeleportedEvent.Invoke(__instance);
-                ___teleportingThisFrame = true;
-                lethalBotAI.NpcController.TeleportingThisFrame = true;
+                __instance.teleportingThisFrame = true;
                 __instance.teleportedLastFrame = true;
                 lethalBotAI.TeleportLethalBot(pos, withRotation: withRotation, rot: rot, allowInteractTrigger: allowInteractTrigger);
                 return false;
@@ -560,6 +491,7 @@ namespace LethalBots.Patches.NpcPatches
 
         [HarmonyPatch("DestroyItemInSlot")]
         [HarmonyTranspiler]
+        [HarmonyPriority(Priority.First)]
         public static IEnumerable<CodeInstruction> DestroyItemInSlot_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
         {
             var startIndex = -1;

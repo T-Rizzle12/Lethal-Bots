@@ -45,7 +45,7 @@ namespace LethalBots.Patches.ModPatches.Zaprillator
             ____bodyShocked = false;
             RoundManager.Instance.FlickerLights();
 
-            var restoreHealth = LethalBotManager.Instance.MaxHealthPercent(Mathf.RoundToInt(____batteryLevel * 100), lethalBotIdentity.HpMax);
+            var restoreHealth = LethalBotManager.MaxHealthPercent(Mathf.RoundToInt(____batteryLevel * 100), lethalBotIdentity.HpMax);
             ____shockedBy.UseUpBatteries();
             ____shockedBy.SyncBatteryServerRpc(0);
             ____shockedBy = null!;

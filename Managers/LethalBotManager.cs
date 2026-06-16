@@ -264,7 +264,6 @@ namespace LethalBots.Managers
         private static float timerUpdateHoardingBugItems;
         internal static Dictionary<GrabbableObject, HoarderBugItem> DictHoardingBugItems = new Dictionary<GrabbableObject, HoarderBugItem>();
 
-        private float timerSetLethalBotInElevator;
         private float timerUpdateOwnershipOfBot;
         private static bool registeredVoiceCommands = false;
 
@@ -2738,10 +2737,21 @@ namespace LethalBots.Managers
                         if (LethalBotAI.ShouldIgnoreLightSource(light))
                             continue;
 
-                        // Check the light direction (if applicable)
+                        // Have to be in range of the light to consider it
+                        LightType lightType = light.type;
                         Vector3 toBot = ourPos - light.transform.position;
+                        float dist = toBot.sqrMagnitude; // NOTE: We don't use sqr distance since we need to use the exact range later.
+                        float lightRange = light.range;
+                        if (lightType != LightType.Directional
+                            && dist > lightRange * lightRange)
+                            continue;
+
+                        // Convert distance to squared distance for attenuation calculation
+                        dist = lightType != LightType.Directional ? Mathf.Sqrt(dist) : 0f;
+
+                        // Check the light direction (if applicable)
                         float coneFactor = 1f;
-                        if (light.type == LightType.Spot)
+                        if (lightType == LightType.Spot)
                         {
                             float angle = Vector3.Angle(light.transform.forward, toBot.normalized);
                             float halfAngle = light.spotAngle * 0.5f;
@@ -2752,13 +2762,8 @@ namespace LethalBots.Managers
                             coneFactor = Mathf.Clamp01(coneFactor - (angle / halfAngle));
                         }
 
-                        // Have to be in range of the light to consider it
-                        float dist = toBot.magnitude; // NOTE: We don't use sqr distance since we need to use the exact range later.
-                        if (dist > light.range)
-                            continue;
-
                         // Adjust the light strength based on its distance from the bot and its intensity
-                        float atten = 1f - Mathf.Clamp01(dist / light.range);
+                        float atten = lightType != LightType.Directional ? 1f - Mathf.Clamp01(dist / lightRange) : 1f;
                         atten *= atten;
                         float occlusion = LethalBotAI.GetLightOcclusionFactor(light.transform.position, ourPos);
                         lightLevel += light.intensity * atten * coneFactor * occlusion;
@@ -4467,7 +4472,8 @@ namespace LethalBots.Managers
             return 35;
         }
 
-        public int MaxHealthPercent(int percentage, int maxHealth)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int MaxHealthPercent(int percentage, int maxHealth)
         {
             int healthPercent = (int)(((double)percentage / (double)100) * (double)maxHealth);
             return healthPercent < 1 ? 1 : healthPercent;

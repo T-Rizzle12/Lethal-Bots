@@ -114,7 +114,7 @@ namespace LethalBots.Patches.MapHazardsPatches
         [HarmonyPrefix]
         public static bool StopSinkingLocalPlayer_Prefix(QuicksandTrigger __instance, PlayerControllerB playerScript)
         {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAIIfLocalIsOwner(playerScript);
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerScript);
             if (lethalBotAI == null)
             {
                 return true;

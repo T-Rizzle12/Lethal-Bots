@@ -39,36 +39,12 @@ namespace LethalBots.AI
         public TimedGetBounds GetBoundsTimedCheck = null!;
         public TimedUpdateBillboardLookAtCheck UpdateBillBoardLookAtTimedCheck = null!;
 
-        // Public variables to pass to patch
-        // NEEDTOVALIDATE: Would it be better if I used accesstools and used FieldRef instead?
-        public bool IsCameraDisabled;
-        public bool IsJumping;
-        public bool IsFallingFromJump;
-        public float CrouchMeter;
-        public bool IsWalking;
-        public float PlayerSlidingTimer;
-        public float BloodDropTimer;
-        public float LimpMultiplier = 0.2f;
-        public bool DisabledJetpackControlsThisFrame;
-        public bool StartedJetpackControls;
-        public float UpperBodyAnimationsWeight;
-        public Vector3 RightArmProceduralTargetBasePosition;
-        public Overrideable<bool> ThrowingObject = new Overrideable<bool>(false);
-        public Overrideable<float> TimeSinceSwitchingSlots = new Overrideable<float>(0f);
-        public float TimeSinceTakingGravityDamage;
-        public bool TeleportingThisFrame;
-        public float PreviousFrameDeltaTime;
-        public float CameraUp;
-
         //Audio
         public OccludeAudio OccludeAudioComponent = null!;
         public AudioLowPassFilter AudioLowPassFilterComponent = null!;
         public AudioHighPassFilter AudioHighPassFilterComponent = null!;
 
         public Vector3 MoveVector;
-        public bool UpdatePositionForNewlyJoinedClient;
-        public float UpdatePlayerLookInterval;
-        public int PlayerMask;
         public bool IsTouchingGround;
         public EnemyAI? EnemyInAnimationWith;
         public Vector3 NearEntitiesPushVector;
@@ -145,11 +121,11 @@ namespace LethalBots.AI
             Npc.thisPlayerModel.shadowCastingMode = ShadowCastingMode.On;
             Npc.thisPlayerModelArms.enabled = false;
 
-            this.IsCameraDisabled = true;
+            Npc.isCameraDisabled = true;
             Npc.sprintMeter = 1f;
             if (!clientJoining) Npc.ItemSlots ??= new GrabbableObject[4]; // Only create new array if it doesn't exist!
             Npc.testGroundPositions = new Vector3[5];
-            RightArmProceduralTargetBasePosition = Npc.rightArmProceduralTarget.localPosition;
+            Npc.rightArmProceduralTargetBasePosition = Npc.rightArmProceduralTarget.localPosition;
 
             Npc.usernameBillboardText.text = Npc.playerUsername;
             Npc.usernameAlpha.alpha = 1f;
@@ -249,7 +225,7 @@ namespace LethalBots.AI
                     UpdateFallValuesForOwner();
 
                     Npc.externalForces = Vector3.zero;
-                    if (!TeleportingThisFrame && Npc.teleportedLastFrame)
+                    if (!Npc.teleportingThisFrame && Npc.teleportedLastFrame)
                     {
                         Npc.ResetFallGravity();
                         Npc.teleportedLastFrame = false;
@@ -263,7 +239,7 @@ namespace LethalBots.AI
                     // Update movement when using ladder
                     UpdateMoveWhenClimbingLadder();
                 }
-                TeleportingThisFrame = false;
+                Npc.teleportingThisFrame = false;
 
                 // Rotations
                 this.UpdateLookAt();
@@ -272,9 +248,9 @@ namespace LethalBots.AI
                 Npc.playerEye.rotation = Npc.gameplayCamera.transform.rotation;
 
                 // Update UpdatePlayerLookInterval
-                if (NetworkManager.Singleton != null && Npc.playersManager.connectedPlayersAmount > 0)
+                if (NetworkManager.Singleton != null)
                 {
-                    this.UpdatePlayerLookInterval += Time.deltaTime;
+                    Npc.updatePlayerLookInterval += Time.deltaTime;
                 }
 
                 // Update animations
@@ -292,7 +268,7 @@ namespace LethalBots.AI
                 UpdateLethalBotAnimationsLocalForNotOwner(animationHashLayers);
             }
 
-            this.TimeSinceSwitchingSlots.Apply(this.TimeSinceSwitchingSlots + Time.deltaTime);
+            Npc.timeSinceSwitchingSlots += Time.deltaTime;
             Npc.timeSincePlayerMoving += Time.deltaTime;
             Npc.timeSinceMakingLoudNoise += Time.deltaTime;
             Npc.timeSinceFearLevelUp += Time.deltaTime;
@@ -337,9 +313,9 @@ namespace LethalBots.AI
         {
             if (isOwner)
             {
-                if (IsCameraDisabled)
+                if (Npc.isCameraDisabled)
                 {
-                    IsCameraDisabled = false;
+                    Npc.isCameraDisabled = false;
                     Npc.gameplayCamera.enabled = false;
                     Npc.visorCamera.enabled = false;
                     Npc.thisPlayerModelArms.enabled = false;
@@ -358,9 +334,9 @@ namespace LethalBots.AI
             }
             else
             {
-                if (!this.IsCameraDisabled)
+                if (!Npc.isCameraDisabled)
                 {
-                    this.IsCameraDisabled = true;
+                    Npc.isCameraDisabled = true;
                     Npc.gameplayCamera.enabled = false;
                     Npc.visorCamera.enabled = false;
                     Npc.thisPlayerModel.shadowCastingMode = ShadowCastingMode.On;
@@ -482,7 +458,7 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateWalkingStateForOwner()
         {
-            if (IsWalking)
+            if (Npc.isWalking)
             {
                 if (Npc.moveInputVector.sqrMagnitude <= 0.19f
                     || (Npc.inSpecialInteractAnimation && !Npc.isClimbingLadder && !Npc.inShockingMinigame))
@@ -569,7 +545,7 @@ namespace LethalBots.AI
                 }
                 if (Npc.moveInputVector.sqrMagnitude >= 0.001f && (!Npc.inSpecialInteractAnimation || Npc.isClimbingLadder || Npc.inShockingMinigame))
                 {
-                    IsWalking = true;
+                    Npc.isWalking = true;
                 }
             }
         }
@@ -649,7 +625,7 @@ namespace LethalBots.AI
             }
             else
             {
-                CrouchMeter = Mathf.Max(CrouchMeter - Time.deltaTime * 2f, 0f);
+                Npc.crouchMeter = Mathf.Max(Npc.crouchMeter - Time.deltaTime * 2f, 0f);
                 Npc.thisController.center = Vector3.Lerp(Npc.thisController.center, new Vector3(Npc.thisController.center.x, 1.28f, Npc.thisController.center.z), 8f * Time.deltaTime);
                 Npc.thisController.height = Mathf.Lerp(Npc.thisController.height, 2.5f, 8f * Time.deltaTime);
             }
@@ -678,9 +654,9 @@ namespace LethalBots.AI
                 }
                 else if (!IsTouchingGround)
                 {
-                    if (!this.StartedJetpackControls)
+                    if (!Npc.startedJetpackControls)
                     {
-                        this.StartedJetpackControls = true;
+                        Npc.startedJetpackControls = true;
                         Npc.jetpackTurnCompass.rotation = Npc.transform.rotation;
                     }
                     Npc.thisController.radius = Mathf.Lerp(Npc.thisController.radius, 1.25f, 10f * Time.deltaTime);
@@ -742,7 +718,7 @@ namespace LethalBots.AI
                 else if (Npc.criticallyInjured && !Npc.isCrouching)
                 {
                     //Plugin.LogDebug($"Bot {Npc.playerUsername} Limp Multiplier: {LimpMultiplier}");
-                    num3 *= LimpMultiplier;
+                    num3 *= Npc.limpMultiplier;
                 }
                 if (Npc.isSpeedCheating)
                 {
@@ -760,7 +736,7 @@ namespace LethalBots.AI
                 {
                     num3 *= 0.75f;
                 }
-                if (!Npc.isCrouching && CrouchMeter > 1.2f)
+                if (!Npc.isCrouching && Npc.crouchMeter > 1.2f)
                 {
                     num3 *= 0.5f;
                 }
@@ -771,7 +747,7 @@ namespace LethalBots.AI
             }
 
             float num7 = 1f;
-            if (IsFallingFromJump || isFallingNoJump)
+            if (Npc.isFallingFromJump || isFallingNoJump)
             {
                 num7 = 1.33f;
             }
@@ -783,7 +759,7 @@ namespace LethalBots.AI
             {
                 num7 = Mathf.Clamp(Mathf.Abs(Npc.poison - 2.25f), 0.3f, 2.5f);
             }
-            else if (!Npc.isCrouching && CrouchMeter > 1f)
+            else if (!Npc.isCrouching && Npc.crouchMeter > 1f)
             {
                 num7 = 15f;
             }
@@ -804,7 +780,7 @@ namespace LethalBots.AI
                 Npc.externalForceAutoFade = Vector3.Lerp(Npc.externalForceAutoFade, Vector3.zero, 2f * Time.deltaTime);
             }
 
-            PlayerSlidingTimer = 0f;
+            Npc.playerSlidingTimer = 0f;
             NearEntitiesPushVector = Vector3.zero;
 
             // Move
@@ -843,7 +819,7 @@ namespace LethalBots.AI
                         }
                     }
                 }
-                if (!IsJumping && !IsFallingFromJump)
+                if (!Npc.isJumping && !Npc.isFallingFromJump)
                 {
                     if (!isFallingNoJump)
                     {
@@ -867,7 +843,7 @@ namespace LethalBots.AI
             else
             {
                 movementHinderedPrev = Npc.isMovementHindered;
-                if (!IsJumping)
+                if (!Npc.isJumping)
                 {
                     if (isFallingNoJump)
                     {
@@ -898,7 +874,7 @@ namespace LethalBots.AI
 
             if (Npc.jetpackControls || Npc.disablingJetpackControls)
             {
-                if (!this.TeleportingThisFrame && !Npc.inSpecialInteractAnimation && !Npc.enteringSpecialAnimation && !Npc.isClimbingLadder && (instanceSOR.timeSinceRoundStarted > 1f || instanceSOR.testRoom != null))
+                if (!Npc.teleportingThisFrame && !Npc.inSpecialInteractAnimation && !Npc.enteringSpecialAnimation && !Npc.isClimbingLadder && (instanceSOR.timeSinceRoundStarted > 1f || instanceSOR.testRoom != null))
                 {
                     if (Npc.getAverageVelocityInterval <= 0f)
                     {
@@ -922,7 +898,7 @@ namespace LethalBots.AI
                     {
                         Npc.getAverageVelocityInterval -= Time.deltaTime;
                     }
-                    if (TimeSinceTakingGravityDamage > 0.6f && Npc.velocityAverageCount > 4)
+                    if (Npc.timeSinceTakingGravityDamage > 0.6f && Npc.velocityAverageCount > 4)
                     {
                         float num8 = Vector3.Angle(Npc.transform.up, Vector3.up);
                         if (Physics.CheckSphere(Npc.gameplayCamera.transform.position, 0.5f, instanceSOR.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)
@@ -930,38 +906,38 @@ namespace LethalBots.AI
                         {
                             if (Npc.averageVelocity > 17f)
                             {
-                                TimeSinceTakingGravityDamage = 0f;
+                                Npc.timeSinceTakingGravityDamage = 0f;
                                 Npc.DamagePlayer(Mathf.Clamp(85, 20, 100), hasDamageSFX: true, callRPC: true, CauseOfDeath.Gravity, 0, true, Vector3.ClampMagnitude(Npc.velocityLastFrame, 50f));
                             }
                             else if (Npc.averageVelocity > 9f)
                             {
                                 Npc.DamagePlayer(Mathf.Clamp(30, 20, 100), hasDamageSFX: true, callRPC: true, CauseOfDeath.Gravity, 0, true, Vector3.ClampMagnitude(Npc.velocityLastFrame, 50f));
-                                TimeSinceTakingGravityDamage = 0.35f;
+                                Npc.timeSinceTakingGravityDamage = 0.35f;
                             }
                             else if (num8 > 60f && Npc.averageVelocity > 6f)
                             {
                                 Npc.DamagePlayer(Mathf.Clamp(30, 20, 100), hasDamageSFX: true, callRPC: true, CauseOfDeath.Gravity, 0, true, Vector3.ClampMagnitude(Npc.velocityLastFrame, 50f));
-                                TimeSinceTakingGravityDamage = 0f;
+                                Npc.timeSinceTakingGravityDamage = 0f;
                             }
                         }
                     }
                     else
                     {
-                        TimeSinceTakingGravityDamage += Time.deltaTime;
+                        Npc.timeSinceTakingGravityDamage += Time.deltaTime;
                     }
                     Npc.velocityLastFrame = Npc.thisController.velocity;
-                    PreviousFrameDeltaTime = Time.deltaTime;
+                    Npc.previousFrameDeltaTime = Time.deltaTime;
                 }
                 else
                 {
-                    TeleportingThisFrame = false;
+                    Npc.teleportingThisFrame = false;
                 }
             }
             else
             {
                 Npc.averageVelocity = 0f;
                 Npc.velocityAverageCount = 0;
-                TimeSinceTakingGravityDamage = 0f;
+                Npc.timeSinceTakingGravityDamage = 0f;
             }
         }
 
@@ -1031,9 +1007,9 @@ namespace LethalBots.AI
             }*/
 
             // Update this so we can send the layers to other clients!
-            if (Npc.playerBodyAnimator.GetBool(Const.PLAYER_ANIMATION_BOOL_WALKING) != IsWalking)
+            if (Npc.playerBodyAnimator.GetBool(Const.PLAYER_ANIMATION_BOOL_WALKING) != Npc.isWalking)
             {
-                Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_WALKING, IsWalking);
+                Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_WALKING, Npc.isWalking);
             }
             if (Npc.playerBodyAnimator.GetBool(Const.PLAYER_ANIMATION_BOOL_SPRINTING) != Npc.isSprinting)
             {
@@ -1153,8 +1129,8 @@ namespace LethalBots.AI
             {
                 if ((!Npc.isClimbingLadder && !Npc.inShockingMinigame) || Npc.freeRotationInInteractAnimation)
                 {
-                    CameraUp = Mathf.Lerp(CameraUp, 0f, 5f * Time.deltaTime);
-                    Npc.gameplayCamera.transform.localEulerAngles = new Vector3(CameraUp, Npc.gameplayCamera.transform.localEulerAngles.y, Npc.gameplayCamera.transform.localEulerAngles.z);
+                    Npc.cameraUp = Mathf.Lerp(Npc.cameraUp, 0f, 5f * Time.deltaTime);
+                    Npc.gameplayCamera.transform.localEulerAngles = new Vector3(Npc.cameraUp, Npc.gameplayCamera.transform.localEulerAngles.y, Npc.gameplayCamera.transform.localEulerAngles.z);
                 }
                 Npc.specialAnimationWeight = Mathf.Lerp(Npc.specialAnimationWeight, 1f, Time.deltaTime * 20f);
                 Npc.playerModelArmsMetarig.localEulerAngles = new Vector3(-90f, 0f, 0f);
@@ -1257,22 +1233,22 @@ namespace LethalBots.AI
 
             if (Npc.isHoldingObject || Npc.isGrabbingObjectAnimation || Npc.inShockingMinigame)
             {
-                this.UpperBodyAnimationsWeight = Mathf.Lerp(this.UpperBodyAnimationsWeight, 1f, 25f * Time.deltaTime);
-                Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsRightHand, this.UpperBodyAnimationsWeight);
+                Npc.upperBodyAnimationsWeight = Mathf.Lerp(Npc.upperBodyAnimationsWeight, 1f, 25f * Time.deltaTime);
+                Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsRightHand, Npc.upperBodyAnimationsWeight);
                 if (Npc.twoHandedAnimation || Npc.inShockingMinigame)
                 {
-                    Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsBothHands, this.UpperBodyAnimationsWeight);
+                    Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsBothHands, Npc.upperBodyAnimationsWeight);
                 }
                 else
                 {
-                    Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsBothHands, Mathf.Abs(this.UpperBodyAnimationsWeight - 1f));
+                    Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsBothHands, Mathf.Abs(Npc.upperBodyAnimationsWeight - 1f));
                 }
             }
             else
             {
-                this.UpperBodyAnimationsWeight = Mathf.Lerp(this.UpperBodyAnimationsWeight, 0f, 25f * Time.deltaTime);
-                Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsRightHand, this.UpperBodyAnimationsWeight);
-                Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsBothHands, this.UpperBodyAnimationsWeight);
+                Npc.upperBodyAnimationsWeight = Mathf.Lerp(Npc.upperBodyAnimationsWeight, 0f, 25f * Time.deltaTime);
+                Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsRightHand, Npc.upperBodyAnimationsWeight);
+                Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsBothHands, Npc.upperBodyAnimationsWeight);
             }
 
             Npc.playerBodyAnimator.SetLayerWeight(Npc.playerBodyAnimator.GetLayerIndex(Const.PLAYER_ANIMATION_WEIGHT_SPECIALANIMATIONS), Npc.specialAnimationWeight);
@@ -1302,9 +1278,9 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateBleedEffects()
         {
-            if (Npc.bleedingHeavily && BloodDropTimer >= 0f)
+            if (Npc.bleedingHeavily && Npc.bloodDropTimer >= 0f)
             {
-                BloodDropTimer -= Time.deltaTime;
+                Npc.bloodDropTimer -= Time.deltaTime;
             }
         }
 
@@ -1464,7 +1440,7 @@ namespace LethalBots.AI
 
         public void StopAnimations()
         {
-            IsWalking = false;
+            Npc.isWalking = false;
             Npc.isSprinting = false;
             Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_WALKING, false);
             Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SPRINTING, false);
@@ -1654,9 +1630,9 @@ namespace LethalBots.AI
                             distMaxBeforeUpdating = 0.24f;
                         }
 
-                        if ((Npc.oldPlayerPosition - Npc.transform.localPosition).sqrMagnitude > distMaxBeforeUpdating || UpdatePositionForNewlyJoinedClient)
+                        if ((Npc.oldPlayerPosition - Npc.transform.localPosition).sqrMagnitude > distMaxBeforeUpdating || Npc.updatePositionForNewlyJoinedClient)
                         {
-                            UpdatePositionForNewlyJoinedClient = false;
+                            Npc.updatePositionForNewlyJoinedClient = false;
                             if (!Npc.playersManager.newGameIsLoading)
                             {
                                 LethalBotAIController.SyncUpdateLethalBotPosition(Npc.thisPlayerBody.localPosition, Npc.isInElevator, Npc.isInHangarShipRoom, Npc.isExhausted, IsTouchingGround);
@@ -1684,14 +1660,14 @@ namespace LethalBots.AI
                     }
                     else if (Npc.isMovementHindered > 0)
                     {
-                        if (IsWalking)
+                        if (Npc.isWalking)
                         {
                             Npc.sprintMeter = Mathf.Clamp(Npc.sprintMeter - Time.deltaTime / Npc.sprintTime * num2 * 0.5f, 0f, 1f);
                         }
                     }
                     else
                     {
-                        if (!IsWalking)
+                        if (!Npc.isWalking)
                         {
                             Npc.sprintMeter = Mathf.Clamp(Npc.sprintMeter + Time.deltaTime / (Npc.sprintTime + 4f) * num2, 0f, 1f);
                         }
@@ -2116,9 +2092,9 @@ namespace LethalBots.AI
             // Disabling IsRealPlayerClose(Npc.transform.position, 35f) as it causes the bots not to update
             // if there are no alive players nearby which affects spectating players!
             // As well as players on the ship monitoring the bots!
-            if (this.UpdatePlayerLookInterval > 0.25f)
+            if (Npc.updatePlayerLookInterval > 0.25f)
             {
-                this.UpdatePlayerLookInterval = 0f;
+                Npc.updatePlayerLookInterval = 0f;
                 LethalBotAIController.SyncUpdateLethalBotRotationAndLook(LethalBotAIController.State?.GetBillboardStateIndicator() ?? "",
                                                                    LookAtTarget);
                 this.oldLookAtTarget = this.LookAtTarget.Clone();
@@ -2151,7 +2127,7 @@ namespace LethalBots.AI
             {
                 return;
             }
-            if (this.IsJumping)
+            if (Npc.isJumping)
             {
                 return;
             }
@@ -2198,7 +2174,7 @@ namespace LethalBots.AI
             {
                 return;
             }
-            if (this.IsJumping)
+            if (Npc.isJumping)
             {
                 return;
             }
@@ -2206,7 +2182,7 @@ namespace LethalBots.AI
             {
                 return;
             }
-            this.CrouchMeter = Mathf.Min(this.CrouchMeter + 0.3f, 1.3f);
+            Npc.crouchMeter = Mathf.Min(Npc.crouchMeter + 0.3f, 1.3f);
             Npc.Crouch(!Npc.isCrouching);
         }
 
@@ -2342,13 +2318,13 @@ namespace LethalBots.AI
                 lethalBotController.targetScreenPos = lethalBotController.gameplayCamera.WorldToViewportPoint(lethalBotController.shockingTarget.position + Vector3.up * 0.35f);
                 if (lethalBotController.targetScreenPos.y > 0.6f)
                 {
-                    CameraUp = Mathf.Clamp(Mathf.Lerp(CameraUp, CameraUp - 25f, 25f * num * Mathf.Abs(lethalBotController.targetScreenPos.y - 0.5f)), -89f, 89f);
+                    Npc.cameraUp = Mathf.Clamp(Mathf.Lerp(Npc.cameraUp, Npc.cameraUp - 25f, 25f * num * Mathf.Abs(lethalBotController.targetScreenPos.y - 0.5f)), -89f, 89f);
                 }
                 else if (lethalBotController.targetScreenPos.y < 0.35f)
                 {
-                    CameraUp = Mathf.Clamp(Mathf.Lerp(CameraUp, CameraUp + 25f, 25f * num * Mathf.Abs(lethalBotController.targetScreenPos.y - 0.5f)), -89f, 89f);
+                    Npc.cameraUp = Mathf.Clamp(Mathf.Lerp(Npc.cameraUp, Npc.cameraUp + 25f, 25f * num * Mathf.Abs(lethalBotController.targetScreenPos.y - 0.5f)), -89f, 89f);
                 }
-                lethalBotController.gameplayCamera.transform.localEulerAngles = new Vector3(CameraUp, lethalBotController.gameplayCamera.transform.localEulerAngles.y, lethalBotController.gameplayCamera.transform.localEulerAngles.z);
+                lethalBotController.gameplayCamera.transform.localEulerAngles = new Vector3(Npc.cameraUp, lethalBotController.gameplayCamera.transform.localEulerAngles.y, lethalBotController.gameplayCamera.transform.localEulerAngles.z);
                 Vector3 zero = Vector3.zero;
                 zero.y = lethalBotController.turnCompass.eulerAngles.y;
                 lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, Quaternion.Euler(zero), Time.deltaTime * 20f * (1f - Mathf.Abs(lethalBotController.shockMinigamePullPosition)));

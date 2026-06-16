@@ -1,10 +1,12 @@
 ﻿using LethalBots.AI;
+using System;
 
 namespace LethalBots.Utils.Helpers
 {
     /// <summary>
     /// Simple class used by <see cref="NpcController"/> so I can have variables that can ignore updates
     /// </summary>
+    [Obsolete("Overrideable is no longer needed, as this project now uses BepInEx.AssemblyPublicizer. This will be removed in a later update!", true)]
     public sealed class Overrideable<T>
     {
         private T _value;
