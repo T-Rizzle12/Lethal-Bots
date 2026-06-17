@@ -2222,6 +2222,11 @@ namespace LethalBots.AI
                     int waterArea = NavMesh.GetAreaFromName("Water");
                     agent.SetAreaCost(waterArea, 5f);
 
+                    // High path cost for enemy only area
+                    // NOTE: I can't tell the bots to not path here, or they could break on some custom moons!
+                    int enemyOnlyArea = NavMesh.GetAreaFromName("EnemiesOnly");
+                    agent.SetAreaCost(enemyOnlyArea, 50f);
+
                     // 5 times the pathing cost for landmines!
                     agent.SetAreaCost(Const.LETHAL_BOT_LANDMINE_NAVAREA, 5f);
 
@@ -3947,7 +3952,7 @@ namespace LethalBots.AI
         [Obsolete("This has been moved to ItemsManager. Use that one instead!")]
         public static bool IsItemPowered([NotNullWhen(true)] GrabbableObject? item)
         {
-            return ItemsManager.IsItemPowered(item);
+            return ItemsManager.HasRequiredCharge(item);
         }
 
         /// <summary>

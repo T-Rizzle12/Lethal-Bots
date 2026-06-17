@@ -113,6 +113,7 @@ namespace LethalBots.Patches.GameEnginePatches
         /// <returns></returns>
         [HarmonyPatch("ConnectionApproval")]
         [HarmonyPrefix]
+        [HarmonyPriority(Priority.First)]
         static bool ConnectionApproval_Prefix(GameNetworkManager __instance, 
                                             ref NetworkManager.ConnectionApprovalRequest request, 
                                             ref NetworkManager.ConnectionApprovalResponse response)
@@ -126,10 +127,25 @@ namespace LethalBots.Patches.GameEnginePatches
                 return true;
             }
 
-            int openPlayerSlot = LethalBotManager.Instance?.GetNextAvailablePlayerObject() ?? 0;
+            // Since bots are not considered as a connected client,
+            // we need to enforce lobby size ourself.
+            LethalBotManager? instanceLBM = LethalBotManager.Instance;
+            int openPlayerSlot = instanceLBM != null ? instanceLBM.GetNextAvailablePlayerObject() : 0;
             if (openPlayerSlot < 0)
             {
                 response.Reason = "Lobby is full!";
+                response.CreatePlayerObject = false;
+                response.Approved = false;
+                response.Pending = false;
+                return false;
+            }
+
+            // Since multiple players joining the game at the same time can break stuff,
+            // we need to block players from joining while bots are joining a the same time.
+            bool areBotsJoining = instanceLBM != null && (instanceLBM.isSpawningBots.Value || instanceLBM.sendPlayerCountUpdate.Value);
+            if (areBotsJoining)
+            {
+                response.Reason = "Bot was connecting! \n Try again in a bit.";
                 response.CreatePlayerObject = false;
                 response.Approved = false;
                 response.Pending = false;

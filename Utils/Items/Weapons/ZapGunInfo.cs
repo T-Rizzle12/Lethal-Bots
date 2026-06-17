@@ -23,7 +23,7 @@ namespace LethalBots.Utils.Items.Weapons
 
         public override bool HasAmmo(PlayerControllerB lethalBotController, GrabbableObject weapon, bool spareOnly = false)
         {
-            return ItemsManager.IsItemPowered(weapon); // Zap gun runs on batteries
+            return ItemsManager.HasRequiredCharge(weapon); // Zap gun runs on batteries
         }
 
         public override float GetAttackRangeForWeapon(GrabbableObject weapon)
@@ -81,7 +81,7 @@ namespace LethalBots.Utils.Items.Weapons
             return false;
         }
 
-        public override IEnumerator AttackWithWeapon(PlayerControllerB lethalBotController, GrabbableObject weapon, EnemyAI currentEnemy, Collider? enemyCollider)
+        public override IEnumerator AttackWithWeapon(PlayerControllerB lethalBotController, GrabbableObject weapon, EnemyAI currentEnemy, Collider? enemyCollider, Action<bool> setSkipCooldown)
         {
             if (weapon is PatcherTool patcherTool)
             {
@@ -95,12 +95,16 @@ namespace LethalBots.Utils.Items.Weapons
                     {
                         // We handle aiming our stun gun elsewhere
                         yield return null;
+                        setSkipCooldown.Invoke(true);
+                        yield break;
                     }
                     // We have the wrong guy, break the beam!
                     else
                     {
                         weapon.UseItemOnClient(true);
                         yield return null;
+                        setSkipCooldown.Invoke(true);
+                        yield break;
                     }
                 }
                 // We should already be on target, aim and FIRE

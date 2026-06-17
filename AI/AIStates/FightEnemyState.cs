@@ -405,9 +405,11 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // ATTACK!
-                // FIXME: The old code allowed skipping the cooldown if we didn't successfully use the weapon,
-                // I will have to find a workaround later. Since most weapon cooldowns are small, its fine for now.....
-                yield return weaponInfo.AttackWithWeapon(npcController.Npc, heldItem, CurrentEnemy, EnemyCollider);
+                bool skipCooldown = false;
+                yield return weaponInfo.AttackWithWeapon(npcController.Npc, heldItem, CurrentEnemy, EnemyCollider, r => skipCooldown = r);
+
+                // Did the weapon do its own cooldown, skip the default one then
+                if (skipCooldown) continue;
 
                 // Start the cooldown timer
                 attackCooldownTimer.Start(weaponInfo.GetWeaponAttackInterval(heldItem));

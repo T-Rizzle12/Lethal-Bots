@@ -124,7 +124,7 @@ namespace LethalBots.Utils.Items.Weapons
             return false;
         }
 
-        public override IEnumerator AttackWithWeapon(PlayerControllerB lethalBotController, GrabbableObject weapon, EnemyAI currentEnemy, Collider? enemyCollider)
+        public override IEnumerator AttackWithWeapon(PlayerControllerB lethalBotController, GrabbableObject weapon, EnemyAI currentEnemy, Collider? enemyCollider, Action<bool> setSkipCooldown)
         {
             if (weapon is ShotgunItem shotgun)
             {
@@ -132,18 +132,24 @@ namespace LethalBots.Utils.Items.Weapons
                 if (shotgun.isReloading)
                 {
                     yield return null;
+                    setSkipCooldown.Invoke(true);
+                    yield break;
                 }
                 // Kinda hard to use the shotgun with the safety on!
                 else if (shotgun.safetyOn)
                 {
                     shotgun.ItemInteractLeftRightOnClient(false);
                     yield return null;
+                    setSkipCooldown.Invoke(true);
+                    yield break;
                 }
                 // Reload the shotgun!
                 else if (shotgun.shellsLoaded <= 0)
                 {
                     shotgun.ItemInteractLeftRightOnClient(true);
                     yield return null;
+                    setSkipCooldown.Invoke(true);
+                    yield break;
                 }
                 // RIP AND TEAR!
                 else

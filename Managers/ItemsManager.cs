@@ -16,7 +16,23 @@ namespace LethalBots.Managers
     {
         public static ItemsManager Instance { get; private set; } = null!;
 
+        /// <summary>
+        /// This is the base type that all weapons inherit from
+        /// </summary>
+        private static readonly Type RootWeaponType = typeof(GrabbableObject);
+
+        /// <summary>
+        /// Actual info for each type
+        /// </summary>
         private readonly Dictionary<Type, WeaponInfo> weaponInfos = new Dictionary<Type, WeaponInfo>();
+
+        /// <summary>
+        /// Resolved info for each type
+        /// </summary>
+        /// <remarks>
+        /// Only exists to maintain previous bot behavior with modded weapons that worked with the bots
+        /// </remarks>
+        private readonly Dictionary<Type, WeaponInfo?> resolvedWeaponInfos = new Dictionary<Type, WeaponInfo?>();
 
         private void Awake()
         {
@@ -34,6 +50,7 @@ namespace LethalBots.Managers
         {
             // Register default items
             weaponInfos.Clear();
+            ClearResolvedWeaponsCache(); // Reset the cache!
             RegisterNewWeapon<Shovel>(new ShovelInfo());
             RegisterNewWeapon<KnifeItem>(new KnifeInfo());
             RegisterNewWeapon<ShotgunItem>(new ShotgunInfo());
@@ -46,16 +63,38 @@ namespace LethalBots.Managers
         /// Registeres the given type as a new weapon for the bots
         /// </summary>
         /// <param name="weaponInfo">The info about this weapon</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RegisterNewWeapon<T>(WeaponInfo weaponInfo)
             where T : GrabbableObject
         {
-            Type weaponType = typeof(T);
+            RegisterNewWeapon(typeof(T), weaponInfo);
+        }
+
+        /// <summary>
+        /// Registeres the given type as a new weapon for the bots
+        /// </summary>
+        /// <param name="weaponType">The weapon type to set the info for.</param>
+        /// <param name="weaponInfo">The info about this weapon</param>
+        public void RegisterNewWeapon(Type weaponType, WeaponInfo weaponInfo)
+        {
+            if (weaponInfo == null)
+            {
+                throw new ArgumentNullException(nameof(weaponInfo));
+            }
+
+            if (!typeof(GrabbableObject).IsAssignableFrom(weaponType))
+            {
+                throw new ArgumentException("Should inherit from GrabbableObject", nameof(weaponType));
+            }
+
             if (weaponInfos.ContainsKey(weaponType))
             {
                 Plugin.LogWarning($"Weapon '{weaponType.Name}' was already registered. Overwriting!");
+                ClearResolvedWeaponsCache(); // Reset the cache!
             }
 
             weaponInfos[weaponType] = weaponInfo;
+            resolvedWeaponInfos[weaponType] = weaponInfo; // We already know what info to use for this!
             Plugin.LogInfo($"Registered {weaponType.Name} as a weapon for LethalBots!");
         }
 
@@ -67,6 +106,16 @@ namespace LethalBots.Managers
         public void UnRegisterWeapon(Type weaponType)
         {
             weaponInfos.Remove(weaponType);
+            ClearResolvedWeaponsCache(); // Clear the cache!
+        }
+
+        /// <summary>
+        /// Public helper that allows you to reset the <see cref="resolvedWeaponInfos"/>
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ClearResolvedWeaponsCache()
+        {
+            resolvedWeaponInfos.Clear();
         }
 
         /// <summary>
@@ -77,7 +126,7 @@ namespace LethalBots.Managers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public WeaponInfo? GetWeaponInfo(GrabbableObject? weapon)
         {
-            return weapon != null && weaponInfos.TryGetValue(weapon.GetType(), out WeaponInfo weaponInfo) ? weaponInfo : null;
+            return weapon != null ? GetWeaponInfo(weapon.GetType()) : null;
         }
 
         /// <summary>
@@ -85,10 +134,25 @@ namespace LethalBots.Managers
         /// </summary>
         /// <param name="weaponType">The weapon type to get the info for.</param>
         /// <returns>The <see cref="WeaponInfo"/> associated with the given <paramref name="weaponType"/> or null</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public WeaponInfo? GetWeaponInfo(Type weaponType)
         {
-            return weaponInfos.TryGetValue(weaponType, out WeaponInfo weaponInfo) ? weaponInfo : null;
+            if (resolvedWeaponInfos.TryGetValue(weaponType, out WeaponInfo? cached))
+                return cached;
+
+            Type? current = weaponType;
+            while (current != null && current != RootWeaponType)
+            {
+                if (weaponInfos.TryGetValue(current, out WeaponInfo? info))
+                {
+                    resolvedWeaponInfos[weaponType] = info;
+                    return info;
+                }
+
+                current = current.BaseType;
+            }
+
+            resolvedWeaponInfos[weaponType] = null;
+            return null;
         }
 
         /// <summary>
@@ -99,7 +163,7 @@ namespace LethalBots.Managers
         public WeaponInfo? GetWeaponInfo<T>()
             where T : GrabbableObject
         {
-            return weaponInfos.TryGetValue(typeof(T), out WeaponInfo weaponInfo) ? weaponInfo : null;
+            return GetWeaponInfo(typeof(T));
         }
 
         /// <summary>
@@ -110,8 +174,8 @@ namespace LethalBots.Managers
         /// <returns><see langword="true"/> if there is a valid <see cref="WeaponInfo"/>; otherwise <see langword="false"/></returns>
         public bool TryGetWeaponInfo([NotNullWhen(true)] GrabbableObject? weapon, [NotNullWhen(true)] out WeaponInfo? weaponInfo)
         {
-            weaponInfo = null;
-            return weapon != null && weaponInfos.TryGetValue(weapon.GetType(), out weaponInfo);
+            weaponInfo = GetWeaponInfo(weapon);
+            return weaponInfo != null;
         }
 
         /// <summary>
@@ -122,8 +186,8 @@ namespace LethalBots.Managers
         /// <returns><see langword="true"/> if there is a valid <see cref="WeaponInfo"/>; otherwise <see langword="false"/></returns>
         public bool TryGetWeaponInfo(Type weaponType, [NotNullWhen(true)] out WeaponInfo? weaponInfo)
         {
-            weaponInfo = null;
-            return weaponInfos.TryGetValue(weaponType, out weaponInfo);
+            weaponInfo = GetWeaponInfo(weaponType);
+            return weaponInfo != null;
         }
 
         #endregion
@@ -156,8 +220,9 @@ namespace LethalBots.Managers
         /// this is used for the bots to know if they can use an item or not!
         /// </summary>
         /// <param name="item">The item to check</param>
+        /// <param name="requiredChargeLevel">The level of charge the battery should have.<br/> Should be a value between 0.0-1.0.</param>
         /// <returns>true: the item has a charge or doesn't use batteries; otherwise false</returns>
-        public static bool IsItemPowered([NotNullWhen(true)] GrabbableObject? item)
+        public static bool HasRequiredCharge([NotNullWhen(true)] GrabbableObject? item, float requiredChargeLevel = 0.0f)
         {
             if (item == null)
             {
@@ -169,7 +234,8 @@ namespace LethalBots.Managers
                 return true; // Battery is not required, so it has a "charge"
             }
 
-            if (item.insertedBattery == null || item.insertedBattery.empty)
+            Battery battery = item.insertedBattery;
+            if (battery == null || battery.empty || battery.charge < requiredChargeLevel)
             {
                 return false; // No battery or battery is empty, so it has no charge
             }

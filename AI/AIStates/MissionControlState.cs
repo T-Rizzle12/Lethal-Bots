@@ -375,7 +375,7 @@ namespace LethalBots.AI.AIStates
                         }
                     }
                     // If our weapon uses batteries and its low on battery, we should charge it!
-                    else if (!ItemsManager.IsItemPowered(weapon))
+                    else if (!ItemsManager.HasRequiredCharge(weapon))
                     {
                         // We should charge our weapon if we can!
                         ai.State = new ChargeHeldItemState(this, weapon);
@@ -452,8 +452,7 @@ namespace LethalBots.AI.AIStates
                     }
                 }
                 // If our walkie-talkie is low on battery, we should charge it!
-                else if (walkieTalkie.insertedBattery.empty
-                    || walkieTalkie.insertedBattery.charge < 0.1f)
+                else if (!ItemsManager.HasRequiredCharge(walkieTalkie, requiredChargeLevel: 0.1f))
                 {
                     // We should charge the walkie-talkie if we can!
                     ai.State = new ChargeHeldItemState(this, walkieTalkie);
@@ -532,7 +531,7 @@ namespace LethalBots.AI.AIStates
                     // Make sure our walkie-talkie is on!
                     if (walkieTalkie != null 
                         && !walkieTalkie.isBeingUsed 
-                        && ItemsManager.IsItemPowered(walkieTalkie))
+                        && ItemsManager.HasRequiredCharge(walkieTalkie))
                     {
                         walkieTalkie.ItemInteractLeftRightOnClient(false);
                         return;
@@ -1863,7 +1862,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // So, we don't have a walkie-talkie in our inventory, lets check the ship!
-            this.walkieTalkie = ai.FindItemOnShip(foundItem => foundItem is WalkieTalkie) as WalkieTalkie;
+            this.walkieTalkie = ai.FindItemOnShip(FindWalkieHelper) as WalkieTalkie;
         }
 
         /// <summary>
@@ -1895,7 +1894,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // So, we don't have a weapon in our inventory, lets check the ship!
-            this.weapon = ai.FindItemOnShip(foundItem => ai.HasAmmoForWeapon(foundItem));
+            this.weapon = ai.FindItemOnShip(FindWeaponHelper);
         }
 
         /// <summary>
@@ -1955,26 +1954,6 @@ namespace LethalBots.AI.AIStates
             foreach (var spikeRoofTrap in spikeRoofTraps)
             {
                 if (spikeRoofTrap == null) continue;
-
-                // This works, but is a lot slower!
-                //Component[] components = spikeRoofTrap.gameObject.GetComponentsInParent<Component>();
-                //foreach (Component component in components)
-                //{
-                //    if (component == null) continue;
-                //    // Based on my research, GetComponentInChildren also calls GetComponent internally!
-                //    //Plugin.LogDebug($"Checking if {component} has TerminalAccessableObject");
-                //    //TerminalAccessibleObject terminalAccessible = component.GetComponent<TerminalAccessibleObject>();
-                //    //Plugin.LogDebug($"{component} {(terminalAccessible != null ? "did" : "did not")} have a terminal accessable object!\n");
-
-                //    // Aliright, second look at the log file shows the TerminalAccessableObject as a child component
-                //    // Time to find it!
-                //    terminalAccessibleObject = component.GetComponentInChildren<TerminalAccessibleObject>();
-                //    if (terminalAccessibleObject != null)
-                //    {
-                //        break;
-                //    }
-
-                //}
 
                 // Much more efficent method!
                 TerminalAccessibleObject? terminalAccessibleObject = spikeRoofTrap.transform?.root?.GetComponentInChildren<TerminalAccessibleObject>();

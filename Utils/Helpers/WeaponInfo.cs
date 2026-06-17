@@ -45,7 +45,7 @@ namespace LethalBots.Utils.Helpers
         /// <returns></returns>
         public virtual bool HasAmmo(PlayerControllerB lethalBotController, GrabbableObject weapon, bool spareOnly = false)
         {
-            return ItemsManager.IsItemPowered(weapon); // Check the battery
+            return ItemsManager.HasRequiredCharge(weapon); // Check the battery
         }
 
         /// <summary>
@@ -162,8 +162,9 @@ namespace LethalBots.Utils.Helpers
         /// <param name="weapon">The weapon the bot is using</param>
         /// <param name="currentEnemy">The enemy the bot is attempting to hit</param>
         /// <param name="enemyCollider">The collider of the enemy the bot is attepting to hit</param>
+        /// <param name="setSkipCooldown">This is a delegate function passed in by <see cref="FightEnemyState.weaponAttackCoroutine"/> to allow you to skip setting the attack cooldown.<br/> This is for cases where you want to use your own cooldown.</param>
         /// <returns></returns>
-        public virtual IEnumerator AttackWithWeapon(PlayerControllerB lethalBotController, GrabbableObject weapon, EnemyAI currentEnemy, Collider? enemyCollider)
+        public virtual IEnumerator AttackWithWeapon(PlayerControllerB lethalBotController, GrabbableObject weapon, EnemyAI currentEnemy, Collider? enemyCollider, Action<bool> setSkipCooldown)
         {
             weapon.UseItemOnClient(true);
             yield return null;

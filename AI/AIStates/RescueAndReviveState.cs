@@ -1292,7 +1292,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         private static bool FindZapGun(GrabbableObject item)
         {
-            return item is PatcherTool zapGun && (zapGun.isInElevator || zapGun.isInShipRoom || ItemsManager.IsItemPowered(zapGun)); // For anyone wondering PatcherTool is the internal class name for the Zap Gun!
+            return item is PatcherTool zapGun && (zapGun.isInElevator || zapGun.isInShipRoom || ItemsManager.HasRequiredCharge(zapGun)); // For anyone wondering PatcherTool is the internal class name for the Zap Gun!
         }
 
         /// <summary>
@@ -1304,7 +1304,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         private static bool FindDefibUnit(GrabbableObject item)
         {
-            return item is DefibrillatorScript defibrillator && CanUsualScrapDefibUnitBeUsed(defibrillator) && (defibrillator.isInElevator || defibrillator.isInShipRoom || ItemsManager.IsItemPowered(defibrillator));
+            return item is DefibrillatorScript defibrillator && CanUsualScrapDefibUnitBeUsed(defibrillator) && (defibrillator.isInElevator || defibrillator.isInShipRoom || ItemsManager.HasRequiredCharge(defibrillator));
         }
 
         /// <summary>

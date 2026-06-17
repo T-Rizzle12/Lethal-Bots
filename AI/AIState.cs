@@ -951,7 +951,7 @@ namespace LethalBots.AI
                     if (ai.LethalBotIdentity.Voice.IsTalking())
                     {
                         canUseLethalPhones = false;
-                        if (!walkieTalkie.isBeingUsed && ItemsManager.IsItemPowered(walkieTalkie))
+                        if (!walkieTalkie.isBeingUsed && ItemsManager.HasRequiredCharge(walkieTalkie))
                         {
                             walkieTalkie.ItemInteractLeftRightOnClient(false);
                         }
@@ -993,7 +993,7 @@ namespace LethalBots.AI
                 else if (heldItem is FlashlightItem flashlight)
                 {
                     // Kinda hard to use the flashlight if it has no juice!
-                    if (ItemsManager.IsItemPowered(flashlight)
+                    if (ItemsManager.HasRequiredCharge(flashlight)
                         && !ai.CheckProximityForEyelessDogs())
                     {
                         // Now do we need to turn it on or off?
@@ -1124,7 +1124,7 @@ namespace LethalBots.AI
         protected virtual bool SelectBestItemFromInventoryFilter(GrabbableObject item)
         {
             // If this item uses batteries, make sure it has a charge before we try to use it!
-            if (!ItemsManager.IsItemPowered(item))
+            if (!ItemsManager.HasRequiredCharge(item))
             {
                 return false;
             }
