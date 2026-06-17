@@ -23,12 +23,11 @@ namespace LethalBots.AI.AIStates
     {
         private float attackFOV;
         private bool canHitTarget;
-        private RaycastHit[] enemyColliders = null!;
         private Coroutine? currentAttackRoutine;
         private Collider? _enemyCollision;
         private EnemyAI? _lastEnemy;
         private float lastColliderUpdateTimer;
-        private Collider? EnemyCollision
+        private Collider? EnemyCollider
         {
             get
             {
@@ -142,7 +141,7 @@ namespace LethalBots.AI.AIStates
             // Switch to our weapon!
             GrabbableObject? heldItem = ai.HeldItem;
             if (npcController.Npc.currentItemSlot != weaponSlot 
-                || !ai.IsHoldingCombatWeapon())
+                || !ItemsManager.Instance.TryGetWeaponInfo(heldItem, out WeaponInfo? weaponInfo))
             {
                 if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
@@ -158,12 +157,12 @@ namespace LethalBots.AI.AIStates
             StartAttackCoroutine();
 
             // Close enough to use item, attempt to use
-            float enemySize = EnemyCollision != null ? EnemyCollision.bounds.extents.magnitude : 0.4f;
+            float enemySize = EnemyCollider != null ? EnemyCollider.bounds.extents.magnitude : 0.4f;
             float sqrMagDistanceEnemy = (this.CurrentEnemy.transform.position - npcController.Npc.transform.position).sqrMagnitude;
-            float maxEnemyDistance = GetAttackRangeForWeapon(heldItem) + enemySize;
+            float maxEnemyDistance = weaponInfo.GetAttackRangeForWeapon(heldItem) + enemySize;
             float fallBackDistance = maxEnemyDistance * 0.75f;
             float giveupRange = fearRange.Value * 1.5f;
-            Vector3 targetPos = EnemyCollision != null ? EnemyCollision.bounds.center : this.CurrentEnemy.eye.position;
+            Vector3 targetPos = EnemyCollider != null ? EnemyCollider.bounds.center : this.CurrentEnemy.eye.position;
             Vector3 enemyPos = RoundManager.Instance.GetNavMeshPosition(CurrentEnemy.transform.position, default, 2.7f);
             if (sqrMagDistanceEnemy < maxEnemyDistance * maxEnemyDistance && canHitTarget)
             {
@@ -226,7 +225,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // We manage weapons!
-            if (LethalBotAI.IsItemWeapon(heldItem))
+            if (ItemsManager.Instance.IsItemWeapon(heldItem))
             {
                 return;
             }
@@ -380,16 +379,16 @@ namespace LethalBots.AI.AIStates
                 && this.CurrentEnemy != null 
                 && !CurrentEnemy.isEnemyDead)
             {
-                // Make sure we have a weapon!
+                // Make sure we have a weapon and this is a weapon we know how to use!
                 GrabbableObject? heldItem = ai.HeldItem;
-                if (heldItem == null || !ai.IsHoldingCombatWeapon())
+                if (!ItemsManager.Instance.TryGetWeaponInfo(heldItem, out WeaponInfo? weaponInfo))
                 {
                     yield return null;
                     continue;
                 }
 
                 // Check if we are still close enough!
-                Vector3 targetPos = EnemyCollision != null ? EnemyCollision.bounds.center : this.CurrentEnemy.eye.position;
+                Vector3 targetPos = EnemyCollider != null ? EnemyCollider.bounds.center : this.CurrentEnemy.eye.position;
                 if (!CanHitEnemyWithHeldItem(heldItem, targetPos))
                 {
                     canHitTarget = false;
@@ -405,77 +404,13 @@ namespace LethalBots.AI.AIStates
                     continue;
                 }
 
-                // TODO: move this into a function outside of the corutine, so
-                // modders can add custom support for ranged weapons.....
-                if (heldItem is ShotgunItem shotgun)
-                {
-                    // Can't fire, we are reloading!
-                    if (shotgun.isReloading)
-                    {
-                        yield return null;
-                        continue;
-                    }
-                    // Kinda hard to use the shotgun with the safety on!
-                    else if (shotgun.safetyOn)
-                    {
-                        shotgun.ItemInteractLeftRightOnClient(false);
-                        yield return null;
-                        continue;
-                    }
-                    // Reload the shotgun!
-                    else if (shotgun.shellsLoaded <= 0)
-                    {
-                        shotgun.ItemInteractLeftRightOnClient(true);
-                        yield return null;
-                        continue;
-                    }
-                    else
-                    {
-                        heldItem.UseItemOnClient(true);
-                    }
-                }
-                else if (heldItem is PatcherTool patcherTool)
-                {
-                    Transform shockingTarget = npcController.Npc.shockingTarget;
-                    if (patcherTool.isShocking)
-                    {
-                        // We are already stunning our target, keep at it
-                        IShockableWithGun? shockableWithGun = this.CurrentEnemy.transform.GetComponentInChildren<IShockableWithGun>();
-                        Plugin.LogDebug($"Shocking Target: {shockingTarget}, Current Enemy Shockable: {shockableWithGun?.GetShockableTransform()}");
-                        if (shockingTarget == shockableWithGun?.GetShockableTransform())
-                        {
-                            // We handle aiming our stun gun elsewhere
-                            yield return null;
-                            continue;
-                        }
-                        // We have the wrong guy, break the beam!
-                        else
-                        {
-                            heldItem.UseItemOnClient(true);
-                            yield return null;
-                            continue;
-                        }
-                    }
-                    // We should already be on target, aim and FIRE
-                    else if (!patcherTool.isScanning)
-                    {
-                        heldItem.UseItemOnClient(true);
-                    }
-                }
-                else
-                {
-                    heldItem.UseItemOnClient(true);
-                    yield return null;
-                    // holdButtonUse is true for the shovel!
-                    // This means we need to release it next frame!
-                    if (heldItem.itemProperties.holdButtonUse)
-                    {
-                        heldItem.UseItemOnClient(false); // HACKHACK: Fake release the button!
-                    }
-                }
+                // ATTACK!
+                // FIXME: The old code allowed skipping the cooldown if we didn't successfully use the weapon,
+                // I will have to find a workaround later. Since most weapon cooldowns are small, its fine for now.....
+                yield return weaponInfo.AttackWithWeapon(npcController.Npc, heldItem, CurrentEnemy, EnemyCollider);
 
                 // Start the cooldown timer
-                attackCooldownTimer.Start(GetWeaponAttackInterval(heldItem));
+                attackCooldownTimer.Start(weaponInfo.GetWeaponAttackInterval(heldItem));
             }
 
             StopAttackCoroutine();
@@ -492,308 +427,31 @@ namespace LethalBots.AI.AIStates
             if (this.CurrentEnemy == null)
                 return false;
 
+            WeaponInfo? weaponInfo = ItemsManager.Instance.GetWeaponInfo(heldItem);
+            if (weaponInfo == null)
+                return false;
+
             PlayerControllerB lethalBotController = npcController.Npc;
             if (this.CurrentEnemy is BushWolfEnemy bushWolf 
                 && bushWolf.draggingPlayer == lethalBotController
-                && !LethalBotAI.IsItemRangedWeapon(heldItem))
+                && !weaponInfo.IsRanged(heldItem))
             {
                 return true; // SAVE OURSELF!
             }
 
             Vector3 toEnemy = targetPos - lethalBotController.gameplayCamera.transform.position;
             float angleToEnemy = Vector3.Angle(lethalBotController.playerEye.forward, toEnemy);
-            enemyColliders ??= new RaycastHit[10];
 
             // Check if we can potentially hit!
-            GetWeaponAttackInfo(heldItem, lethalBotController, out Ray ray, out float maxFOV, out float radius, out float maxRange, out LayerMask hitMask);
+            weaponInfo.GetWeaponAttackInfo(heldItem, lethalBotController, out Ray ray, out float maxFOV, out float radius, out float maxRange, out LayerMask hitMask);
             attackFOV = Mathf.Clamp(maxFOV, 0f, Const.LETHAL_BOT_FOV);
             if (angleToEnemy < maxFOV)
             {
                 // Choose a checker function based on the weapon!
-                // TODO: Add a function(s) that makes it easier for modders to add custom weapon support!
-                if (heldItem is PatcherTool)
-                {
-                    return CanHitPatcherTool(lethalBotController, targetPos, ray, radius, maxRange, hitMask);
-                }
-                else if (LethalBotAI.IsItemRangedWeapon(heldItem))
-                {
-                    return CanHitRangedWeapon(lethalBotController, ray, radius, maxRange, hitMask);
-                }
-                else
-                {
-                    return CanHitMeleeWeapon(lethalBotController, ray, radius, maxRange, hitMask);
-                }
+                return weaponInfo.CanHitWithWeapon(lethalBotController, CurrentEnemy, EnemyCollider, ray, radius, maxRange, hitMask);
             }
 
             return false;
-        }
-
-        /// <summary>
-        /// Helper function that checks if the bot can hit our <see cref="AIState.CurrentEnemy"/>.
-        /// </summary>
-        /// <remarks>
-        /// This is an almost 1:1 recreation of the <see cref="ShotgunItem.ShootGun(Vector3, Vector3)"/>.
-        /// </remarks>
-        /// <param name="lethalBotController">The bot's <see cref="PlayerControllerB"/></param>
-        /// <param name="ray">The <see cref="Ray"/> we want to assess</param>
-        /// <param name="radius"></param>
-        /// <param name="maxRange"></param>
-        /// <param name="hitMask"></param>
-        /// <returns></returns>
-        private bool CanHitRangedWeapon(PlayerControllerB lethalBotController, Ray ray, float radius, float maxRange, LayerMask hitMask)
-        {
-            // Check if we hit the target based on the weapon's hitmask!
-            int numHit = Physics.SphereCastNonAlloc(ray, radius, enemyColliders, maxRange, hitMask, QueryTriggerInteraction.Collide);
-            for (int i = 0; i < numHit; i++)
-            {
-                // Check if we hit the target!
-                var hitInfo = enemyColliders[i];
-                if (hitInfo.distance == 0f || hitInfo.point == Vector3.zero) continue;
-
-                // // Make sure this is a valid hit target and do an initial linecast!
-                if (!hitInfo.transform.TryGetComponent<IHittable>(out _) || Physics.Linecast(lethalBotController.gameplayCamera.transform.position, hitInfo.point, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
-                {
-                    continue;
-                }
-
-                // Check if we hit the target!
-                if (hitInfo.collider == EnemyCollision
-                    || (hitInfo.transform.gameObject.GetComponent<EnemyAICollisionDetect>()?.mainScript is EnemyAI hitTarget
-                        && hitTarget == this.CurrentEnemy))
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Helper function that checks if the bot can hit our <see cref="AIState.CurrentEnemy"/>.
-        /// </summary>
-        /// <remarks>
-        /// This is a partial recreation of the <see cref="PatcherTool"/>'s ScanGun and GunMeetsConditionsToShock.
-        /// </remarks>
-        /// <param name="lethalBotController">The bot's <see cref="PlayerControllerB"/></param>
-        /// <param name="ray">The <see cref="Ray"/> we want to assess</param>
-        /// <param name="targetPos"></param>
-        /// <param name="radius"></param>
-        /// <param name="maxRange"></param>
-        /// <param name="hitMask"></param>
-        /// <returns></returns>
-        private bool CanHitPatcherTool(PlayerControllerB lethalBotController, Vector3 targetPos, Ray ray, float radius, float maxRange, LayerMask hitMask)
-        {
-            // Check if we hit the target!
-            enemyColliders ??= new RaycastHit[10];
-
-            // Do an initial linecast!
-            if (Physics.Linecast(lethalBotController.gameplayCamera.transform.position, targetPos, StartOfRound.Instance.collidersAndRoomMaskAndDefault))
-            {
-                return false;
-            }
-
-            // Now check if we would actually hit based on the weapon's hitmask!
-            int numHit = Physics.SphereCastNonAlloc(ray, radius, enemyColliders, maxRange, hitMask, QueryTriggerInteraction.Collide);
-            for (int i = 0; i < numHit; i++)
-            {
-                // Check if we hit the target!
-                var hitInfo = enemyColliders[i];
-                if (hitInfo.collider == EnemyCollision
-                    || (hitInfo.collider.gameObject.GetComponentInParent<EnemyAI>() is EnemyAI hitTarget
-                        && hitTarget == this.CurrentEnemy))
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Helper function that checks if the bot can hit our <see cref="AIState.CurrentEnemy"/>.
-        /// </summary>
-        /// <remarks>
-        /// This is an almost 1:1 recreation of the <see cref="Shovel.HitShovel(bool)"/> and <see cref="KnifeItem.HitKnife(bool)"/>.
-        /// </remarks>
-        /// <param name="lethalBotController">The bot's <see cref="PlayerControllerB"/></param>
-        /// <param name="ray">The <see cref="Ray"/> we want to assess</param>
-        /// <param name="radius"></param>
-        /// <param name="maxRange"></param>
-        /// <param name="hitMask"></param>
-        /// <returns></returns>
-        private bool CanHitMeleeWeapon(PlayerControllerB lethalBotController, Ray ray, float radius, float maxRange, LayerMask hitMask)
-        {
-            // Check if we hit the target based on the weapon's hitmask!
-            RaycastHit[] raycastHits = Physics.SphereCastAll(ray, radius, maxRange, hitMask, QueryTriggerInteraction.Collide);
-            List<RaycastHit> orderdHitList = raycastHits.OrderBy((RaycastHit x) => x.distance).ToList();
-            foreach (var hitInfo in raycastHits)
-            {
-                // Check if we hit a wall!
-                if (hitInfo.transform.gameObject.layer == 8 || hitInfo.transform.gameObject.layer == 11)
-                {
-                    if (hitInfo.collider.isTrigger)
-                    {
-                        continue;
-                    }
-                    string text = hitInfo.collider.gameObject.tag;
-                    foreach (var surface in StartOfRound.Instance.footstepSurfaces)
-                    {
-                        if (surface.surfaceTag == text)
-                        {
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    // Check if we hit a valid target
-                    if (!hitInfo.transform.TryGetComponent<IHittable>(out var component) || (hitInfo.point != Vector3.zero && Physics.Linecast(lethalBotController.gameplayCamera.transform.position, hitInfo.point, out _, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)))
-                    {
-                        continue;
-                    }
-                    Vector3 forward = lethalBotController.gameplayCamera.transform.forward;
-                    EnemyAICollisionDetect component2 = hitInfo.transform.GetComponent<EnemyAICollisionDetect>();
-                    bool isIHittablePlayer = hitInfo.transform.GetComponent<PlayerControllerB>() != null;
-                    if (component2 != null || !isIHittablePlayer)
-                    {
-                        if (!isIHittablePlayer || (component2?.mainScript != null && (!StartOfRound.Instance.hangarDoorsClosed || component2.mainScript.isInsidePlayerShip == lethalBotController.isInHangarShipRoom)))
-                        {
-                            // Check if we hit the target!
-                            if (hitInfo.collider == EnemyCollision
-                                || (component2 != null && component2 == this.CurrentEnemy))
-                            {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Grabs the desired attack range for the bot!
-        /// </summary>
-        /// <remarks>
-        /// NOTE: This assumes the shotgun and shovel only!
-        /// </remarks>
-        /// <param name="weapon"></param>
-        /// <returns></returns>
-        private float GetAttackRangeForWeapon(GrabbableObject? weapon)
-        {
-            if (weapon == null)
-            {
-                return 2f; // Assume its the shovel!
-            }
-
-            // We don't use GetWeaponAttackInfo as its max range is may be diffrent due to how its raycast checks are done.
-            if (weapon is ShotgunItem)
-            {
-                return 4f; // Based off of the ray postion and range
-            }
-            else if (weapon is PatcherTool)
-            {
-                return 5f; // Found in source code!
-            }
-            else if (weapon is KnifeItem)
-            {
-                return 1f; // Found in source code!
-            }
-            else if (LethalBotAI.IsItemRangedWeapon(weapon))
-            {
-                return 5f; // Assume shotgun range
-            }
-
-            return 2f; // Assume its the shovel
-        }
-
-        /// <summary>
-        /// Helper function to return how often we press our primary attack button!
-        /// </summary>
-        /// <param name="weapon"></param>
-        /// <returns></returns>
-        private float GetWeaponAttackInterval(GrabbableObject? weapon)
-        {
-            // Assume use cooldown!
-            // NEEDTOVALIDATE: Should I just set it to the use cooldown instead?
-            if (!LethalBotAI.IsItemWeapon(weapon))
-            {
-                return (weapon != null && weapon.useCooldown > 0f) ? weapon.useCooldown : 0.0f;
-            }
-
-            // Let us shoot a bit faster
-            if (LethalBotAI.IsItemRangedWeapon(weapon))
-            {
-                return 0.1f;
-            }
-            // Knife go brrr
-            else if (weapon is KnifeItem)
-            {
-                return 0.43f;
-            }
-
-            return 0.78f; // Speed for shovels
-        }
-
-        /// <summary>
-        /// Helper function that grabs the information on a weapon
-        /// </summary>
-        /// <param name="weapon"></param>
-        /// <param name="lethalBotController"></param>
-        /// <param name="ray"></param>
-        /// <param name="maxFOV"></param>
-        /// <param name="radius"></param>
-        /// <param name="maxRange"></param>
-        /// <param name="hitMask"></param>
-        private void GetWeaponAttackInfo(GrabbableObject? weapon, PlayerControllerB lethalBotController, out Ray ray, out float maxFOV, out float radius, out float maxRange, out LayerMask hitMask)
-        {
-            // Default values!
-            maxFOV = 60f;
-            radius = 5f;
-            maxRange = 15f;
-            hitMask = StartOfRound.Instance.collidersAndRoomMaskAndDefault;
-            ray = new Ray(lethalBotController.gameplayCamera.transform.position, lethalBotController.gameplayCamera.transform.forward);
-
-            if (weapon == null)
-            {
-                return;
-            }
-
-            // Configure by weapon type
-            if (weapon is ShotgunItem)
-            {
-                // The ray and direction for the shotgun are diffrent!
-                Vector3 shotgunPostion = lethalBotController.gameplayCamera.transform.position - lethalBotController.gameplayCamera.transform.up * 0.45f;
-                Vector3 shotgunForward = lethalBotController.gameplayCamera.transform.forward;
-                ray = new Ray(shotgunPostion - shotgunForward * 10f, shotgunForward);
-                maxFOV = 30f; // Found in source code!
-                radius = 5f;
-                maxRange = 15f;
-                hitMask = 524288; // Found in shotgun source code!
-            }
-            else if (weapon is PatcherTool patcherTool)
-            {
-                Vector3 patcherToolForward = lethalBotController.gameplayCamera.transform.forward;
-                ray = new Ray(lethalBotController.gameplayCamera.transform.position - patcherToolForward * 3, patcherToolForward);
-                maxFOV = 60f; // Found in source code!
-                radius = 5f;
-                maxRange = 5f;
-                hitMask = patcherTool.anomalyMask;
-            }
-            else if (weapon is KnifeItem knife)
-            {
-                ray = new Ray(lethalBotController.gameplayCamera.transform.position + lethalBotController.gameplayCamera.transform.right * 0.1f, lethalBotController.gameplayCamera.transform.forward);
-                maxFOV = 45f;
-                radius = 0.3f;
-                maxRange = 0.75f;
-                hitMask = knife.knifeMask;
-            }
-            else if (weapon is Shovel shovel)
-            {
-                ray = new Ray(lethalBotController.gameplayCamera.transform.position + lethalBotController.gameplayCamera.transform.right * -0.35f, lethalBotController.gameplayCamera.transform.forward);
-                maxFOV = 75f;
-                radius = 0.8f;
-                maxRange = 1.5f;
-                hitMask = shovel.shovelMask;
-            }
         }
 
         public override Vector3? SelectSubjectTargetPoint(LookAtTarget lookAtTarget, NetworkObject? subject, PlayerControllerB ourController)
@@ -801,7 +459,7 @@ namespace LethalBots.AI.AIStates
             // Change where we are aiming based on the given network object
             if (subject != null && subject.TryGetComponent<EnemyAI>(out var enemyAI))
             {
-                Collider? lookAtSubjectCollider = enemyAI == this.CurrentEnemy ? EnemyCollision : FindEnemyCollider(enemyAI, ourController.gameplayCamera.transform.position);
+                Collider? lookAtSubjectCollider = enemyAI == this.CurrentEnemy ? EnemyCollider : FindEnemyCollider(enemyAI, ourController.gameplayCamera.transform.position);
                 if (lookAtSubjectCollider != null)
                 {
                     return lookAtSubjectCollider.bounds.center;
@@ -836,8 +494,9 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindBetterObject(GrabbableObject, GrabbableObject)"/>
         protected override bool FindBetterObject(GrabbableObject currentBest, GrabbableObject canidate)
         {
-            bool isCurrentRanged = LethalBotAI.IsItemRangedWeapon(currentBest);
-            bool isCanidateRanged = LethalBotAI.IsItemRangedWeapon(canidate);
+            ItemsManager instanceIM = ItemsManager.Instance;
+            bool isCurrentRanged = instanceIM.IsItemRangedWeapon(currentBest);
+            bool isCanidateRanged = instanceIM.IsItemRangedWeapon(canidate);
             if (this.CurrentEnemy is CentipedeAI)
             {
                 if (isCurrentRanged && !isCanidateRanged)

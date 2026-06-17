@@ -3768,7 +3768,7 @@ namespace LethalBots.AI
             {
                 return false;
             }
-            return IsItemWeapon(heldItem);
+            return ItemsManager.Instance.IsItemWeapon(heldItem);
         }
 
         /// <summary>
@@ -3784,7 +3784,7 @@ namespace LethalBots.AI
             {
                 return false;
             }
-            return IsItemRangedWeapon(heldItem);
+            return ItemsManager.Instance.IsItemRangedWeapon(heldItem);
         }
 
         /// <summary>
@@ -3795,7 +3795,7 @@ namespace LethalBots.AI
         [MemberNotNullWhen(true, nameof(HeldItem))]
         public bool IsHoldingKey(bool keyOnly = false)
         {
-            return IsItemKey(this.HeldItem, keyOnly);
+            return ItemsManager.IsItemKey(this.HeldItem, keyOnly);
         }
 
         /// <summary>
@@ -3838,9 +3838,10 @@ namespace LethalBots.AI
             {
                 return true;
             }
+            ItemsManager instanceIM = ItemsManager.Instance;
             GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
             if (HasAmmoForWeapon(itemOnlySlot) 
-                && IsItemRangedWeapon(itemOnlySlot))
+                && instanceIM.IsItemRangedWeapon(itemOnlySlot))
             {
                 return true;
             }
@@ -3849,7 +3850,7 @@ namespace LethalBots.AI
             {
                 GrabbableObject weapon = itemSlots[i];
                 if (HasAmmoForWeapon(weapon) 
-                    && IsItemRangedWeapon(weapon))
+                    && instanceIM.IsItemRangedWeapon(weapon))
                 {
                     return true;
                 }
@@ -3869,14 +3870,14 @@ namespace LethalBots.AI
                 return true;
             }
             GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
-            if (IsItemKey(itemOnlySlot, keyOnly))
+            if (ItemsManager.IsItemKey(itemOnlySlot, keyOnly))
             {
                 return true;
             }
             GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
             for (int i = 0; i < itemSlots.Length; i++)
             {
-                if (IsItemKey(itemSlots[i], keyOnly))
+                if (ItemsManager.IsItemKey(itemSlots[i], keyOnly))
                 {
                     return true;
                 }
@@ -3892,13 +3893,10 @@ namespace LethalBots.AI
         /// Modders can once again override this as desired!
         /// </remarks>
         /// <returns>I mean come on</returns>
+        [Obsolete("This has been moved to ItemsManager. Use that one instead!")]
         public static bool IsItemRangedWeapon([NotNullWhen(true)] GrabbableObject? weapon)
         {
-            if (weapon == null)
-            {
-                return false;
-            }
-            return weapon is ShotgunItem || weapon is PatcherTool;
+            return ItemsManager.Instance.IsItemRangedWeapon(weapon);
         }
 
         /// <summary>
@@ -3909,21 +3907,10 @@ namespace LethalBots.AI
         /// </remarks>
         /// <param name="weapon">The item to check</param>
         /// <returns>I mean come on</returns>
+        [Obsolete("This has been moved to ItemsManager. Use that one instead!")]
         public static bool IsItemWeapon([NotNullWhen(true)] GrabbableObject? weapon)
         {
-            if (weapon == null)
-            {
-                return false;
-            }
-
-            // Ranged weapons count as weapons!
-            if (IsItemRangedWeapon(weapon))
-            {
-                return true;
-            }
-
-            // HACKHACK: weapon.itemProperties.isDefensiveWeapon is set to false on the shovel and shotgun!?
-            return weapon is Shovel || weapon is KnifeItem;
+            return ItemsManager.Instance.IsItemWeapon(weapon);
         }
 
         /// <summary>
@@ -3934,13 +3921,10 @@ namespace LethalBots.AI
         /// </remarks>
         /// <param name="item">The item to check</param>
         /// <returns>I mean come on</returns>
+        [Obsolete("This has been moved to ItemsManager. Use that one instead!")]
         public static bool IsItemScrap([NotNullWhen(true)] GrabbableObject? item)
         {
-            if (item == null)
-            {
-                return false;
-            }
-            return item.itemProperties.isScrap && item.scrapValue > 0;
+            return ItemsManager.IsItemScrap(item);
         }
 
         /// <summary>
@@ -3948,18 +3932,10 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="keyOnly">Should we only consider "actual" keys</param>
         /// <returns>I mean come on</returns>
+        [Obsolete("This has been moved to ItemsManager. Use that one instead!")]
         public static bool IsItemKey([NotNullWhen(true)] GrabbableObject? item, bool keyOnly = false)
         {
-            if (item == null)
-            {
-                return false;
-            }
-
-            if (item is KeyItem)
-            {
-                return true;
-            }
-            return !keyOnly && item is LockPicker;
+            return ItemsManager.IsItemKey(item, keyOnly);
         }
 
         /// <summary>
@@ -3968,24 +3944,10 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="item">The item to check</param>
         /// <returns>true: the item has a charge or doesn't use batteries; otherwise false</returns>
+        [Obsolete("This has been moved to ItemsManager. Use that one instead!")]
         public static bool IsItemPowered([NotNullWhen(true)] GrabbableObject? item)
         {
-            if (item == null)
-            {
-                return false;
-            }
-            
-            if (!item.itemProperties.requiresBattery)
-            {
-                return true; // Battery is not required, so it has a "charge"
-            }
-
-            if (item.insertedBattery == null || item.insertedBattery.empty)
-            {
-                return false; // No battery or battery is empty, so it has no charge
-            }
-
-            return true; // Item requires a battery and has a non-empty battery, so it has charge
+            return ItemsManager.IsItemPowered(item);
         }
 
         /// <summary>
@@ -3994,63 +3956,12 @@ namespace LethalBots.AI
         /// <remarks>
         /// This also checks if the item is a weapon internally!
         /// </remarks>
-        /// <param name="weapon"></param>
+        /// <param name="weapon">The weapon we are checking</param>
+        /// <param name="spareOnly">Should we only consider the spare ammunation for this weapon?</param>
         /// <returns></returns>
         public bool HasAmmoForWeapon([NotNullWhen(true)] GrabbableObject? weapon, bool spareOnly = false)
         {
-            if (!IsItemWeapon(weapon))
-            {
-                return false;
-            }
-
-            // This weapon uses batteries!
-            if (!IsItemPowered(weapon))
-            {
-                return false;
-            }
-
-            // We can only check for shotguns.....for now
-            if (weapon is ShotgunItem shotgun)
-            {
-                // Ammo is in the gun!
-                if (!spareOnly && shotgun.shellsLoaded > 0)
-                {
-                    return true;
-                }
-
-                // Check if the lethalBot has ammo in its item only slot
-                GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
-                if (itemOnlySlot != null)
-                {
-                    GunAmmo? gunAmmo = itemOnlySlot as GunAmmo;
-                    if (gunAmmo != null && gunAmmo.ammoType == shotgun.gunCompatibleAmmoID)
-                    {
-                        return true;
-                    }
-                }
-
-                // Using for since we need the manual index tracking
-                GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
-                for (int index = 0; index < itemSlots.Length; index++)
-                {
-                    var item = itemSlots[index];
-                    if (item != null)
-                    {
-                        GunAmmo? gunAmmo = item as GunAmmo;
-                        Plugin.LogDebug($"Ammo null in slot #{index}?: {gunAmmo == null}");
-                        if (gunAmmo != null)
-                        {
-                            Plugin.LogDebug($"Ammo in slot #{index} id: {gunAmmo.ammoType}");
-                        }
-                        if (gunAmmo != null && gunAmmo.ammoType == shotgun.gunCompatibleAmmoID)
-                        {
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            }
-            return true;
+            return ItemsManager.Instance.TryGetWeaponInfo(weapon, out WeaponInfo? weaponInfo) && weaponInfo.HasAmmo(NpcController.Npc, weapon, spareOnly);
         }
 
         /// <summary>
@@ -4319,7 +4230,7 @@ namespace LethalBots.AI
         {
             GrabbableObject? heldItem = this.HeldItem;
             if (heldItem != null
-                && IsItemScrap(heldItem) 
+                && ItemsManager.IsItemScrap(heldItem) 
                 && !IsGrabbableObjectInLoadout(heldItem))
             {
                 return true;
@@ -4327,7 +4238,7 @@ namespace LethalBots.AI
             GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
             if (itemOnlySlot != null 
                 && heldItem != itemOnlySlot
-                && IsItemScrap(itemOnlySlot)
+                && ItemsManager.IsItemScrap(itemOnlySlot)
                 && !IsGrabbableObjectInLoadout(itemOnlySlot))
             {
                 return true;
@@ -4337,7 +4248,7 @@ namespace LethalBots.AI
             {
                 var scrap = itemSlots[i];
                 if (scrap != heldItem 
-                    && IsItemScrap(scrap) 
+                    && ItemsManager.IsItemScrap(scrap) 
                     && !IsGrabbableObjectInLoadout(scrap))
                 {
                     return true;
@@ -5271,7 +5182,7 @@ namespace LethalBots.AI
             if ((!ignoreHeldFlag && (grabbableObject.isHeld || grabbableObject.isPocketed))
                 || !grabbableObject.grabbable
                 || grabbableObject.deactivated 
-                || !IsItemScrap(grabbableObject))
+                || !ItemsManager.IsItemScrap(grabbableObject))
             {
                 return false;
             }

@@ -401,7 +401,7 @@ namespace LethalBots.AI.AIStates
             {
                 return false;
             }
-            return Plugin.Config.DropHeldEquipmentAtShip || LethalBotAI.IsItemScrap(item);
+            return Plugin.Config.DropHeldEquipmentAtShip || ItemsManager.IsItemScrap(item);
         }
 
         /// <summary>
@@ -410,7 +410,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         protected bool DropScrapAtEntrance(GrabbableObject item)
         {
-            return LethalBotAI.IsItemScrap(item) && (!ai.IsGrabbableObjectInLoadout(item) || ai.HasDuplicateLoadoutItems(item, out _)); // Found a scrap item, great, we want to drop it!
+            return ItemsManager.IsItemScrap(item) && (!ai.IsGrabbableObjectInLoadout(item) || ai.HasDuplicateLoadoutItems(item, out _)); // Found a scrap item, great, we want to drop it!
         }
     }
 }

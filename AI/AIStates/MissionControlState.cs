@@ -375,7 +375,7 @@ namespace LethalBots.AI.AIStates
                         }
                     }
                     // If our weapon uses batteries and its low on battery, we should charge it!
-                    else if (!LethalBotAI.IsItemPowered(weapon))
+                    else if (!ItemsManager.IsItemPowered(weapon))
                     {
                         // We should charge our weapon if we can!
                         ai.State = new ChargeHeldItemState(this, weapon);
@@ -532,7 +532,7 @@ namespace LethalBots.AI.AIStates
                     // Make sure our walkie-talkie is on!
                     if (walkieTalkie != null 
                         && !walkieTalkie.isBeingUsed 
-                        && LethalBotAI.IsItemPowered(walkieTalkie))
+                        && ItemsManager.IsItemPowered(walkieTalkie))
                     {
                         walkieTalkie.ItemInteractLeftRightOnClient(false);
                         return;
@@ -1671,9 +1671,10 @@ namespace LethalBots.AI.AIStates
             }
 
             // Check if the player has a weapon in their item only slot
+            ItemsManager instanceIM = ItemsManager.Instance;
             bool isPlayerBot = LethalBotManager.Instance.IsPlayerLethalBot(player);
             GrabbableObject? itemOnlySlot = player.ItemOnlySlot;
-            if (LethalBotAI.IsItemWeapon(itemOnlySlot) 
+            if (instanceIM.IsItemWeapon(itemOnlySlot) 
                 || (!isPlayerBot && itemOnlySlot != null && itemOnlySlot.itemProperties.isDefensiveWeapon))
             {
                 return true;
@@ -1684,7 +1685,7 @@ namespace LethalBots.AI.AIStates
             for (int i = 0; i < itemSlots.Length; i++)
             {
                 var weapon = itemSlots[i];
-                if (LethalBotAI.IsItemWeapon(weapon) 
+                if (instanceIM.IsItemWeapon(weapon) 
                     || (!isPlayerBot && weapon != null && weapon.itemProperties.isDefensiveWeapon))
                 {
                     return true; 
@@ -1777,7 +1778,7 @@ namespace LethalBots.AI.AIStates
             // TODO: Get the bot to close big doors when there is danger!
             Ray ray = new Ray(player.transform.position + Vector3.up * 2.3f, player.transform.forward);
             float maxDistance = player.grabDistance * 2f;
-            LayerMask layerMask = player.walkableSurfacesNoPlayersMask;// walkableSurfacesNoPlayersMask: 1342179585
+            LayerMask layerMask = player.walkableSurfacesNoPlayersMask;
             RaycastHit[] raycastHits = Physics.RaycastAll(ray, maxDistance, layerMask);
             for (int i = 0; i < raycastHits.Length; i++)
             {

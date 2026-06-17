@@ -56,6 +56,9 @@ namespace LethalBots.Patches.GameEnginePatches
             objectManager = new GameObject("RestockManager");
             objectManager.AddComponent<RestockManager>();
 
+            objectManager = new GameObject("ItemsManager");
+            objectManager.AddComponent<ItemsManager>();
+
             // NetworkBehaviours
             objectManager = Object.Instantiate(PluginManager.Instance.TerminalManagerPrefab);
             if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
