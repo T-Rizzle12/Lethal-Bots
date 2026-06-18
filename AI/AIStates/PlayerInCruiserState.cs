@@ -10,9 +10,6 @@ namespace LethalBots.AI.AIStates
     {
         private VehicleController? vehicleController;
 
-        /// <summary>
-        /// <inheritdoc cref="AIState(AIState)"/>
-        /// </summary>
         public PlayerInCruiserState(AIState state, VehicleController vehicleController) : base(state)
         {
             CurrentState = EnumAIStates.PlayerInCruiser;
@@ -20,9 +17,6 @@ namespace LethalBots.AI.AIStates
             this.vehicleController = vehicleController;
         }
 
-        /// <summary>
-        /// <inheritdoc cref="AIState(LethalBotAI)"/>
-        /// </summary>
         public PlayerInCruiserState(LethalBotAI ai, VehicleController? vehicleController) : base(ai)
         {
             CurrentState = EnumAIStates.PlayerInCruiser;

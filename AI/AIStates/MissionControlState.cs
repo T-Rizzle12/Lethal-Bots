@@ -81,14 +81,6 @@ namespace LethalBots.AI.AIStates
                 {
                     LethalBotManager.Instance.MissionControlPlayer = npcController.Npc;
                 }
-                // Might not need this as we moved this to a synced version up in bot manager
-                /*TimeOfDay timeOfDay = TimeOfDay.Instance;
-                DayMode dayMode = timeOfDay.GetDayPhase(timeOfDay.currentDayTime / timeOfDay.totalTime);
-                if (LethalBotManager.lastReportedTimeOfDay != dayMode)
-                {
-                    LethalBotManager.lastReportedTimeOfDay = dayMode;
-                    LethalBotManager.Instance.SetLastReportedTimeOfDayAndSync(dayMode);
-                }*/
                 SetupTerminalAccessibleObjects();
                 FindWalkieTalkie();
                 FindWeapon();
@@ -316,8 +308,8 @@ namespace LethalBots.AI.AIStates
                 bool isShipCompromised = LethalBotManager.IsShipCompromised(ai);
                 if (playerRequestLeave
                     || (ShouldReturnToShip()
-                    && LethalBotManager.Instance.AreAllPlayersOnTheShip(true)
-                    && (LethalBotManager.Instance.AreAllHumanPlayersDead(true)
+                    && LethalBotManager.Instance.AreAllPlayersOnTheShip()
+                    && (LethalBotManager.Instance.AreAllHumanPlayersDead()
                         || isShipCompromised)))
                 {
                     if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET
@@ -723,6 +715,7 @@ namespace LethalBots.AI.AIStates
         /// Makes the bot teleport the currently targeted player
         /// </summary>
         /// <param name="isDeadBody"></param>
+        /// <param name="skipPostCheck"></param>
         /// <returns></returns>
         private IEnumerator TryTeleportPlayer(bool isDeadBody = false, bool skipPostCheck = false)
         {
@@ -934,6 +927,7 @@ namespace LethalBots.AI.AIStates
         /// This queues a message to be sent by the bot using the signal translator!
         /// </summary>
         /// <param name="message"></param>
+        /// <param name="priority"></param>
         public void SendMessageUsingSignalTranslator(string message, QueuePriority priority = QueuePriority.Low)
         {
             if (!string.IsNullOrWhiteSpace(message))
@@ -1617,7 +1611,7 @@ namespace LethalBots.AI.AIStates
                             // They are probably fighting an enemy, leave them alone!
                             LethalBotAI? isPlayerBot = LethalBotManager.Instance.GetLethalBotAI(player);
                             bool hasRangedWeapon = isPlayerBot?.HasRangedWeapon() ?? false; // NOTE: hasRangedWeapon has no effect for human players in CanEnemyBeKilled
-                            if (LethalBotAI.CanEnemyBeKilled(spawnedEnemy, hasRangedWeapon, isPlayerBot == null) && DoesPlayerHaveWeaponInInventory(player))
+                            if (LethalBotManager.ShouldAttackEnemy(new LethalBotAttackQuery(isPlayerBot, spawnedEnemy, hasRangedWeapon, isPlayerBot == null)) && DoesPlayerHaveWeaponInInventory(player))
                             {
                                 return false;
                             }
@@ -1976,17 +1970,18 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         private EnemyAI? CheckForInvadingEnemy(bool onlyKillable = true, bool checkOutsideShip = false)
         {
-            RoundManager instanceRM = RoundManager.Instance;
             Transform thisLethalBotCamera = this.npcController.Npc.gameplayCamera.transform;
             Bounds shipBounds = checkOutsideShip ? StartOfRound.Instance.shipBounds.bounds : StartOfRound.Instance.shipInnerRoomBounds.bounds;
             EnemyAI? closestEnemy = null;
             float closestEnemyDistSqr = float.MaxValue;
-            foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
+            List<EnemyAI> spawnedEnemies = RoundManager.Instance.SpawnedEnemies;
+            for (int i = 0; i < spawnedEnemies.Count; i++)
             {
                 // Only check for alive and invading enemies!
+                EnemyAI spawnedEnemy = spawnedEnemies[i];
                 if (spawnedEnemy == null
                     || spawnedEnemy.isEnemyDead 
-                    || (onlyKillable && !ai.CanEnemyBeKilled(spawnedEnemy, true)))
+                    || (onlyKillable && !ai.ShouldAttackEnemy(spawnedEnemy, true)))
                 {
                     continue;
                 }

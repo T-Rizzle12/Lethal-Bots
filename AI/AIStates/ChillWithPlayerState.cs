@@ -44,17 +44,11 @@ namespace LethalBots.AI.AIStates
             }
         }
 
-        /// <summary>
-        /// <inheritdoc cref="AIState(LethalBotAI)"/>
-        /// </summary>
         public ChillWithPlayerState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.ChillWithPlayer;
         }
 
-        /// <summary>
-        /// <inheritdoc cref="AIState(AIState)"/>
-        /// </summary>
         public ChillWithPlayerState(AIState state) : base(state)
         {
             CurrentState = EnumAIStates.ChillWithPlayer;

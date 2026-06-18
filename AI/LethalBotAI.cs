@@ -1144,6 +1144,7 @@ namespace LethalBots.AI
         /// <param name="areaMask">The NavMesh area mask to use when calculating the path</param>
         /// <param name="path">A reference to the <see cref="NavMeshPath"/> that will contain the calculated path if valid</param>
         /// <param name="calculatePathDistance">This updates <paramref name="pathDistance"/> with the length of the path. <paramref name="pathDistance"/> is set to zero on failure</param>
+        /// <param name="pathDistance"></param>
         /// <returns><see langword="true"/> if a valid and complete path exists; otherwise, <see langword="false"/></returns>
 
         public static bool IsValidPathToTarget(Vector3 startPosition, Vector3 endPosition, int areaMask, ref NavMeshPath path, bool calculatePathDistance, out float pathDistance)
@@ -2086,6 +2087,7 @@ namespace LethalBots.AI
         /// <param name="calculatePathDistance">If true, set <see cref="EnemyAI.pathDistance"/> to the length of the path. Is set to 0f on failure!</param>
         /// <param name="avoidLineOfSight">If true, the bot does LOS checks to see if <paramref name="checkLOSToTarget"/> can see any point on the path</param>
         /// <param name="checkLOSToTarget">The <see cref="EnemyAI"/> that we want to test path visibility for</param>
+        /// <param name="useEnemyEyePos"></param>
         /// <returns>true: if there is no path or <paramref name="checkLOSToTarget"/> can see a point on the path. false: if there is a vaild path and <paramref name="checkLOSToTarget"/> can't see any point on the path</returns>
         public bool PathIsIntersectedByLineOfSight(Vector3 targetPos, out bool isPathVaild, bool calculatePathDistance = false, bool avoidLineOfSight = true, EnemyAI? checkLOSToTarget = null, bool useEnemyEyePos = true)
         {
@@ -2829,6 +2831,7 @@ namespace LethalBots.AI
         /// Check for, an enemy, the minimal distance from enemy to lethalBot before they will panik.
         /// </summary>
         /// <param name="enemy">Enemy to check</param>
+        /// <param name="queryType"></param>
         /// <returns>The minimal distance from enemy to lethalBot before panicking, null if nothing to worry about</returns>
         public float? GetFearRangeForEnemies(EnemyAI enemy, EnumFearQueryType queryType = EnumFearQueryType.BotPanic)
         {
@@ -2861,6 +2864,7 @@ namespace LethalBots.AI
         /// <param name="fearQuery">Fear query to check</param>
         /// <returns>The minimal distance from enemy based on the given fear query, null if nothing to worry about</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [Obsolete("This function is just a glorified call to LethalBotManager.GetFearRangeForEnemy. Use that instead!")]
         public float? GetFearRangeForEnemies(in LethalBotFearQuery fearQuery)
         {
             //Plugin.LogDebug($"enemy \"{enemy.enemyType.enemyName}\" {enemy.enemyType.name}");
@@ -2872,9 +2876,10 @@ namespace LethalBots.AI
         /// </summary>
         /// <inheritdoc cref="LethalBotAI.CanEnemyBeKilled(EnemyAI, bool, bool, bool)"/>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [Obsolete("This has been moved into ShouldAttackEnemy. Use that instead!")]
         public bool CanEnemyBeKilled(EnemyAI enemy, bool isMissionController = false)
         {
-            return CanEnemyBeKilled(enemy, hasRangedWeapon: HasRangedWeapon(), isHumanPlayer: false, isMissionController: isMissionController);
+            return ShouldAttackEnemy(enemy, isMissionController);
         }
 
         /// <summary>
@@ -2885,7 +2890,11 @@ namespace LethalBots.AI
         /// TODO: Move this into a Query system like the fear ranges!
         /// </remarks>
         /// <param name="enemy"></param>
+        /// <param name="hasRangedWeapon"></param>
+        /// <param name="isHumanPlayer"></param>
+        /// <param name="isMissionController"></param>
         /// <returns>Can the enemy be killed?</returns>
+        [Obsolete("This has been replaced by ShouldAttackEnemy. Use that instead!", true)]
         public static bool CanEnemyBeKilled(EnemyAI enemy, bool hasRangedWeapon = false, bool isHumanPlayer = false, bool isMissionController = false)
         {
             // If you turn this on.....just know what you are getting yourself into......
@@ -2941,6 +2950,21 @@ namespace LethalBots.AI
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Returns true if the given <paramref name="enemy"/> can be killed!
+        /// </summary>
+        /// <remarks>
+        /// This prefills some information about the bot.<br/>
+        /// If you want control over what is in the <see cref="LethalBotAttackQuery"/>,
+        /// you should use <see cref="LethalBotManager.ShouldAttackEnemy(in LethalBotAttackQuery)"/> instead.
+        /// </remarks>
+        /// <returns>Can the enemy be killed?</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool ShouldAttackEnemy(Object enemy, bool isMissionController = false)
+        {
+            return LethalBotManager.ShouldAttackEnemy(new LethalBotAttackQuery(this, enemy, hasRangedWeapon: HasRangedWeapon(), isHumanPlayer: false, isMissionController: isMissionController));
         }
 
         /// <summary>
@@ -3894,7 +3918,7 @@ namespace LethalBots.AI
         /// Is the given item a ranged weapon ?
         /// </summary>
         /// <remarks>
-        /// I will note that it only works on items derived off of the ShotgunItem or PatcherTool class!</br>
+        /// I will note that it only works on items derived off of the ShotgunItem or PatcherTool class!<br/>
         /// Modders can once again override this as desired!
         /// </remarks>
         /// <returns>I mean come on</returns>
@@ -3935,6 +3959,7 @@ namespace LethalBots.AI
         /// <summary>
         /// Is the given item a key or lockpicker ?
         /// </summary>
+        /// <param name="item"></param>
         /// <param name="keyOnly">Should we only consider "actual" keys</param>
         /// <returns>I mean come on</returns>
         [Obsolete("This has been moved to ItemsManager. Use that one instead!")]
@@ -5168,6 +5193,8 @@ namespace LethalBots.AI
         /// Check all conditions for deciding if an item is sellable or not.
         /// </summary>
         /// <param name="grabbableObject">Item to check</param>
+        /// <param name="ignoreHeldFlag"></param>
+        /// <param name="skipPathCheck"></param>
         /// <returns></returns>
         public bool IsGrabbableObjectSellable(GrabbableObject? grabbableObject, bool ignoreHeldFlag = false, bool skipPathCheck = false)
         {
@@ -5774,6 +5801,10 @@ namespace LethalBots.AI
         /// <param name="pos">Position destination</param>
         /// <param name="setOutside">Is the teleport destination outside of the facility</param>
         /// <param name="targetEntrance">Is the lethalBot actually using entrance to teleport ?</param>
+        /// <param name="withRotation"></param>
+        /// <param name="rot"></param>
+        /// <param name="allowInteractTrigger"></param>
+        /// <param name="skipNavMeshCheck"></param>
         public void SyncTeleportLethalBot(Vector3 pos, bool? setOutside = null, EntranceTeleport? targetEntrance = null, bool withRotation = false, float rot = 0f, bool allowInteractTrigger = false, bool skipNavMeshCheck = false)
         {
             if (!IsOwner)
@@ -5825,9 +5856,7 @@ namespace LethalBots.AI
         /// <summary>
         /// Server side, call clients to sync teleport lethalBot
         /// </summary>
-        /// <param name="pos">Position destination</param>
-        /// <param name="setOutside">Is the teleport destination outside of the facility</param>
-        /// <param name="targetEntrance">Is the lethalBot actually using entrance to teleport ?</param>
+        /// <param name="teleportData"></param>
         [ServerRpc]
         private void TeleportLethalBotServerRpc(TeleportLethalBotNetworkSerializable teleportData)
         {
@@ -5836,9 +5865,7 @@ namespace LethalBots.AI
         /// <summary>
         /// Client side, teleport lethalBot on client, only for not the owner
         /// </summary>
-        /// <param name="pos">Position destination</param>
-        /// <param name="setOutside">Is the teleport destination outside of the facility</param>
-        /// <param name="targetEntrance">Is the lethalBot actually using entrance to teleport ?</param>
+        /// <param name="teleportLethalBotNetworkSerializable"></param>
         [ClientRpc]
         private void TeleportLethalBotClientRpc(TeleportLethalBotNetworkSerializable teleportLethalBotNetworkSerializable)
         {
@@ -5885,6 +5912,10 @@ namespace LethalBots.AI
         /// <param name="pos">Position destination</param>
         /// <param name="setOutside">Is the teleport destination outside of the facility</param>
         /// <param name="targetEntrance">Is the lethalBot actually using entrance to teleport ?</param>
+        /// <param name="withRotation"></param>
+        /// <param name="rot"></param>
+        /// <param name="allowInteractTrigger"></param>
+        /// <param name="skipNavMeshCheck"></param>
         public void TeleportLethalBot(Vector3 pos, bool? setOutside = null, EntranceTeleport? targetEntrance = null, bool withRotation = false, float rot = 0f, bool allowInteractTrigger = false, bool skipNavMeshCheck = false)
         {
             // teleport body
@@ -5970,6 +6001,7 @@ namespace LethalBots.AI
         /// Teleport the brain and body of lethalBot
         /// </summary>
         /// <param name="pos"></param>
+        /// <param name="skipNavMeshCheck"></param>
         private void TeleportAgentAIAndBody(Vector3 pos, bool skipNavMeshCheck = false)
         {
             Vector3 navMeshPosition = skipNavMeshCheck ? pos : RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f);
@@ -6342,10 +6374,8 @@ namespace LethalBots.AI
         /// <summary>
         /// Sync the lethalBot body rotation and rotation of head (where he looks) between server and clients.
         /// </summary>
-        /// <param name="direction">Direction to turn body towards to</param>
-        /// <param name="intEnumObjectsLookingAt">State to know where the lethalBot should look</param>
-        /// <param name="playerEyeToLookAt">Position of the player eyes to look at</param>
-        /// <param name="positionToLookAt">Position to look at</param>
+        /// <param name="stateIndicator"></param>
+        /// <param name="lookAtTarget"></param>
         public void SyncUpdateLethalBotRotationAndLook(string stateIndicator, LookAtTarget lookAtTarget)
         {
             if (IsServer)
@@ -6361,10 +6391,8 @@ namespace LethalBots.AI
         /// <summary>
         /// Server side, call clients to update lethalBot body rotation and rotation of head (where he looks)
         /// </summary>
-        /// <param name="direction">Direction to turn body towards to</param>
-        /// <param name="intEnumObjectsLookingAt">State to know where the lethalBot should look</param>
-        /// <param name="playerEyeToLookAt">Position of the player eyes to look at</param>
-        /// <param name="positionToLookAt">Position to look at</param>
+        /// <param name="stateIndicator"></param>
+        /// <param name="lookAtTarget"></param>
         [ServerRpc(RequireOwnership = false)]
         private void UpdatelLethalBotRotationAndLookServerRpc(string stateIndicator, LookAtTarget lookAtTarget)
         {
@@ -6374,10 +6402,8 @@ namespace LethalBots.AI
         /// <summary>
         /// Client side, update the lethalBot body rotation and rotation of head (where he looks).
         /// </summary>
-        /// <param name="direction">Direction to turn body towards to</param>
-        /// <param name="intEnumObjectsLookingAt">State to know where the lethalBot should look</param>
-        /// <param name="playerEyeToLookAt">Position of the player eyes to look at</param>
-        /// <param name="positionToLookAt">Position to look at</param>
+        /// <param name="stateIndicator"></param>
+        /// <param name="lookAtTarget"></param>
         [ClientRpc]
         private void UpdateLethalBotRotationAndLookClientRpc(string stateIndicator, LookAtTarget lookAtTarget)
         {
@@ -6664,6 +6690,7 @@ namespace LethalBots.AI
         /// <summary>
         /// Helper function that checks if the bot has an open reserved item slot for this item!
         /// </summary>
+        /// <param name="foundIndex"></param>
         /// <param name="grabbableObject">The object the bot is grabbing!</param>
         /// <returns>Returns the open slot <c>int</c> or <see cref="Const.INVALID_ITEM_SLOT"/></returns>
         private int GetFirstEmptyReservedItemSlot(int foundIndex, GrabbableObject? grabbableObject = null)
@@ -7736,6 +7763,8 @@ namespace LethalBots.AI
         /// Apply the damage to the lethalBot, kill him if needed, or make critically injured
         /// </summary>
         /// <param name="damageNumber"></param>
+        /// <param name="hasDamageSFX"></param>
+        /// <param name="callRPC"></param>
         /// <param name="causeOfDeath"></param>
         /// <param name="deathAnimation"></param>
         /// <param name="fallDamage">Coming from a long fall ?</param>
@@ -7890,6 +7919,8 @@ namespace LethalBots.AI
         /// <param name="spawnBody">Should a body be spawned ?</param>
         /// <param name="causeOfDeath"></param>
         /// <param name="deathAnimation"></param>
+        /// <param name="positionOffset"></param>
+        /// <param name="setOverrideDropItems"></param>
         internal void KillLethalBot(Vector3 bodyVelocity,
                                 bool spawnBody,
                                 CauseOfDeath causeOfDeath,

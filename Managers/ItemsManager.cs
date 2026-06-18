@@ -249,6 +249,7 @@ namespace LethalBots.Managers
         /// <remarks>
         /// TODO: Allow modders to add custom keys and lockpickers to this
         /// </remarks>
+        /// <param name="item"></param>
         /// <param name="keyOnly">Should we only consider "actual" keys</param>
         /// <returns>I mean come on</returns>
         public static bool IsItemKey([NotNullWhen(true)] GrabbableObject? item, bool keyOnly = false)

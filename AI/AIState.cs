@@ -76,6 +76,7 @@ namespace LethalBots.AI
         /// Constructor from another state
         /// </summary>
         /// <param name="oldState"></param>
+        /// <param name="changeToOnEnd"></param>
         protected AIState(AIState oldState, AIState? changeToOnEnd = null) : this(oldState.ai, changeToOnEnd)
         {
             this.previousAIState = changeToOnEnd ?? oldState;
@@ -92,6 +93,7 @@ namespace LethalBots.AI
         /// Constructor
         /// </summary>
         /// <param name="ai"></param>
+        /// <param name="changeToOnEnd"></param>
         /// <exception cref="System.NullReferenceException"><c>LethalBotAI</c> null in parameters</exception>
         protected AIState(LethalBotAI ai, AIState? changeToOnEnd = null)
         {
@@ -176,6 +178,7 @@ namespace LethalBots.AI
         /// but adjusted for bot use!
         /// </summary>
         /// <param name="pos"></param>
+        /// <param name="ignoreNode"></param>
         /// <returns></returns>
         private Transform? GetClosestNode(Vector3 pos, GameObject? ignoreNode = null)
         {
@@ -330,6 +333,7 @@ namespace LethalBots.AI
         /// Function taken from PULL Request by <see href="https://github.com/iSeeEthan"/>
         /// </remarks>
         /// <param name="player">The player to check for bot interaction. Cannot be null.</param>
+        /// <param name="lethalBotController"></param>
         /// <returns>true if the player is addressing this bot and the bot is eligible to respond; otherwise, false.</returns>
         public bool IsBotBeingAddressed(PlayerControllerB player, [NotNullWhen(true)] out PlayerControllerB? lethalBotController)
         {

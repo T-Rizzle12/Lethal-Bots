@@ -404,6 +404,7 @@ namespace LethalBots.Managers
         /// If you want to check if the player is in a group in general, use <see cref="IsPlayerInGroup(PlayerControllerB)"/> instead.
         /// </remarks>
         /// <param name="player"></param>
+        /// <param name="groupID"></param>
         /// <returns></returns>
         public bool IsPlayerInGroup(PlayerControllerB player, int groupID)
         {

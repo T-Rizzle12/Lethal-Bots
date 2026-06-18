@@ -23,18 +23,13 @@ namespace LethalBots.AI.AIStates
         private bool foundSearchCenter;
         private LethalBotSearchRoutine searchForPlayers = null!;
 
-        /// <summary>
-        /// <inheritdoc cref="AIState(AIState)"/>
-        /// </summary>
         public SearchingForPlayerState(AIState oldState) : base(oldState)
         {
             CurrentState = EnumAIStates.SearchingForPlayer;
             searchForPlayers = new LethalBotSearchRoutine(ai);
             searchForPlayers.searchCenterFollowsAI = false;
         }
-        /// <summary>
-        /// <inheritdoc cref="AIState(LethalBotAI)"/>
-        /// </summary>
+
         public SearchingForPlayerState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.SearchingForPlayer;

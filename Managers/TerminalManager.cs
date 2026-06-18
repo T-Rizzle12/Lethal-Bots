@@ -126,6 +126,7 @@ namespace LethalBots.Managers
         /// WARNING: This may or may not work for custom commands from other mods, then again, the old system didn't work with other mods anyway....<br/>
         /// WARNING: This MUST be manually updated for every LC update that changes the terminal. That switch statement the base game uses could have more commands!
         /// </remarks>
+        /// <param name="ourTerminal"></param>
         /// <param name="text"></param>
         /// <returns></returns>
         private TerminalNode? ParsePlayerSentence(Terminal ourTerminal, string text)

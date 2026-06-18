@@ -15,9 +15,6 @@ namespace LethalBots.AI.AIStates
         private bool ignoreEnemies;
         private GrabbableObject? droppedHeldItem;
 
-        /// <summary>
-        /// <inheritdoc cref="AIState(AIState)"/>
-        /// </summary>
         public FetchingObjectState(AIState state, GrabbableObject? targetItem, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default, AIState? changeToOnEnd = null, bool ignoreEnemies = false) : base(state, changeToOnEnd)
         {
             CurrentState = EnumAIStates.FetchingObject;

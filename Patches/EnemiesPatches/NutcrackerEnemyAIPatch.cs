@@ -22,6 +22,14 @@ namespace LethalBots.Patches.EnemiesPatches
         /// I had to recreate some parts of the AI since it was made to only work with the local player.
         /// </remarks>
         /// <param name="__instance"></param>
+        /// <param name="___isInspecting"></param>
+        /// <param name="___timeSinceSeeingTarget"></param>
+        /// <param name="___timeSinceFiringGun"></param>
+        /// <param name="___reloadingGun"></param>
+        /// <param name="___aimingGun"></param>
+        /// <param name="___timeSinceHittingPlayer"></param>
+        /// <param name="___lostPlayerInChase"></param>
+        /// <param name="___lastSeenPlayerPos"></param>
         [HarmonyPatch("Update")]
         [HarmonyPostfix]
         static void Update_Postfix(NutcrackerEnemyAI __instance, 

@@ -405,8 +405,9 @@ namespace LethalBots.Patches.MapPatches
         /// Due to the bot running its code on the local client, it causes player related events to happen to the Local Player!
         /// I have to change it to make the code check for the human player if possible so nothing breaks as a result!
         /// </remarks>
-        /// <param name="instructions"></param>
-        /// <param name="generator"></param>
+        /// <param name="__instance"></param>
+        /// <param name="playerTransform"></param>
+        /// <param name="___hasTriggered"></param>
         [HarmonyPatch("Interact")]
         [HarmonyPrefix]
         public static bool Interact_Prefix(InteractTrigger __instance, Transform playerTransform, ref bool ___hasTriggered)

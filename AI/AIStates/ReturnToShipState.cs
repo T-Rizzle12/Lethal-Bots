@@ -512,7 +512,7 @@ namespace LethalBots.AI.AIStates
         /// <remarks>
         /// The position is cached and only updated every <see cref="Const.TIMER_CHECK_EXPOSED"/> seconds.
         /// </remarks>
-        /// <returns>A <see cref="Vector3?"/> representing the most recently determined position of the target ship.</returns>
+        /// <returns>A <see cref="Vector3"/> representing the most recently determined position of the target ship.</returns>
         private Vector3? GetTargetShipPos()
         {
             // No transform, no pos!

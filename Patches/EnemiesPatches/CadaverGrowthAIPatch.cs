@@ -348,6 +348,7 @@ namespace LethalBots.Patches.EnemiesPatches
         /// </summary>
         /// <param name="cadaver"></param>
         /// <param name="player"></param>
+        /// <param name="infectedNum"></param>
         /// <returns></returns>
         private static IEnumerator BurstFromPlayerCoroutine(CadaverGrowthAI cadaver, PlayerControllerB player, int infectedNum)
         {

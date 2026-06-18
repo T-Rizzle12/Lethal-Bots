@@ -66,7 +66,10 @@ namespace LethalBots.Patches.ObjectsPatches
         /// <summary>
         /// Basically a carbon copy of HealPlayerInfection, but made to work with bots as well.
         /// </summary>
+        /// <param name="lethalBotController"></param>
+        /// <param name="lethalBotAI"></param>
         /// <param name="infection"></param>
+        /// <param name="cadaverGrowthAI"></param>
         private static void HealPlayerInfection(PlayerControllerB lethalBotController, LethalBotAI lethalBotAI, PlayerInfection infection, CadaverGrowthAI cadaverGrowthAI)
         {
             LethalBotInfection lethalBotInfection = lethalBotAI.BotInfectionData.Value;

@@ -8,6 +8,7 @@ using LethalBots.Utils.Helpers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace LethalBots.Patches.NpcPatches
@@ -49,6 +50,7 @@ namespace LethalBots.Patches.NpcPatches
         /// Patch for intercepting when ownership of an bot changes.<br/>
         /// This allows us to change the items' ownership to the lethalBot owner instead of the lethalBot itself
         /// </summary>
+        /// <param name="__instance"></param>
         /// <param name="newOwnerClientId"></param>
         /// <returns></returns>
         [HarmonyPatch("ChangeOwnershipOfEnemy")]

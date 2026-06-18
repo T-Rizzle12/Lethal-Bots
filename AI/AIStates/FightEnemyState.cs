@@ -61,7 +61,7 @@ namespace LethalBots.AI.AIStates
                 }
                 float? fearRange = ai.GetFearRangeForEnemies(this.CurrentEnemy);
                 if (!fearRange.HasValue
-                    || !ai.CanEnemyBeKilled(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc)
+                    || !ai.ShouldAttackEnemy(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc)
                     || !ai.HasCombatWeapon())
                 {
                     ChangeBackToPreviousState();
@@ -93,7 +93,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Kinda hard to kill an enemy without a weapon
-            if (!ai.CanEnemyBeKilled(CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc) || !ai.HasCombatWeapon())
+            if (!ai.ShouldAttackEnemy(CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc) || !ai.HasCombatWeapon())
             {
                 ChangeBackToPreviousState(); 
                 return;
@@ -112,7 +112,7 @@ namespace LethalBots.AI.AIStates
             if (newEnemyAI != null && newEnemyAI != this.CurrentEnemy)
             {
                 float? newFearRange = ai.GetFearRangeForEnemies(newEnemyAI);
-                if (newFearRange.HasValue && ai.CanEnemyBeKilled(newEnemyAI, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
+                if (newFearRange.HasValue && ai.ShouldAttackEnemy(newEnemyAI, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
                 {
                     this.CurrentEnemy = newEnemyAI;
                     fearRange = newFearRange.Value;
@@ -335,6 +335,7 @@ namespace LethalBots.AI.AIStates
         /// Helper function to find the collider of an enemy!
         /// </summary>
         /// <param name="CurrentEnemy">the enemy to find the collider for</param>
+        /// <param name="ourPos"></param>
         /// <returns>the found collider or null</returns>
         private static Collider? FindEnemyCollider(EnemyAI? CurrentEnemy, Vector3 ourPos)
         {

@@ -68,6 +68,9 @@ namespace LethalBots.Patches.EnemiesPatches
         /// </summary>
         /// <param name="__instance"></param>
         /// <param name="___lostPlayerInChase"></param>
+        /// <param name="___seePlayerMeter"></param>
+        /// <param name="___timeAtLastHeardNoise"></param>
+        /// <param name="___timeAtLastHitStun"></param>
         [HarmonyPatch("Update")]
         [HarmonyPostfix]
         public static void Update_Postfix(CadaverBloomAI __instance, 

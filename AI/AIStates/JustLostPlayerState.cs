@@ -16,9 +16,6 @@ namespace LethalBots.AI.AIStates
     {
         private float lookingAroundTimer;
 
-        /// <summary>
-        /// <inheritdoc cref="AIState(AIState)"/>
-        /// </summary>
         public JustLostPlayerState(AIState state) : base(state)
         {
             CurrentState = EnumAIStates.JustLostPlayer;

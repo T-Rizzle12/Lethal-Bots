@@ -187,6 +187,7 @@ namespace LethalBots.Patches.NpcPatches
         /// Patch to call our SetSpecialGrabAnimationBool method!
         /// </summary>
         /// <param name="__instance"></param>
+        /// <param name="___currentlyGrabbingObject"></param>
         /// <param name="setTrue"></param>
         /// <param name="currentItem"></param>
         /// <returns></returns>

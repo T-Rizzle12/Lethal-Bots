@@ -75,7 +75,7 @@ namespace LethalBots.AI.AIStates
                 if (fearRange.HasValue)
                 {
                     // Why run when we can fight back!
-                    if (ai.HasCombatWeapon() && ai.CanEnemyBeKilled(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
+                    if (ai.HasCombatWeapon() && ai.ShouldAttackEnemy(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
                     {
                         ai.State = new FightEnemyState(this, this.CurrentEnemy, this.previousAIState);
                         return;
@@ -266,7 +266,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Why run when we can fight back!
-            if (ai.HasCombatWeapon() && ai.CanEnemyBeKilled(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
+            if (ai.HasCombatWeapon() && ai.ShouldAttackEnemy(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
             {
                 ai.State = new FightEnemyState(this, this.CurrentEnemy, this.previousAIState);
                 return;
@@ -850,6 +850,7 @@ namespace LethalBots.AI.AIStates
         /// Or should I say an attempt to code it.
         /// </remarks>
         /// <param name="enemy">Position of the enemy</param>
+        /// <param name="fearRange"></param>
         /// <returns></returns>
         private IEnumerator ChooseFleeingNodeFromPosition(EnemyAI enemy, float fearRange)
         {

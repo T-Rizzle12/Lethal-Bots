@@ -276,6 +276,7 @@ namespace LethalBots.Patches.GameEnginePatches
         /// Make sure to include our custom quicksand mask to enemies!
         /// </summary>
         /// <param name="__instance"></param>
+        /// <param name="enemyType"></param>
         /// <param name="supplyExistingMask"></param>
         /// <param name="__result"></param>
         [HarmonyPatch("GetLayermaskForEnemySizeLimit")]

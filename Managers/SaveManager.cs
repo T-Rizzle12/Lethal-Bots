@@ -262,6 +262,7 @@ namespace LethalBots.Managers
         /// <summary>
         /// Client side, sync the save data send by the server/host
         /// </summary>
+        /// <param name="saveNetworkSerializable"></param>
         /// <param name="clientRpcParams"></param>
         [ClientRpc]
         private void SyncCurrentValuesClientRpc(SaveNetworkSerializable saveNetworkSerializable,

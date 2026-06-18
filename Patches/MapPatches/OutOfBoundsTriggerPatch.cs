@@ -20,6 +20,8 @@ namespace LethalBots.Patches.MapPatches
         /// Made with the sole purpose of letting <see cref="OutOfBoundsTrigger.OnTriggerEnter"/> affect bots
         /// </summary>
         /// <param name="__instance"></param>
+        /// <param name="other"></param>
+        /// <param name="___playersManager"></param>
         [HarmonyPatch("OnTriggerEnter")]
         [HarmonyPostfix]
         static void OnTriggerEnter_Postfix(OutOfBoundsTrigger __instance, Collider other, StartOfRound ___playersManager)

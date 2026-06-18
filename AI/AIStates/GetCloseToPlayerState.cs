@@ -11,17 +11,11 @@ namespace LethalBots.AI.AIStates
     /// </summary>
     public class GetCloseToPlayerState : AIState
     {
-        /// <summary>
-        /// <inheritdoc cref="AIState(AIState)"/>
-        /// </summary>
         public GetCloseToPlayerState(AIState state) : base(state)
         {
             CurrentState = EnumAIStates.GetCloseToPlayer;
         }
 
-        /// <summary>
-        /// <inheritdoc cref="AIState(LethalBotAI)"/>
-        /// </summary>
         public GetCloseToPlayerState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.GetCloseToPlayer;

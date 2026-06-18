@@ -434,6 +434,7 @@ namespace LethalBots.AI.AIStates
         /// Another helper function to check if the body is valid for revivial
         /// </summary>
         /// <param name="defibUnit"></param>
+        /// <param name="playerToRevive"></param>
         /// <returns></returns>
         private static bool UsualScrapCanBodyBeRevived(GrabbableObject? defibUnit, PlayerControllerB playerToRevive)
         {

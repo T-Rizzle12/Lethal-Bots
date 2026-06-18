@@ -38,9 +38,9 @@
     </RestoreAdditionalProjectSources>
   </PropertyGroup>
 
-  <!-- Disable Publicizer Warnings -->
+  <!-- Disable Publicizer and Missing XML Documentation Warnings -->
   <PropertyGroup>
-    <NoWarn>$(NoWarn);CS0436</NoWarn>
+    <NoWarn>$(NoWarn);CS0436,CS1591,CS0419,CS1587</NoWarn>
   </PropertyGroup>
 
   <!-- Embed Debug Symbols for Easier Debugging -->
@@ -54,7 +54,7 @@
     <PathMap>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))=./</PathMap>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <GenerateDocumentationFile>False</GenerateDocumentationFile>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <Optimize>True</Optimize>
