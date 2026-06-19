@@ -243,7 +243,7 @@ namespace LethalBots.AI
             bool isResponsiveness = IsResponsivenessState(parameters.VoiceState);
             if (isResponsiveness)
             {
-                if (Plugin.Config.Responsiveness.Value == (int)EnumResponsiveness.NoResponses)
+                if (Plugin.Config.Responsiveness.Value == EnumResponsiveness.NoResponses)
                 {
                     return;
                 }
@@ -255,7 +255,7 @@ namespace LethalBots.AI
             }
             else
             {
-                if (Plugin.Config.Talkativeness.Value == (int)EnumTalkativeness.NoTalking)
+                if (Plugin.Config.Talkativeness.Value == EnumTalkativeness.NoTalking)
                 {
                     return;
                 }
@@ -349,15 +349,20 @@ namespace LethalBots.AI
             SetCooldownAudio(LastVoiceState, audioClip.length + GetRandomCooldown(LastVoiceState));
         }
 
-        // inputs EnumVoicesState, meaning it will run the IsResponsivenessState()
-        // If IsResponsivenessState() already has run, then use the GetRandomCooldown(bool isResponsiveness) instead
+        /// <summary>
+        /// Inputs EnumVoicesState, meaning it will run the IsResponsivenessState()<br/>
+        /// If IsResponsivenessState() already has run, then use the GetRandomCooldown(bool isResponsiveness) instead
+        /// </summary>
+        /// <param name="voiceState"></param>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private float GetRandomCooldown(EnumVoicesState voiceState)
         {
             return GetRandomCooldown(IsResponsivenessState(voiceState));
         }
 
         /// <summary>
-        /// Returns a random cooldown duration using whichever slider (talkativeness or responsiveness) controls <paramref name="voiceState"/>.
+        /// Returns a random cooldown duration using whichever slider (talkativeness or responsiveness) controls.
         /// </summary>
         private float GetRandomCooldown(bool isResponsiveness) // Used for passing through the IsResponsivenessState() result
         {

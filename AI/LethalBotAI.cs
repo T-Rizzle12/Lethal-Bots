@@ -891,6 +891,13 @@ namespace LethalBots.AI
                 {
                     FearLevel.Value -= Time.deltaTime * 0.055f;
                 }
+
+                // Update the infection data to other clients if its out of date.
+                // NOTE: IsDirty will automatically tell Unity to update the var to other players!
+                if (BotInfectionData.IsDirty())
+                {
+                    Plugin.LogDebug($"Infection data for bot {NpcController.Npc.playerUsername} was out of date. Sending update to all clients");
+                }
             }
         }
 
@@ -3062,8 +3069,9 @@ namespace LethalBots.AI
         internal static ShipTeleporter? FindTeleporter(bool inverseTeleporter = false)
         {
             ShipTeleporter[] shipTeleporters = Object.FindObjectsOfType<ShipTeleporter>(includeInactive: false);
-            foreach (var teleporter in shipTeleporters)
+            for (int i = 0; i < shipTeleporters.Length; i++)
             {
+                var teleporter = shipTeleporters[i];
                 if (teleporter == null)
                 {
                     continue;

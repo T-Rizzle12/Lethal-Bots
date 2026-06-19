@@ -741,7 +741,7 @@ namespace LethalBots.AI
                     num3 *= 0.5f;
                 }
             }
-            if (Npc.isTypingChat || Npc.jetpackControls && !IsTouchingGround || instanceSOR.suckingPlayersOutOfShip)
+            if (Npc.isTypingChat || Npc.disableMoveInput || Npc.jetpackControls && !IsTouchingGround || instanceSOR.suckingPlayersOutOfShip)
             {
                 Npc.moveInputVector = Vector2.zero;
             }

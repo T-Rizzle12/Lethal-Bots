@@ -1466,8 +1466,10 @@ namespace LethalBots.Patches.NpcPatches
             }
 
             // Update lethal bots names back to the way they were
-            foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotAIs())
+            LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotAIs();
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI lethalBotAI = lethalBotAIs[i];
                 PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
                 if (lethalBotController != null && lethalBotAI.LethalBotIdentity != null)
                 {
