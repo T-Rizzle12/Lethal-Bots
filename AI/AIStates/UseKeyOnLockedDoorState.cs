@@ -15,7 +15,6 @@ namespace LethalBots.AI.AIStates
     /// <summary>
     /// State where the bot just saw a door to unlock (see: <see cref="LethalBotAI.UnlockDoorIfNeeded(float, bool, float, bool)"><c>LethalBotAI.UnlockDoorIfNeeded</c></see>).
     /// The bot will try to open the door with a key if they have one.
-    /// FIXME: The bot should choose the closest side of the door!
     /// </summary>
     public class UseKeyOnLockedDoorState : AIState
     {

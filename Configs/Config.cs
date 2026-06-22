@@ -47,6 +47,7 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> SellAllScrapOnShip;
         [SyncedEntryField] public SyncedEntry<bool> DropHeldEquipmentAtShip;
         [SyncedEntryField] public SyncedEntry<bool> ShouldKillEverything;
+        [SyncedEntryField] public SyncedEntry<bool> ShouldOnlyUseMainAtStart;
         [SyncedEntryField] public SyncedEntry<bool> GrabItemsNearEntrances;
         [SyncedEntryField] public SyncedEntry<bool> GrabBeesNest;
         [SyncedEntryField] public SyncedEntry<bool> GrabDeadBodies;
@@ -55,6 +56,7 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> AdvancedManeaterBabyAI;
         [SyncedEntryField] public SyncedEntry<bool> GrabWheelbarrow;
         [SyncedEntryField] public SyncedEntry<bool> GrabShoppingCart;
+        [SyncedEntryField] public SyncedEntry<float> ChillAtShipTime;
 
         // Voice Recognition
         public ConfigEntry<bool> AllowVoiceRecognition;
@@ -68,6 +70,9 @@ namespace LethalBots.Configs
 
         // Debug
         public ConfigEntry<bool> EnableDebugLog;
+
+        // Mod Related Settings
+        [SyncedEntryField] public SyncedEntry<bool> AllowRandomCalling;
 
         // Config identities
         public ConfigIdentities ConfigIdentities;
@@ -179,6 +184,11 @@ namespace LethalBots.Configs
                                                 defaultVal: false,
                                                 "Should bots attempt to kill every enemy in the game, even if they can't be killed normally?");
 
+            ShouldOnlyUseMainAtStart = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                                "Should bots only use main at start",
+                                                defaultVal: true,
+                                                "Should bots only use the main entrance to search for scrap at the begining of the day? (Bots will pick a random entrance later in the day.)");
+
             GrabItemsNearEntrances = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Grab items near entrances",
                                                defaultVal: true,
@@ -218,6 +228,11 @@ namespace LethalBots.Configs
                                       "Grab the shopping cart",
                                       defaultVal: false,
                                       "Should the bot try to grab the shopping cart (mod)?");
+
+            ChillAtShipTime = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                      "Chill at ship time",
+                                      defaultVal: Const.TIMER_CHILL_AT_SHIP,
+                                      "How long should a bot chill at the ship before they go to loot on their own.");
 
             // Voice Recognition
             AllowVoiceRecognition = cfg.Bind(ConfigConst.ConfigSectionVoiceRecognition,
@@ -263,6 +278,12 @@ namespace LethalBots.Configs
                                       "EnableDebugLog  (Client only)",
                                       defaultValue: true,
                                       "Enable the debug logs used for this mod.");
+
+            // Mod Related Settings
+            AllowRandomCalling = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMods, 
+                                                    "Allow Random Calling", 
+                                                    defaultVal: true, 
+                                                    "Are bots allowed to use their phones to randomly call players while they are searching for scrap?");
 
             ClearUnusedEntries(cfg);
             cfg.SaveOnConfigSet = true;

@@ -23,6 +23,15 @@ namespace LethalBots.AI.AIStates
             this.ignoreEnemies = ignoreEnemies;
         }
 
+        public override void OnExitState(AIState newState)
+        {
+            if (droppedHeldItem != null)
+            {
+                LethalBotAI.DictJustDroppedItems.Remove(droppedHeldItem); //HACKHACK: Since DropItem sets the just dropped item timer, we clear it here!
+            }
+            base.OnExitState(newState);
+        }
+
         /// <summary>
         /// <inheritdoc cref="AIState.DoAI"/>
         /// </summary>

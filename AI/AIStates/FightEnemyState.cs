@@ -318,13 +318,7 @@ namespace LethalBots.AI.AIStates
                 // just in case.....
                 if (ai.HasScrapInInventory())
                 {
-                    // Now, lets check if someone is assigned to transfer loot
-                    bool shouldWalkLootToShip = true;
-                    if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
-                    {
-                        shouldWalkLootToShip = false;
-                    }
-                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip, new SearchingForScrapState(this));
+                    ai.State = new ReturnToShipState(this, ReturnToShipState.EnumReturnToShipType.ReturnWithScrap, new SearchingForScrapState(this));
                     return;
                 }
             }

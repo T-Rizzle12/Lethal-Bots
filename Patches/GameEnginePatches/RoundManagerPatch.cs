@@ -30,7 +30,7 @@ namespace LethalBots.Patches.GameEnginePatches
         static void SpawnOutsideHazards_Postfix(RoundManager __instance)
         {
             // Filter out the water quicksand triggers since those are handled by safe path.
-            QuicksandTrigger[] quicksandArray = Object.FindObjectsOfType<QuicksandTrigger>(includeInactive: true);
+            QuicksandTrigger[] quicksandArray = Object.FindObjectsByType<QuicksandTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             quicksandArray = quicksandArray.Where(quicksand => quicksand != null && !quicksand.isWater).ToArray();
             if (quicksandArray.Length == 0)
             {
@@ -152,7 +152,6 @@ namespace LethalBots.Patches.GameEnginePatches
             Plugin.LogDebug("Updated outside NavMesh.");
         }
 
-        // FIXME: This for some unknown reason breaks the entire interior's NavMesh, I have NO idea what causes this to happen........
         [HarmonyPatch("SpawnMapObjects")]
         [HarmonyPostfix]
         static void SpawnMapObjects_Postfix(RoundManager __instance, List<NavMeshSurface> ___fullBakeSurfaces)
@@ -164,7 +163,7 @@ namespace LethalBots.Patches.GameEnginePatches
 
             bool shouldUpdateNavmesh = false;
             Vector3 colliderBuffer = new Vector3(0.8f, 0.2f, 0.8f); // Add a slight buffer to keep the bots from walking too close!
-            Landmine[] landmines = Object.FindObjectsOfType<Landmine>(includeInactive: true);
+            Landmine[] landmines = Object.FindObjectsByType<Landmine>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             if (landmines.Length == 0)
             {
                 return;

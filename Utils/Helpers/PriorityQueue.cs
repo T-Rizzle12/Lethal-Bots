@@ -26,6 +26,7 @@ namespace LethalBots.Utils.Helpers
         public void Enqueue(T message, QueuePriority priority = QueuePriority.Low)
         {
             _queues[priority].Enqueue(message);
+            Count++;
         }
 
         /// <inheritdoc cref="Queue{T}.TryDequeue(out T)"/>
@@ -36,6 +37,7 @@ namespace LethalBots.Utils.Helpers
                 var q = _queues[priority];
                 if (q.TryDequeue(out message))
                 {
+                    Count--;
                     return true;
                 }
             }
@@ -61,17 +63,6 @@ namespace LethalBots.Utils.Helpers
         }
 
         /// <inheritdoc cref="Queue{T}.Count"/>
-        public int Count
-        {
-            get
-            {
-                int total = 0;
-                foreach (var q in _queues.Values)
-                {
-                    total += q.Count;
-                }
-                return total;
-            }
-        }
+        public int Count { get; private set; }
     }
 }

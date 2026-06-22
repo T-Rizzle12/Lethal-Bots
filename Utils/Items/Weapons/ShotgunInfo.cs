@@ -1,5 +1,6 @@
 ﻿using GameNetcodeStuff;
 using LethalBots.Utils.Helpers;
+using Steamworks.Ugc;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -18,6 +19,17 @@ namespace LethalBots.Utils.Items.Weapons
         public override bool IsRanged(GrabbableObject weapon)
         {
             return true; // Shotguns are a ranged weapon!
+        }
+
+        public override bool NeedsToReload(GrabbableObject weapon)
+        {
+            return weapon is ShotgunItem shotgun && shotgun.shellsLoaded < 2;
+        }
+
+        public override bool ShouldEquip(GrabbableObject weapon, PlayerControllerB lethalBotController)
+        {
+            // If we have a shotgun and we need to reload or the safety is off, we should use it!
+            return weapon is ShotgunItem shotgun && (!shotgun.safetyOn || (NeedsToReload(weapon) && HasAmmo(lethalBotController, shotgun, true)));
         }
 
         public override bool HasAmmo(PlayerControllerB lethalBotController, GrabbableObject weapon, bool spareOnly = false)
@@ -155,6 +167,25 @@ namespace LethalBots.Utils.Items.Weapons
                 else
                 {
                     weapon.UseItemOnClient(true);
+                }
+            }
+        }
+
+        public override void UseHeldWeapon(PlayerControllerB lethalBotController, GrabbableObject weapon, ref bool canUseLethalPhones)
+        {
+            if (weapon is ShotgunItem shotgun)
+            {
+                // Put the saftey back on
+                if (!shotgun.safetyOn)
+                {
+                    canUseLethalPhones = false;
+                    shotgun.ItemInteractLeftRightOnClient(false);
+                }
+                // Reload as needed!
+                else if (NeedsToReload(weapon) && HasAmmo(lethalBotController, weapon, spareOnly: true))
+                {
+                    canUseLethalPhones = false;
+                    shotgun.ItemInteractLeftRightOnClient(true);
                 }
             }
         }

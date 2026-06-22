@@ -7,6 +7,7 @@ using LethalBots.NetworkSerializers;
 using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using Scoops.misc;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -60,6 +61,7 @@ namespace LethalBots.AI
         }
         protected AIStateInfo previousStateUpdate;
 
+        protected CountdownTimer stayInCallTimer = new CountdownTimer();
         protected CountdownTimer useNoiseMakerCooldown = new CountdownTimer();
         protected Coroutine? panikCoroutine;
         protected Coroutine? safePathCoroutine;
@@ -87,6 +89,7 @@ namespace LethalBots.AI
             this.panikCoroutine = oldState.panikCoroutine;
             this.CurrentEnemy = oldState.CurrentEnemy;
             this.useNoiseMakerCooldown = oldState.useNoiseMakerCooldown;
+            this.stayInCallTimer = oldState.stayInCallTimer;
         }
 
         /// <summary>
@@ -393,7 +396,7 @@ namespace LethalBots.AI
             // We could down if we do!
             // FIXME: We should probably let the bot crouch if they are under water,
             // but we should make them stand up if they are close to drowning!
-            if (npcController.Npc.isUnderwater)
+            if (npcController.Npc.isUnderwater && npcController.DrowningTimer < 0.3f)
             {
                 return false;
             }
@@ -832,6 +835,7 @@ namespace LethalBots.AI
         /// <summary>
         /// Simple helper function to clear the <see cref="entranceSafetyCache"/>
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ResetEntranceSafetyCache()
         {
             entranceSafetyCache.Clear();
@@ -848,13 +852,16 @@ namespace LethalBots.AI
         {
             // Took this from the TimeOfDay class file,
             // if we just started the day we should use the front entrance!
-            TimeOfDay timeOfDay = TimeOfDay.Instance;
-            if (timeOfDay != null)
+            if (Plugin.Config.ShouldOnlyUseMainAtStart)
             {
-                DayMode dayMode = timeOfDay.GetDayPhase(timeOfDay.currentDayTime / timeOfDay.totalTime);
-                if (dayMode == DayMode.Dawn)
+                TimeOfDay timeOfDay = TimeOfDay.Instance;
+                if (timeOfDay != null)
                 {
-                    return true;
+                    DayMode dayMode = timeOfDay.GetDayPhase(timeOfDay.currentDayTime / timeOfDay.totalTime);
+                    if (dayMode == DayMode.Dawn)
+                    {
+                        return true;
+                    }
                 }
             }
             return false;
@@ -935,7 +942,7 @@ namespace LethalBots.AI
         /// <remarks>
         /// There is only AI for four items at the time; The walkie-talkie, the shotgun, TZPInhalant, and the Maneater baby!<br/>
         /// The walkie-talkie will be used if the bot is talking!<br/>
-        /// The shotgun will be used if the safety is not on or the bot has spare ammo and the shotgun needs to be reloaded!<br/>
+        /// Weapons that the bot is holding will have their respective <see cref="WeaponInfo.UseHeldWeapon(PlayerControllerB, GrabbableObject, ref bool)"/> called!<br/>
         /// The TZPInhalant is managed by the <see cref="UseTZPInhalantState"/> state!<br/>
         /// The flashlight will be used if the bot believes it is dark enough to need it.<br/>
         /// The Maneater baby will be rocked if the baby is crying!<br/>
@@ -970,20 +977,9 @@ namespace LethalBots.AI
                         walkieTalkie.UseItemOnClient(false);
                     }
                 }
-                else if (heldItem is ShotgunItem shotgun)
+                else if (ItemsManager.Instance.TryGetWeaponInfo(heldItem, out WeaponInfo? weaponInfo))
                 {
-                    // Put the saftey back on
-                    if (!shotgun.safetyOn)
-                    {
-                        canUseLethalPhones = false;
-                        shotgun.ItemInteractLeftRightOnClient(false);
-                    }
-                    // Reload as needed!
-                    else if (shotgun.shellsLoaded < 2 && ai.HasAmmoForWeapon(shotgun, true))
-                    {
-                        canUseLethalPhones = false;
-                        shotgun.ItemInteractLeftRightOnClient(true);
-                    }
+                    weaponInfo.UseHeldWeapon(npcController.Npc, heldItem, ref canUseLethalPhones);
                 }
                 else if (heldItem is TetraChemicalItem tzpItem)
                 {
@@ -1141,10 +1137,10 @@ namespace LethalBots.AI
                     return true;
                 }
             }
-            else if (item is ShotgunItem shotgun)
+            else if (ItemsManager.Instance.TryGetWeaponInfo(item, out WeaponInfo? weaponInfo))
             {
-                // If we have a shotgun and we need to reload or the safety is off, we should use it!
-                if (!shotgun.safetyOn || (shotgun.shellsLoaded < 2 && ai.HasAmmoForWeapon(shotgun, true)))
+                // Check if we should equip this weapon
+                if (weaponInfo.ShouldEquip(item, npcController.Npc))
                 {
                     return true;
                 }
@@ -1195,8 +1191,8 @@ namespace LethalBots.AI
         {
             // If we have a walkie-talkie in our inventory, we should use it!
             if (item is WalkieTalkie) return 3;
-            // If we have a shotgun and we need to reload or the safety is off, we should use it!
-            else if (item is ShotgunItem) return 2;
+            // If we have a weapon and it wants to be equipped, we should use it!
+            else if (ItemsManager.Instance.TryGetWeaponInfo(item, out WeaponInfo? weaponInfo)) return weaponInfo.EquipPriority(item, npcController.Npc);
             // If we have a flashlight and its dark enough to need it, we should use it!
             else if (item is FlashlightItem) return 1;
             return 0;
@@ -1212,17 +1208,51 @@ namespace LethalBots.AI
         /// </remarks>
         public virtual void UseLethalPhones()
         {
-            // If we have an incoming call, better pick it up!
-            if (!ai.IsLethalPhonesCoroutineRunning()
-                && ai.HasIncomingCall())
+            // Don't do anything if we are using the phone!
+            if (!ai.IsLethalPhonesCoroutineRunning())
             {
-                ai.AcceptIncomingCall();
+                // If we have an incoming call, better pick it up!
+                if (ai.HasIncomingCall())
+                {
+                    stayInCallTimer.Reset();
+                    ai.AcceptIncomingCall();
+                }
+                // If have been in a call for a while, end it after a bit
+                else if (ai.AreWeInCall())
+                {
+                    const float MIN_CALL_TIME = 20f;
+                    const float MAX_CALL_TIME = 60f;
+                    if (!stayInCallTimer.HasStarted())
+                    {
+                        stayInCallTimer.Start(Random.Range(MIN_CALL_TIME, MAX_CALL_TIME));
+                        return;
+                    }
+
+                    if (stayInCallTimer.Elapsed())
+                    {
+                        stayInCallTimer.Reset();
+                        ai.HangupPhone();
+                    }
+                }
+                // If we are not in a call or attempting to call someone,
+                // just put the phone away if we have it out!
+                else if (ai.IsPhoneEquipped())
+                {
+                    stayInCallTimer.Reset();
+                    ai.HangupPhone();
+                }
             }
-            // If we are not in a call or attempting to call someone,
-            // just put the phone away if we have it out!
-            else if (!ai.AreWeInCall() && ai.IsPhoneEquipped())
+
+            // Put our phone on vibrate if there are Eyeless dogs nearby.
+            PlayerPhone? ourPhone = ai.GetOurPlayerPhone();
+            if (ourPhone != null)
             {
-                ai.HangupPhone();
+                PlayerPhone.phoneVolume previousValue = ourPhone.currentVolume.Value;
+                PlayerPhone.phoneVolume newValue = ai.CheckProximityForEyelessDogs() ? PlayerPhone.phoneVolume.Vibrate : PlayerPhone.phoneVolume.Ring;
+                if (newValue != previousValue)
+                {
+                    ourPhone.currentVolume.Value = newValue;
+                }
             }
         }
 
@@ -1607,8 +1637,8 @@ namespace LethalBots.AI
                 // Convert angle to world position for looking
                 // Convert to local space (relative to the bot's forward direction)
                 Vector3 lookDirection = Quaternion.Euler(0, angleRandom, 0) * Vector3.forward;
-                float minLookDistance = 2f; // TODO: Move these into the Const class!
-                float maxLookDistance = 8f;
+                const float minLookDistance = 2f; // TODO: Move these into the Const class!
+                const float maxLookDistance = 8f;
                 float lookDistance = Random.Range(minLookDistance, maxLookDistance); // Hardcoded for now
                 Vector3 lookAtPoint = npcController.Npc.gameplayCamera.transform.position + lookDirection * lookDistance;
 

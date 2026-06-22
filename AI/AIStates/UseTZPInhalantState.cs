@@ -18,9 +18,6 @@ namespace LethalBots.AI.AIStates
     {
         private float desiredDrunknessAmount;
         private GrabbableObject? droppedHeldItem;
-        //private static readonly FieldInfo tetraChemicalItemFuelField = AccessTools.Field(typeof(TetraChemicalItem), "fuel");
-        // Now you may ask, why use a delegate function here, I wanted to try something new!
-        //public static readonly Func<TetraChemicalItem, float>? getFuelDelegate = CreateFuelGetter();
         
         public UseTZPInhalantState(AIState oldState, float desiredDrunknessAmount) : base(oldState)
         {
@@ -154,51 +151,5 @@ namespace LethalBots.AI.AIStates
             }
             return false;
         }
-
-        /// <summary>
-        /// Helper function to check if the given <paramref name="tzpItem"/> has fuel remaining!
-        /// </summary>
-        /// <param name="tzpItem"></param>
-        /// <returns>true: <paramref name="tzpItem"/> has fuel. false: <paramref name="tzpItem"/> is out of fuel.</returns>
-        /*public static bool DoesTZPHaveFuelRemaining(TetraChemicalItem tzpItem)
-        {
-            if (getFuelDelegate == null)
-            {
-                Plugin.LogError("Fuel getter delegate was not initialized.");
-                return false;
-            }
-            float fuelRemaining = getFuelDelegate(tzpItem);
-            return fuelRemaining > 0;
-        }*/
-
-        /// <summary>
-        /// Helper function to create a delegate to grab the fuel remaining on <see cref="TetraChemicalItem"/>s!
-        /// </summary>
-        /// <returns>A function to grab the private fuel field or null if we failed!</returns>
-        /*private static Func<TetraChemicalItem, float>? CreateFuelGetter()
-        {
-            FieldInfo? fuelField = AccessTools.Field(typeof(TetraChemicalItem), "fuel");
-            if (fuelField == null)
-            {
-                Plugin.LogError("Could not find 'fuel' field on TetraChemicalItem.");
-                return null;
-            }
-
-            // Create a dynamic method delegate to avoid boxing
-            var dm = new DynamicMethod(
-                "GetFuel",
-                typeof(float),
-                new[] { typeof(TetraChemicalItem) },
-                typeof(TetraChemicalItem), // owner
-                true // skip visibility
-            );
-
-            ILGenerator il = dm.GetILGenerator();
-            il.Emit(OpCodes.Ldarg_0); // Load first argument (TetraChemicalItem)
-            il.Emit(OpCodes.Ldfld, fuelField); // Load the 'fuel' field
-            il.Emit(OpCodes.Ret); // Return
-
-            return (Func<TetraChemicalItem, float>)dm.CreateDelegate(typeof(Func<TetraChemicalItem, float>));
-        }*/
     }
 }

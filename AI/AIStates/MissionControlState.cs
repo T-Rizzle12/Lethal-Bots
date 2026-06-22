@@ -61,6 +61,7 @@ namespace LethalBots.AI.AIStates
         private static Dictionary<SpikeRoofTrap, TerminalAccessibleObject> spikeRoofTraps = new Dictionary<SpikeRoofTrap, TerminalAccessibleObject>();
         private Dictionary<string, float> calledOutEnemies = new Dictionary<string, float>(); // Should this be an enemy name rather than the AI itself?
         private PriorityQueue<string> messageQueue = new PriorityQueue<string>();
+        private static RaycastHit[] raycastColliders = new RaycastHit[20];
 
         public MissionControlState(AIState oldState) : base(oldState)
         {
@@ -956,11 +957,6 @@ namespace LethalBots.AI.AIStates
         /// <returns>true: we have a message to send, false: we don't have any messages to send</returns>
         private bool HasMessageToSend()
         {
-            // Sanity check, make sure everything is valid!
-            if (messageQueue.TryPeek(out var message) && !string.IsNullOrEmpty(message))
-            {
-                return true;
-            }
             return messageQueue.Count > 0;
         }
 
@@ -1772,14 +1768,13 @@ namespace LethalBots.AI.AIStates
             Ray ray = new Ray(player.transform.position + Vector3.up * 2.3f, player.transform.forward);
             float maxDistance = player.grabDistance * 2f;
             LayerMask layerMask = player.walkableSurfacesNoPlayersMask;
-            RaycastHit[] raycastHits = Physics.RaycastAll(ray, maxDistance, layerMask);
-            for (int i = 0; i < raycastHits.Length; i++)
+            int raycastHits = Physics.RaycastNonAlloc(ray, raycastColliders, maxDistance, layerMask);
+            for (int i = 0; i < raycastHits; i++)
             {
-                RaycastHit raycastHit = raycastHits[i];
+                RaycastHit raycastHit = raycastColliders[i];
                 TerminalAccessibleObject accessibleObject = raycastHit.collider.gameObject.GetComponent<TerminalAccessibleObject>();
                 if (accessibleObject != null 
                     && accessibleObject.isBigDoor 
-                    && !objectsToUse.Contains(accessibleObject)
                     && !accessibleObject.inCooldown
                     && !accessibleObject.isDoorOpen)
                 {
@@ -2203,6 +2198,7 @@ namespace LethalBots.AI.AIStates
                     PlayerPhone? ourPhone = ai.GetOurPlayerPhone();
                     if (ourPhone != null && (ourPhone.IsBusy() || ai.IsPhoneEquipped()))
                     {
+                        stayInCallTimer.Reset();
                         ai.HangupPhone();
                         return;
                     }

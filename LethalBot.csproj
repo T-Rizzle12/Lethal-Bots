@@ -153,7 +153,7 @@
 	<Reference Include="GeneralImprovements">
 		<HintPath>lib\mods\GeneralImprovements.dll</HintPath>
 	</Reference>
-    <Reference Include="LethalPhones">
+    <Reference Include="LethalPhones" Publicize="true">
       <HintPath>lib\mods\LethalPhones.dll</HintPath>
     </Reference>
     <Reference Include="ModelReplacementAPI">

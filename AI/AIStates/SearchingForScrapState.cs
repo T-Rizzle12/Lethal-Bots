@@ -27,6 +27,7 @@ namespace LethalBots.AI.AIStates
         private float scrapTimer;
         private float waitForSafePathTimer; // This is how long we have been waiting for a safe path to our target entrance.
         private int entranceAttempts; // This is how many times we spent going into the same entrance!
+        private CountdownTimer callRandomPlayerTimer = new CountdownTimer();
 
         public SearchingForScrapState(AIState oldState, EntranceTeleport? entranceToAvoid = null) : base(oldState)
         {
@@ -194,14 +195,7 @@ namespace LethalBots.AI.AIStates
             else
             {
                 // If our inventory is full, return to the ship to drop our stuff off
-                // Now, lets check if someone is assigned to transfer loot
-                bool shouldWalkLootToShip = true;
-                if (!ai.isOutside && LethalBotManager.Instance.LootTransferPlayers.Count > 0)
-                {
-                    shouldWalkLootToShip = false;
-                }
-
-                ai.State = new ReturnToShipState(this, !shouldWalkLootToShip);
+                ai.State = new ReturnToShipState(this, ReturnToShipState.EnumReturnToShipType.ReturnWithScrap);
                 return;
             }
 
@@ -278,7 +272,7 @@ namespace LethalBots.AI.AIStates
                             EntranceTeleport entrance = LethalBotAI.EntrancesTeleportArray[i];
                             if (entrance == null) continue;
 
-                            if (entrance.isEntranceToBuilding 
+                            if (entrance.isEntranceToBuilding
                                 && (entrance.entrancePoint.position - ourPos).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE)
                             {
                                 areWeNearbyEntrance = true;
@@ -316,8 +310,8 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // If we don't have an entrance selected we should pick one now!
-                if (targetEntrance == null 
-                    || waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH 
+                if (targetEntrance == null
+                    || waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH
                     || (entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS && (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)))
                 {
                     EntranceTeleport? entranceToAvoid = (waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH || entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS) ? this.targetEntrance : null;
@@ -398,13 +392,7 @@ namespace LethalBots.AI.AIStates
                 {
                     if (scrapTimer > Const.TIMER_SEARCH_FOR_SCRAP)
                     {
-                        // Now, lets check if someone is assigned to transfer loot
-                        bool shouldWalkLootToShip = true;
-                        if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
-                        {
-                            shouldWalkLootToShip = false;
-                        }
-                        ai.State = new ReturnToShipState(this, !shouldWalkLootToShip);
+                        ai.State = new ReturnToShipState(this, ReturnToShipState.EnumReturnToShipType.ReturnWithScrap);
                         return;
                     }
                     scrapTimer += ai.AIIntervalTime;
@@ -475,7 +463,7 @@ namespace LethalBots.AI.AIStates
 
         public override void TryPlayCurrentStateVoiceAudio()
         {
-           // Default states, wait for cooldown and if no one is talking close
+            // Default states, wait for cooldown and if no one is talking close
             ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
             {
                 VoiceState = EnumVoicesState.FollowingPlayer,
@@ -488,6 +476,50 @@ namespace LethalBots.AI.AIStates
                 IsLethalBotInside = npcController.Npc.isInsideFactory,
                 AllowSwearing = Plugin.Config.AllowSwearing.Value
             });
+        }
+
+        public override void UseLethalPhones()
+        {
+            // Allow us to accept calls and put away our phone.
+            base.UseLethalPhones();
+
+            // Are we allowed ot randomly call players?
+            if (!Plugin.Config.AllowRandomCalling)
+            {
+                return;
+            }
+
+            if (!ai.IsCallingPlayer() 
+                && !ai.CheckProximityForEyelessDogs())
+            {
+                // If the timer hasn't been started, start it now!
+                const float MIN_CALL_DELAY = 20f;
+                const float MAX_CALL_DELAY = 60f;
+                if (!callRandomPlayerTimer.HasStarted())
+                {
+                    callRandomPlayerTimer.Start(Random.Range(MIN_CALL_DELAY, MAX_CALL_DELAY));
+                    return;
+                }
+
+                // Welp, its time to call a random player
+                if (callRandomPlayerTimer.Elapsed())
+                {
+                    // Restart the timer!
+                    callRandomPlayerTimer.Start(Random.Range(MIN_CALL_DELAY, MAX_CALL_DELAY));
+
+                    // If we were in a call, end it!
+                    if (ai.AreWeInCall())
+                    {
+                        stayInCallTimer.Reset();
+                        ai.HangupPhone();
+                        return;
+                    }
+
+                    // Lets give someone a call!
+                    stayInCallTimer.Reset();
+                    ai.CallRandomPlayer();
+                }
+            }
         }
 
         /// <remarks>
@@ -512,8 +544,7 @@ namespace LethalBots.AI.AIStates
         {
             if (this.targetEntrance != null)
             {
-                float distSqrToEntrance = (this.targetEntrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
-                return distSqrToEntrance < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE;
+                return (this.targetEntrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE;
             }
             return base.ShouldIgnoreInitialDangerCheck();
         }

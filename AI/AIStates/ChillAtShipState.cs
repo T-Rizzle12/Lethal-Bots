@@ -233,7 +233,7 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         private bool DoStandardLogic()
         {
-            if (chillAtShipTimer > Const.TIMER_CHILL_AT_SHIP)
+            if (chillAtShipTimer > Plugin.Config.ChillAtShipTime)
             {
                 // Try to find the closest player to target
                 PlayerControllerB? player = ai.CheckLOSForClosestPlayer(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
@@ -277,7 +277,7 @@ namespace LethalBots.AI.AIStates
                 {
                     // So, we are done chilling and didn't find a player to follow, so lets go in by ourselves
                     // A player can press their +use key on us to make us follow them!
-                    if (chillAtShipTimer > Const.TIMER_CHILL_AT_SHIP + 2f)
+                    if (chillAtShipTimer > Plugin.Config.ChillAtShipTime + 2f)
                     {
                         // Last time we were looking for scrap there was a trapped player,
                         // we should grab a key so we can potentially free them!

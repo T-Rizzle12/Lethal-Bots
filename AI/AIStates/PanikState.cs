@@ -171,20 +171,14 @@ namespace LethalBots.AI.AIStates
                 // Check if we should end early!
                 ai.StopMoving();
 
-                // Now, lets check if someone is assigned to transfer loot
-                bool shouldWalkLootToShip = true;
-                if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
-                {
-                    shouldWalkLootToShip = false;
-                }
                 if (ai.HasScrapInInventory())
                 {
-                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip);
+                    ai.State = new ReturnToShipState(this, ReturnToShipState.EnumReturnToShipType.ReturnWithScrap, new SearchingForScrapState(this));
                 }
                 else if (previousState == EnumAIStates.ReturnToShip
                     || previousState == EnumAIStates.ChillAtShip)
                 {
-                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip);
+                    ai.State = new ReturnToShipState(this, ReturnToShipState.EnumReturnToShipType.ReturnWithScrap, new SearchingForScrapState(this));
                 }
                 // Wait outside the door a bit before heading back in,
                 // if we have been waiting for a bit give up and head back!
@@ -1008,13 +1002,7 @@ namespace LethalBots.AI.AIStates
                 // just in case.....
                 if (ai.HasScrapInInventory())
                 {
-                    // Now, lets check if someone is assigned to transfer loot
-                    bool shouldWalkLootToShip = true;
-                    if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
-                    {
-                        shouldWalkLootToShip = false;
-                    }
-                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip, new SearchingForScrapState(this));
+                    ai.State = new ReturnToShipState(this, ReturnToShipState.EnumReturnToShipType.ReturnWithScrap, new SearchingForScrapState(this));
                     return;
                 }
             }

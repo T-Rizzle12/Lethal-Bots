@@ -212,7 +212,7 @@ namespace LethalBots.Managers
         /// <summary>
         /// A timer made if <see cref="Plugin.IsModSuperEclipseLoaded"/> is active and enabled
         /// </summary>
-        public static IntervalTimer botAutoLeaveTimer { private set; get; } = new IntervalTimer(); 
+        internal static IntervalTimer botAutoLeaveTimer = new IntervalTimer(); 
 
         public Dictionary<EnemyAI, INoiseListener> DictEnemyAINoiseListeners = new Dictionary<EnemyAI, INoiseListener>();
 
@@ -248,12 +248,9 @@ namespace LethalBots.Managers
         }
         private ClientRpcParams ClientRpcParams = new ClientRpcParams();
 
-        private static float nextCheckForShipSafety;
-        private static bool _isShipCompromised;
-        private float nextCheckForAliveHumanPlayers;
-        private bool _areAllHumanPlayersDead;
-        private float nextCheckForAllPlayersOnShip;
-        private bool _areAllPlayersOnTheShip;
+        private static CachedValue<bool> isShipCompromised = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
+        private CachedValue<bool> areAllHumanPlayersDead = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
+        private CachedValue<bool> areAllPlayersOnTheShip = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
 
         private float timerRegisterAINoiseListener;
         private HashSet<EnemyAI> ListEnemyAINonNoiseListeners = new HashSet<EnemyAI>();
@@ -3590,10 +3587,6 @@ namespace LethalBots.Managers
             yield return null;
             int nbSpawnedBots = 0;
             int nbBotsToSpawn = Plugin.Config.MaxBotsAllowedToSpawn;
-
-            // NEEDTOVALIDATE: Should I cache the amount of living players and old player counts
-            // This would be the most reliable way of reseting them back, but would break with Late Company
-            // since it would not consider late joining players......
             StartOfRound instanceSOR = StartOfRound.Instance;
             int newPlayerCount = instanceSOR.connectedPlayersAmount;
             int newLivingPlayerCount = instanceSOR.livingPlayers;
@@ -3672,7 +3665,8 @@ namespace LethalBots.Managers
             // Only display if we actually spawned in bots.
             if (nbSpawnedBots > 0)
             {
-                HUDManager.Instance.DisplayTip("Finished Spawning Bots!", string.Format("{0} bots were spawned!", nbSpawnedBots), false, false, "LC_Tip1");
+                //HUDManager.Instance.DisplayTip("Finished Spawning Bots!", string.Format("{0} bots were spawned!", nbSpawnedBots), false, false, "LC_Tip1");
+                Plugin.LogInfo($"Finished Spawning Bots! {nbSpawnedBots} bots were spawned!");
             }
 
             // Mark the bots as loaded if we were asked to do so!
@@ -4053,12 +4047,10 @@ namespace LethalBots.Managers
         /// <returns>true: the ship is compromised, false: the ship is safe</returns>
         public static bool IsShipCompromised(LethalBotAI? lethalBotAI = null, bool bypassCooldown = false)
         {
-            if (!bypassCooldown && (Time.timeSinceLevelLoad - nextCheckForShipSafety) < Const.TIMER_CHECK_EXPOSED)
+            if (!bypassCooldown && !isShipCompromised.CanUpdate())
             {
-                return _isShipCompromised;
+                return isShipCompromised;
             }
-
-            nextCheckForShipSafety = Time.timeSinceLevelLoad;
 
             Bounds insideShipBounds = StartOfRound.Instance.shipInnerRoomBounds.bounds;
             RoundManager instanceRM = RoundManager.Instance;
@@ -4084,11 +4076,11 @@ namespace LethalBots.Managers
                 float? fearRange = GetFearRangeForEnemy(new LethalBotFearQuery(lethalBotAI, spawnedEnemy, EnumFearQueryType.BotPanic));
                 if (fearRange.HasValue)
                 {
-                    _isShipCompromised = true;
+                    isShipCompromised.Value = true;
                     return true;
                 }
             }
-            _isShipCompromised = false;
+            isShipCompromised.Value = false;
             return false;
         }
 
@@ -4099,12 +4091,10 @@ namespace LethalBots.Managers
         /// <returns>true: all human players are dead, false: if there is a human player alive!</returns>
         public bool AreAllHumanPlayersDead(bool bypassCooldown = false)
         {
-            if (!bypassCooldown && (Time.timeSinceLevelLoad - nextCheckForAliveHumanPlayers) < Const.TIMER_CHECK_EXPOSED)
+            if (!bypassCooldown && !areAllHumanPlayersDead.CanUpdate())
             {
-                return _areAllHumanPlayersDead;
+                return areAllHumanPlayersDead;
             }
-
-            nextCheckForAliveHumanPlayers = Time.timeSinceLevelLoad;
 
             PlayerControllerB[] allPlayers = StartOfRound.Instance.allPlayerScripts;
             for (int i = 0; i < allPlayers.Length; i++)
@@ -4115,12 +4105,12 @@ namespace LethalBots.Managers
                     if (!IsPlayerLethalBot(player) 
                         && (!Plugin.IsModLethalInternsLoaded || !IsPlayerIntern(player)))
                     {
-                        _areAllHumanPlayersDead = false;
+                        areAllHumanPlayersDead.Value = false;
                         return false;
                     }
                 }
             }
-            _areAllHumanPlayersDead = true;
+            areAllHumanPlayersDead.Value = true;
             return true;
         }
 
@@ -4131,12 +4121,10 @@ namespace LethalBots.Managers
         /// <returns>true: all players are on the ship, false: if there is a player not on the ship!</returns>
         public bool AreAllPlayersOnTheShip(bool bypassCooldown = false)
         {
-            if (!bypassCooldown && (Time.timeSinceLevelLoad - nextCheckForAllPlayersOnShip) < Const.TIMER_CHECK_EXPOSED)
+            if (!bypassCooldown && !areAllPlayersOnTheShip.CanUpdate())
             {
-                return _areAllPlayersOnTheShip;
+                return areAllPlayersOnTheShip;
             }
-
-            nextCheckForAllPlayersOnShip = Time.timeSinceLevelLoad;
 
             PlayerControllerB[] allPlayers = StartOfRound.Instance.allPlayerScripts;
             for (int i = 0; i < allPlayers.Length; i++)
@@ -4147,12 +4135,12 @@ namespace LethalBots.Managers
                 {
                     if (!player.isInElevator && !player.isInHangarShipRoom)
                     {
-                        _areAllPlayersOnTheShip = false;
+                        areAllPlayersOnTheShip.Value = false;
                         return false;
                     }
                 }
             }
-            _areAllPlayersOnTheShip = true;
+            areAllPlayersOnTheShip.Value = true;
             return true;
         }
 
@@ -4556,7 +4544,7 @@ namespace LethalBots.Managers
 
             // Clear the mission controller bot!
             // No need for an RPC here since this is called for all players!
-            if (IsServer || IsHost)
+            if (IsServer)
             {
                 MissionControlPlayer = null;
                 LootTransferPlayersNetworkList.Clear();
@@ -4848,14 +4836,6 @@ namespace LethalBots.Managers
                 {
                     // We still set the died last round flag
                     lethalBotAI.LethalBotIdentity.DiedLastRound = lethalBotController.isPlayerDead;
-
-                    // TODO: Add special state for in orbit
-                    //if (lethalBotAI.State != null
-                    //&& lethalBotAI.State.GetAIState() != EnumAIStates.BrainDead)
-                    //{
-                    //    // If the bot was not in the BrainDead state, we set it to it so it doesn't do anything after this!
-                    //    lethalBotAI.State = new BrainDeadState(lethalBotAI);
-                    //}
 
                     if (Plugin.IsModLethalPhonesLoaded)
                     {

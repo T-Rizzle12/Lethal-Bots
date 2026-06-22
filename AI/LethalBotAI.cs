@@ -223,10 +223,8 @@ namespace LethalBots.AI
         private float healthRegenerateTimerMax;
         private CountdownTimer timerCheckDoor = new CountdownTimer();
         private CountdownTimer timerCheckLockedDoor = new CountdownTimer();
-        private float nextExposedToEnemyTimer;
-        private bool _areWeExposed;
-        private float nextEyelessdogCheckTimer;
-        private bool _isEyelessDogInPromimity;
+        private CachedValue<bool> areWeExposed = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
+        private CachedValue<bool> isEyelessDogInPromimity = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
 
         public LineRendererUtil LineRendererUtil = null!;
         private float stuckTimer; // Used for stuck detection
@@ -292,19 +290,19 @@ namespace LethalBots.AI
         public void Init(EnumSpawnAnimation enumSpawnAnimation, bool clientJoining = false)
         {
             // Entrances
-            EntrancesTeleportArray = Object.FindObjectsOfType<EntranceTeleport>(includeInactive: false);
+            EntrancesTeleportArray = Object.FindObjectsByType<EntranceTeleport>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 
             // Ladders
             laddersInteractTrigger = RefreshLaddersList();
 
             // Doors
-            doorLocksArray = Object.FindObjectsOfType<DoorLock>(includeInactive: false);
+            doorLocksArray = Object.FindObjectsByType<DoorLock>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 
             // Elevator
             ElevatorScript = Object.FindObjectOfType<MineshaftElevatorController>();
 
             // Find all patches of quicksand and water
-            QuicksandArray = Object.FindObjectsOfType<QuicksandTrigger>(includeInactive: true);
+            QuicksandArray = Object.FindObjectsByType<QuicksandTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None);
 
             // Important colliders
             InitImportantColliders();
@@ -456,10 +454,11 @@ namespace LethalBots.AI
             }
 
             PlayerControllerB lethalBotController = NpcController.Npc;
+            bool shouldUpdate = IsTouchingGroundTimedCheck.NeedToRecalculate();
             NpcController.IsTouchingGround = IsTouchingGroundTimedCheck.IsTouchingGround(lethalBotController.thisPlayerBody.position);
 
             // Update current material standing on
-            if (NpcController.IsTouchingGround)
+            if (NpcController.IsTouchingGround && shouldUpdate)
             {
                 /*RaycastHit groundRaycastHit = IsTouchingGroundTimedCheck.GetGroundHit(NpcController.Npc.thisPlayerBody.position);
                 if (LethalBotManager.Instance.DictTagSurfaceIndex.ContainsKey(groundRaycastHit.collider.tag))
@@ -2785,12 +2784,10 @@ namespace LethalBots.AI
         /// <returns>true: if an enemy can see us, false: if no enemy can see us</returns>
         public bool AreWeExposed(bool bypassCooldown = false)
         {
-            if (!bypassCooldown && (Time.timeSinceLevelLoad - nextExposedToEnemyTimer) < Const.TIMER_CHECK_EXPOSED)
+            if (!bypassCooldown && !areWeExposed.CanUpdate())
             {
-                return _areWeExposed;
+                return areWeExposed;
             }
-
-            nextExposedToEnemyTimer = Time.timeSinceLevelLoad;
 
             Vector3 ourPos = NpcController.Npc.transform.position;
             float headOffset = NpcController.Npc.gameplayCamera.transform.position.y - ourPos.y;
@@ -2824,13 +2821,13 @@ namespace LethalBots.AI
                         Vector3 viewPos = checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : enemyPos;
                         if (!Physics.Linecast(viewPos + Vector3.up * 0.25f, headPos, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                         {
-                            _areWeExposed = true;
+                            areWeExposed.Value = true;
                             return true;
                         }
                     }
                 }
             }
-            _areWeExposed = false;
+            areWeExposed.Value = false;
             return false;
         }
 
@@ -2840,11 +2837,11 @@ namespace LethalBots.AI
         /// <param name="enemy">Enemy to check</param>
         /// <param name="queryType"></param>
         /// <returns>The minimal distance from enemy to lethalBot before panicking, null if nothing to worry about</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float? GetFearRangeForEnemies(EnemyAI enemy, EnumFearQueryType queryType = EnumFearQueryType.BotPanic)
         {
             //Plugin.LogDebug($"enemy \"{enemy.enemyType.enemyName}\" {enemy.enemyType.name}");
-            LethalBotFearQuery fearQuery = new LethalBotFearQuery(this, enemy, queryType);
-            return LethalBotManager.GetFearRangeForEnemy(fearQuery);
+            return LethalBotManager.GetFearRangeForEnemy(new LethalBotFearQuery(this, enemy, queryType));
         }
 
         /// <summary>
@@ -2861,8 +2858,7 @@ namespace LethalBots.AI
             {
                 return null;
             }
-            LethalBotFearQuery fearQuery = new LethalBotFearQuery(this, enemy, playerToCheck, EnumFearQueryType.PlayerTeleport);
-            return LethalBotManager.GetFearRangeForEnemy(fearQuery);
+            return LethalBotManager.GetFearRangeForEnemy(new LethalBotFearQuery(this, enemy, playerToCheck, EnumFearQueryType.PlayerTeleport));
         }
 
         /// <summary>
@@ -2986,12 +2982,10 @@ namespace LethalBots.AI
         /// <returns>true: there is an eyeless dog nearby, false: no eyeless dog nearby</returns>
         public bool CheckProximityForEyelessDogs(bool bypassCooldown = false)
         {
-            if (!bypassCooldown && (Time.timeSinceLevelLoad - nextEyelessdogCheckTimer) < Const.TIMER_CHECK_EXPOSED)
+            if (!bypassCooldown && !isEyelessDogInPromimity.CanUpdate())
             {
-                return _isEyelessDogInPromimity;
+                return isEyelessDogInPromimity;
             }
-
-            nextEyelessdogCheckTimer = Time.timeSinceLevelLoad;
 
             RoundManager instanceRM = RoundManager.Instance;
             Vector3 ourPos = NpcController.Npc.transform.position;
@@ -3003,15 +2997,15 @@ namespace LethalBots.AI
                 {
                     // NOTE: We don't use GetFearRangeForEnemies since
                     // we don't want to trigger the dog in the first place
-                    float fearRange = 30f; // NOTE: 22f is the footstep range when running!
+                    const float fearRange = 30f; // NOTE: 22f is the footstep range when running!
                     if ((spawnedEnemy.transform.position - ourPos).sqrMagnitude < fearRange * fearRange)
                     {
-                        _isEyelessDogInPromimity = true;
+                        isEyelessDogInPromimity.Value = true;
                         return true;
                     }
                 }
             }
-            _isEyelessDogInPromimity = false;
+            isEyelessDogInPromimity.Value = false;
             return false;
         }
 
@@ -3068,7 +3062,7 @@ namespace LethalBots.AI
 
         internal static ShipTeleporter? FindTeleporter(bool inverseTeleporter = false)
         {
-            ShipTeleporter[] shipTeleporters = Object.FindObjectsOfType<ShipTeleporter>(includeInactive: false);
+            ShipTeleporter[] shipTeleporters = Object.FindObjectsByType<ShipTeleporter>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             for (int i = 0; i < shipTeleporters.Length; i++)
             {
                 var teleporter = shipTeleporters[i];
@@ -5059,7 +5053,6 @@ namespace LethalBots.AI
         {
             if (enumGrabbable == EnumGrabbableObjectCall.Selling)
             {
-                Plugin.LogWarning("IsGrabbableObjectGrabbable was called with enumGrabbable set to Selling. You should use IsGrabbableObjectSellable instead!");
                 return IsGrabbableObjectSellable(grabbableObject);
             }
 
@@ -5259,16 +5252,6 @@ namespace LethalBots.AI
             {
                 return false;
             }
-
-            // Ignore drop cooldowns when selling!
-            // Item just dropped, should wait a bit before grab it again
-            /*if (DictJustDroppedItems.TryGetValue(grabbableObject, out float justDroppedItemTime))
-            {
-                if (Time.realtimeSinceStartup - justDroppedItemTime < Const.WAIT_TIME_FOR_GRAB_DROPPED_OBJECTS)
-                {
-                    return false;
-                }
-            }*/
 
             // Are we holding a two handed item and is the item we are grabbing two handed
             if (!ignoreHeldFlag)
@@ -5515,7 +5498,7 @@ namespace LethalBots.AI
             // Giant Kiwi/Sapsucker eggs
             if (enumGrabbable != EnumGrabbableObjectCall.Selling && grabbableObjectToEvaluate is KiwiBabyItem egg)
             {
-                GiantKiwiAI giantKiwiAI = egg.mamaAI;
+                GiantKiwiAI? giantKiwiAI = egg.mamaAI;
                 if (giantKiwiAI == null || giantKiwiAI.isEnemyDead)
                 {
                     return false; // Parent is dead, allow pickup
@@ -5570,6 +5553,7 @@ namespace LethalBots.AI
             return false;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool IsGrabbableObjectInContainerMod(GrabbableObject grabbableObject)
         {
             return CustomItemBehaviourLibrary.AbstractItems.ContainerBehaviour.CheckIfItemInContainer(grabbableObject);
@@ -5609,7 +5593,7 @@ namespace LethalBots.AI
             }
 
             // Find and cache the colliders associated with bridges!
-            BridgeTrigger[] bridgeTriggers = Object.FindObjectsOfType<BridgeTrigger>(includeInactive: false);
+            BridgeTrigger[] bridgeTriggers = Object.FindObjectsByType<BridgeTrigger>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach (var bridge in bridgeTriggers)
             {
                 // It was the animator that held the bridge colliders, not the physics parts container
@@ -7193,9 +7177,43 @@ namespace LethalBots.AI
         }
 
         /// <summary>
+        /// Has the bot call a random alive player using Lethal Phones!
+        /// </summary>
+        public void CallRandomPlayer()
+        {
+            // Grab all possible players to call
+            List<PlayerControllerB> playerControllers = StartOfRound.Instance.allPlayerScripts.ToList();
+            PlayerControllerB? playerToCall = null;
+            while (playerControllers.Count > 0)
+            {
+                // Make sure this player is valid, not us, and alive!
+                int index = UnityEngine.Random.Range(0, playerControllers.Count);
+                playerToCall = playerControllers[index];
+                if (playerToCall == null
+                    || playerToCall == NpcController.Npc
+                    || !playerToCall.isPlayerControlled
+                    || playerToCall.isPlayerDead)
+                {
+                    playerControllers.RemoveAt(index);
+                    playerToCall = null;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // Lets give them a call!
+            if (playerToCall != null)
+            {
+                CallPlayer(playerToCall);
+            }
+        }
+
+        /// <summary>
         /// Carbon copy of <see cref="PlayerPhone.HangupButtonPressed()"/>, but adjusted to work for bots.
         /// </summary>
-        public void HangupPhone()
+        public void HangupPhone(bool putAwayPhone = true)
         {
             // Only the owner can hang up the phone!
             if (!base.IsOwner)
@@ -7234,7 +7252,10 @@ namespace LethalBots.AI
             }
 
             // Make sure to put the phone away after hanging up!
-            ourPhone.ToggleServerPhoneModelServerRpc(false);
+            if (putAwayPhone)
+            {
+                ourPhone.ToggleServerPhoneModelServerRpc(false);
+            }
         }
 
         /// <summary>
@@ -7322,7 +7343,7 @@ namespace LethalBots.AI
                     ourPhone.ToggleServerPhoneModelServerRpc(true);
                 }
             });
-            HangupPhone();
+            HangupPhone(putAwayPhone: false);
 
             // Alright, we need to fake dialing in the number
             short phoneNumber = 0;
@@ -9092,21 +9113,14 @@ namespace LethalBots.AI
             }
         }
 
-        private bool NeedToRecalculate()
+        public bool NeedToRecalculate()
         {
-            if (lastTimeCalculate < Time.realtimeSinceStartup)
-            {
-                lastTimeCalculate = Time.realtimeSinceStartup + TIMER;
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            return lastTimeCalculate < Time.realtimeSinceStartup;
         }
 
         private void CalculateTouchingGround(Vector3 lethalBotPosition)
         {
+            lastTimeCalculate = Time.realtimeSinceStartup + TIMER;
             isTouchingGround = Physics.Raycast(new Ray(lethalBotPosition + Vector3.up, Vector3.down),
                                                out groundHit,
                                                2.5f,

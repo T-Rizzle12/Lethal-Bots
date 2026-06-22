@@ -17,6 +17,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using TooManyEmotes;
 using TooManyEmotes.Networking;
+using Unity.Collections;
 using Unity.IO.LowLevel.Unsafe;
 using Unity.Netcode;
 using UnityEngine;
@@ -2043,7 +2044,14 @@ namespace LethalBots.AI
                     }
 
                     Npc.StartPerformingEmoteServerRpc();
-                    SyncPerformingEmoteManager.SendSyncEmoteUpdateToServer(emoteControllerLethalBot, overrideEmoteId);
+                    // Can't do this, as it assumes the local player if this is the server.
+                    // We just recreate the logic intead!
+                    //SyncPerformingEmoteManager.SendSyncEmoteUpdateToServer(emoteControllerLethalBot, overrideEmoteId);
+                    Plugin.LogInfo("Sending sync emote update to server. Sync with emote controller id: " + emoteControllerLethalBot);
+                    FastBufferWriter messageStream = new FastBufferWriter(4, Allocator.Temp);
+                    messageStream.WriteValue<ushort>((ushort)emoteControllerLethalBot.emoteControllerId, default(FastBufferWriter.ForPrimitives));
+                    messageStream.WriteValue<short>((short)overrideEmoteId, default(FastBufferWriter.ForPrimitives));
+                    NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("TooManyEmotes.SyncEmoteServerRpc", 0uL, messageStream);
                     emoteControllerLethalBot.timeSinceStartingEmote = 0f;
                     Npc.performingEmote = true;
                     Plugin.LogDebug($"Lethal Bot {Npc.playerUsername} successfuly synced emote with {playerToSyncWith.playerUsername}!");
@@ -2095,7 +2103,7 @@ namespace LethalBots.AI
             if (Npc.updatePlayerLookInterval > 0.25f)
             {
                 Npc.updatePlayerLookInterval = 0f;
-                LethalBotAIController.SyncUpdateLethalBotRotationAndLook(LethalBotAIController.State?.GetBillboardStateIndicator() ?? "",
+                LethalBotAIController.SyncUpdateLethalBotRotationAndLook(LethalBotAIController.State?.GetBillboardStateIndicator() ?? string.Empty,
                                                                    LookAtTarget);
                 this.oldLookAtTarget = this.LookAtTarget.Clone();
             }

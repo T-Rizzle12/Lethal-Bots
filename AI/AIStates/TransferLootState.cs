@@ -118,7 +118,7 @@ namespace LethalBots.AI.AIStates
             // If we are inside, make the bot go outside so we can transfer loot to the ship
             if (!ai.isOutside)
             {
-                ai.State = new ReturnToShipState(this, true); // Tell the state to end if outside
+                ai.State = new ReturnToShipState(this, ReturnToShipState.EnumReturnToShipType.HeadOutside); // Tell the state to end if outside
                 return;
             }
 

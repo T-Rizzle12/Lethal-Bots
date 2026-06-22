@@ -37,6 +37,43 @@ namespace LethalBots.Utils.Helpers
         }
 
         /// <summary>
+        /// Does the follow weapon need to be reloaded
+        /// </summary>
+        /// <param name="weapon">The weapon we are checking</param>
+        /// <returns></returns>
+        public virtual bool NeedsToReload(GrabbableObject weapon)
+        {
+            return false;
+        }
+
+        /// <summary>
+        /// Called by <see cref="AIState.SelectBestItemFromInventoryFilter(GrabbableObject)"/> to see if the bot should
+        /// equip this weapon while not in combat.
+        /// </summary>
+        /// <param name="weapon">The weapon we are checking</param>
+        /// <param name="lethalBotController">The bot's <see cref="PlayerControllerB"/></param>
+        /// <returns></returns>
+        public virtual bool ShouldEquip(GrabbableObject weapon, PlayerControllerB lethalBotController)
+        {
+            return false;
+        }
+
+        /// <summary>
+        /// Only used by <see cref="AIState.GetItemPriority(GrabbableObject)"/> for now,
+        /// but will be expanded for later down the line for weapon selection.
+        /// </summary>
+        /// <remarks>
+        /// By default the priority is 2. This is less than the <see cref="WalkieTalkie"/>, but higher than <see cref="FlashlightItem"/>.
+        /// </remarks>
+        /// <param name="weapon">The weapon we are checking</param>
+        /// <param name="lethalBotController">The bot's <see cref="PlayerControllerB"/></param>
+        /// <returns></returns>
+        public virtual int EquipPriority(GrabbableObject weapon, PlayerControllerB lethalBotController)
+        {
+            return 2;
+        }
+
+        /// <summary>
         /// Checks if the current <paramref name="weapon"/> has ammo.
         /// </summary>
         /// <param name="lethalBotController">The bot's <see cref="PlayerControllerB"/></param>
@@ -175,5 +212,16 @@ namespace LethalBots.Utils.Helpers
                 weapon.UseItemOnClient(false); // HACKHACK: Fake release the button!
             }
         }
+
+        /// <summary>
+        /// Called by the bot in <see cref="AIState.UseHeldItem"/>
+        /// </summary>
+        /// <remarks>
+        /// This allows you to have the bot reload or turn on the safety when not in combat.
+        /// </remarks>
+        /// <param name="lethalBotController">The bot's <see cref="PlayerControllerB"/></param>
+        /// <param name="weapon">The weapon the bot is using</param>
+        /// <param name="canUseLethalPhones">(Lethal Phones) Should the bot be allowed to use their phone when you finish your current action?</param>
+        public virtual void UseHeldWeapon(PlayerControllerB lethalBotController, GrabbableObject weapon, ref bool canUseLethalPhones) { }
     }
 }
