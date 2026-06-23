@@ -71,7 +71,6 @@ namespace LethalBots.AI
         public bool WaitForFullStamina { get; private set; }
         //private float slopeModifier; // ignore for now
         private Vector3 walkForce;
-        private bool isFallingNoJump;
 
         private Dictionary<string, bool> dictAnimationBoolPerItem = null!;
 
@@ -179,16 +178,16 @@ namespace LethalBots.AI
         /// </remarks>
         public void Update()
         {
-            StartOfRound instanceSOR = StartOfRound.Instance;
-
             // The owner of the bot (and the controller)
             // updates and moves the controller
-            if (LethalBotAIController.IsClientOwnerOfLethalBot() && Npc.isPlayerControlled)
+            StartOfRound instanceSOR = StartOfRound.Instance;
+            PlayerControllerB lethalBotController = Npc;
+            if (LethalBotAIController.IsClientOwnerOfLethalBot() && lethalBotController.isPlayerControlled)
             {
                 // Updates the state of the CharacterController and the animator controller
                 UpdateOwnerChanged(true);
 
-                Npc.rightArmProceduralRig.weight = Mathf.Lerp(Npc.rightArmProceduralRig.weight, 0f, 25f * Time.deltaTime);
+                lethalBotController.rightArmProceduralRig.weight = Mathf.Lerp(lethalBotController.rightArmProceduralRig.weight, 0f, 25f * Time.deltaTime);
 
                 // Set the move input vector for moving the controller
                 UpdateMoveInputVectorForOwner();
@@ -217,7 +216,7 @@ namespace LethalBots.AI
                 // Update the rotation of the controller when using jetpack controls
                 UpdateJetPackControlsForOwner();
 
-                if (!Npc.inSpecialInteractAnimation || Npc.inShockingMinigame || instanceSOR.suckingPlayersOutOfShip)
+                if (!lethalBotController.inSpecialInteractAnimation || lethalBotController.inShockingMinigame || instanceSOR.suckingPlayersOutOfShip)
                 {
                     // Move the body of bot
                     UpdateMoveControllerForOwner();
@@ -225,33 +224,33 @@ namespace LethalBots.AI
                     // Check if the bot is falling and update values accordingly
                     UpdateFallValuesForOwner();
 
-                    Npc.externalForces = Vector3.zero;
-                    if (!Npc.teleportingThisFrame && Npc.teleportedLastFrame)
+                    lethalBotController.externalForces = Vector3.zero;
+                    if (!lethalBotController.teleportingThisFrame && lethalBotController.teleportedLastFrame)
                     {
-                        Npc.ResetFallGravity();
-                        Npc.teleportedLastFrame = false;
+                        lethalBotController.ResetFallGravity();
+                        lethalBotController.teleportedLastFrame = false;
                     }
 
                     // Update movement when using jetpack controls
                     UpdateJetPackMoveValuesForOwner();
                 }
-                else if (Npc.isClimbingLadder)
+                else if (lethalBotController.isClimbingLadder)
                 {
                     // Update movement when using ladder
                     UpdateMoveWhenClimbingLadder();
                 }
-                Npc.teleportingThisFrame = false;
+                lethalBotController.teleportingThisFrame = false;
 
                 // Rotations
                 this.UpdateLookAt();
 
-                Npc.playerEye.position = Npc.gameplayCamera.transform.position;
-                Npc.playerEye.rotation = Npc.gameplayCamera.transform.rotation;
+                lethalBotController.playerEye.position = lethalBotController.gameplayCamera.transform.position;
+                lethalBotController.playerEye.rotation = lethalBotController.gameplayCamera.transform.rotation;
 
                 // Update UpdatePlayerLookInterval
                 if (NetworkManager.Singleton != null)
                 {
-                    Npc.updatePlayerLookInterval += Time.deltaTime;
+                    lethalBotController.updatePlayerLookInterval += Time.deltaTime;
                 }
 
                 // Update animations
@@ -269,10 +268,10 @@ namespace LethalBots.AI
                 UpdateLethalBotAnimationsLocalForNotOwner(animationHashLayers);
             }
 
-            Npc.timeSinceSwitchingSlots += Time.deltaTime;
-            Npc.timeSincePlayerMoving += Time.deltaTime;
-            Npc.timeSinceMakingLoudNoise += Time.deltaTime;
-            Npc.timeSinceFearLevelUp += Time.deltaTime;
+            lethalBotController.timeSinceSwitchingSlots += Time.deltaTime;
+            lethalBotController.timeSincePlayerMoving += Time.deltaTime;
+            lethalBotController.timeSinceMakingLoudNoise += Time.deltaTime;
+            lethalBotController.timeSinceFearLevelUp += Time.deltaTime;
 
             // Update the localarms and rotation when in special interact animation
             UpdateInSpecialInteractAnimationEffect();
@@ -302,7 +301,7 @@ namespace LethalBots.AI
             UpdateLineOfSightCube();
 
             // Update our player sanity
-            Npc.SetPlayerSanityLevel();
+            lethalBotController.SetPlayerSanityLevel();
         }
 
         /// <summary>
@@ -312,45 +311,46 @@ namespace LethalBots.AI
         /// <param name="isOwner"></param>
         private void UpdateOwnerChanged(bool isOwner)
         {
+            PlayerControllerB lethalBotController = Npc;
             if (isOwner)
             {
-                if (Npc.isCameraDisabled)
+                if (lethalBotController.isCameraDisabled)
                 {
-                    Npc.isCameraDisabled = false;
-                    Npc.gameplayCamera.enabled = false;
-                    Npc.visorCamera.enabled = false;
-                    Npc.thisPlayerModelArms.enabled = false;
-                    Npc.thisPlayerModel.shadowCastingMode = ShadowCastingMode.On;
-                    Npc.mapRadarDirectionIndicator.enabled = false;
-                    Npc.thisController.enabled = true;
-                    Npc.activeAudioReverbFilter = Npc.activeAudioListener.GetComponent<AudioReverbFilter>();
-                    Npc.activeAudioReverbFilter.enabled = true;
+                    lethalBotController.isCameraDisabled = false;
+                    lethalBotController.gameplayCamera.enabled = false;
+                    lethalBotController.visorCamera.enabled = false;
+                    lethalBotController.thisPlayerModelArms.enabled = false;
+                    lethalBotController.thisPlayerModel.shadowCastingMode = ShadowCastingMode.On;
+                    lethalBotController.mapRadarDirectionIndicator.enabled = false;
+                    lethalBotController.thisController.enabled = true;
+                    lethalBotController.activeAudioReverbFilter = lethalBotController.activeAudioListener.GetComponent<AudioReverbFilter>();
+                    lethalBotController.activeAudioReverbFilter.enabled = true;
                     // BUGBUG: This code creates issues where the audio follows the bot rather than the local player's camera.
-                    /*Npc.activeAudioListener.transform.SetParent(Npc.gameplayCamera.transform);
-                    Npc.activeAudioListener.transform.localEulerAngles = Vector3.zero;
-                    Npc.activeAudioListener.transform.localPosition = Vector3.zero;*/
+                    /*lethalBotController.activeAudioListener.transform.SetParent(lethalBotController.gameplayCamera.transform);
+                    lethalBotController.activeAudioListener.transform.localEulerAngles = Vector3.zero;
+                    lethalBotController.activeAudioListener.transform.localPosition = Vector3.zero;*/
                     UpdateRuntimeAnimatorController(isOwner);
                 }
-                Npc.SetNightVisionEnabled(isNotLocalClient: true);
+                lethalBotController.SetNightVisionEnabled(isNotLocalClient: true);
             }
             else
             {
-                if (!Npc.isCameraDisabled)
+                if (!lethalBotController.isCameraDisabled)
                 {
-                    Npc.isCameraDisabled = true;
-                    Npc.gameplayCamera.enabled = false;
-                    Npc.visorCamera.enabled = false;
-                    Npc.thisPlayerModel.shadowCastingMode = ShadowCastingMode.On;
-                    Npc.thisPlayerModelArms.enabled = false;
-                    Npc.mapRadarDirectionIndicator.enabled = false;
+                    lethalBotController.isCameraDisabled = true;
+                    lethalBotController.gameplayCamera.enabled = false;
+                    lethalBotController.visorCamera.enabled = false;
+                    lethalBotController.thisPlayerModel.shadowCastingMode = ShadowCastingMode.On;
+                    lethalBotController.thisPlayerModelArms.enabled = false;
+                    lethalBotController.mapRadarDirectionIndicator.enabled = false;
                     UpdateRuntimeAnimatorController(isOwner);
-                    Npc.thisController.enabled = false;
-                    if (Npc.gameObject.GetComponent<Rigidbody>())
+                    lethalBotController.thisController.enabled = false;
+                    if (lethalBotController.gameObject.GetComponent<Rigidbody>())
                     {
-                        Npc.gameObject.GetComponent<Rigidbody>().interpolation = RigidbodyInterpolation.None;
+                        lethalBotController.gameObject.GetComponent<Rigidbody>().interpolation = RigidbodyInterpolation.None;
                     }
                 }
-                Npc.SetNightVisionEnabled(isNotLocalClient: true);
+                lethalBotController.SetNightVisionEnabled(isNotLocalClient: true);
             }
         }
 
@@ -361,38 +361,39 @@ namespace LethalBots.AI
         private void UpdateRuntimeAnimatorController(bool isOwner)
         {
             // Save animations states
-            AnimatorStateInfo[] layerInfo = new AnimatorStateInfo[Npc.playerBodyAnimator.layerCount];
-            for (int i = 0; i < Npc.playerBodyAnimator.layerCount; i++)
+            PlayerControllerB lethalBotController = Npc;
+            AnimatorStateInfo[] layerInfo = new AnimatorStateInfo[lethalBotController.playerBodyAnimator.layerCount];
+            for (int i = 0; i < lethalBotController.playerBodyAnimator.layerCount; i++)
             {
-                layerInfo[i] = Npc.playerBodyAnimator.GetCurrentAnimatorStateInfo(i);
+                layerInfo[i] = lethalBotController.playerBodyAnimator.GetCurrentAnimatorStateInfo(i);
             }
 
             // Change runtimeAnimatorController
             if (isOwner)
             {
-                if (Npc.playerBodyAnimator.runtimeAnimatorController != Npc.playersManager.localClientAnimatorController)
+                if (lethalBotController.playerBodyAnimator.runtimeAnimatorController != lethalBotController.playersManager.localClientAnimatorController)
                 {
-                    Npc.playerBodyAnimator.runtimeAnimatorController = Npc.playersManager.localClientAnimatorController;
-                    if (!Npc.playerBodyAnimator.GetCurrentAnimatorStateInfo(5).IsTag("notInSpecialAnim"))
+                    lethalBotController.playerBodyAnimator.runtimeAnimatorController = lethalBotController.playersManager.localClientAnimatorController;
+                    if (!lethalBotController.playerBodyAnimator.GetCurrentAnimatorStateInfo(5).IsTag("notInSpecialAnim"))
                     {
-                        Npc.playerBodyAnimator.SetTrigger("SA_stopAnimation");
+                        lethalBotController.playerBodyAnimator.SetTrigger("SA_stopAnimation");
                     }
                 }
             }
             else
             {
-                if (Npc.playerBodyAnimator.runtimeAnimatorController != Npc.playersManager.otherClientsAnimatorController)
+                if (lethalBotController.playerBodyAnimator.runtimeAnimatorController != lethalBotController.playersManager.otherClientsAnimatorController)
                 {
-                    Npc.playerBodyAnimator.runtimeAnimatorController = Npc.playersManager.otherClientsAnimatorController;
+                    lethalBotController.playerBodyAnimator.runtimeAnimatorController = lethalBotController.playersManager.otherClientsAnimatorController;
                 }
             }
 
             // Push back animations states
-            for (int i = 0; i < Npc.playerBodyAnimator.layerCount; i++)
+            for (int i = 0; i < lethalBotController.playerBodyAnimator.layerCount; i++)
             {
-                if (Npc.playerBodyAnimator.HasState(i, layerInfo[i].fullPathHash))
+                if (lethalBotController.playerBodyAnimator.HasState(i, layerInfo[i].fullPathHash))
                 {
-                    Npc.playerBodyAnimator.CrossFadeInFixedTime(layerInfo[i].fullPathHash, 0.1f);
+                    lethalBotController.playerBodyAnimator.CrossFadeInFixedTime(layerInfo[i].fullPathHash, 0.1f);
                 }
             }
 
@@ -400,7 +401,7 @@ namespace LethalBots.AI
             {
                 foreach (var animationBool in dictAnimationBoolPerItem)
                 {
-                    Npc.playerBodyAnimator.SetBool(animationBool.Key, animationBool.Value);
+                    lethalBotController.playerBodyAnimator.SetBool(animationBool.Key, animationBool.Value);
                 }
             }
         }
@@ -415,15 +416,16 @@ namespace LethalBots.AI
         /// </remarks>
         private void UpdateMoveInputVectorForOwner()
         {
+            PlayerControllerB lethalBotController = Npc;
             if (!HasToMove)
             {
-                lastMoveVector = Npc.moveInputVector;
-                Npc.moveInputVector = Vector2.zero;
+                lastMoveVector = lethalBotController.moveInputVector;
+                lethalBotController.moveInputVector = Vector2.zero;
                 return;
             }
 
             Vector2 moveInput = new Vector2();
-            if (Npc.isClimbingLadder)
+            if (lethalBotController.isClimbingLadder)
             {
                 // Pick move direction based on if we want to go up or down the ladder
                 float x = 1f;
@@ -439,19 +441,19 @@ namespace LethalBots.AI
             else
             {
                 // Get direction from current position to NavMeshAgent's steering target
-                Vector3 worldDir = (LethalBotAIController.agent.steeringTarget - Npc.thisController.transform.position);
+                Vector3 worldDir = (LethalBotAIController.agent.steeringTarget - lethalBotController.thisController.transform.position);
                 worldDir.y = 0f; // Ignore vertical movement
 
                 // Convert to local space (relative to the bot's forward direction)
-                Vector3 localDir = Npc.thisController.transform.InverseTransformDirection(worldDir.normalized);
+                Vector3 localDir = lethalBotController.thisController.transform.InverseTransformDirection(worldDir.normalized);
                 moveInput.x = localDir.x;
                 moveInput.y = localDir.z;
             }
 
             // Set moveInputVector (X = sideways, Z = forward)
-            lastMoveVector = Npc.moveInputVector;
-            Npc.moveInputVector = moveInput;
-            Npc.moveInputVector.Normalize();
+            lastMoveVector = lethalBotController.moveInputVector;
+            lethalBotController.moveInputVector = moveInput;
+            lethalBotController.moveInputVector.Normalize();
         }
 
         /// <summary>
@@ -459,50 +461,51 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateWalkingStateForOwner()
         {
-            if (Npc.isWalking)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.isWalking)
             {
-                if (Npc.moveInputVector.sqrMagnitude <= 0.19f
-                    || (Npc.inSpecialInteractAnimation && !Npc.isClimbingLadder && !Npc.inShockingMinigame))
+                if (lethalBotController.moveInputVector.sqrMagnitude <= 0.19f
+                    || (lethalBotController.inSpecialInteractAnimation && !lethalBotController.isClimbingLadder && !lethalBotController.inShockingMinigame))
                 {
                     StopAnimations();
                 }
                 else if (floatSprint > 0.3f
                             && movementHinderedPrev <= 0
-                            && !Npc.criticallyInjured
-                            && Npc.sprintMeter > 0.1f)
+                            && !lethalBotController.criticallyInjured
+                            && lethalBotController.sprintMeter > 0.1f)
                 {
-                    if (!Npc.isSprinting && Npc.sprintMeter < 0.3f)
+                    if (!lethalBotController.isSprinting && lethalBotController.sprintMeter < 0.3f)
                     {
-                        if (!Npc.isExhausted)
+                        if (!lethalBotController.isExhausted)
                         {
-                            Npc.isExhausted = true;
+                            lethalBotController.isExhausted = true;
                         }
                     }
                     else
                     {
-                        if (Npc.isCrouching && (!Plugin.Config.FollowCrouchWithPlayer 
+                        if (lethalBotController.isCrouching && (!Plugin.Config.FollowCrouchWithPlayer 
                             || LethalBotAIController.targetPlayer == null 
                             || !LethalBotAIController.IsFollowingTargetPlayer()))
                         {
-                            Npc.Crouch(false);
+                            lethalBotController.Crouch(false);
                         }
 
-                        if (!Npc.isCrouching)
+                        if (!lethalBotController.isCrouching)
                         {
-                            Npc.isSprinting = true;
+                            lethalBotController.isSprinting = true;
                         }
                     }
                 }
                 else
                 {
-                    Npc.isSprinting = false;
-                    if (Npc.sprintMeter < 0.1f)
+                    lethalBotController.isSprinting = false;
+                    if (lethalBotController.sprintMeter < 0.1f)
                     {
-                        Npc.isExhausted = true;
+                        lethalBotController.isExhausted = true;
                     }
                 }
 
-                if (Npc.isSprinting)
+                if (lethalBotController.isSprinting)
                 {
                     sprintMultiplier = Mathf.Lerp(sprintMultiplier, 2.25f, Time.deltaTime * 1f);
                 }
@@ -511,42 +514,42 @@ namespace LethalBots.AI
                     sprintMultiplier = Mathf.Lerp(sprintMultiplier, 1f, 10f * Time.deltaTime);
                 }
 
-                if (Npc.moveInputVector.y < 0.2f && Npc.moveInputVector.y > -0.2f && !Npc.inSpecialInteractAnimation)
+                if (lethalBotController.moveInputVector.y < 0.2f && lethalBotController.moveInputVector.y > -0.2f && !lethalBotController.inSpecialInteractAnimation)
                 {
-                    Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SIDEWAYS, true);
+                    lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SIDEWAYS, true);
                 }
                 else
                 {
-                    Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SIDEWAYS, false);
+                    lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SIDEWAYS, false);
                 }
-                if (Npc.enteringSpecialAnimation)
+                if (lethalBotController.enteringSpecialAnimation)
                 {
-                    Npc.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f);
+                    lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f);
                 }
-                else if (Npc.moveInputVector.y < 0.5f && Npc.moveInputVector.x < 0.5f)
+                else if (lethalBotController.moveInputVector.y < 0.5f && lethalBotController.moveInputVector.x < 0.5f)
                 {
-                    //Npc.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, -1f * Mathf.Clamp(slopeModifier + 1f, 0.7f, 1.4f));
-                    Npc.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, -1f);
+                    //lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, -1f * Mathf.Clamp(slopeModifier + 1f, 0.7f, 1.4f));
+                    lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, -1f);
                 }
                 else
                 {
-                    //Npc.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f * Mathf.Clamp(slopeModifier + 1f, 0.7f, 1.4f));
-                    Npc.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f);
+                    //lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f * Mathf.Clamp(slopeModifier + 1f, 0.7f, 1.4f));
+                    lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f);
                 }
             }
             else
             {
-                if (Npc.enteringSpecialAnimation)
+                if (lethalBotController.enteringSpecialAnimation)
                 {
-                    Npc.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f);
+                    lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f);
                 }
-                else if (Npc.isClimbingLadder)
+                else if (lethalBotController.isClimbingLadder)
                 {
-                    Npc.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 0f);
+                    lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 0f);
                 }
-                if (Npc.moveInputVector.sqrMagnitude >= 0.001f && (!Npc.inSpecialInteractAnimation || Npc.isClimbingLadder || Npc.inShockingMinigame))
+                if (lethalBotController.moveInputVector.sqrMagnitude >= 0.001f && (!lethalBotController.inSpecialInteractAnimation || lethalBotController.isClimbingLadder || lethalBotController.inShockingMinigame))
                 {
-                    Npc.isWalking = true;
+                    lethalBotController.isWalking = true;
                 }
             }
         }
@@ -556,17 +559,18 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateEmoteStateForOwner()
         {
-            if (Npc.performingEmote)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.performingEmote)
             {
-                if (this.Npc.inSpecialInteractAnimation
-                    || this.Npc.isPlayerDead
-                    || this.Npc.isCrouching
-                    || this.Npc.isClimbingLadder
-                    || this.Npc.isGrabbingObjectAnimation
-                    || this.Npc.inTerminalMenu
-                    || this.Npc.isTypingChat)
+                if (lethalBotController.inSpecialInteractAnimation
+                    || lethalBotController.isPlayerDead
+                    || lethalBotController.isCrouching
+                    || lethalBotController.isClimbingLadder
+                    || lethalBotController.isGrabbingObjectAnimation
+                    || lethalBotController.inTerminalMenu
+                    || lethalBotController.isTypingChat)
                 {
-                    Npc.performingEmote = false;
+                    lethalBotController.performingEmote = false;
                     this.LethalBotAIController.SyncStopPerformingEmote();
                 }
             }
@@ -577,39 +581,40 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateSinkingStateForOwner()
         {
-            Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_HINDEREDMOVEMENT, Npc.isMovementHindered > 0);
-            if (Npc.sourcesCausingSinking == 0)
+            PlayerControllerB lethalBotController = Npc;
+            lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_HINDEREDMOVEMENT, lethalBotController.isMovementHindered > 0);
+            if (lethalBotController.sourcesCausingSinking == 0)
             {
-                if (Npc.isSinking)
+                if (lethalBotController.isSinking)
                 {
-                    Npc.isSinking = false;
-                    this.LethalBotAIController.SyncChangeSinkingState(false);
+                    lethalBotController.isSinking = false;
+                    lethalBotController.StopSinkingServerRpc();
                 }
             }
             else
             {
-                if (Npc.isSinking)
+                if (lethalBotController.isSinking)
                 {
-                    Npc.GetCurrentMaterialStandingOn(checkStandingOnTerrain: true);
+                    lethalBotController.GetCurrentMaterialStandingOn(checkStandingOnTerrain: true);
                     if (!CheckConditionsForSinkingInQuicksandLethalBot())
                     {
-                        Npc.isSinking = false;
-                        this.LethalBotAIController.SyncChangeSinkingState(false);
+                        lethalBotController.isSinking = false;
+                        lethalBotController.StopSinkingServerRpc();
                     }
                 }
-                else if (!Npc.isSinking && CheckConditionsForSinkingInQuicksandLethalBot())
+                else if (!lethalBotController.isSinking && CheckConditionsForSinkingInQuicksandLethalBot())
                 {
-                    Npc.isSinking = true;
-                    this.LethalBotAIController.SyncChangeSinkingState(true, Npc.sinkingSpeedMultiplier, Npc.statusEffectAudioIndex);
+                    lethalBotController.isSinking = true;
+                    lethalBotController.StartSinkingServerRpc(lethalBotController.sinkingSpeedMultiplier, lethalBotController.statusEffectAudioIndex);
                 }
-                if (Npc.sinkingValue >= 1f)
+                if (lethalBotController.sinkingValue >= 1f)
                 {
-                    Plugin.LogDebug($"SyncKillLethalBot from sinkingValue for LOCAL client #{Npc.NetworkManager.LocalClientId}, lethalBot object: Bot #{Npc.playerClientId}");
-                    Npc.KillPlayer(Vector3.zero, spawnBody: false, CauseOfDeath.Suffocation);
+                    Plugin.LogDebug($"SyncKillLethalBot from sinkingValue for LOCAL client #{lethalBotController.NetworkManager.LocalClientId}, lethalBot object: Bot #{lethalBotController.playerClientId}");
+                    lethalBotController.KillPlayer(Vector3.zero, spawnBody: false, CauseOfDeath.Suffocation);
                 }
-                else if (Npc.sinkingValue > 0.5f)
+                else if (lethalBotController.sinkingValue > 0.5f)
                 {
-                    Npc.Crouch(false);
+                    lethalBotController.Crouch(false);
                 }
             }
         }
@@ -619,21 +624,22 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateCenterAndHeightForOwner()
         {
-            if (Npc.isCrouching)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.isCrouching)
             {
-                Npc.thisController.center = Vector3.Lerp(Npc.thisController.center, new Vector3(Npc.thisController.center.x, 0.72f, Npc.thisController.center.z), 8f * Time.deltaTime);
-                Npc.thisController.height = Mathf.Lerp(Npc.thisController.height, 1.5f, 8f * Time.deltaTime);
+                lethalBotController.thisController.center = Vector3.Lerp(lethalBotController.thisController.center, new Vector3(lethalBotController.thisController.center.x, 0.72f, lethalBotController.thisController.center.z), 8f * Time.deltaTime);
+                lethalBotController.thisController.height = Mathf.Lerp(lethalBotController.thisController.height, 1.5f, 8f * Time.deltaTime);
             }
             else
             {
-                Npc.crouchMeter = Mathf.Max(Npc.crouchMeter - Time.deltaTime * 2f, 0f);
-                Npc.thisController.center = Vector3.Lerp(Npc.thisController.center, new Vector3(Npc.thisController.center.x, 1.28f, Npc.thisController.center.z), 8f * Time.deltaTime);
-                Npc.thisController.height = Mathf.Lerp(Npc.thisController.height, 2.5f, 8f * Time.deltaTime);
+                lethalBotController.crouchMeter = Mathf.Max(lethalBotController.crouchMeter - Time.deltaTime * 2f, 0f);
+                lethalBotController.thisController.center = Vector3.Lerp(lethalBotController.thisController.center, new Vector3(lethalBotController.thisController.center.x, 1.28f, lethalBotController.thisController.center.z), 8f * Time.deltaTime);
+                lethalBotController.thisController.height = Mathf.Lerp(lethalBotController.thisController.height, 2.5f, 8f * Time.deltaTime);
             }
             // We update the radius of the controller to match the bot's radius
             // NEEDTOVALIDATE: Should I also update the height of the controller?
             // I run into the potential issue of where the bot is too tall and fails to path through some areas!
-            LethalBotAIController.agent.radius = Npc.thisController.radius;
+            LethalBotAIController.agent.radius = lethalBotController.thisController.radius;
             //LethalBotAIController.agent.height = 1.5f; // For now set the crouched height! // Not used for now!
         }
 
@@ -642,54 +648,55 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateJetPackControlsForOwner()
         {
+            PlayerControllerB lethalBotController = Npc;
             if (this.disabledJetpackControlsThisFrame)
             {
                 this.disabledJetpackControlsThisFrame = false;
             }
-            if (Npc.jetpackControls)
+            if (lethalBotController.jetpackControls)
             {
-                if (Npc.disablingJetpackControls && IsTouchingGround)
+                if (lethalBotController.disablingJetpackControls && IsTouchingGround)
                 {
                     this.disabledJetpackControlsThisFrame = true;
                     this.LethalBotAIController.SyncDisableJetpackMode();
                 }
                 else if (!IsTouchingGround)
                 {
-                    if (!Npc.startedJetpackControls)
+                    if (!lethalBotController.startedJetpackControls)
                     {
-                        Npc.startedJetpackControls = true;
-                        Npc.jetpackTurnCompass.rotation = Npc.transform.rotation;
+                        lethalBotController.startedJetpackControls = true;
+                        lethalBotController.jetpackTurnCompass.rotation = lethalBotController.transform.rotation;
                     }
-                    Npc.thisController.radius = Mathf.Lerp(Npc.thisController.radius, 1.25f, 10f * Time.deltaTime);
-                    Quaternion rotation = Npc.jetpackTurnCompass.rotation;
-                    Npc.jetpackTurnCompass.Rotate(new Vector3(0f, 0f, -Npc.moveInputVector.x) * (180f * Time.deltaTime), Space.Self);
-                    if (Npc.maxJetpackAngle != -1f && Vector3.Angle(Npc.jetpackTurnCompass.up, Vector3.up) > Npc.maxJetpackAngle)
+                    lethalBotController.thisController.radius = Mathf.Lerp(lethalBotController.thisController.radius, 1.25f, 10f * Time.deltaTime);
+                    Quaternion rotation = lethalBotController.jetpackTurnCompass.rotation;
+                    lethalBotController.jetpackTurnCompass.Rotate(new Vector3(0f, 0f, -lethalBotController.moveInputVector.x) * (180f * Time.deltaTime), Space.Self);
+                    if (lethalBotController.maxJetpackAngle != -1f && Vector3.Angle(lethalBotController.jetpackTurnCompass.up, Vector3.up) > lethalBotController.maxJetpackAngle)
                     {
-                        Npc.jetpackTurnCompass.rotation = rotation;
+                        lethalBotController.jetpackTurnCompass.rotation = rotation;
                     }
-                    rotation = Npc.jetpackTurnCompass.rotation;
-                    Npc.jetpackTurnCompass.Rotate(new Vector3(Npc.moveInputVector.y, 0f, 0f) * (180f * Time.deltaTime), Space.Self);
-                    if (Npc.maxJetpackAngle != -1f && Vector3.Angle(Npc.jetpackTurnCompass.up, Vector3.up) > Npc.maxJetpackAngle)
+                    rotation = lethalBotController.jetpackTurnCompass.rotation;
+                    lethalBotController.jetpackTurnCompass.Rotate(new Vector3(lethalBotController.moveInputVector.y, 0f, 0f) * (180f * Time.deltaTime), Space.Self);
+                    if (lethalBotController.maxJetpackAngle != -1f && Vector3.Angle(lethalBotController.jetpackTurnCompass.up, Vector3.up) > lethalBotController.maxJetpackAngle)
                     {
-                        Npc.jetpackTurnCompass.rotation = rotation;
+                        lethalBotController.jetpackTurnCompass.rotation = rotation;
                     }
-                    if (Npc.jetpackRandomIntensity != -1f)
+                    if (lethalBotController.jetpackRandomIntensity != -1f)
                     {
-                        rotation = Npc.jetpackTurnCompass.rotation;
+                        rotation = lethalBotController.jetpackTurnCompass.rotation;
                         Vector3 a2 = new Vector3(
                             Mathf.Clamp(
-                                Random.Range(-Npc.jetpackRandomIntensity, Npc.jetpackRandomIntensity),
-                            -Npc.maxJetpackAngle, Npc.maxJetpackAngle),
+                                Random.Range(-lethalBotController.jetpackRandomIntensity, lethalBotController.jetpackRandomIntensity),
+                            -lethalBotController.maxJetpackAngle, lethalBotController.maxJetpackAngle),
                             Mathf.Clamp(
-                                Random.Range(-Npc.jetpackRandomIntensity, Npc.jetpackRandomIntensity), -Npc.maxJetpackAngle, Npc.maxJetpackAngle),
-                            Mathf.Clamp(Random.Range(-Npc.jetpackRandomIntensity, Npc.jetpackRandomIntensity), -Npc.maxJetpackAngle, Npc.maxJetpackAngle));
-                        Npc.jetpackTurnCompass.Rotate(a2 * Time.deltaTime, Space.Self);
-                        if (Npc.maxJetpackAngle != -1f && Vector3.Angle(Npc.jetpackTurnCompass.up, Vector3.up) > Npc.maxJetpackAngle)
+                                Random.Range(-lethalBotController.jetpackRandomIntensity, lethalBotController.jetpackRandomIntensity), -lethalBotController.maxJetpackAngle, lethalBotController.maxJetpackAngle),
+                            Mathf.Clamp(Random.Range(-lethalBotController.jetpackRandomIntensity, lethalBotController.jetpackRandomIntensity), -lethalBotController.maxJetpackAngle, lethalBotController.maxJetpackAngle));
+                        lethalBotController.jetpackTurnCompass.Rotate(a2 * Time.deltaTime, Space.Self);
+                        if (lethalBotController.maxJetpackAngle != -1f && Vector3.Angle(lethalBotController.jetpackTurnCompass.up, Vector3.up) > lethalBotController.maxJetpackAngle)
                         {
-                            Npc.jetpackTurnCompass.rotation = rotation;
+                            lethalBotController.jetpackTurnCompass.rotation = rotation;
                         }
                     }
-                    Npc.transform.rotation = Quaternion.Slerp(Npc.transform.rotation, Npc.jetpackTurnCompass.rotation, 8f * Time.deltaTime);
+                    lethalBotController.transform.rotation = Quaternion.Slerp(lethalBotController.transform.rotation, lethalBotController.jetpackTurnCompass.rotation, 8f * Time.deltaTime);
                 }
             }
         }
@@ -700,88 +707,88 @@ namespace LethalBots.AI
         private void UpdateMoveControllerForOwner()
         {
             StartOfRound instanceSOR = StartOfRound.Instance;
-
-            if (Npc.isFreeCamera)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.isFreeCamera)
             {
-                Npc.moveInputVector = Vector2.zero;
+                lethalBotController.moveInputVector = Vector2.zero;
             }
-            float num3 = Npc.movementSpeed / Npc.carryWeight;
-            if (Npc.sinkingValue > 0.73f)
+            float num3 = lethalBotController.movementSpeed / lethalBotController.carryWeight;
+            if (lethalBotController.sinkingValue > 0.73f)
             {
                 num3 = 0f;
             }
             else
             {
-                if (Npc.isCrouching)
+                if (lethalBotController.isCrouching)
                 {
                     num3 /= 1.5f;
                 }
-                else if (Npc.criticallyInjured && !Npc.isCrouching)
+                else if (lethalBotController.criticallyInjured && !lethalBotController.isCrouching)
                 {
-                    //Plugin.LogDebug($"Bot {Npc.playerUsername} Limp Multiplier: {LimpMultiplier}");
-                    num3 *= Npc.limpMultiplier;
+                    //Plugin.LogDebug($"Bot {lethalBotController.playerUsername} Limp Multiplier: {LimpMultiplier}");
+                    num3 *= lethalBotController.limpMultiplier;
                 }
-                if (Npc.isSpeedCheating)
+                if (lethalBotController.isSpeedCheating)
                 {
                     num3 *= 15f;
                 }
                 if (movementHinderedPrev > 0)
                 {
-                    num3 /= 2f * Npc.hinderedMultiplier;
+                    num3 /= 2f * lethalBotController.hinderedMultiplier;
                 }
-                if (Npc.drunkness > 0f)
+                if (lethalBotController.drunkness > 0f)
                 {
-                    num3 *= instanceSOR.drunknessSpeedEffect.Evaluate(Npc.drunkness) / 5f + 1f;
+                    num3 *= instanceSOR.drunknessSpeedEffect.Evaluate(lethalBotController.drunkness) / 5f + 1f;
                 }
-                if (Npc.poison > 0f)
+                if (lethalBotController.poison > 0f)
                 {
                     num3 *= 0.75f;
                 }
-                if (!Npc.isCrouching && Npc.crouchMeter > 1.2f)
+                if (!lethalBotController.isCrouching && lethalBotController.crouchMeter > 1.2f)
                 {
                     num3 *= 0.5f;
                 }
             }
-            if (Npc.isTypingChat || Npc.disableMoveInput || Npc.jetpackControls && !IsTouchingGround || instanceSOR.suckingPlayersOutOfShip)
+            if (lethalBotController.isTypingChat || lethalBotController.disableMoveInput || lethalBotController.jetpackControls && !IsTouchingGround || instanceSOR.suckingPlayersOutOfShip)
             {
-                Npc.moveInputVector = Vector2.zero;
+                lethalBotController.moveInputVector = Vector2.zero;
             }
 
             float num7 = 1f;
-            if (Npc.isFallingFromJump || isFallingNoJump)
+            if (lethalBotController.isFallingFromJump || lethalBotController.isFallingNoJump)
             {
                 num7 = 1.33f;
             }
-            else if (Npc.drunkness > 0.3f)
+            else if (lethalBotController.drunkness > 0.3f)
             {
-                num7 = Mathf.Clamp(Mathf.Abs(Npc.drunkness - 2.25f), 0.3f, 2.5f);
+                num7 = Mathf.Clamp(Mathf.Abs(lethalBotController.drunkness - 2.25f), 0.3f, 2.5f);
             }
-            else if (Npc.poison > 0.3f)
+            else if (lethalBotController.poison > 0.3f)
             {
-                num7 = Mathf.Clamp(Mathf.Abs(Npc.poison - 2.25f), 0.3f, 2.5f);
+                num7 = Mathf.Clamp(Mathf.Abs(lethalBotController.poison - 2.25f), 0.3f, 2.5f);
             }
-            else if (!Npc.isCrouching && Npc.crouchMeter > 1f)
+            else if (!lethalBotController.isCrouching && lethalBotController.crouchMeter > 1f)
             {
                 num7 = 15f;
             }
-            else if (Npc.isSprinting)
+            else if (lethalBotController.isSprinting)
             {
-                num7 = 5f / (Npc.carryWeight * 1.5f);
+                num7 = 5f / (lethalBotController.carryWeight * 1.5f);
             }
             else
             {
-                num7 = 10f / Npc.carryWeight;
+                num7 = 10f / lethalBotController.carryWeight;
             }
-            walkForce = Vector3.MoveTowards(walkForce, Npc.transform.right * Npc.moveInputVector.x + Npc.transform.forward * Npc.moveInputVector.y, num7 * Time.deltaTime);
-            Vector3 vector2 = walkForce * num3 * sprintMultiplier + new Vector3(0f, Npc.fallValue, 0f) + NearEntitiesPushVector;
-            vector2 += Npc.externalForces;
-            if (Npc.externalForceAutoFade.sqrMagnitude > 0.05f * 0.05f)
+            walkForce = Vector3.MoveTowards(walkForce, lethalBotController.transform.right * lethalBotController.moveInputVector.x + lethalBotController.transform.forward * lethalBotController.moveInputVector.y, num7 * Time.deltaTime);
+            Vector3 vector2 = walkForce * num3 * sprintMultiplier + new Vector3(0f, lethalBotController.fallValue, 0f) + NearEntitiesPushVector;
+            vector2 += lethalBotController.externalForces;
+            if (lethalBotController.externalForceAutoFade.sqrMagnitude > 0.05f * 0.05f)
             {
-                vector2 += Npc.externalForceAutoFade;
-                Npc.externalForceAutoFade = Vector3.Lerp(Npc.externalForceAutoFade, Vector3.zero, 2f * Time.deltaTime);
+                vector2 += lethalBotController.externalForceAutoFade;
+                lethalBotController.externalForceAutoFade = Vector3.Lerp(lethalBotController.externalForceAutoFade, Vector3.zero, 2f * Time.deltaTime);
             }
 
-            Npc.playerSlidingTimer = 0f;
+            lethalBotController.playerSlidingTimer = 0f;
             NearEntitiesPushVector = Vector3.zero;
 
             // Move
@@ -793,76 +800,77 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateFallValuesForOwner()
         {
-            if (Npc.inSpecialInteractAnimation && !Npc.inShockingMinigame)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.inSpecialInteractAnimation && !lethalBotController.inShockingMinigame)
             {
                 return;
             }
 
             if (!IsTouchingGround)
             {
-                if (Npc.jetpackControls && !Npc.disablingJetpackControls)
+                if (lethalBotController.jetpackControls && !lethalBotController.disablingJetpackControls)
                 {
-                    Npc.fallValue = Mathf.MoveTowards(Npc.fallValue, Npc.jetpackCounteractiveForce, 9f * Time.deltaTime);
-                    Npc.fallValueUncapped = -8f;
+                    lethalBotController.fallValue = Mathf.MoveTowards(lethalBotController.fallValue, lethalBotController.jetpackCounteractiveForce, 9f * Time.deltaTime);
+                    lethalBotController.fallValueUncapped = -8f;
                 }
                 else
                 {
-                    Npc.fallValue = Mathf.Clamp(Npc.fallValue - 38f * Time.deltaTime, -150f, Npc.jumpForce);
-                    if (Mathf.Abs(Npc.externalForceAutoFade.y) - Mathf.Abs(Npc.fallValue) < 5f)
+                    lethalBotController.fallValue = Mathf.Clamp(lethalBotController.fallValue - 38f * Time.deltaTime, -150f, lethalBotController.jumpForce);
+                    if (Mathf.Abs(lethalBotController.externalForceAutoFade.y) - Mathf.Abs(lethalBotController.fallValue) < 5f)
                     {
-                        if (Npc.disablingJetpackControls)
+                        if (lethalBotController.disablingJetpackControls)
                         {
-                            Npc.fallValueUncapped -= 26f * Time.deltaTime;
+                            lethalBotController.fallValueUncapped -= 26f * Time.deltaTime;
                         }
                         else
                         {
-                            Npc.fallValueUncapped -= 38f * Time.deltaTime;
+                            lethalBotController.fallValueUncapped -= 38f * Time.deltaTime;
                         }
                     }
                 }
-                if (!Npc.isJumping && !Npc.isFallingFromJump)
+                if (!lethalBotController.isJumping && !lethalBotController.isFallingFromJump)
                 {
-                    if (!isFallingNoJump)
+                    if (!lethalBotController.isFallingNoJump)
                     {
-                        isFallingNoJump = true;
-                        //Plugin.LogDebug($"{Npc.playerUsername} isFallingNoJump true");
-                        Npc.fallValue = -7f;
-                        Npc.fallValueUncapped = -7f;
+                        lethalBotController.isFallingNoJump = true;
+                        //Plugin.LogDebug($"{lethalBotController.playerUsername} isFallingNoJump true");
+                        lethalBotController.fallValue = -7f;
+                        lethalBotController.fallValueUncapped = -7f;
                     }
-                    else if (Npc.fallValue < -20f)
+                    else if (lethalBotController.fallValue < -20f)
                     {
-                        Npc.isCrouching = false;
-                        Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CROUCHING, false);
-                        Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_FALLNOJUMP, true);
+                        lethalBotController.isCrouching = false;
+                        lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CROUCHING, false);
+                        lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_FALLNOJUMP, true);
                     }
                 }
-                if (Npc.fallValueUncapped < -35f)
+                if (lethalBotController.fallValueUncapped < -35f)
                 {
-                    Npc.takingFallDamage = true;
+                    lethalBotController.takingFallDamage = true;
                 }
             }
             else
             {
-                movementHinderedPrev = Npc.isMovementHindered;
-                if (!Npc.isJumping)
+                movementHinderedPrev = lethalBotController.isMovementHindered;
+                if (!lethalBotController.isJumping)
                 {
-                    if (isFallingNoJump)
+                    if (lethalBotController.isFallingNoJump)
                     {
-                        isFallingNoJump = false;
-                        if (!Npc.isCrouching && Npc.fallValue < -9f)
+                        lethalBotController.isFallingNoJump = false;
+                        if (!lethalBotController.isCrouching && lethalBotController.fallValue < -9f)
                         {
-                            Npc.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_SHORTFALLLANDING);
+                            lethalBotController.playerBodyAnimator.SetTrigger(Const.PLAYER_ANIMATION_TRIGGER_SHORTFALLLANDING);
                         }
-                        //Plugin.LogDebug($"{Npc.playerUsername} JustTouchedGround fallValue {Npc.fallValue}");
-                        this.Npc.PlayerHitGroundEffects();
+                        //Plugin.LogDebug($"{lethalBotController.playerUsername} JustTouchedGround fallValue {lethalBotController.fallValue}");
+                        lethalBotController.PlayerHitGroundEffects();
                     }
                     //if (!IsFallingFromJump)
                     //{
-                    //    Npc.fallValue = -7f - Mathf.Clamp(12f * slopeModifier, 0f, 100f);
-                    //    Npc.fallValueUncapped = -7f - Mathf.Clamp(12f * slopeModifier, 0f, 100f);
+                    //    lethalBotController.fallValue = -7f - Mathf.Clamp(12f * slopeModifier, 0f, 100f);
+                    //    lethalBotController.fallValueUncapped = -7f - Mathf.Clamp(12f * slopeModifier, 0f, 100f);
                     //}
                 }
-                Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_FALLNOJUMP, false);
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_FALLNOJUMP, false);
             }
         }
 
@@ -872,73 +880,73 @@ namespace LethalBots.AI
         private void UpdateJetPackMoveValuesForOwner()
         {
             StartOfRound instanceSOR = StartOfRound.Instance;
-
-            if (Npc.jetpackControls || Npc.disablingJetpackControls)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.jetpackControls || lethalBotController.disablingJetpackControls)
             {
-                if (!Npc.teleportingThisFrame && !Npc.inSpecialInteractAnimation && !Npc.enteringSpecialAnimation && !Npc.isClimbingLadder && (instanceSOR.timeSinceRoundStarted > 1f || instanceSOR.testRoom != null))
+                if (!lethalBotController.teleportingThisFrame && !lethalBotController.inSpecialInteractAnimation && !lethalBotController.enteringSpecialAnimation && !lethalBotController.isClimbingLadder && (instanceSOR.timeSinceRoundStarted > 1f || instanceSOR.testRoom != null))
                 {
-                    if (Npc.getAverageVelocityInterval <= 0f)
+                    if (lethalBotController.getAverageVelocityInterval <= 0f)
                     {
-                        float magnitude2 = Npc.thisController.velocity.magnitude;
-                        Npc.getAverageVelocityInterval = 0.04f;
-                        Npc.velocityAverageCount++;
-                        if (Npc.velocityAverageCount > Npc.velocityMovingAverageLength)
+                        float magnitude2 = lethalBotController.thisController.velocity.magnitude;
+                        lethalBotController.getAverageVelocityInterval = 0.04f;
+                        lethalBotController.velocityAverageCount++;
+                        if (lethalBotController.velocityAverageCount > lethalBotController.velocityMovingAverageLength)
                         {
-                            Npc.averageVelocity += (magnitude2 - Npc.averageVelocity) / (float)(Npc.velocityMovingAverageLength + 1);
+                            lethalBotController.averageVelocity += (magnitude2 - lethalBotController.averageVelocity) / (float)(lethalBotController.velocityMovingAverageLength + 1);
                         }
                         else
                         {
-                            Npc.averageVelocity += magnitude2;
-                            if (Npc.velocityAverageCount == Npc.velocityMovingAverageLength)
+                            lethalBotController.averageVelocity += magnitude2;
+                            if (lethalBotController.velocityAverageCount == lethalBotController.velocityMovingAverageLength)
                             {
-                                Npc.averageVelocity /= (float)Npc.velocityAverageCount;
+                                lethalBotController.averageVelocity /= (float)lethalBotController.velocityAverageCount;
                             }
                         }
                     }
                     else
                     {
-                        Npc.getAverageVelocityInterval -= Time.deltaTime;
+                        lethalBotController.getAverageVelocityInterval -= Time.deltaTime;
                     }
-                    if (Npc.timeSinceTakingGravityDamage > 0.6f && Npc.velocityAverageCount > 4)
+                    if (lethalBotController.timeSinceTakingGravityDamage > 0.6f && lethalBotController.velocityAverageCount > 4)
                     {
-                        float num8 = Vector3.Angle(Npc.transform.up, Vector3.up);
-                        if (Physics.CheckSphere(Npc.gameplayCamera.transform.position, 0.5f, instanceSOR.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)
-                            || (num8 > 65f && Physics.CheckSphere(Npc.lowerSpine.position, 0.5f, instanceSOR.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)))
+                        float num8 = Vector3.Angle(lethalBotController.transform.up, Vector3.up);
+                        if (Physics.CheckSphere(lethalBotController.gameplayCamera.transform.position, 0.5f, instanceSOR.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)
+                            || (num8 > 65f && Physics.CheckSphere(lethalBotController.lowerSpine.position, 0.5f, instanceSOR.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)))
                         {
-                            if (Npc.averageVelocity > 17f)
+                            if (lethalBotController.averageVelocity > 17f)
                             {
-                                Npc.timeSinceTakingGravityDamage = 0f;
-                                Npc.DamagePlayer(Mathf.Clamp(85, 20, 100), hasDamageSFX: true, callRPC: true, CauseOfDeath.Gravity, 0, true, Vector3.ClampMagnitude(Npc.velocityLastFrame, 50f));
+                                lethalBotController.timeSinceTakingGravityDamage = 0f;
+                                lethalBotController.DamagePlayer(Mathf.Clamp(85, 20, 100), hasDamageSFX: true, callRPC: true, CauseOfDeath.Gravity, 0, true, Vector3.ClampMagnitude(lethalBotController.velocityLastFrame, 50f));
                             }
-                            else if (Npc.averageVelocity > 9f)
+                            else if (lethalBotController.averageVelocity > 9f)
                             {
-                                Npc.DamagePlayer(Mathf.Clamp(30, 20, 100), hasDamageSFX: true, callRPC: true, CauseOfDeath.Gravity, 0, true, Vector3.ClampMagnitude(Npc.velocityLastFrame, 50f));
-                                Npc.timeSinceTakingGravityDamage = 0.35f;
+                                lethalBotController.DamagePlayer(Mathf.Clamp(30, 20, 100), hasDamageSFX: true, callRPC: true, CauseOfDeath.Gravity, 0, true, Vector3.ClampMagnitude(lethalBotController.velocityLastFrame, 50f));
+                                lethalBotController.timeSinceTakingGravityDamage = 0.35f;
                             }
-                            else if (num8 > 60f && Npc.averageVelocity > 6f)
+                            else if (num8 > 60f && lethalBotController.averageVelocity > 6f)
                             {
-                                Npc.DamagePlayer(Mathf.Clamp(30, 20, 100), hasDamageSFX: true, callRPC: true, CauseOfDeath.Gravity, 0, true, Vector3.ClampMagnitude(Npc.velocityLastFrame, 50f));
-                                Npc.timeSinceTakingGravityDamage = 0f;
+                                lethalBotController.DamagePlayer(Mathf.Clamp(30, 20, 100), hasDamageSFX: true, callRPC: true, CauseOfDeath.Gravity, 0, true, Vector3.ClampMagnitude(lethalBotController.velocityLastFrame, 50f));
+                                lethalBotController.timeSinceTakingGravityDamage = 0f;
                             }
                         }
                     }
                     else
                     {
-                        Npc.timeSinceTakingGravityDamage += Time.deltaTime;
+                        lethalBotController.timeSinceTakingGravityDamage += Time.deltaTime;
                     }
-                    Npc.velocityLastFrame = Npc.thisController.velocity;
-                    Npc.previousFrameDeltaTime = Time.deltaTime;
+                    lethalBotController.velocityLastFrame = lethalBotController.thisController.velocity;
+                    lethalBotController.previousFrameDeltaTime = Time.deltaTime;
                 }
                 else
                 {
-                    Npc.teleportingThisFrame = false;
+                    lethalBotController.teleportingThisFrame = false;
                 }
             }
             else
             {
-                Npc.averageVelocity = 0f;
-                Npc.velocityAverageCount = 0;
-                Npc.timeSinceTakingGravityDamage = 0f;
+                lethalBotController.averageVelocity = 0f;
+                lethalBotController.velocityAverageCount = 0;
+                lethalBotController.timeSinceTakingGravityDamage = 0f;
             }
         }
 
@@ -947,83 +955,54 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateMoveWhenClimbingLadder()
         {
-            Vector3 direction = Npc.thisPlayerBody.up;
-            Vector3 origin = Npc.gameplayCamera.transform.position + Npc.thisPlayerBody.up * 0.07f;
-            if ((Npc.externalForces + Npc.externalForceAutoFade).sqrMagnitude > 8f * 8f)
+            PlayerControllerB lethalBotController = Npc;
+            Vector3 direction = lethalBotController.thisPlayerBody.up;
+            Vector3 origin = lethalBotController.gameplayCamera.transform.position + lethalBotController.thisPlayerBody.up * 0.07f;
+            if ((lethalBotController.externalForces + lethalBotController.externalForceAutoFade).sqrMagnitude > 8f * 8f)
             {
-                Npc.CancelSpecialTriggerAnimations();
+                lethalBotController.CancelSpecialTriggerAnimations();
             }
-            Npc.externalForces = Vector3.zero;
-            Npc.externalForceAutoFade = Vector3.Lerp(Npc.externalForceAutoFade, Vector3.zero, 5f * Time.deltaTime);
+            lethalBotController.externalForces = Vector3.zero;
+            lethalBotController.externalForceAutoFade = Vector3.Lerp(lethalBotController.externalForceAutoFade, Vector3.zero, 5f * Time.deltaTime);
 
             if (goDownLadder)
             {
-                direction = -Npc.thisPlayerBody.up;
-                origin = Npc.transform.position;
+                direction = -lethalBotController.thisPlayerBody.up;
+                origin = lethalBotController.transform.position;
             }
-            Npc.thisPlayerBody.transform.position += direction * (Const.BASE_MAX_SPEED * Npc.climbSpeed * Time.deltaTime);
+            lethalBotController.thisPlayerBody.transform.position += direction * (Const.BASE_MAX_SPEED * lethalBotController.climbSpeed * Time.deltaTime);
             //if (!Physics.Raycast(origin, direction, 0.15f, StartOfRound.Instance.allPlayersCollideWithMask, QueryTriggerInteraction.Ignore))
             //{
-            //    Npc.thisPlayerBody.transform.position += direction * (Const.BASE_MAX_SPEED * Npc.climbSpeed * Time.deltaTime);
+            //    lethalBotController.thisPlayerBody.transform.position += direction * (Const.BASE_MAX_SPEED * lethalBotController.climbSpeed * Time.deltaTime);
             //}
         }
 
         private void UpdateAnimationsForOwner()
         {
-            //Plugin.LogDebug($"animationSpeed {Npc.playerBodyAnimator.GetFloat("animationSpeed")}");
-            //for (int i = 0; i < Npc.playerBodyAnimator.layerCount; i++)
+            //Plugin.LogDebug($"animationSpeed {lethalBotController.playerBodyAnimator.GetFloat("animationSpeed")}");
+            //for (int i = 0; i < lethalBotController.playerBodyAnimator.layerCount; i++)
             //{
-            //    Plugin.LogDebug($"layer {i}, {Npc.playerBodyAnimator.GetCurrentAnimatorStateInfo(i).fullPathHash}");
+            //    Plugin.LogDebug($"layer {i}, {lethalBotController.playerBodyAnimator.GetCurrentAnimatorStateInfo(i).fullPathHash}");
             //}
 
-            // Update the "what should be the animation state"
-            // Layer 0
-            /*if (Npc.isCrouching)
-            {
-                if (IsWalking)
-                {
-                    animationHashLayers[0] = Const.CROUCHING_WALKING_STATE_HASH;
-                }
-                else
-                {
-                    animationHashLayers[0] = Const.CROUCHING_IDLE_STATE_HASH;
-                }
-            }
-            else if (Npc.isSprinting)
-            {
-                animationHashLayers[0] = Const.SPRINTING_STATE_HASH;
-            }
-            else if (IsWalking)
-            {
-                animationHashLayers[0] = Const.WALKING_STATE_HASH;
-            }
-            else
-            {
-                animationHashLayers[0] = Const.IDLE_STATE_HASH;
-            }
-
-            if (IsControllerInCruiser)
-            {
-                animationHashLayers[0] = Const.IDLE_STATE_HASH;
-            }*/
-
             // Update this so we can send the layers to other clients!
-            if (Npc.playerBodyAnimator.GetBool(Const.PLAYER_ANIMATION_BOOL_WALKING) != Npc.isWalking)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.playerBodyAnimator.GetBool(Const.PLAYER_ANIMATION_BOOL_WALKING) != lethalBotController.isWalking)
             {
-                Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_WALKING, Npc.isWalking);
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_WALKING, lethalBotController.isWalking);
             }
-            if (Npc.playerBodyAnimator.GetBool(Const.PLAYER_ANIMATION_BOOL_SPRINTING) != Npc.isSprinting)
+            if (lethalBotController.playerBodyAnimator.GetBool(Const.PLAYER_ANIMATION_BOOL_SPRINTING) != lethalBotController.isSprinting)
             {
-                Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SPRINTING, Npc.isSprinting);
+                lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SPRINTING, lethalBotController.isSprinting);
             }
 
             // Save current layers to be sent to other players
-            for (int i = 0; i < Npc.playerBodyAnimator.layerCount; i++)
+            for (int i = 0; i < lethalBotController.playerBodyAnimator.layerCount; i++)
             {
-                animationHashLayers[i] = Npc.playerBodyAnimator.GetCurrentAnimatorStateInfo(i).fullPathHash;
+                animationHashLayers[i] = lethalBotController.playerBodyAnimator.GetCurrentAnimatorStateInfo(i).fullPathHash;
             }
 
-            if (NetworkManager.Singleton != null && Npc.playersManager.connectedPlayersAmount > 0)
+            if (NetworkManager.Singleton != null)
             {
                 // Sync
                 UpdateLethalBotAnimationsToOtherClients(animationHashLayers);
@@ -1039,48 +1018,50 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateSyncPositionAndRotationForNotOwner()
         {
-            if (!Npc.isPlayerDead && Npc.isPlayerControlled)
+            PlayerControllerB lethalBotController = Npc;
+            if (!lethalBotController.isPlayerDead && lethalBotController.isPlayerControlled)
             {
-                if (!Npc.disableSyncInAnimation)
+                if (!lethalBotController.disableSyncInAnimation)
                 {
-                    if (Npc.snapToServerPosition)
+                    if (lethalBotController.snapToServerPosition)
                     {
-                        Npc.transform.localPosition = Vector3.Lerp(Npc.transform.localPosition, Npc.serverPlayerPosition, 16f * Time.deltaTime);
+                        lethalBotController.transform.localPosition = Vector3.Lerp(lethalBotController.transform.localPosition, lethalBotController.serverPlayerPosition, 16f * Time.deltaTime);
                     }
                     else
                     {
                         float num10 = 8f;
-                        if (Npc.jetpackControls)
+                        if (lethalBotController.jetpackControls)
                         {
                             num10 = 15f;
                         }
-                        float num11 = Mathf.Clamp(num10 * Vector3.Distance(Npc.transform.localPosition, Npc.serverPlayerPosition), 0.9f, 300f);
-                        Npc.transform.localPosition = Vector3.MoveTowards(Npc.transform.localPosition, Npc.serverPlayerPosition, num11 * Time.deltaTime);
+                        float num11 = Mathf.Clamp(num10 * Vector3.Distance(lethalBotController.transform.localPosition, lethalBotController.serverPlayerPosition), 0.9f, 300f);
+                        lethalBotController.transform.localPosition = Vector3.MoveTowards(lethalBotController.transform.localPosition, lethalBotController.serverPlayerPosition, num11 * Time.deltaTime);
                     }
                 }
 
                 // Rotations
                 this.UpdateTurnBodyTowardsDirection();
                 this.UpdateLookAt();
-                Npc.playerEye.position = Npc.gameplayCamera.transform.position;
-                Npc.playerEye.rotation = Npc.gameplayCamera.transform.rotation;
+                lethalBotController.playerEye.position = lethalBotController.gameplayCamera.transform.position;
+                lethalBotController.playerEye.rotation = lethalBotController.gameplayCamera.transform.rotation;
             }
-            else if ((Npc.isPlayerDead || !Npc.isPlayerControlled) && Npc.setPositionOfDeadPlayer)
+            else if ((lethalBotController.isPlayerDead || !lethalBotController.isPlayerControlled) && lethalBotController.setPositionOfDeadPlayer)
             {
-                Npc.transform.position = Npc.playersManager.notSpawnedPosition.position;
+                lethalBotController.transform.position = lethalBotController.playersManager.notSpawnedPosition.position;
             }
         }
 
         private void UpdateLethalBotAnimationsLocalForNotOwner(int[] animationsStateHash)
         {
             this.updatePlayerAnimationsInterval += Time.deltaTime;
-            if (Npc.inSpecialInteractAnimation || this.updatePlayerAnimationsInterval > 0.14f)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.inSpecialInteractAnimation || this.updatePlayerAnimationsInterval > 0.14f)
             {
                 this.updatePlayerAnimationsInterval = 0f;
 
                 // If animation
                 // Update animation if current != previous
-                this.currentAnimationSpeed = Npc.playerBodyAnimator.GetFloat("animationSpeed");
+                this.currentAnimationSpeed = lethalBotController.playerBodyAnimator.GetFloat("animationSpeed");
                 for (int i = 0; i < animationsStateHash.Length; i++)
                 {
                     this.currentAnimationStateHash[i] = animationsStateHash[i];
@@ -1110,31 +1091,32 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateInSpecialInteractAnimationEffect()
         {
-            if (!Npc.inSpecialInteractAnimation)
+            PlayerControllerB lethalBotController = Npc;
+            if (!lethalBotController.inSpecialInteractAnimation)
             {
-                if (Npc.playingQuickSpecialAnimation)
+                if (lethalBotController.playingQuickSpecialAnimation)
                 {
-                    Npc.specialAnimationWeight = 1f;
+                    lethalBotController.specialAnimationWeight = 1f;
                 }
                 else
                 {
-                    Npc.specialAnimationWeight = Mathf.Lerp(Npc.specialAnimationWeight, 0f, Time.deltaTime * 12f);
+                    lethalBotController.specialAnimationWeight = Mathf.Lerp(lethalBotController.specialAnimationWeight, 0f, Time.deltaTime * 12f);
                 }
-                if (!Npc.localArmsMatchCamera)
+                if (!lethalBotController.localArmsMatchCamera)
                 {
-                    Npc.localArmsTransform.position = Npc.playerModelArmsMetarig.position + Npc.playerModelArmsMetarig.forward * -0.445f;
-                    Npc.playerModelArmsMetarig.rotation = Quaternion.Lerp(Npc.playerModelArmsMetarig.rotation, Npc.localArmsRotationTarget.rotation, 15f * Time.deltaTime);
+                    lethalBotController.localArmsTransform.position = lethalBotController.playerModelArmsMetarig.position + lethalBotController.playerModelArmsMetarig.forward * -0.445f;
+                    lethalBotController.playerModelArmsMetarig.rotation = Quaternion.Lerp(lethalBotController.playerModelArmsMetarig.rotation, lethalBotController.localArmsRotationTarget.rotation, 15f * Time.deltaTime);
                 }
             }
             else
             {
-                if ((!Npc.isClimbingLadder && !Npc.inShockingMinigame) || Npc.freeRotationInInteractAnimation)
+                if ((!lethalBotController.isClimbingLadder && !lethalBotController.inShockingMinigame) || lethalBotController.freeRotationInInteractAnimation)
                 {
-                    Npc.cameraUp = Mathf.Lerp(Npc.cameraUp, 0f, 5f * Time.deltaTime);
-                    Npc.gameplayCamera.transform.localEulerAngles = new Vector3(Npc.cameraUp, Npc.gameplayCamera.transform.localEulerAngles.y, Npc.gameplayCamera.transform.localEulerAngles.z);
+                    lethalBotController.cameraUp = Mathf.Lerp(lethalBotController.cameraUp, 0f, 5f * Time.deltaTime);
+                    lethalBotController.gameplayCamera.transform.localEulerAngles = new Vector3(lethalBotController.cameraUp, lethalBotController.gameplayCamera.transform.localEulerAngles.y, lethalBotController.gameplayCamera.transform.localEulerAngles.z);
                 }
-                Npc.specialAnimationWeight = Mathf.Lerp(Npc.specialAnimationWeight, 1f, Time.deltaTime * 20f);
-                Npc.playerModelArmsMetarig.localEulerAngles = new Vector3(-90f, 0f, 0f);
+                lethalBotController.specialAnimationWeight = Mathf.Lerp(lethalBotController.specialAnimationWeight, 1f, Time.deltaTime * 20f);
+                lethalBotController.playerModelArmsMetarig.localEulerAngles = new Vector3(-90f, 0f, 0f);
             }
         }
         /// <summary>
@@ -1142,20 +1124,21 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateEmoteEffects()
         {
-            if (Npc.doingUpperBodyEmote > 0f)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.doingUpperBodyEmote > 0f)
             {
-                Npc.doingUpperBodyEmote -= Time.deltaTime;
+                lethalBotController.doingUpperBodyEmote -= Time.deltaTime;
             }
 
-            if (Npc.performingEmote)
+            if (lethalBotController.performingEmote)
             {
-                Npc.emoteLayerWeight = Mathf.Lerp(Npc.emoteLayerWeight, 1f, 10f * Time.deltaTime);
+                lethalBotController.emoteLayerWeight = Mathf.Lerp(lethalBotController.emoteLayerWeight, 1f, 10f * Time.deltaTime);
             }
             else
             {
-                Npc.emoteLayerWeight = Mathf.Lerp(Npc.emoteLayerWeight, 0f, 10f * Time.deltaTime);
+                lethalBotController.emoteLayerWeight = Mathf.Lerp(lethalBotController.emoteLayerWeight, 0f, 10f * Time.deltaTime);
             }
-            Npc.playerBodyAnimator.SetLayerWeight(Npc.playerBodyAnimator.GetLayerIndex(Const.PLAYER_ANIMATION_WEIGHT_EMOTESNOARMS), Npc.emoteLayerWeight);
+            lethalBotController.playerBodyAnimator.SetLayerWeight(lethalBotController.playerBodyAnimator.GetLayerIndex(Const.PLAYER_ANIMATION_WEIGHT_EMOTESNOARMS), lethalBotController.emoteLayerWeight);
         }
         /// <summary>
         /// Update the sinking values and effect
@@ -1163,38 +1146,38 @@ namespace LethalBots.AI
         private void UpdateSinkingEffects()
         {
             StartOfRound instanceSOR = StartOfRound.Instance;
-
-            Npc.meshContainer.position = Vector3.Lerp(Npc.transform.position, Npc.transform.position - Vector3.up * 2.8f, instanceSOR.playerSinkingCurve.Evaluate(Npc.sinkingValue));
-            if (Npc.isSinking && !Npc.inSpecialInteractAnimation && Npc.inAnimationWithEnemy == null)
+            PlayerControllerB lethalBotController = Npc;
+            lethalBotController.meshContainer.position = Vector3.Lerp(lethalBotController.transform.position, lethalBotController.transform.position - Vector3.up * 2.8f, instanceSOR.playerSinkingCurve.Evaluate(lethalBotController.sinkingValue));
+            if (lethalBotController.isSinking && !lethalBotController.inSpecialInteractAnimation && lethalBotController.inAnimationWithEnemy == null)
             {
-                Npc.sinkingValue = Mathf.Clamp(Npc.sinkingValue + Time.deltaTime * Npc.sinkingSpeedMultiplier, 0f, 1f);
+                lethalBotController.sinkingValue = Mathf.Clamp(lethalBotController.sinkingValue + Time.deltaTime * lethalBotController.sinkingSpeedMultiplier, 0f, 1f);
             }
             else
             {
-                Npc.sinkingValue = Mathf.Clamp(Npc.sinkingValue - Time.deltaTime * 0.75f, 0f, 1f);
+                lethalBotController.sinkingValue = Mathf.Clamp(lethalBotController.sinkingValue - Time.deltaTime * 0.75f, 0f, 1f);
             }
-            if (Npc.sinkingValue > 0.73f || Npc.isUnderwater)
+            if (lethalBotController.sinkingValue > 0.73f || lethalBotController.isUnderwater)
             {
                 if (!this.wasUnderwaterLastFrame)
                 {
                     this.wasUnderwaterLastFrame = true;
-                    Npc.waterBubblesAudio.Play();
+                    lethalBotController.waterBubblesAudio.Play();
                 }
-                Npc.voiceMuffledByEnemy = true;
-                Npc.statusEffectAudio.volume = Mathf.Lerp(Npc.statusEffectAudio.volume, 0f, 4f * Time.deltaTime);
+                lethalBotController.voiceMuffledByEnemy = true;
+                lethalBotController.statusEffectAudio.volume = Mathf.Lerp(lethalBotController.statusEffectAudio.volume, 0f, 4f * Time.deltaTime);
                 OccludeAudioComponent.overridingLowPass = true;
                 OccludeAudioComponent.lowPassOverride = 600f;
-                Npc.waterBubblesAudio.volume = Mathf.Clamp(LethalBotAIController.LethalBotIdentity.Voice.GetVoiceAmplitude() * 120f, 0f, 1f);
+                lethalBotController.waterBubblesAudio.volume = Mathf.Clamp(LethalBotAIController.LethalBotIdentity.Voice.GetVoiceAmplitude() * 120f, 0f, 1f);
             }
             else if (this.wasUnderwaterLastFrame)
             {
-                Npc.waterBubblesAudio.Stop();
+                lethalBotController.waterBubblesAudio.Stop();
                 this.wasUnderwaterLastFrame = false;
-                Npc.voiceMuffledByEnemy = false;
+                lethalBotController.voiceMuffledByEnemy = false;
             }
             else
             {
-                Npc.statusEffectAudio.volume = Mathf.Lerp(Npc.statusEffectAudio.volume, 1f, 4f * Time.deltaTime);
+                lethalBotController.statusEffectAudio.volume = Mathf.Lerp(lethalBotController.statusEffectAudio.volume, 1f, 4f * Time.deltaTime);
             }
         }
         /// <summary>
@@ -1204,18 +1187,18 @@ namespace LethalBots.AI
         {
             GameNetworkManager instanceGNM = GameNetworkManager.Instance;
             StartOfRound instanceSOR = StartOfRound.Instance;
-
-            if (Npc.activeAudioReverbFilter == null)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.activeAudioReverbFilter == null)
             {
-                Npc.activeAudioReverbFilter = Npc.activeAudioListener.GetComponent<AudioReverbFilter>();
-                Npc.activeAudioReverbFilter.enabled = true;
+                lethalBotController.activeAudioReverbFilter = lethalBotController.activeAudioListener.GetComponent<AudioReverbFilter>();
+                lethalBotController.activeAudioReverbFilter.enabled = true;
             }
-            if (Npc.reverbPreset != null && instanceGNM != null && instanceGNM.localPlayerController != null
-                && ((instanceGNM.localPlayerController == this.Npc
-                && (!Npc.isPlayerDead || instanceSOR.overrideSpectateCamera)) || (instanceGNM.localPlayerController.spectatedPlayerScript == this.Npc && !instanceSOR.overrideSpectateCamera)))
+            if (lethalBotController.reverbPreset != null && instanceGNM != null && instanceGNM.localPlayerController != null
+                && ((instanceGNM.localPlayerController == lethalBotController
+                && (!lethalBotController.isPlayerDead || instanceSOR.overrideSpectateCamera)) || (instanceGNM.localPlayerController.spectatedPlayerScript == lethalBotController && !instanceSOR.overrideSpectateCamera)))
             {
-                AudioReverbFilter audioReverbFilter = Npc.activeAudioReverbFilter;
-                ReverbPreset reverbPreset = Npc.reverbPreset;
+                AudioReverbFilter audioReverbFilter = lethalBotController.activeAudioReverbFilter;
+                ReverbPreset reverbPreset = lethalBotController.reverbPreset;
                 audioReverbFilter.dryLevel = Mathf.Lerp(audioReverbFilter.dryLevel, reverbPreset.dryLevel, 15f * Time.deltaTime);
                 audioReverbFilter.roomLF = Mathf.Lerp(audioReverbFilter.roomLF, reverbPreset.lowFreq, 15f * Time.deltaTime);
                 audioReverbFilter.roomLF = Mathf.Lerp(audioReverbFilter.roomHF, reverbPreset.highFreq, 15f * Time.deltaTime);
@@ -1229,41 +1212,41 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateAnimationUpperBody()
         {
-            int indexLayerHoldingItemsRightHand = Npc.playerBodyAnimator.GetLayerIndex(Const.PLAYER_ANIMATION_WEIGHT_HOLDINGITEMSRIGHTHAND);
-            int indexLayerHoldingItemsBothHands = Npc.playerBodyAnimator.GetLayerIndex(Const.PLAYER_ANIMATION_WEIGHT_HOLDINGITEMSBOTHHANDS);
-
-            if (Npc.isHoldingObject || Npc.isGrabbingObjectAnimation || Npc.inShockingMinigame)
+            PlayerControllerB lethalBotController = Npc;
+            int indexLayerHoldingItemsRightHand = lethalBotController.playerBodyAnimator.GetLayerIndex(Const.PLAYER_ANIMATION_WEIGHT_HOLDINGITEMSRIGHTHAND);
+            int indexLayerHoldingItemsBothHands = lethalBotController.playerBodyAnimator.GetLayerIndex(Const.PLAYER_ANIMATION_WEIGHT_HOLDINGITEMSBOTHHANDS);
+            if (lethalBotController.isHoldingObject || lethalBotController.isGrabbingObjectAnimation || lethalBotController.inShockingMinigame)
             {
-                Npc.upperBodyAnimationsWeight = Mathf.Lerp(Npc.upperBodyAnimationsWeight, 1f, 25f * Time.deltaTime);
-                Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsRightHand, Npc.upperBodyAnimationsWeight);
-                if (Npc.twoHandedAnimation || Npc.inShockingMinigame)
+                lethalBotController.upperBodyAnimationsWeight = Mathf.Lerp(lethalBotController.upperBodyAnimationsWeight, 1f, 25f * Time.deltaTime);
+                lethalBotController.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsRightHand, lethalBotController.upperBodyAnimationsWeight);
+                if (lethalBotController.twoHandedAnimation || lethalBotController.inShockingMinigame)
                 {
-                    Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsBothHands, Npc.upperBodyAnimationsWeight);
+                    lethalBotController.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsBothHands, lethalBotController.upperBodyAnimationsWeight);
                 }
                 else
                 {
-                    Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsBothHands, Mathf.Abs(Npc.upperBodyAnimationsWeight - 1f));
+                    lethalBotController.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsBothHands, Mathf.Abs(lethalBotController.upperBodyAnimationsWeight - 1f));
                 }
             }
             else
             {
-                Npc.upperBodyAnimationsWeight = Mathf.Lerp(Npc.upperBodyAnimationsWeight, 0f, 25f * Time.deltaTime);
-                Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsRightHand, Npc.upperBodyAnimationsWeight);
-                Npc.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsBothHands, Npc.upperBodyAnimationsWeight);
+                lethalBotController.upperBodyAnimationsWeight = Mathf.Lerp(lethalBotController.upperBodyAnimationsWeight, 0f, 25f * Time.deltaTime);
+                lethalBotController.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsRightHand, lethalBotController.upperBodyAnimationsWeight);
+                lethalBotController.playerBodyAnimator.SetLayerWeight(indexLayerHoldingItemsBothHands, lethalBotController.upperBodyAnimationsWeight);
             }
 
-            Npc.playerBodyAnimator.SetLayerWeight(Npc.playerBodyAnimator.GetLayerIndex(Const.PLAYER_ANIMATION_WEIGHT_SPECIALANIMATIONS), Npc.specialAnimationWeight);
-            if (Npc.inSpecialInteractAnimation && !Npc.inShockingMinigame)
+            lethalBotController.playerBodyAnimator.SetLayerWeight(lethalBotController.playerBodyAnimator.GetLayerIndex(Const.PLAYER_ANIMATION_WEIGHT_SPECIALANIMATIONS), lethalBotController.specialAnimationWeight);
+            if (lethalBotController.inSpecialInteractAnimation && !lethalBotController.inShockingMinigame)
             {
-                Npc.cameraLookRig1.weight = Mathf.Lerp(Npc.cameraLookRig1.weight, 0f, Time.deltaTime * 25f);
-                Npc.cameraLookRig2.weight = Mathf.Lerp(Npc.cameraLookRig1.weight, 0f, Time.deltaTime * 25f);
+                lethalBotController.cameraLookRig1.weight = Mathf.Lerp(lethalBotController.cameraLookRig1.weight, 0f, Time.deltaTime * 25f);
+                lethalBotController.cameraLookRig2.weight = Mathf.Lerp(lethalBotController.cameraLookRig1.weight, 0f, Time.deltaTime * 25f);
             }
             else
             {
-                Npc.cameraLookRig1.weight = 0.45f;
-                Npc.cameraLookRig2.weight = 1f;
+                lethalBotController.cameraLookRig1.weight = 0.45f;
+                lethalBotController.cameraLookRig2.weight = 1f;
             }
-            if (Npc.isExhausted)
+            if (lethalBotController.isExhausted)
             {
                 this.exhaustionEffectLerp = Mathf.Lerp(this.exhaustionEffectLerp, 1f, 10f * Time.deltaTime);
             }
@@ -1271,7 +1254,7 @@ namespace LethalBots.AI
             {
                 this.exhaustionEffectLerp = Mathf.Lerp(this.exhaustionEffectLerp, 0f, 10f * Time.deltaTime);
             }
-            Npc.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_TIREDAMOUNT, this.exhaustionEffectLerp);
+            lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_TIREDAMOUNT, this.exhaustionEffectLerp);
         }
 
         /// <summary>
@@ -1279,9 +1262,10 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateBleedEffects()
         {
-            if (Npc.bleedingHeavily && Npc.bloodDropTimer >= 0f)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.bleedingHeavily && lethalBotController.bloodDropTimer >= 0f)
             {
-                Npc.bloodDropTimer -= Time.deltaTime;
+                lethalBotController.bloodDropTimer -= Time.deltaTime;
             }
         }
 
@@ -1293,11 +1277,12 @@ namespace LethalBots.AI
             // We should walk for a bit if we become exhausted!
             // NEEDTOVALIDATE: Should I create a custom method to check how much stamina is considered
             // before we are allowed to start sprinting again?
-            if (Npc.isExhausted)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.isExhausted)
             {
                 WaitForFullStamina = true;
             }
-            else if (WaitForFullStamina && Npc.sprintMeter >= 0.8f)
+            else if (WaitForFullStamina && lethalBotController.sprintMeter >= 0.8f)
             {
                 WaitForFullStamina = false;
             }
@@ -1308,82 +1293,87 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateDrunknessAndPoisonEffects()
         {
-            if (Npc.isPlayerDead)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.isPlayerDead)
             {
-                Npc.drunkness = 0f;
-                Npc.drunknessInertia = 0f;
-                Npc.poison = 0f;
+                lethalBotController.drunkness = 0f;
+                lethalBotController.drunknessInertia = 0f;
+                lethalBotController.poison = 0f;
             }
             else
             {
-                if (Npc.slimeOnFace >= 0f)
+                if (lethalBotController.slimeOnFace >= 0f)
                 {
-                    Npc.slimeOnFace -= Time.deltaTime;
-                    Npc.slimeOnFaceDecals[0].fadeFactor = Mathf.Min(Npc.slimeOnFace, 1f);
-                    Npc.slimeOnFaceDecals[1].fadeFactor = Mathf.Min(Npc.slimeOnFace, 1f);
+                    lethalBotController.slimeOnFace -= Time.deltaTime;
+                    lethalBotController.slimeOnFaceDecals[0].fadeFactor = Mathf.Min(lethalBotController.slimeOnFace, 1f);
+                    lethalBotController.slimeOnFaceDecals[1].fadeFactor = Mathf.Min(lethalBotController.slimeOnFace, 1f);
                 }
-                Npc.drunkness = Mathf.Clamp(Npc.drunkness + Time.deltaTime / 12f * Npc.drunknessSpeed * Npc.drunknessInertia, 0f, 1f);
-                if (!Npc.increasingDrunknessThisFrame)
+                lethalBotController.drunkness = Mathf.Clamp(lethalBotController.drunkness + Time.deltaTime / 12f * lethalBotController.drunknessSpeed * lethalBotController.drunknessInertia, 0f, 1f);
+                if (!lethalBotController.increasingDrunknessThisFrame)
                 {
-                    if (Npc.drunkness > 0f)
+                    if (lethalBotController.drunkness > 0f)
                     {
-                        Npc.drunknessInertia = Mathf.Clamp(Npc.drunknessInertia - Time.deltaTime / 3f * Npc.drunknessSpeed / Mathf.Clamp(Mathf.Abs(Npc.drunknessInertia), 0.2f, 1f), -2.5f, 2.5f);
+                        lethalBotController.drunknessInertia = Mathf.Clamp(lethalBotController.drunknessInertia - Time.deltaTime / 3f * lethalBotController.drunknessSpeed / Mathf.Clamp(Mathf.Abs(lethalBotController.drunknessInertia), 0.2f, 1f), -2.5f, 2.5f);
                     }
                     else
                     {
-                        Npc.drunknessInertia = 0f;
+                        lethalBotController.drunknessInertia = 0f;
                     }
                 }
                 else
                 {
-                    Npc.increasingDrunknessThisFrame = false;
+                    lethalBotController.increasingDrunknessThisFrame = false;
                 }
-                if (!Npc.overridePoisonValue)
+                if (!lethalBotController.overridePoisonValue)
                 {
-                    Npc.poison = Mathf.Clamp(Npc.poison + Time.deltaTime / 12f * Npc.poisonSpeed * Npc.poisonInertia, 0f, 1f);
+                    lethalBotController.poison = Mathf.Clamp(lethalBotController.poison + Time.deltaTime / 12f * lethalBotController.poisonSpeed * lethalBotController.poisonInertia, 0f, 1f);
                 }
-                if (!Npc.increasingPoisonThisFrame)
+                if (!lethalBotController.increasingPoisonThisFrame)
                 {
-                    if (Npc.poison > 0f)
+                    if (lethalBotController.poison > 0f)
                     {
-                        Npc.poisonInertia = Mathf.Clamp(Npc.poisonInertia - Time.deltaTime / 3f * Npc.poisonSpeed / Mathf.Clamp(Mathf.Abs(Npc.poisonInertia), 0.2f, 1f), -2.5f, 2.5f);
+                        lethalBotController.poisonInertia = Mathf.Clamp(lethalBotController.poisonInertia - Time.deltaTime / 3f * lethalBotController.poisonSpeed / Mathf.Clamp(Mathf.Abs(lethalBotController.poisonInertia), 0.2f, 1f), -2.5f, 2.5f);
                     }
                     else
                     {
-                        Npc.poisonInertia = 0f;
+                        lethalBotController.poisonInertia = 0f;
                     }
                 }
                 else
                 {
-                    Npc.increasingPoisonThisFrame = false;
+                    lethalBotController.increasingPoisonThisFrame = false;
                 }
-                float num11 = StartOfRound.Instance.drunknessSideEffect.Evaluate(Npc.drunkness);
+                float num11 = StartOfRound.Instance.drunknessSideEffect.Evaluate(lethalBotController.drunkness);
                 LethalBotVoice lethalBotVoice = LethalBotAIController.LethalBotIdentity.Voice;
                 float botVoicePitch = lethalBotVoice.VoicePitch;
                 if (num11 > 0.15f)
                 {
-                    SoundManager.Instance.playerVoicePitchTargets[Npc.playerClientId] = botVoicePitch + num11;
+                    SoundManager.Instance.playerVoicePitchTargets[lethalBotController.playerClientId] = botVoicePitch + num11;
                 }
                 else
                 {
-                    SoundManager.Instance.playerVoicePitchTargets[Npc.playerClientId] = botVoicePitch;
+                    SoundManager.Instance.playerVoicePitchTargets[lethalBotController.playerClientId] = botVoicePitch;
                 }
-                //SoundManager.Instance.playerVoiceVolumes[Npc.playerClientId] = lethalBotVoice.Volume;
+                //SoundManager.Instance.playerVoiceVolumes[lethalBotController.playerClientId] = lethalBotVoice.Volume;
             }
         }
 
         /// <summary>
         /// I have no idea what the line of sight cube is, but it exists, so I need to update it!
         /// </summary>
+        /// <remarks>
+        /// Apparently its used by <see cref="EnemyAI.PathIsIntersectedByLineOfSight(Vector3, bool, bool, bool)"/>. Bit of a weird way to check LOS, but oh well.
+        /// </remarks>
         private void UpdateLineOfSightCube()
         {
-            if (Physics.Raycast(Npc.lineOfSightCube.position, Npc.lineOfSightCube.forward, out var hit, 10f, Npc.playersManager.collidersAndRoomMask, QueryTriggerInteraction.Ignore))
+            PlayerControllerB lethalBotController = Npc;
+            if (Physics.Raycast(lethalBotController.lineOfSightCube.position, lethalBotController.lineOfSightCube.forward, out var hit, 10f, lethalBotController.playersManager.collidersAndRoomMask, QueryTriggerInteraction.Ignore))
             {
-                Npc.lineOfSightCube.localScale = new Vector3(1.5f, 1.5f, hit.distance);
+                lethalBotController.lineOfSightCube.localScale = new Vector3(1.5f, 1.5f, hit.distance);
             }
             else
             {
-                Npc.lineOfSightCube.localScale = new Vector3(1.5f, 1.5f, 10f);
+                lethalBotController.lineOfSightCube.localScale = new Vector3(1.5f, 1.5f, 10f);
             }
         }
 
@@ -1394,10 +1384,11 @@ namespace LethalBots.AI
         private void UpdateLethalBotAnimationsToOtherClients(int[] animationsStateHash)
         {
             this.updatePlayerAnimationsInterval += Time.deltaTime;
-            if (Npc.inSpecialInteractAnimation || this.updatePlayerAnimationsInterval > 0.14f)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.inSpecialInteractAnimation || this.updatePlayerAnimationsInterval > 0.14f)
             {
                 this.updatePlayerAnimationsInterval = 0f;
-                this.currentAnimationSpeed = Npc.playerBodyAnimator.GetFloat("animationSpeed");
+                this.currentAnimationSpeed = lethalBotController.playerBodyAnimator.GetFloat("animationSpeed");
                 for (int i = 0; i < animationsStateHash.Length; i++)
                 {
                     this.currentAnimationStateHash[i] = animationsStateHash[i];
@@ -1420,19 +1411,20 @@ namespace LethalBots.AI
 
         public void ApplyUpdateLethalBotAnimationsNotOwner(int animationState, float animationSpeed)
         {
-            if (Npc.playerBodyAnimator.GetFloat("animationSpeed") != animationSpeed)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.playerBodyAnimator.GetFloat("animationSpeed") != animationSpeed)
             {
-                Npc.playerBodyAnimator.SetFloat("animationSpeed", animationSpeed);
+                lethalBotController.playerBodyAnimator.SetFloat("animationSpeed", animationSpeed);
             }
 
-            if (animationState != 0 && Npc.playerBodyAnimator.GetCurrentAnimatorStateInfo(0).fullPathHash != animationState)
+            if (animationState != 0 && lethalBotController.playerBodyAnimator.GetCurrentAnimatorStateInfo(0).fullPathHash != animationState)
             {
-                for (int i = 0; i < Npc.playerBodyAnimator.layerCount; i++)
+                for (int i = 0; i < lethalBotController.playerBodyAnimator.layerCount; i++)
                 {
-                    if (Npc.playerBodyAnimator.HasState(i, animationState))
+                    if (lethalBotController.playerBodyAnimator.HasState(i, animationState))
                     {
                         animationHashLayers[i] = animationState;
-                        Npc.playerBodyAnimator.CrossFadeInFixedTime(animationState, 0.1f);
+                        lethalBotController.playerBodyAnimator.CrossFadeInFixedTime(animationState, 0.1f);
                         break;
                     }
                 }
@@ -1441,33 +1433,35 @@ namespace LethalBots.AI
 
         public void StopAnimations()
         {
-            Npc.isWalking = false;
-            Npc.isSprinting = false;
-            Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_WALKING, false);
-            Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SPRINTING, false);
-            Npc.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SIDEWAYS, false);
+            PlayerControllerB lethalBotController = Npc;
+            lethalBotController.isWalking = false;
+            lethalBotController.isSprinting = false;
+            lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_WALKING, false);
+            lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SPRINTING, false);
+            lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SIDEWAYS, false);
         }
 
         public void PlayFootstep(bool isServer)
         {
-            if (Npc.isClimbingLadder 
-                || Npc.inSpecialInteractAnimation 
-                || Npc.isCrouching)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.isClimbingLadder 
+                || lethalBotController.inSpecialInteractAnimation 
+                || lethalBotController.isCrouching)
             {
                 return;
             }
 
-            if ((isServer && !LethalBotAIController.IsOwner && Npc.isPlayerControlled)
-                || (!isServer && LethalBotAIController.IsOwner && Npc.isPlayerControlled))
+            if ((isServer && !LethalBotAIController.IsOwner && lethalBotController.isPlayerControlled)
+                || (!isServer && LethalBotAIController.IsOwner && lethalBotController.isPlayerControlled))
             {
-                bool noiseIsInsideClosedShip = Npc.isInHangarShipRoom && Npc.playersManager.hangarDoorsClosed;
-                if (Npc.isSprinting)
+                bool noiseIsInsideClosedShip = lethalBotController.isInHangarShipRoom && lethalBotController.playersManager.hangarDoorsClosed;
+                if (lethalBotController.isSprinting)
                 {
-                    PlayAudibleNoiseLethalBot(Npc.transform.position, 22f, 0.6f, 0, noiseIsInsideClosedShip, 6);
+                    PlayAudibleNoiseLethalBot(lethalBotController.transform.position, 22f, 0.6f, 0, noiseIsInsideClosedShip, 6);
                 }
                 else
                 {
-                    PlayAudibleNoiseLethalBot(Npc.transform.position, 17f, 0.4f, 0, noiseIsInsideClosedShip, 6);
+                    PlayAudibleNoiseLethalBot(lethalBotController.transform.position, 17f, 0.4f, 0, noiseIsInsideClosedShip, 6);
                 }
 
                 PlayerControllerB localPlayer = StartOfRound.Instance.localPlayerController;
@@ -1476,9 +1470,9 @@ namespace LethalBots.AI
                 {
                     localPlayerPos = localPlayer.spectatedPlayerScript.transform.position;
                 }
-                if ((localPlayerPos - Npc.transform.position).sqrMagnitude < 20f * 20f)
+                if ((localPlayerPos - lethalBotController.transform.position).sqrMagnitude < 20f * 20f)
                 {
-                    Npc.PlayFootstepSound();
+                    lethalBotController.PlayFootstepSound();
                 }
             }
         }
@@ -1495,6 +1489,7 @@ namespace LethalBots.AI
                 noiseRange /= 2f;
             }
 
+            PlayerControllerB lethalBotController = Npc;
             foreach (var enemyAINoiseListener in LethalBotManager.Instance.DictEnemyAINoiseListeners)
             {
                 EnemyAI enemyAI = enemyAINoiseListener.Key;
@@ -1503,7 +1498,7 @@ namespace LethalBots.AI
                     continue;
                 }
 
-                if ((Npc.transform.position - enemyAI.transform.position).sqrMagnitude > noiseRange * noiseRange)
+                if ((lethalBotController.transform.position - enemyAI.transform.position).sqrMagnitude > noiseRange * noiseRange)
                 {
                     continue;
                 }
@@ -1515,7 +1510,7 @@ namespace LethalBots.AI
                     continue;
                 }
 
-                Plugin.LogDebug($"{Npc.playerUsername} Play audible noise for {enemyAI.name}");
+                Plugin.LogDebug($"{lethalBotController.playerUsername} Play audible noise for {enemyAI.name}");
                 enemyAINoiseListener.Value.DetectNoise(noisePosition, noiseLoudness, timesPlayedInSameSpot, noiseID);
             }
         }
@@ -1532,8 +1527,8 @@ namespace LethalBots.AI
         public void LateUpdate()
         {
             GameNetworkManager instanceGNM = GameNetworkManager.Instance;
-
-            Npc.previousElevatorPosition = Npc.playersManager.elevatorTransform.position;
+            PlayerControllerB lethalBotController = Npc;
+            lethalBotController.previousElevatorPosition = lethalBotController.playersManager.elevatorTransform.position;
 
             if (NetworkManager.Singleton == null)
             {
@@ -1543,27 +1538,27 @@ namespace LethalBots.AI
             // Text billboard
             if (Plugin.Config.EnableDebugLog.Value || Plugin.Config.ShowBillboardStateIndicator.Value)
             { 
-                Npc.usernameBillboardText.text = $"{LethalBotAIController.GetSizedBillboardStateIndicator()}\n"; 
+                lethalBotController.usernameBillboardText.text = $"{LethalBotAIController.GetSizedBillboardStateIndicator()}\n"; 
             }
             else
             {
-                Npc.usernameBillboardText.text = string.Empty;
+                lethalBotController.usernameBillboardText.text = string.Empty;
             }
 
-            if (instanceGNM.localPlayerController != null && Npc.usernameAlpha.alpha >= 0f)
+            if (instanceGNM.localPlayerController != null && lethalBotController.usernameAlpha.alpha >= 0f)
             {
-                Npc.usernameBillboardText.text += Npc.playerUsername;
+                lethalBotController.usernameBillboardText.text += lethalBotController.playerUsername;
                 if (LethalBotAIController.IsClientOwnerOfLethalBot())
                 {
-                    Npc.usernameBillboardText.text += $"\nv";
+                    lethalBotController.usernameBillboardText.text += $"\nv";
                 }
 
-                Npc.usernameAlpha.alpha -= Time.deltaTime;
-                UpdateBillBoardLookAtTimedCheck.UpdateBillboardLookAt(Npc, SqrDistanceWithLocalPlayerTimedCheck.GetSqrDistanceWithLocalPlayer(Npc.transform.position) < 10f * 10f);
+                lethalBotController.usernameAlpha.alpha -= Time.deltaTime;
+                UpdateBillBoardLookAtTimedCheck.UpdateBillboardLookAt(lethalBotController, SqrDistanceWithLocalPlayerTimedCheck.GetSqrDistanceWithLocalPlayer(lethalBotController.transform.position) < 10f * 10f);
             }
-            else if (Npc.usernameCanvas.gameObject.activeSelf)
+            else if (lethalBotController.usernameCanvas.gameObject.activeSelf)
             {
-                Npc.usernameCanvas.gameObject.SetActive(value: false);
+                lethalBotController.usernameCanvas.gameObject.SetActive(value: false);
             }
 
             // Physics regions
@@ -1577,31 +1572,31 @@ namespace LethalBots.AI
             //        transform = CurrentLethalBotPhysicsRegions[i].physicsTransform;
             //    }
             //}
-            //if (Npc.isInElevator && priority <= 0)
+            //if (lethalBotController.isInElevator && priority <= 0)
             //{
             //    transform = null;
             //}
-            //Npc.physicsParent = transform;
+            //lethalBotController.physicsParent = transform;
 
-            //if (Npc.physicsParent != null)
+            //if (lethalBotController.physicsParent != null)
             //{
-            //    ReParentNotSpawnedTransform(Npc.physicsParent);
+            //    ReParentNotSpawnedTransform(lethalBotController.physicsParent);
             //}
             //else
             //{
-            //    if (Npc.isInElevator)
+            //    if (lethalBotController.isInElevator)
             //    {
-            //        ReParentNotSpawnedTransform(Npc.playersManager.elevatorTransform);
+            //        ReParentNotSpawnedTransform(lethalBotController.playersManager.elevatorTransform);
             //        if (!LethalBotAIController.AreHandsFree())
             //        {
-            //            Npc.SetItemInElevator(Npc.isInHangarShipRoom, Npc.isInElevator, LethalBotAIController.HeldItem);
+            //            lethalBotController.SetItemInElevator(lethalBotController.isInHangarShipRoom, lethalBotController.isInElevator, LethalBotAIController.HeldItem);
             //        }
             //    }
             //    else
             //    {
             //        if (!IsControllerInCruiser)
             //        {
-            //            ReParentNotSpawnedTransform(Npc.playersManager.playersContainer);
+            //            ReParentNotSpawnedTransform(lethalBotController.playersManager.playersContainer);
             //        }
             //    }
             //}
@@ -1613,16 +1608,16 @@ namespace LethalBots.AI
             {
                 this.LethalBotRotationAndLookUpdate();
 
-                if (Npc.isPlayerControlled && !Npc.isPlayerDead)
+                if (lethalBotController.isPlayerControlled && !lethalBotController.isPlayerDead)
                 {
                     if (instanceGNM != null)
                     {
                         float distMaxBeforeUpdating;
-                        if (Npc.inSpecialInteractAnimation)
+                        if (lethalBotController.inSpecialInteractAnimation)
                         {
                             distMaxBeforeUpdating = 0.06f;
                         }
-                        else if (IsRealPlayerClose(Npc.transform.position, 10f))
+                        else if (IsRealPlayerClose(lethalBotController.transform.position, 10f))
                         {
                             distMaxBeforeUpdating = 0.1f;
                         }
@@ -1631,19 +1626,19 @@ namespace LethalBots.AI
                             distMaxBeforeUpdating = 0.24f;
                         }
 
-                        if ((Npc.oldPlayerPosition - Npc.transform.localPosition).sqrMagnitude > distMaxBeforeUpdating || Npc.updatePositionForNewlyJoinedClient)
+                        if ((lethalBotController.oldPlayerPosition - lethalBotController.transform.localPosition).sqrMagnitude > distMaxBeforeUpdating || lethalBotController.updatePositionForNewlyJoinedClient)
                         {
-                            Npc.updatePositionForNewlyJoinedClient = false;
-                            if (!Npc.playersManager.newGameIsLoading)
+                            lethalBotController.updatePositionForNewlyJoinedClient = false;
+                            if (!lethalBotController.playersManager.newGameIsLoading)
                             {
-                                LethalBotAIController.SyncUpdateLethalBotPosition(Npc.thisPlayerBody.localPosition, Npc.isInElevator, Npc.isInHangarShipRoom, Npc.isExhausted, IsTouchingGround);
-                                Npc.serverPlayerPosition = Npc.transform.localPosition;
-                                Npc.oldPlayerPosition = Npc.serverPlayerPosition;
+                                LethalBotAIController.SyncUpdateLethalBotPosition(lethalBotController.thisPlayerBody.localPosition, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom, lethalBotController.isExhausted, IsTouchingGround);
+                                lethalBotController.serverPlayerPosition = lethalBotController.transform.localPosition;
+                                lethalBotController.oldPlayerPosition = lethalBotController.serverPlayerPosition;
                             }
                         }
 
                         GrabbableObject? currentlyHeldObject = LethalBotAIController.HeldItem;
-                        if (currentlyHeldObject != null && Npc.isHoldingObject && Npc.grabbedObjectValidated)
+                        if (currentlyHeldObject != null && lethalBotController.isHoldingObject && lethalBotController.grabbedObjectValidated)
                         {
                             currentlyHeldObject.transform.localPosition = currentlyHeldObject.itemProperties.positionOffset;
                             currentlyHeldObject.transform.localEulerAngles = currentlyHeldObject.itemProperties.rotationOffset;
@@ -1651,59 +1646,60 @@ namespace LethalBots.AI
                     }
 
                     float num2 = 1f;
-                    if (Npc.drunkness > 0.02f)
+                    if (lethalBotController.drunkness > 0.02f)
                     {
-                        num2 *= Mathf.Abs(StartOfRound.Instance.drunknessSpeedEffect.Evaluate(Npc.drunkness) - 1.25f);
+                        num2 *= Mathf.Abs(StartOfRound.Instance.drunknessSpeedEffect.Evaluate(lethalBotController.drunkness) - 1.25f);
                     }
-                    if (Npc.isSprinting)
+                    if (lethalBotController.isSprinting)
                     {
-                        Npc.sprintMeter = Mathf.Clamp(Npc.sprintMeter - Time.deltaTime / Npc.sprintTime * Npc.carryWeight * num2, 0f, 1f);
+                        lethalBotController.sprintMeter = Mathf.Clamp(lethalBotController.sprintMeter - Time.deltaTime / lethalBotController.sprintTime * lethalBotController.carryWeight * num2, 0f, 1f);
                     }
-                    else if (Npc.isMovementHindered > 0)
+                    else if (lethalBotController.isMovementHindered > 0)
                     {
-                        if (Npc.isWalking)
+                        if (lethalBotController.isWalking)
                         {
-                            Npc.sprintMeter = Mathf.Clamp(Npc.sprintMeter - Time.deltaTime / Npc.sprintTime * num2 * 0.5f, 0f, 1f);
+                            lethalBotController.sprintMeter = Mathf.Clamp(lethalBotController.sprintMeter - Time.deltaTime / lethalBotController.sprintTime * num2 * 0.5f, 0f, 1f);
                         }
                     }
                     else
                     {
-                        if (!Npc.isWalking)
+                        if (!lethalBotController.isWalking)
                         {
-                            Npc.sprintMeter = Mathf.Clamp(Npc.sprintMeter + Time.deltaTime / (Npc.sprintTime + 4f) * num2, 0f, 1f);
+                            lethalBotController.sprintMeter = Mathf.Clamp(lethalBotController.sprintMeter + Time.deltaTime / (lethalBotController.sprintTime + 4f) * num2, 0f, 1f);
                         }
                         else
                         {
-                            Npc.sprintMeter = Mathf.Clamp(Npc.sprintMeter + Time.deltaTime / (Npc.sprintTime + 9f) * num2, 0f, 1f);
+                            lethalBotController.sprintMeter = Mathf.Clamp(lethalBotController.sprintMeter + Time.deltaTime / (lethalBotController.sprintTime + 9f) * num2, 0f, 1f);
                         }
-                        if (Npc.isExhausted && Npc.sprintMeter > 0.2f)
+                        if (lethalBotController.isExhausted && lethalBotController.sprintMeter > 0.2f)
                         {
-                            Npc.isExhausted = false;
+                            lethalBotController.isExhausted = false;
                         }
                     }
                 }
             }
-            if (!Npc.inSpecialInteractAnimation && Npc.localArmsMatchCamera)
+            if (!lethalBotController.inSpecialInteractAnimation && lethalBotController.localArmsMatchCamera)
             {
-                Npc.localArmsTransform.position = Npc.cameraContainerTransform.transform.position + Npc.gameplayCamera.transform.up * -0.5f;
-                Npc.playerModelArmsMetarig.rotation = Npc.localArmsRotationTarget.rotation;
+                lethalBotController.localArmsTransform.position = lethalBotController.cameraContainerTransform.transform.position + lethalBotController.gameplayCamera.transform.up * -0.5f;
+                lethalBotController.playerModelArmsMetarig.rotation = lethalBotController.localArmsRotationTarget.rotation;
             }
         }
 
         public void ReParentNotSpawnedTransform(Transform newParent)
         {
-            if (Npc.transform.parent != newParent)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.transform.parent != newParent)
             {
-                foreach (NetworkObject networkObject in Npc.GetComponentsInChildren<NetworkObject>())
+                foreach (NetworkObject networkObject in lethalBotController.GetComponentsInChildren<NetworkObject>())
                 {
                     networkObject.AutoObjectParentSync = false;
                 }
 
-                Plugin.LogDebug($"{Npc.playerUsername} ReParent parent before {Npc.transform.parent}");
-                Npc.transform.parent = newParent;
-                Plugin.LogDebug($"{Npc.playerUsername} ReParent parent after {Npc.transform.parent}");
+                Plugin.LogDebug($"{lethalBotController.playerUsername} ReParent parent before {lethalBotController.transform.parent}");
+                lethalBotController.transform.parent = newParent;
+                Plugin.LogDebug($"{lethalBotController.playerUsername} ReParent parent after {lethalBotController.transform.parent}");
 
-                foreach (NetworkObject networkObject in Npc.GetComponentsInChildren<NetworkObject>())
+                foreach (NetworkObject networkObject in lethalBotController.GetComponentsInChildren<NetworkObject>())
                 {
                     networkObject.AutoObjectParentSync = true;
                 }
@@ -1717,32 +1713,34 @@ namespace LethalBots.AI
                 return false;
             }
 
-            if (Npc.inSpecialInteractAnimation || (bool)Npc.inAnimationWithEnemy || Npc.isClimbingLadder)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.inSpecialInteractAnimation || (bool)lethalBotController.inAnimationWithEnemy || lethalBotController.isClimbingLadder)
             {
                 return false;
             }
 
-            if (Npc.physicsParent != null)
+            if (lethalBotController.physicsParent != null)
             {
                 return false;
             }
 
-            if (Npc.isInHangarShipRoom)
+            if (lethalBotController.isInHangarShipRoom)
             {
                 return false;
             }
 
-            if (Npc.isInElevator)
+            if (lethalBotController.isInElevator)
             {
                 return false;
             }
 
-            int currentFootstepSurfaceIndex = Npc.currentFootstepSurfaceIndex;
-            if (currentFootstepSurfaceIndex != 1
+            int currentFootstepSurfaceIndex = lethalBotController.currentFootstepSurfaceIndex;
+            if (!lethalBotController.standingOnTerrain 
+                && currentFootstepSurfaceIndex != 1
                 && currentFootstepSurfaceIndex != 4
                 && currentFootstepSurfaceIndex != 8
                 && currentFootstepSurfaceIndex != 7
-                && (!Npc.isInsideFactory || currentFootstepSurfaceIndex != 5))
+                && (!lethalBotController.isInsideFactory || currentFootstepSurfaceIndex != 5))
             {
                 return false;
             }
@@ -1795,7 +1793,8 @@ namespace LethalBots.AI
         /// <param name="allowTooManyEmotes">Should the bot be allowed to pick a random emote using the TooManyEmotes mod?</param>
         public void PerformRandomEmote(bool allowTooManyEmotes = true)
         {
-            if (!Npc.performingEmote && Npc.CheckConditionsForEmote())
+            PlayerControllerB lethalBotController = Npc;
+            if (!lethalBotController.performingEmote && lethalBotController.CheckConditionsForEmote())
             {
                 // 50% chance to use the TooManyEmotes mod if it is loaded
                 if (allowTooManyEmotes && Plugin.IsModTooManyEmotesLoaded && Random.Range(1, 100) <= 50)
@@ -1810,7 +1809,7 @@ namespace LethalBots.AI
                         {
                             break;
                         }
-                        if (ourOwner == null && Npc.OwnerClientId == player.actualClientId)
+                        if (ourOwner == null && lethalBotController.OwnerClientId == player.actualClientId)
                         {
                             ourOwner = player;
                         }
@@ -1823,7 +1822,7 @@ namespace LethalBots.AI
                     // Just copy someone else who is emoting!
                     // This is so the bots all don't do pure random emotes
                     // Of course they only mimic if on the ship!
-                    if (playerToMimic != null && (Npc.isInElevator || Npc.isInHangarShipRoom))
+                    if (playerToMimic != null && (lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom))
                     {
                         // This not only performs the same emote, but has support for group emotes!
                         CheckAndPerformTooManyEmote(playerToMimic);
@@ -1833,7 +1832,7 @@ namespace LethalBots.AI
                     // Don't have an owner!? HOW DID THAT HAPPEN, just use ourself
                     if (ourOwner == null)
                     {
-                        ourOwner = Npc;
+                        ourOwner = lethalBotController;
                     }
 
                     PreformRandomTooManyEmote(ourOwner);
@@ -1873,10 +1872,11 @@ namespace LethalBots.AI
         /// <param name="forceStop">Sends the stop emote event even if <see cref="PlayerControllerB.performingEmote"/> is set to false!</param>
         public void StopPreformingEmote(bool forceStop = false)
         {
-            if (Npc.performingEmote || forceStop)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.performingEmote || forceStop)
             {
-                Npc.performingEmote = false;
-                Npc.playerBodyAnimator.SetInteger("emoteNumber", 0);
+                lethalBotController.performingEmote = false;
+                lethalBotController.playerBodyAnimator.SetInteger("emoteNumber", 0);
                 this.LethalBotAIController.SyncStopPerformingEmote();
                 if (Plugin.IsModTooManyEmotesLoaded)
                 {
@@ -1980,13 +1980,14 @@ namespace LethalBots.AI
         /// <param name="emoteNumberToMimic">The integer of the emote to play</param>
         private void PerformDefaultEmote(int emoteNumberToMimic)
         {
-            int emoteNumberLethalBot = Npc.playerBodyAnimator.GetInteger("emoteNumber");
-            if ((!Npc.performingEmote
+            PlayerControllerB lethalBotController = Npc;
+            int emoteNumberLethalBot = lethalBotController.playerBodyAnimator.GetInteger("emoteNumber");
+            if ((!lethalBotController.performingEmote
                 || emoteNumberLethalBot != emoteNumberToMimic)
-                && Npc.CheckConditionsForEmote())
+                && lethalBotController.CheckConditionsForEmote())
             {
-                Npc.performingEmote = true;
-                Npc.PerformEmote(new UnityEngine.InputSystem.InputAction.CallbackContext(), emoteNumberToMimic);
+                lethalBotController.performingEmote = true;
+                lethalBotController.PerformEmote(new UnityEngine.InputSystem.InputAction.CallbackContext(), emoteNumberToMimic);
             }
         }
 
@@ -2079,13 +2080,14 @@ namespace LethalBots.AI
         /// </summary>
         private void LethalBotRotationAndLookUpdate()
         {
-            if (!Npc.isPlayerControlled)
+            PlayerControllerB lethalBotController = Npc;
+            if (!lethalBotController.isPlayerControlled)
             {
                 return;
             }
 
-            if (Npc.playersManager.newGameIsLoading
-                || Npc.disableLookInput)
+            if (lethalBotController.playersManager.newGameIsLoading
+                || lethalBotController.disableLookInput)
             {
                 return;
             }
@@ -2097,12 +2099,12 @@ namespace LethalBots.AI
 
             // Update after some interval of time
             // Only if there's at least one player near
-            // Disabling IsRealPlayerClose(Npc.transform.position, 35f) as it causes the bots not to update
+            // Disabling IsRealPlayerClose(lethalBotController.transform.position, 35f) as it causes the bots not to update
             // if there are no alive players nearby which affects spectating players!
             // As well as players on the ship monitoring the bots!
-            if (Npc.updatePlayerLookInterval > 0.25f)
+            if (lethalBotController.updatePlayerLookInterval > 0.25f)
             {
-                Npc.updatePlayerLookInterval = 0f;
+                lethalBotController.updatePlayerLookInterval = 0f;
                 LethalBotAIController.SyncUpdateLethalBotRotationAndLook(LethalBotAIController.State?.GetBillboardStateIndicator() ?? string.Empty,
                                                                    LookAtTarget);
                 this.oldLookAtTarget = this.LookAtTarget.Clone();
@@ -2131,20 +2133,21 @@ namespace LethalBots.AI
         /// </summary>
         public void OrderToSprint()
         {
-            if (Npc.inSpecialInteractAnimation || !IsTouchingGround || Npc.isClimbingLadder)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.inSpecialInteractAnimation || !IsTouchingGround || lethalBotController.isClimbingLadder)
             {
                 return;
             }
-            if (Npc.isJumping)
+            if (lethalBotController.isJumping)
             {
                 return;
             }
-            if (Npc.isExhausted)
+            if (lethalBotController.isExhausted)
             {
                 floatSprint = 0f;
                 return;
             }
-            if (Npc.isSprinting)
+            if (lethalBotController.isSprinting)
             {
                 return;
             }
@@ -2178,20 +2181,21 @@ namespace LethalBots.AI
         /// </summary>
         public void OrderToToggleCrouch()
         {
-            if (Npc.inSpecialInteractAnimation || !IsTouchingGround || Npc.isClimbingLadder)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.inSpecialInteractAnimation || !IsTouchingGround || lethalBotController.isClimbingLadder)
             {
                 return;
             }
-            if (Npc.isJumping)
+            if (lethalBotController.isJumping)
             {
                 return;
             }
-            if (Npc.isSprinting && !Npc.isCrouching)
+            if (lethalBotController.isSprinting && !lethalBotController.isCrouching)
             {
                 return;
             }
-            Npc.crouchMeter = Mathf.Min(Npc.crouchMeter + 0.3f, 1.3f);
-            Npc.Crouch(!Npc.isCrouching);
+            lethalBotController.crouchMeter = Mathf.Min(lethalBotController.crouchMeter + 0.3f, 1.3f);
+            lethalBotController.Crouch(!lethalBotController.isCrouching);
         }
 
         /// <summary>
@@ -2300,7 +2304,7 @@ namespace LethalBots.AI
             {
                 // Tell the bot to keep the beam steady
                 const float maxFOV = 60f; // Found in source code!
-                OrderToLookAtPosition(Npc.shockingTarget.position, EnumLookAtPriority.MAXIMUM_PRIORITY, maxBodyFOV: maxFOV);
+                OrderToLookAtPosition(lethalBotController.shockingTarget.position, EnumLookAtPriority.MAXIMUM_PRIORITY, maxBodyFOV: maxFOV);
 
                 // 1:1 copy of the code that would normally be run in default PlayerControllerB update!
                 lethalBotController.targetScreenPos = lethalBotController.turnCompassCamera.WorldToViewportPoint(lethalBotController.shockingTarget.position);
@@ -2326,13 +2330,13 @@ namespace LethalBots.AI
                 lethalBotController.targetScreenPos = lethalBotController.gameplayCamera.WorldToViewportPoint(lethalBotController.shockingTarget.position + Vector3.up * 0.35f);
                 if (lethalBotController.targetScreenPos.y > 0.6f)
                 {
-                    Npc.cameraUp = Mathf.Clamp(Mathf.Lerp(Npc.cameraUp, Npc.cameraUp - 25f, 25f * num * Mathf.Abs(lethalBotController.targetScreenPos.y - 0.5f)), -89f, 89f);
+                    lethalBotController.cameraUp = Mathf.Clamp(Mathf.Lerp(lethalBotController.cameraUp, lethalBotController.cameraUp - 25f, 25f * num * Mathf.Abs(lethalBotController.targetScreenPos.y - 0.5f)), -89f, 89f);
                 }
                 else if (lethalBotController.targetScreenPos.y < 0.35f)
                 {
-                    Npc.cameraUp = Mathf.Clamp(Mathf.Lerp(Npc.cameraUp, Npc.cameraUp + 25f, 25f * num * Mathf.Abs(lethalBotController.targetScreenPos.y - 0.5f)), -89f, 89f);
+                    lethalBotController.cameraUp = Mathf.Clamp(Mathf.Lerp(lethalBotController.cameraUp, lethalBotController.cameraUp + 25f, 25f * num * Mathf.Abs(lethalBotController.targetScreenPos.y - 0.5f)), -89f, 89f);
                 }
-                lethalBotController.gameplayCamera.transform.localEulerAngles = new Vector3(Npc.cameraUp, lethalBotController.gameplayCamera.transform.localEulerAngles.y, lethalBotController.gameplayCamera.transform.localEulerAngles.z);
+                lethalBotController.gameplayCamera.transform.localEulerAngles = new Vector3(lethalBotController.cameraUp, lethalBotController.gameplayCamera.transform.localEulerAngles.y, lethalBotController.gameplayCamera.transform.localEulerAngles.z);
                 Vector3 zero = Vector3.zero;
                 zero.y = lethalBotController.turnCompass.eulerAngles.y;
                 lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, Quaternion.Euler(zero), Time.deltaTime * 20f * (1f - Mathf.Abs(lethalBotController.shockMinigamePullPosition)));
@@ -2376,23 +2380,24 @@ namespace LethalBots.AI
             }
 
             // todo : ladder item holding configurable ?
-            //if ((this.Npc.isHoldingObject && !ladder.oneHandedItemAllowed)
-            //    || (this.Npc.twoHanded &&
+            //if ((this.lethalBotController.isHoldingObject && !ladder.oneHandedItemAllowed)
+            //    || (this.lethalBotController.twoHanded &&
             //                       (!ladder.twoHandedItemAllowed || ladder.specialCharacterAnimation)))
             //{
             //    Plugin.LogDebug("no ladder cuz holding things");
             //    return false;
             //}
 
-            if (this.Npc.sinkingValue > 0.73f)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.sinkingValue > 0.73f)
             {
                 return false;
             }
-            if (this.Npc.jetpackControls && (ladder.specialCharacterAnimation || ladder.isLadder))
+            if (lethalBotController.jetpackControls && (ladder.specialCharacterAnimation || ladder.isLadder))
             {
                 return false;
             }
-            if (this.Npc.isClimbingLadder)
+            if (lethalBotController.isClimbingLadder)
             {
                 /*if (ladder.isLadder)
                 {
@@ -2406,7 +2411,7 @@ namespace LethalBots.AI
                     return false;
                 }
             }
-            else if (this.Npc.inSpecialInteractAnimation)
+            else if (lethalBotController.inSpecialInteractAnimation)
             {
                 return false;
             }
@@ -2449,39 +2454,40 @@ namespace LethalBots.AI
         /// </summary>
         private void SetFaceUnderwaterFilters()
         {
-            if (Npc.isPlayerDead)
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.isPlayerDead)
             {
                 return;
             }
 
-            if (Npc.isMovementHindered <= 0 && Npc.isUnderwater && Npc.underwaterCollider != null && CheckConditionsForSinkingInQuicksandLethalBot())
+            if (lethalBotController.isMovementHindered <= 0 && lethalBotController.isUnderwater && lethalBotController.underwaterCollider != null && CheckConditionsForSinkingInQuicksandLethalBot())
             {
-                QuicksandTrigger component = Npc.underwaterCollider.gameObject.GetComponent<QuicksandTrigger>();
+                QuicksandTrigger component = lethalBotController.underwaterCollider.gameObject.GetComponent<QuicksandTrigger>();
                 if (component != null)
                 {
-                    component.OnExit(Npc.gameObject.GetComponent<Collider>());
-                    Npc.isUnderwater = false;
+                    component.OnExit(lethalBotController.gameObject.GetComponent<Collider>());
+                    lethalBotController.isUnderwater = false;
                     setFaceUnderwater = false;
                 }
             }
 
-            if (Npc.underwaterCollider != null
-                && Npc.underwaterCollider.bounds.Contains(Npc.gameplayCamera.transform.position))
+            if (lethalBotController.underwaterCollider != null
+                && lethalBotController.underwaterCollider.bounds.Contains(lethalBotController.gameplayCamera.transform.position))
             {
                 setFaceUnderwater = true;
-                Npc.statusEffectAudio.volume = Mathf.Lerp(Npc.statusEffectAudio.volume, 0f, 4f * Time.deltaTime);
+                lethalBotController.statusEffectAudio.volume = Mathf.Lerp(lethalBotController.statusEffectAudio.volume, 0f, 4f * Time.deltaTime);
                 this.DrowningTimer -= Time.deltaTime / Const.LETHAL_BOT_DROWN_TIME;
                 if (this.DrowningTimer < 0f)
                 {
                     this.DrowningTimer = 1f;
-                    Plugin.LogDebug($"SyncKillLethalBot from drowning for LOCAL client #{Npc.NetworkManager.LocalClientId}, bot object: Bot #{Npc.playerClientId}");
-                    Npc.KillPlayer(Vector3.zero, spawnBody: true, CauseOfDeath.Drowning, 0, default);
+                    Plugin.LogDebug($"SyncKillLethalBot from drowning for LOCAL client #{lethalBotController.NetworkManager.LocalClientId}, bot object: Bot #{lethalBotController.playerClientId}");
+                    lethalBotController.KillPlayer(Vector3.zero, spawnBody: true, CauseOfDeath.Drowning, 0, default);
                 }
             }
             else
             {
                 setFaceUnderwater = false;
-                Npc.statusEffectAudio.volume = Mathf.Lerp(Npc.statusEffectAudio.volume, 1f, 4f * Time.deltaTime);
+                lethalBotController.statusEffectAudio.volume = Mathf.Lerp(lethalBotController.statusEffectAudio.volume, 1f, 4f * Time.deltaTime);
                 this.DrowningTimer = Mathf.Clamp(this.DrowningTimer + Time.deltaTime, 0.1f, 1f);
             }
 
@@ -2489,16 +2495,16 @@ namespace LethalBots.AI
             if (this.syncUnderwaterInterval <= 0f)
             {
                 this.syncUnderwaterInterval = 0.5f;
-                if (setFaceUnderwater && !Npc.isUnderwater)
+                if (setFaceUnderwater && !lethalBotController.isUnderwater)
                 {
-                    Npc.isUnderwater = true;
-                    Npc.SetFaceUnderwaterServerRpc();
+                    lethalBotController.isUnderwater = true;
+                    lethalBotController.SetFaceUnderwaterServerRpc();
                     return;
                 }
-                else if (!setFaceUnderwater && Npc.isUnderwater)
+                else if (!setFaceUnderwater && lethalBotController.isUnderwater)
                 {
-                    Npc.isUnderwater = false;
-                    Npc.SetFaceOutOfWaterServerRpc();
+                    lethalBotController.isUnderwater = false;
+                    lethalBotController.SetFaceOutOfWaterServerRpc();
                     return;
                 }
             }

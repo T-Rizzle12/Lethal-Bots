@@ -115,6 +115,7 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         public override void DoAI()
         {
+            PlayerControllerB lethalBotController = npcController.Npc;
             if (CurrentEnemy == null || CurrentEnemy.isEnemyDead)
             {
                 if (wasFleeingJester)
@@ -203,9 +204,9 @@ namespace LethalBots.AI.AIStates
             }
 
             // Check to see if the bot can see the enemy, or enemy has line of sight to bot
-            float sqrDistanceToEnemy = (npcController.Npc.transform.position - CurrentEnemy.transform.position).sqrMagnitude;
+            float sqrDistanceToEnemy = (lethalBotController.transform.position - CurrentEnemy.transform.position).sqrMagnitude;
             if (this.CurrentEnemy is not JesterAI &&
-                Physics.Linecast(CurrentEnemy.transform.position, npcController.Npc.gameplayCamera.transform.position,
+                Physics.Linecast(CurrentEnemy.transform.position, lethalBotController.gameplayCamera.transform.position,
                                  StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore) 
                 && sqrDistanceToEnemy > Const.DISTANCE_FLEEING_NO_LOS * Const.DISTANCE_FLEEING_NO_LOS)
             {
@@ -251,7 +252,7 @@ namespace LethalBots.AI.AIStates
             if (panikCoroutine == null)
             {
                 if (!RetreatPos.HasValue
-                    || (RetreatPos.Value - npcController.Npc.transform.position).sqrMagnitude < Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION
+                    || (RetreatPos.Value - lethalBotController.transform.position).sqrMagnitude < Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION
                     || (updateRetreatPosTimer.HasStarted() && updateRetreatPosTimer.Elapsed())
                     || !ai.IsValidPathToTarget(RetreatPos.Value, false))
                 {
@@ -260,7 +261,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Why run when we can fight back!
-            if (ai.HasCombatWeapon() && ai.ShouldAttackEnemy(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
+            if (ai.HasCombatWeapon() && ai.ShouldAttackEnemy(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == lethalBotController))
             {
                 ai.State = new FightEnemyState(this, this.CurrentEnemy, this.previousAIState);
                 return;
@@ -288,14 +289,14 @@ namespace LethalBots.AI.AIStates
             if (targetEntrance != null)
             {
                 // If we are close enough, we should use the entrance to leave
-                float distSqrFromEntrance = (targetEntrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
+                float distSqrFromEntrance = (targetEntrance.entrancePoint.position - lethalBotController.transform.position).sqrMagnitude;
                 if (distSqrFromEntrance < Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                 {
                     // Check for teleport entrance
                     if (!ai.AreHandsFree() && ai.HeldItem is CaveDwellerPhysicsProp)
                     {
                         // We must drop the maneater baby before we use the entrance!
-                        npcController.Npc.DiscardHeldObject();
+                        lethalBotController.DiscardHeldObject();
                         return;
                     }
                     else if (Time.timeSinceLevelLoad - ai.TimeSinceTeleporting > Const.WAIT_TIME_TO_TELEPORT)
@@ -353,7 +354,7 @@ namespace LethalBots.AI.AIStates
 
             // Update our destination if needed!
             if (!RetreatPos.HasValue 
-                || (RetreatPos.Value - npcController.Npc.transform.position).sqrMagnitude > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
+                || (RetreatPos.Value - lethalBotController.transform.position).sqrMagnitude > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {
                 // Move NOW!
                 if (RetreatPos.HasValue)
@@ -900,6 +901,12 @@ namespace LethalBots.AI.AIStates
                 //{
                 //    continue;
                 //}
+
+                // Make sure not to go to a node in quicksand or underwater
+                if (IsPositionCoveredInQuickSand(nodePos, checkClosestNode: false))
+                {
+                    continue;
+                }
 
                 if (enemy != null)
                 {

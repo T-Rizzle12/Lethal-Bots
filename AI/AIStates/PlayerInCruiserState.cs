@@ -1,4 +1,5 @@
-﻿using LethalBots.Constants;
+﻿using GameNetcodeStuff;
+using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using UnityEngine;
@@ -29,8 +30,8 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         public override void DoAI()
         {
-            ai.SetAgent(enabled:  false);
-
+            PlayerControllerB lethalBotController = npcController.Npc;
+            ai.SetAgent(enabled: false);
             if (vehicleController == null)
             {
                 ai.State = new GetCloseToPlayerState(this);
@@ -46,7 +47,7 @@ namespace LethalBots.AI.AIStates
                 {
                     // Exit vehicle cruiser
                     ai.SyncTeleportLethalBotVehicle(entryPointLethalBotCruiser, enteringVehicle: false, vehicleController);
-                    vehicleController.SetVehicleCollisionForPlayer(true, npcController.Npc);
+                    vehicleController.SetVehicleCollisionForPlayer(true, lethalBotController);
 
                     ai.State = new GetCloseToPlayerState(this);
                     return;
@@ -82,12 +83,12 @@ namespace LethalBots.AI.AIStates
 
             // random rotation
             float angleRandom = Random.Range(-180f, 180f);
-            npcController.UpdateNowTurnBodyTowardsDirection(Quaternion.Euler(0, angleRandom, 0) * npcController.Npc.thisController.transform.forward);
+            npcController.UpdateNowTurnBodyTowardsDirection(Quaternion.Euler(0, angleRandom, 0) * lethalBotController.thisController.transform.forward);
 
             // Crouch or not
             float crouchRancom = Random.Range(0f, 1f);
             if (crouchRancom > 0.5f
-                && !npcController.Npc.isCrouching)
+                && !lethalBotController.isCrouching)
             {
                 npcController.OrderToToggleCrouch();
             }

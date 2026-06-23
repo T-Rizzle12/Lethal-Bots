@@ -1,11 +1,12 @@
-﻿using System;
+﻿using GameNetcodeStuff;
+using HarmonyLib;
+using LethalBots.Constants;
+using LethalBots.Enums;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
-using HarmonyLib;
-using LethalBots.Constants;
-using LethalBots.Enums;
 using UnityEngine;
 
 namespace LethalBots.AI.AIStates
@@ -61,6 +62,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -71,14 +73,14 @@ namespace LethalBots.AI.AIStates
             // If we reach the targeted drunkness level, our work here is done!
             GrabbableObject? heldItem = ai.HeldItem;
             TetraChemicalItem? tzpItem = heldItem as TetraChemicalItem;
-            if (desiredDrunknessAmount <= npcController.Npc.drunkness)
+            if (desiredDrunknessAmount <= lethalBotController.drunkness)
             {
                 ChangeBackToPreviousState();
                 return;
             }
 
             // Make sure we actually have the TZP in our inventory!
-            int tzpSlot = tzpItem != null && !tzpItem.itemUsedUp ? npcController.Npc.currentItemSlot : -1;
+            int tzpSlot = tzpItem != null && !tzpItem.itemUsedUp ? lethalBotController.currentItemSlot : -1;
             if (tzpSlot == -1)
             {
                 // We don't have any TZP in our inventory!
@@ -94,7 +96,7 @@ namespace LethalBots.AI.AIStates
             ai.StopMoving();
 
             // Use the TZP until we reach the desired level of drunkness or its empty!
-            if (!npcController.Npc.inAnimationWithEnemy)
+            if (!lethalBotController.inAnimationWithEnemy)
             {
                 // Make sure we are actually holding the TZP!
                 if (heldItem == null || tzpItem == null)
@@ -103,10 +105,10 @@ namespace LethalBots.AI.AIStates
                     if (heldItem != null && heldItem.itemProperties.twoHanded)
                     {
                         droppedHeldItem = heldItem;
-                        npcController.Npc.DiscardHeldObject();
+                        lethalBotController.DiscardHeldObject();
                         return;
                     }
-                    if (npcController.Npc.activatingItem)
+                    if (lethalBotController.activatingItem)
                     {
                         heldItem?.UseItemOnClient(false);
                         return;
@@ -116,7 +118,7 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // Use it!
-                if (!npcController.Npc.activatingItem && ai.CanUseHeldItem())
+                if (!lethalBotController.activatingItem && ai.CanUseHeldItem())
                 { 
                     tzpItem.UseItemOnClient(true); 
                 }

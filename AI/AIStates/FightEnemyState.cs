@@ -86,6 +86,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Enemy is either dead or invaild!
+            PlayerControllerB lethalBotController = npcController.Npc;
             if (CurrentEnemy == null || CurrentEnemy.isEnemyDead)
             {
                 ChangeBackToPreviousState();
@@ -93,7 +94,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Kinda hard to kill an enemy without a weapon
-            if (!ai.ShouldAttackEnemy(CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc) || !ai.HasCombatWeapon())
+            if (!ai.ShouldAttackEnemy(CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == lethalBotController) || !ai.HasCombatWeapon())
             {
                 ChangeBackToPreviousState(); 
                 return;
@@ -112,7 +113,7 @@ namespace LethalBots.AI.AIStates
             if (newEnemyAI != null && newEnemyAI != this.CurrentEnemy)
             {
                 float? newFearRange = ai.GetFearRangeForEnemies(newEnemyAI);
-                if (newFearRange.HasValue && ai.ShouldAttackEnemy(newEnemyAI, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
+                if (newFearRange.HasValue && ai.ShouldAttackEnemy(newEnemyAI, LethalBotManager.Instance.MissionControlPlayer == lethalBotController))
                 {
                     this.CurrentEnemy = newEnemyAI;
                     fearRange = newFearRange.Value;
@@ -127,7 +128,7 @@ namespace LethalBots.AI.AIStates
                 // HOW DID THIS HAPPEN!!!!!
                 // HasCombatWeapon checks if the bot has a weapon in the first place!
                 // This may be caused by a race conditon or another mod!
-                Plugin.LogWarning($"Bot {npcController.Npc.playerUsername} didn't have a weapon despite HasCombatWeapon telling us we did!");
+                Plugin.LogWarning($"Bot {lethalBotController.playerUsername} didn't have a weapon despite HasCombatWeapon telling us we did!");
                 ChangeBackToPreviousState();
                 return;
             }
@@ -140,12 +141,12 @@ namespace LethalBots.AI.AIStates
 
             // Switch to our weapon!
             GrabbableObject? heldItem = ai.HeldItem;
-            if (npcController.Npc.currentItemSlot != weaponSlot 
+            if (lethalBotController.currentItemSlot != weaponSlot 
                 || !ItemsManager.Instance.TryGetWeaponInfo(heldItem, out WeaponInfo? weaponInfo))
             {
                 if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
-                    npcController.Npc.DiscardHeldObject();
+                    lethalBotController.DiscardHeldObject();
                     LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
                     return;
                 }
@@ -158,7 +159,7 @@ namespace LethalBots.AI.AIStates
 
             // Close enough to use item, attempt to use
             float enemySize = EnemyCollider != null ? EnemyCollider.bounds.extents.magnitude : 0.4f;
-            float sqrMagDistanceEnemy = (this.CurrentEnemy.transform.position - npcController.Npc.transform.position).sqrMagnitude;
+            float sqrMagDistanceEnemy = (this.CurrentEnemy.transform.position - lethalBotController.transform.position).sqrMagnitude;
             float maxEnemyDistance = weaponInfo.GetAttackRangeForWeapon(heldItem) + enemySize;
             float fallBackDistance = maxEnemyDistance * 0.75f;
             float giveupRange = fearRange.Value * 1.5f;
@@ -167,13 +168,13 @@ namespace LethalBots.AI.AIStates
             if (sqrMagDistanceEnemy < maxEnemyDistance * maxEnemyDistance && canHitTarget)
             {
                 // We are close enough to the enemy, lets attack!
-                if (!npcController.Npc.inAnimationWithEnemy)
+                if (!lethalBotController.inAnimationWithEnemy)
                 {
                     // If we are too close to the enemy, we need to back off a bit!
                     // After all, we don't want to be in grabbing range of the enemy!
                     if (sqrMagDistanceEnemy < fallBackDistance * fallBackDistance)
                     {
-                        Ray ray = new Ray(npcController.Npc.transform.position, npcController.Npc.transform.position + Vector3.up * 0.2f - this.CurrentEnemy.transform.position + Vector3.up * 0.2f);
+                        Ray ray = new Ray(lethalBotController.transform.position, lethalBotController.transform.position + Vector3.up * 0.2f - this.CurrentEnemy.transform.position + Vector3.up * 0.2f);
                         ray.direction = new Vector3(ray.direction.x, 0f, ray.direction.z);
                         Vector3 pos = (!Physics.Raycast(ray, out RaycastHit hit, maxEnemyDistance, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)) ? ray.GetPoint(maxEnemyDistance) : hit.point;
                         Vector3 fallbackPos = RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f);
@@ -203,7 +204,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Look at target or not if hidden by stuff
-            if (!Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, targetPos + Vector3.up * 0.2f, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault)
+            if (!Physics.Linecast(lethalBotController.gameplayCamera.transform.position, targetPos + Vector3.up * 0.2f, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault)
                 || hitInfo.collider.gameObject.GetComponentInParent<EnemyAI>() == this.CurrentEnemy)
             {
                 npcController.OrderToLookAtPosition(this.CurrentEnemy.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f, true, maxBodyFOV: attackFOV);

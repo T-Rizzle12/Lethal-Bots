@@ -48,6 +48,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -56,7 +57,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // We are not at the ship, we should go back to it!
-            if (!npcController.Npc.isInElevator && !npcController.Npc.isInHangarShipRoom)
+            if (!lethalBotController.isInElevator && !lethalBotController.isInHangarShipRoom)
             {
                 ai.State = new ReturnToShipState(this);
                 return;
@@ -71,11 +72,11 @@ namespace LethalBots.AI.AIStates
 
             // If we are holding anything we should drop it
             bool canInverseTeleport = true;
-            if (npcController.Npc.isInHangarShipRoom)
+            if (lethalBotController.isInHangarShipRoom)
             {
                 // If we are the mission controller, go to that state
                 PlayerControllerB? missionController = LethalBotManager.Instance.MissionControlPlayer;
-                if (missionController == npcController.Npc)
+                if (missionController == lethalBotController)
                 {
                     ai.State = new MissionControlState(this);
                     return;
@@ -85,7 +86,7 @@ namespace LethalBots.AI.AIStates
                     && FindObject(ai.HeldItem))
                 {
                     if (!ai.TurnOffHeldItem())
-                        npcController.Npc.DiscardHeldObject();
+                        lethalBotController.DiscardHeldObject();
                     canInverseTeleport = false;
                 }
                 // If we still have stuff in our inventory,
@@ -96,7 +97,7 @@ namespace LethalBots.AI.AIStates
                     canInverseTeleport = false;
                 }
                 // If we are transferring loot, go back to that state
-                else if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
+                else if (LethalBotManager.Instance.LootTransferPlayers.Contains(lethalBotController))
                 {
                     // We finished dropping our stuff off, go back to transferring loot!
                     if (previousAIState is TransferLootState)
@@ -116,7 +117,7 @@ namespace LethalBots.AI.AIStates
                         && (Plugin.Config.AllowBotsInOrbit.Value || !LethalBotManager.AreWeInOrbit())
                         && Plugin.Config.AutoMissionControl.Value)
                     {
-                        LethalBotManager.Instance.MissionControlPlayer = npcController.Npc;
+                        LethalBotManager.Instance.MissionControlPlayer = lethalBotController;
                         canInverseTeleport = false;
                     }
                 }

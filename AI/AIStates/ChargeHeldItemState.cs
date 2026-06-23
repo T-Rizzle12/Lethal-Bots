@@ -1,4 +1,5 @@
-﻿using LethalBots.Constants;
+﻿using GameNetcodeStuff;
+using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using System;
@@ -46,6 +47,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -54,14 +56,14 @@ namespace LethalBots.AI.AIStates
             }
 
             // We are not at the ship, go back to the previous state!
-            if (!npcController.Npc.isInElevator && !npcController.Npc.isInHangarShipRoom)
+            if (!lethalBotController.isInElevator && !lethalBotController.isInHangarShipRoom)
             {
                 ChangeBackToPreviousState();
                 return;
             }
 
             // We are in the terminal, we should leave!
-            if (npcController.Npc.inTerminalMenu)
+            if (lethalBotController.inTerminalMenu)
             {
                 ai.LeaveTerminal();
                 return;
@@ -76,7 +78,7 @@ namespace LethalBots.AI.AIStates
                     if (heldItem != null && heldItem.itemProperties.twoHanded)
                     {
                         // We are holding an two handed item, we should drop it!
-                        npcController.Npc.DiscardHeldObject();
+                        lethalBotController.DiscardHeldObject();
                         LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
                         return;
                     }
@@ -98,7 +100,7 @@ namespace LethalBots.AI.AIStates
                     if (itemChargerTrigger != null)
                     {
                         // We should move to the item charger!
-                        float sqrDistFromCharger = (itemChargerTrigger.playerPositionNode.position - npcController.Npc.transform.position).sqrMagnitude;
+                        float sqrDistFromCharger = (itemChargerTrigger.playerPositionNode.position - lethalBotController.transform.position).sqrMagnitude;
                         if (sqrDistFromCharger > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                         {
                             ai.SetDestinationToPositionLethalBotAI(itemChargerTrigger.playerPositionNode.position);

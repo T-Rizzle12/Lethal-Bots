@@ -123,7 +123,8 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // If we are not the mission controller or the ship is leaving, we should not be in this state
-            if (LethalBotManager.Instance.MissionControlPlayer != npcController.Npc 
+            PlayerControllerB lethalBotController = npcController.Npc;
+            if (LethalBotManager.Instance.MissionControlPlayer != lethalBotController 
                 || (!Plugin.Config.AllowBotsInOrbit.Value && StartOfRound.Instance.shipIsLeaving))
             {
                 GetOffTerminal();
@@ -136,19 +137,19 @@ namespace LethalBots.AI.AIStates
             }
 
             // We are assigned to man the ship, make sure we are not on the loot transfer list
-            if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
+            if (LethalBotManager.Instance.LootTransferPlayers.Contains(lethalBotController))
             {
-                LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(npcController.Npc);
+                LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(lethalBotController);
             }
 
             // If we are the mission controller, we cannot be in a group
-            if (GroupManager.Instance.IsPlayerInGroup(npcController.Npc))
+            if (GroupManager.Instance.IsPlayerInGroup(lethalBotController))
             {
-                GroupManager.Instance.RemoveFromCurrentGroupAndSync(npcController.Npc);
+                GroupManager.Instance.RemoveFromCurrentGroupAndSync(lethalBotController);
             }
 
             // Its kinda hard to be the mission controller if we are not on the ship!
-            if (!npcController.Npc.isInElevator && !npcController.Npc.isInHangarShipRoom)
+            if (!lethalBotController.isInElevator && !lethalBotController.isInHangarShipRoom)
             {
                 ai.State = new ReturnToShipState(this);
                 return;
@@ -223,7 +224,7 @@ namespace LethalBots.AI.AIStates
                 {
                     return;
                 }
-                npcController.Npc.DiscardHeldObject();
+                lethalBotController.DiscardHeldObject();
                 return;
             }
             // If we still have stuff in our inventory,
@@ -281,7 +282,7 @@ namespace LethalBots.AI.AIStates
                         {
                             return;
                         }
-                        StartOfRound instanceSOR = npcController.Npc.playersManager;
+                        StartOfRound instanceSOR = lethalBotController.playersManager;
                         if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
                             && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
@@ -290,7 +291,7 @@ namespace LethalBots.AI.AIStates
                                 ai.PullShipLever(startMatchLever);
                                 playerRequestLeave = false;
                             }
-                            //npcController.Npc.playersManager.ShipLeaveAutomatically(true);
+                            //lethalBotController.playersManager.ShipLeaveAutomatically(true);
                         }
                     }
                     else
@@ -320,7 +321,7 @@ namespace LethalBots.AI.AIStates
                         {
                             return;
                         }
-                        StartOfRound instanceSOR = npcController.Npc.playersManager;
+                        StartOfRound instanceSOR = lethalBotController.playersManager;
                         if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
                             && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
@@ -329,7 +330,7 @@ namespace LethalBots.AI.AIStates
                                 ai.PullShipLever(startMatchLever);
                                 playerRequestLeave = false;
                             }
-                            //npcController.Npc.playersManager.ShipLeaveAutomatically(true);
+                            //lethalBotController.playersManager.ShipLeaveAutomatically(true);
                         }
                     }
                     else
@@ -462,7 +463,7 @@ namespace LethalBots.AI.AIStates
 
             // If we are not at the ship or terminal, we should move there now!
             InteractTrigger terminalTrigger = ourTerminal.terminalTrigger;
-            float sqrDistFromTerminal = (terminalTrigger.playerPositionNode.position - npcController.Npc.transform.position).sqrMagnitude;
+            float sqrDistFromTerminal = (terminalTrigger.playerPositionNode.position - lethalBotController.transform.position).sqrMagnitude;
             if (sqrDistFromTerminal > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {
                 ai.SetDestinationToPositionLethalBotAI(terminalTrigger.playerPositionNode.position);
@@ -503,7 +504,7 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // Can't do anything without the terminal!
-                if (!npcController.Npc.inTerminalMenu)
+                if (!lethalBotController.inTerminalMenu)
                 {
                     // Wait if someone else is on the terminal!
                     if (ourTerminal.terminalInUse 
@@ -516,7 +517,7 @@ namespace LethalBots.AI.AIStates
                     overrideCrouch = true;
 
                     // Wait until we are standing!
-                    if (npcController.Npc.isCrouching)
+                    if (lethalBotController.isCrouching)
                     {
                         return;
                     }
@@ -1586,6 +1587,12 @@ namespace LethalBots.AI.AIStates
             // or shake their camera instead?
             if (!player.isInElevator && !player.isInHangarShipRoom)
             {
+                // Setup some information about the player
+                LethalBotAI? isPlayerBot = LethalBotManager.Instance.GetLethalBotAI(player);
+                bool hasRangedWeapon = isPlayerBot?.HasRangedWeapon() ?? false; // NOTE: hasRangedWeapon has no effect for human players in CanEnemyBeKilled
+                bool doesPlayerHaveAWeapon = DoesPlayerHaveWeaponInInventory(player);
+
+                // Alright, lets see if the player is in danger
                 RoundManager instanceRM = RoundManager.Instance;
                 Vector3 playerPos = player.transform.position;
                 List<EnemyAI> spawnedEnemies = instanceRM.SpawnedEnemies;
@@ -1605,9 +1612,7 @@ namespace LethalBots.AI.AIStates
                             }
 
                             // They are probably fighting an enemy, leave them alone!
-                            LethalBotAI? isPlayerBot = LethalBotManager.Instance.GetLethalBotAI(player);
-                            bool hasRangedWeapon = isPlayerBot?.HasRangedWeapon() ?? false; // NOTE: hasRangedWeapon has no effect for human players in CanEnemyBeKilled
-                            if (LethalBotManager.ShouldAttackEnemy(new LethalBotAttackQuery(isPlayerBot, spawnedEnemy, hasRangedWeapon, isPlayerBot == null)) && DoesPlayerHaveWeaponInInventory(player))
+                            if (doesPlayerHaveAWeapon && LethalBotManager.ShouldAttackEnemy(new LethalBotAttackQuery(isPlayerBot, spawnedEnemy, hasRangedWeapon, isPlayerBot == null)))
                             {
                                 return false;
                             }
@@ -1965,7 +1970,7 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         private EnemyAI? CheckForInvadingEnemy(bool onlyKillable = true, bool checkOutsideShip = false)
         {
-            Transform thisLethalBotCamera = this.npcController.Npc.gameplayCamera.transform;
+            Vector3 ourPos = this.npcController.Npc.gameplayCamera.transform.position;
             Bounds shipBounds = checkOutsideShip ? StartOfRound.Instance.shipBounds.bounds : StartOfRound.Instance.shipInnerRoomBounds.bounds;
             EnemyAI? closestEnemy = null;
             float closestEnemyDistSqr = float.MaxValue;
@@ -2002,8 +2007,7 @@ namespace LethalBots.AI.AIStates
                 }
 
                 Vector3 positionEnemy = spawnedEnemy.transform.position;
-                Vector3 directionEnemyFromCamera = positionEnemy - thisLethalBotCamera.position;
-                float sqrDistanceToEnemy = directionEnemyFromCamera.sqrMagnitude;
+                float sqrDistanceToEnemy = (positionEnemy - ourPos).sqrMagnitude;
                 if (sqrDistanceToEnemy < closestEnemyDistSqr)
                 {
                     closestEnemyDistSqr = sqrDistanceToEnemy;

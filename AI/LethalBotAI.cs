@@ -8,6 +8,7 @@ using LethalBots.Managers;
 using LethalBots.NetworkSerializers;
 using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Patches.GameEnginePatches;
+using LethalBots.Patches.MapHazardsPatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.NpcPatches;
@@ -258,6 +259,7 @@ namespace LethalBots.AI
                 agent.acceleration = float.MaxValue; // Is THIS a good idea?
                 agent.autoTraverseOffMeshLink = false;
                 agent.autoBraking = false; // This causes the bot's agent to slow around corners and stuff, we don't want that!
+                //agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
                 Plugin.LogDebug($"LethalBot Agent Type ID {agent.agentTypeID}");
                 Plugin.LogDebug($"LethalBot Area Mask {agent.areaMask}");
                 SetAgent(enabled: false);
@@ -745,7 +747,7 @@ namespace LethalBots.AI
                 // If we are stuck, teleport to the closest node!
                 StartOfRound instanceSOR = StartOfRound.Instance;
                 if (agent.velocity.sqrMagnitude < 0.002f
-                    && StateControllerMovement != EnumStateControllerMovement.Free
+                    && StateControllerMovement == EnumStateControllerMovement.FollowAgent
                     && !this.IsUsingOffMeshLink()
                     && !IsInsideElevator
                     && (LethalBotManager.AreWeInOrbit(instanceSOR) 
@@ -803,8 +805,9 @@ namespace LethalBots.AI
         /// </remarks>
         public override void DoAIInterval()
         {
+            PlayerControllerB lethalBotController = NpcController.Npc;
             if (isEnemyDead
-                || NpcController.Npc.isPlayerDead
+                || lethalBotController.isPlayerDead
                 || State == null)
             {
                 return;
@@ -839,7 +842,7 @@ namespace LethalBots.AI
             // they should leave the terminal
             if (!State.CheckAllowsTerminalUse())
             {
-                if (NpcController.Npc.inTerminalMenu)
+                if (lethalBotController.inTerminalMenu)
                 {
                     LeaveTerminal();
                 }
@@ -5987,6 +5990,22 @@ namespace LethalBots.AI
                     }
                 }
             }
+
+            if (!lethalBotController.isUnderwater && !lethalBotController.isSinking)
+            {
+                return;
+            }
+            Plugin.LogInfo($"Bot {lethalBotController.playerUsername} is sinking; disable all quicksand locally");
+            for (int i = 0; i < QuicksandArray.Length; i++)
+            {
+                QuicksandTrigger quicksand = QuicksandArray[i];
+                QuicksandTriggerPatch.QuicksandTriggerMonitor quicksandTriggerMonitor = QuicksandTriggerPatch.GetOrCreateMonitor(quicksand);
+                if (quicksandTriggerMonitor.IsSinkingLethalBot(this))
+                {
+                    quicksand.OnExit(lethalBotController.gameObject.GetComponent<Collider>());
+                    break;
+                }
+            }
         }
 
         /// <summary>
@@ -6064,8 +6083,6 @@ namespace LethalBots.AI
                     NpcController.Npc.physicsParent = vehicleController.transform;
                     this.ReParentLethalBot(vehicleController.transform);
                 }
-
-                this.StopSinkingState();
             }
             else
             {
@@ -8803,59 +8820,7 @@ namespace LethalBots.AI
 
         #endregion
 
-        #region Sinking RPC
-
-        /// <summary>
-        /// Sync the state of sink of the lethalBot between server and clients
-        /// </summary>
-        /// <param name="startSinking"></param>
-        /// <param name="sinkingSpeed"></param>
-        /// <param name="audioClipIndex"></param>
-        public void SyncChangeSinkingState(bool startSinking, float sinkingSpeed = 0f, int audioClipIndex = 0)
-        {
-            if (IsServer)
-            {
-                ChangeSinkingStateClientRpc(startSinking, sinkingSpeed, audioClipIndex);
-            }
-            else
-            {
-                ChangeSinkingStateServerRpc(startSinking, sinkingSpeed, audioClipIndex);
-            }
-        }
-
-        /// <summary>
-        /// Server side, call clients to update the state of sink of the lethalBot
-        /// </summary>
-        /// <param name="startSinking"></param>
-        /// <param name="sinkingSpeed"></param>
-        /// <param name="audioClipIndex"></param>
-        [ServerRpc]
-        private void ChangeSinkingStateServerRpc(bool startSinking, float sinkingSpeed, int audioClipIndex)
-        {
-            ChangeSinkingStateClientRpc(startSinking, sinkingSpeed, audioClipIndex);
-        }
-
-        /// <summary>
-        /// Client side, update the state of sink of the lethalBot
-        /// </summary>
-        /// <param name="startSinking"></param>
-        /// <param name="sinkingSpeed"></param>
-        /// <param name="audioClipIndex"></param>
-        [ClientRpc]
-        private void ChangeSinkingStateClientRpc(bool startSinking, float sinkingSpeed, int audioClipIndex)
-        {
-            if (startSinking)
-            {
-                NpcController.Npc.sinkingSpeedMultiplier = sinkingSpeed;
-                NpcController.Npc.isSinking = true;
-                NpcController.Npc.statusEffectAudio.clip = StartOfRound.Instance.statusEffectClips[audioClipIndex];
-                NpcController.Npc.statusEffectAudio.Play();
-            }
-            else
-            {
-                StopSinkingState();
-            }
-        }
+        #region Sinking Helper
 
         public void StopSinkingState()
         {

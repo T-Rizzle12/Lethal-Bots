@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using GameNetcodeStuff;
+using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
@@ -93,6 +94,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -159,7 +161,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Make sure we actually have a key!
-            int keySlot = ai.IsHoldingKey() ? npcController.Npc.currentItemSlot : -1;
+            int keySlot = ai.IsHoldingKey() ? lethalBotController.currentItemSlot : -1;
             if (keySlot == -1)
             {
                 if (!ai.TryFindItemInInventory(FindObject, FindBetterObject, out keySlot))
@@ -181,7 +183,7 @@ namespace LethalBots.AI.AIStates
             // NOTE: 2816 is the layer keys and lockpickers use in their raycast checks.
             Vector3 lockerPickerPos = GetClosestSideToDoor();
             if (attemptToUnlockTimer > 0.0f // If we are trying to unlock, always look at the door
-                || !Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, lockerPickerPos, out RaycastHit hitInfo, 2816) // Can we see the door?
+                || !Physics.Linecast(lethalBotController.gameplayCamera.transform.position, lockerPickerPos, out RaycastHit hitInfo, 2816) // Can we see the door?
                 || hitInfo.transform.GetComponent<DoorLock>() == this.targetDoor  // Did we hit the door?
                 || hitInfo.transform.GetComponent<TriggerPointToDoor>()?.pointToDoor == this.targetDoor) // Did we hit the door trigger?
             {
@@ -193,18 +195,18 @@ namespace LethalBots.AI.AIStates
             }
 
             // Close enough to use item, attempt to use
-            float sqrMagDistanceDoor = (doorPos.Value - npcController.Npc.transform.position).sqrMagnitude;
+            float sqrMagDistanceDoor = (doorPos.Value - lethalBotController.transform.position).sqrMagnitude;
             if (sqrMagDistanceDoor < Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {
-                if (!npcController.Npc.inAnimationWithEnemy
-                    && !npcController.Npc.activatingItem)
+                if (!lethalBotController.inAnimationWithEnemy
+                    && !lethalBotController.activatingItem)
                 {
                     ai.StopMoving();
                     GrabbableObject? heldItem = ai.HeldItem;
                     if (heldItem != null && !FindObject(heldItem) && heldItem.itemProperties.twoHanded)
                     {
                         droppedHeldItem = heldItem;
-                        npcController.Npc.DiscardHeldObject();
+                        lethalBotController.DiscardHeldObject();
                         return;
                     }
                     else if (heldItem == null || !FindObject(heldItem))
@@ -219,7 +221,7 @@ namespace LethalBots.AI.AIStates
                         if (heldItem is KeyItem)
                         {
                             this.targetDoor.UnlockDoorSyncWithServer();
-                            npcController.Npc.DespawnHeldObject();
+                            lethalBotController.DespawnHeldObject();
                         }
                         else if (heldItem is LockPicker lockPicker)
                         {

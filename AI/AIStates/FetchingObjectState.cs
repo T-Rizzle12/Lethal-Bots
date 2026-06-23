@@ -1,4 +1,5 @@
-﻿using LethalBots.Constants;
+﻿using GameNetcodeStuff;
+using LethalBots.Constants;
 using LethalBots.Enums;
 using System.Diagnostics.CodeAnalysis;
 using UnityEngine;
@@ -38,6 +39,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             if (!ignoreEnemies)
             {
                 EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
@@ -65,15 +67,15 @@ namespace LethalBots.AI.AIStates
             }
 
             // Close enough to item for grabbing, attempt to grab
-            float sqrMagDistanceItem = Mathf.Min((this.TargetItem.transform.position - npcController.Npc.gameplayCamera.transform.position).sqrMagnitude, (this.TargetItem.transform.position - npcController.Npc.transform.position).sqrMagnitude); // HACKHACK: Let the bot's grab range be a little better than a human player's.....
-            if (sqrMagDistanceItem < npcController.Npc.grabDistance * npcController.Npc.grabDistance)
+            float sqrMagDistanceItem = Mathf.Min((this.TargetItem.transform.position - lethalBotController.gameplayCamera.transform.position).sqrMagnitude, (this.TargetItem.transform.position - lethalBotController.transform.position).sqrMagnitude); // HACKHACK: Let the bot's grab range be a little better than a human player's.....
+            if (sqrMagDistanceItem < lethalBotController.grabDistance * lethalBotController.grabDistance)
             {
                 // Drop our two handed item
                 GrabbableObject? heldItem = ai.HeldItem;
                 if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
                     droppedHeldItem = heldItem;
-                    npcController.Npc.DiscardHeldObject();
+                    lethalBotController.DiscardHeldObject();
                     return;
                 }
                 if (ai.CanGrabObject(this.TargetItem))
@@ -83,7 +85,7 @@ namespace LethalBots.AI.AIStates
 
                     // Attempt to grab the object
                     ai.GrabObject(this.TargetItem);
-                    if (!npcController.Npc.isGrabbingObjectAnimation)
+                    if (!lethalBotController.isGrabbingObjectAnimation)
                     {
                         grabAttempts++;
                     }
@@ -107,7 +109,7 @@ namespace LethalBots.AI.AIStates
             SelectBestItemFromInventory();
 
             // Else get close to item
-            Vector3 targetItemPos = RoundManager.Instance.GetNavMeshPosition(this.TargetItem.transform.position, default, npcController.Npc.grabDistance);
+            Vector3 targetItemPos = RoundManager.Instance.GetNavMeshPosition(this.TargetItem.transform.position, default, lethalBotController.grabDistance);
             ai.SetDestinationToPositionLethalBotAI(targetItemPos);
 
             // If we can't path to the object, there might be a locked door in our way!
@@ -123,7 +125,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Look at item or not if hidden by stuff
-            if (!Physics.Linecast(npcController.Npc.gameplayCamera.transform.position, this.TargetItem.transform.position + Vector3.up * 0.05f, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault) 
+            if (!Physics.Linecast(lethalBotController.gameplayCamera.transform.position, this.TargetItem.transform.position + Vector3.up * 0.05f, out RaycastHit hitInfo, StartOfRound.Instance.collidersAndRoomMaskAndDefault) 
                 || hitInfo.transform.GetComponent<GrabbableObject>() == this.TargetItem)
             {
                 npcController.OrderToLookAtPosition(this.TargetItem.NetworkObject, EnumLookAtPriority.HIGH_PRIORITY, 1f);
@@ -153,10 +155,6 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         private bool IsObjectGrabbable()
         {
-            if (enumGrabbable == EnumGrabbableObjectCall.Selling)
-            {
-                return ai.IsGrabbableObjectSellable(TargetItem);
-            }
             return ai.IsGrabbableObjectGrabbable(TargetItem, enumGrabbable);
         }
 

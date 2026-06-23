@@ -498,9 +498,9 @@ namespace LethalBots.Managers
             List<GrabbableObject> grabbableObjectsInMap = new List<GrabbableObject>();
             yield return null;
 
-            Light[] lights = Object.FindObjectsOfType<Light>();
+            Light[] lights = Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             HashSet<Light> lightsToIgnore = new HashSet<Light>();
-            GrabbableObject[] array = Object.FindObjectsOfType<GrabbableObject>();
+            GrabbableObject[] array = Object.FindObjectsByType<GrabbableObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             Plugin.LogDebug($"Bot register grabbable objects, found: {array.Length}");
             Plugin.LogDebug($"Bot register lights, found: {lights.Length}");
             for (int i = 0; i < array.Length; i++)
@@ -633,12 +633,15 @@ namespace LethalBots.Managers
         /// the player's helmet lights collection; otherwise, false.</returns>
         private static bool IsPlayerLight(Light light)
         {
-            foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
+            PlayerControllerB[] playerControllers = StartOfRound.Instance.allPlayerScripts;
+            for (int i = 0; i < playerControllers.Length; i++)
             {
-                if (player.nightVision == light
+                PlayerControllerB player = playerControllers[i];
+                if (player != null
+                    && (player.nightVision == light
                     || player.nightVisionRadar == light
                     || player.helmetLight == light
-                    || player.allHelmetLights.Contains(light))
+                    || player.allHelmetLights.Contains(light)))
                 {
                     return true;
                 }
@@ -3153,12 +3156,13 @@ namespace LethalBots.Managers
         /// Checks if we are currently in orbit
         /// </summary>
         /// <param name="instanceSOR">If you already have the <see cref="StartOfRound"/> instance, you may provide it here.</param>
+        /// <param name="checkLoadingNewLevel">Should we consider ourself in orbit if we are starting to land?</param>
         /// <returns><see langword="true"/> if we are in orbit; otherwise <see langword="false"/></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool AreWeInOrbit(StartOfRound? instanceSOR = null)
+        public static bool AreWeInOrbit(StartOfRound? instanceSOR = null, bool checkLoadingNewLevel = false)
         {
             instanceSOR ??= StartOfRound.Instance;
-            return instanceSOR != null && instanceSOR.inShipPhase;
+            return instanceSOR != null && instanceSOR.inShipPhase && (!checkLoadingNewLevel || !instanceSOR.beganLoadingNewLevel);
         }
 
         /// <summary>
@@ -3182,7 +3186,7 @@ namespace LethalBots.Managers
         public static bool IsTheShipLanding(StartOfRound? instanceSOR = null)
         {
             instanceSOR ??= StartOfRound.Instance;
-            return instanceSOR != null && !instanceSOR.shipHasLanded && !AreWeInOrbit(instanceSOR) && !IsTheShipLeaving(instanceSOR);
+            return instanceSOR != null && !instanceSOR.shipHasLanded && !AreWeInOrbit(instanceSOR, checkLoadingNewLevel: true) && !IsTheShipLeaving(instanceSOR);
         }
 
         /// <summary>

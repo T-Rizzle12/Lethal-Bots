@@ -60,6 +60,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -70,7 +71,7 @@ namespace LethalBots.AI.AIStates
             // Check for object to grab
             // Or drop in ship room
             bool canInverseTeleport = true;
-            if (npcController.Npc.isInHangarShipRoom)
+            if (lethalBotController.isInHangarShipRoom)
             {
                 // If we are holding an item with a battery, we should charge it!
                 if (ChargeHeldItemState.HasItemToCharge(ai, out _))
@@ -86,7 +87,7 @@ namespace LethalBots.AI.AIStates
                 {
                     canInverseTeleport = false;
                     if (!ai.TurnOffHeldItem())
-                        npcController.Npc.DiscardHeldObject();
+                        lethalBotController.DiscardHeldObject();
                 }
                 // If we still have stuff in our inventory,
                 // we should swap to it and drop it!
@@ -115,13 +116,13 @@ namespace LethalBots.AI.AIStates
             }
 
             // If we are in a group, only follow the group leader
-            int groupID = GroupManager.Instance.GetGroupId(npcController.Npc);
+            int groupID = GroupManager.Instance.GetGroupId(lethalBotController);
             if (groupID != GroupManager.INVALID_GROUP_INDEX)
             {
                 PlayerControllerB? groupLeader = GroupManager.Instance.GetGroupLeader(groupID);
                 if (groupLeader != null)
                 {
-                    if (groupLeader == npcController.Npc)
+                    if (groupLeader == lethalBotController)
                     {
                         ai.State = new SearchingForScrapState(this);
                         return;
@@ -135,7 +136,7 @@ namespace LethalBots.AI.AIStates
                 // This should never happen, but if it does......
                 else
                 {
-                    GroupManager.Instance.RemoveFromCurrentGroupAndSync(npcController.Npc);
+                    GroupManager.Instance.RemoveFromCurrentGroupAndSync(lethalBotController);
                 }
             }
 
@@ -154,7 +155,7 @@ namespace LethalBots.AI.AIStates
                         if (entrance == null) continue;
 
                         if (entrance.isEntranceToBuilding
-                            && (entrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE)
+                            && (entrance.entrancePoint.position - lethalBotController.transform.position).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE)
                         {
                             areWeNearbyEntrance = true;
                             break;
@@ -170,7 +171,7 @@ namespace LethalBots.AI.AIStates
                         GrabbableObject? heldItem = ai.HeldItem;
                         if (heldItem != null && DropScrapAtEntrance(heldItem))
                         {
-                            npcController.Npc.DiscardHeldObject();
+                            lethalBotController.DiscardHeldObject();
                             LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
                         }
                         else if (ai.HasGrabbableObjectInInventory(DropScrapAtEntrance, out int objectSlot))
@@ -226,7 +227,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Is the inverse teleporter on, we should use it!
-            if (LethalBotManager.IsInverseTeleporterActive && npcController.Npc.isInHangarShipRoom && canInverseTeleport)
+            if (LethalBotManager.IsInverseTeleporterActive && lethalBotController.isInHangarShipRoom && canInverseTeleport)
             {
                 ai.State = new UseInverseTeleporterState(this);
                 return;

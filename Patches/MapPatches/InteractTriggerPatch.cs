@@ -386,7 +386,7 @@ namespace LethalBots.Patches.MapPatches
             playerController.currentTriggerInAnimationWith = null;
             playerController.isClimbingLadder = false;
             playerController.thisController.enabled = true; // NEEDTOVALIDATE: What happens if this is true for players that are not the local player?
-            playerController.playerBodyAnimator.SetBool("ClimbingLadder", value: false);
+            playerController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CLIMBINGLADDER, value: false);
             playerController.gameplayCamera.transform.localEulerAngles = Vector3.zero;
             playerController.UpdateSpecialAnimationValue(specialAnimation: false, 0);
             playerController.inSpecialInteractAnimation = false;
@@ -559,7 +559,7 @@ namespace LethalBots.Patches.MapPatches
                     player.overridePhysicsParent = null;
                 }
                 player.currentTriggerInAnimationWith = null;
-                if (player.isClimbingLadder)
+                if (player.isClimbingLadder || lethalBotAI.useLadderCoroutine != null)
                 {
                     CancelLadderAnimation(__instance, player);
                     player.isClimbingLadder = false;

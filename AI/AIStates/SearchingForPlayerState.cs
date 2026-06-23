@@ -46,6 +46,7 @@ namespace LethalBots.AI.AIStates
             StartSearchingWanderCoroutine();
 
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -116,18 +117,18 @@ namespace LethalBots.AI.AIStates
                     CanRepeatVoiceState = false,
 
                     ShouldSync = true,
-                    IsLethalBotInside = npcController.Npc.isInsideFactory,
+                    IsLethalBotInside = lethalBotController.isInsideFactory,
                     AllowSwearing = Plugin.Config.AllowSwearing.Value
                 });
 
                 // We are following a human player, leave our current group or join theirs!
-                GroupManager.Instance.CreateOrJoinGroupWithMembersAndSync(player, new PlayerControllerB[] { npcController.Npc });
+                GroupManager.Instance.CreateOrJoinGroupWithMembersAndSync(player, new PlayerControllerB[] { lethalBotController });
 
                 // Assign to new target
                 ai.SyncAssignTargetAndSetMovingTo(player);
                 if (Plugin.Config.ChangeSuitAutoBehaviour.Value)
                 {
-                    ai.ChangeSuitLethalBotServerRpc(npcController.Npc.playerClientId, player.currentSuitID);
+                    ai.ChangeSuitLethalBotServerRpc(lethalBotController.playerClientId, player.currentSuitID);
                 }
                 return;
             }

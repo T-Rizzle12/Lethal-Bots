@@ -47,6 +47,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -56,7 +57,7 @@ namespace LethalBots.AI.AIStates
 
             // Wait for ship to land before doing anything!
             StartOfRound instanceSOR = StartOfRound.Instance;
-            if ((npcController.Npc.isInElevator || npcController.Npc.isInHangarShipRoom)
+            if ((lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom)
                 && !LethalBotManager.AreWeInOrbit(instanceSOR)
                 && (LethalBotManager.IsTheShipLeaving(instanceSOR)
                     || !LethalBotManager.IsTheShipLanded(instanceSOR)))
@@ -65,13 +66,13 @@ namespace LethalBots.AI.AIStates
             }
 
             // If we are in a group, only follow the group leader
-            int groupID = GroupManager.Instance.GetGroupId(npcController.Npc);
+            int groupID = GroupManager.Instance.GetGroupId(lethalBotController);
             if (groupID != GroupManager.INVALID_GROUP_INDEX)
             {
                 PlayerControllerB? groupLeader = GroupManager.Instance.GetGroupLeader(groupID);
                 if (groupLeader != null)
                 {
-                    if (groupLeader == npcController.Npc)
+                    if (groupLeader == lethalBotController)
                     {
                         ai.State = new SearchingForScrapState(this);
                         return;
@@ -85,7 +86,7 @@ namespace LethalBots.AI.AIStates
                 // This should never happen, but if it does......
                 else
                 {
-                    GroupManager.Instance.RemoveFromCurrentGroupAndSync(npcController.Npc);
+                    GroupManager.Instance.RemoveFromCurrentGroupAndSync(lethalBotController);
                 }
             }
 
@@ -165,8 +166,8 @@ namespace LethalBots.AI.AIStates
 
             // Target is in awarness range
             Vector3 targetPlayerPos = ai.targetPlayer.transform.position;
-            float sqrHorizontalDistanceWithTarget = Vector3.Scale((targetPlayerPos - npcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
-            float sqrVerticalDistanceWithTarget = Vector3.Scale((targetPlayerPos - npcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
+            float sqrHorizontalDistanceWithTarget = Vector3.Scale((targetPlayerPos - lethalBotController.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
+            float sqrVerticalDistanceWithTarget = Vector3.Scale((targetPlayerPos - lethalBotController.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
             if (sqrHorizontalDistanceWithTarget < Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR
                     && sqrVerticalDistanceWithTarget < Const.DISTANCE_AWARENESS_VER * Const.DISTANCE_AWARENESS_VER)
             {
@@ -190,7 +191,7 @@ namespace LethalBots.AI.AIStates
                             if (usingElevator
                             && ai.HeldItem is CaveDwellerPhysicsProp)
                             {
-                                npcController.Npc.DiscardHeldObject();
+                                lethalBotController.DiscardHeldObject();
                             }
                         }
                         else if (!isPlayerNearElevatorEntrance && ai.IsInElevatorStartRoom)
@@ -211,7 +212,7 @@ namespace LethalBots.AI.AIStates
             else
             {
                 // Target outside of awareness range, if ai does not see target, then the target is lost
-                //Plugin.LogDebug($"{ai.NpcController.Npc.playerUsername} no see target, still in range ? too far {sqrHorizontalDistanceWithTarget > Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR}, too high/low {sqrVerticalDistanceWithTarget > Const.DISTANCE_AWARENESS_VER * Const.DISTANCE_AWARENESS_VER}");
+                //Plugin.LogDebug($"{ai.lethalBotController.playerUsername} no see target, still in range ? too far {sqrHorizontalDistanceWithTarget > Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR}, too high/low {sqrVerticalDistanceWithTarget > Const.DISTANCE_AWARENESS_VER * Const.DISTANCE_AWARENESS_VER}");
                 PlayerControllerB? checkTarget = ai.CheckLOSForTarget(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
                 if (checkTarget == null)
                 {
@@ -241,7 +242,7 @@ namespace LethalBots.AI.AIStates
                                 if (usingElevator
                                 && ai.HeldItem is CaveDwellerPhysicsProp)
                                 {
-                                    npcController.Npc.DiscardHeldObject();
+                                    lethalBotController.DiscardHeldObject();
                                 }
                             }
                             else if (!isPlayerNearElevatorEntrance && ai.IsInElevatorStartRoom)

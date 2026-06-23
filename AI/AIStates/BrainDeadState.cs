@@ -23,6 +23,7 @@ namespace LethalBots.AI.AIStates
 
             // Don't need to do the rest of the logic if we already voted to leave!
             StartOfRound instanceSOR = StartOfRound.Instance;
+            PlayerControllerB lethalBotController = npcController.Npc;
             if (hasVotedToLeave 
                 || LethalBotManager.IsTheShipLeaving(instanceSOR)
                 || TimeOfDay.Instance.shipLeavingAlertCalled)
@@ -40,7 +41,7 @@ namespace LethalBots.AI.AIStates
             voteIntervalTimer.Start(Random.Range(Const.MIN_TIME_TO_VOTE, Const.MAX_TIME_TO_VOTE));
 
             // Only dead players can vote to leave early!
-            if (npcController.Npc.isPlayerControlled || !npcController.Npc.isPlayerDead)
+            if (lethalBotController.isPlayerControlled || !lethalBotController.isPlayerDead)
             {
                 // We are not dead, we are either not running ai on this client
                 // or the round just ended!
@@ -58,15 +59,15 @@ namespace LethalBots.AI.AIStates
             }
 
             // Kinda hard to transfer loot when you're dead!
-            if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
+            if (LethalBotManager.Instance.LootTransferPlayers.Contains(lethalBotController))
             {
-                LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(npcController.Npc);
+                LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(lethalBotController);
             }
 
             // We are dead, remove ourself from the group
-            if (GroupManager.Instance.IsPlayerInGroup(npcController.Npc))
+            if (GroupManager.Instance.IsPlayerInGroup(lethalBotController))
             {
-                GroupManager.Instance.RemoveFromCurrentGroupAndSync(npcController.Npc);
+                GroupManager.Instance.RemoveFromCurrentGroupAndSync(lethalBotController);
             }
 
             // Check if every human player is dead,
@@ -88,7 +89,7 @@ namespace LethalBots.AI.AIStates
                 if (ShouldReturnToShip() 
                     || (instanceSOR.livingPlayers <= 1 && isShipCompromised))
                 {
-                    Plugin.LogDebug($"Bot {npcController.Npc.playerUsername} is attempting to vote to leave early!");
+                    Plugin.LogDebug($"Bot {lethalBotController.playerUsername} is attempting to vote to leave early!");
                     TimeOfDay.Instance.SetShipLeaveEarlyServerRpc();
                     hasVotedToLeave = true;
                 }

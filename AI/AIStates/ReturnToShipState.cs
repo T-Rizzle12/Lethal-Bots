@@ -79,6 +79,7 @@ namespace LethalBots.AI.AIStates
             StartLookingAroundCoroutine();
 
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -122,14 +123,14 @@ namespace LethalBots.AI.AIStates
             }
 
             // Group logic
-            int groupID = GroupManager.Instance.GetGroupId(npcController.Npc);
+            int groupID = GroupManager.Instance.GetGroupId(lethalBotController);
             if (groupID != GroupManager.INVALID_GROUP_INDEX)
             {
                 // The group leader does their best to make sure no one falls behind.......
                 PlayerControllerB? groupLeader = GroupManager.Instance.GetGroupLeader(groupID);
-                if (groupLeader == npcController.Npc)
+                if (groupLeader == lethalBotController)
                 {
-                    // NOTE: We can safely assume that groupLeader is the same as npcController.Npc here
+                    // NOTE: We can safely assume that groupLeader is the same as lethalBotController here
                     PlayerControllerB? straggler = GroupManager.Instance.GetFurthestMemberFromCenter(groupID);
                     if (straggler != null && !ai.AreWeExposed()) // straggler != groupLeader // actually, we allow ourself since the rest of the group may have fallen behind
                     {
@@ -148,8 +149,8 @@ namespace LethalBots.AI.AIStates
                 else if (groupLeader != null)
                 {
                     // Cheat a little here and let the bot have perfect knowledge of where their group leader is.....
-                    float sqrHorizontalDistanceWithTarget = Vector3.Scale((groupLeader.transform.position - npcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
-                    float sqrVerticalDistanceWithTarget = Vector3.Scale((groupLeader.transform.position - npcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
+                    float sqrHorizontalDistanceWithTarget = Vector3.Scale((groupLeader.transform.position - lethalBotController.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
+                    float sqrVerticalDistanceWithTarget = Vector3.Scale((groupLeader.transform.position - lethalBotController.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
                     if (sqrHorizontalDistanceWithTarget < Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR
                             && sqrVerticalDistanceWithTarget < Const.DISTANCE_AWARENESS_VER * Const.DISTANCE_AWARENESS_VER)
                     {
@@ -158,13 +159,13 @@ namespace LethalBots.AI.AIStates
                     }
                     else
                     {
-                        GroupManager.Instance.RemoveFromCurrentGroupAndSync(npcController.Npc);
+                        GroupManager.Instance.RemoveFromCurrentGroupAndSync(lethalBotController);
                     }
                 }
                 // This should never happen, but you never know......
                 else
                 {
-                    GroupManager.Instance.RemoveFromCurrentGroupAndSync(npcController.Npc);
+                    GroupManager.Instance.RemoveFromCurrentGroupAndSync(lethalBotController);
                 }
             }
 
@@ -227,7 +228,7 @@ namespace LethalBots.AI.AIStates
                         if (!ai.AreHandsFree()
                             && ai.HeldItem is CaveDwellerPhysicsProp)
                         {
-                            npcController.Npc.DiscardHeldObject();
+                            lethalBotController.DiscardHeldObject();
                         }
                     }
                 }
@@ -255,10 +256,10 @@ namespace LethalBots.AI.AIStates
                 SelectBestItemFromInventory();
 
                 // If we are close enough, we should use the entrance to leave
-                float entranceDistSqr = (this.targetEntrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
+                float entranceDistSqr = (this.targetEntrance.entrancePoint.position - lethalBotController.transform.position).sqrMagnitude;
                 if (entranceDistSqr >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                 {
-                    float sqrMagDistanceToSafePos = (this.safePathPos - npcController.Npc.transform.position).sqrMagnitude;
+                    float sqrMagDistanceToSafePos = (this.safePathPos - lethalBotController.transform.position).sqrMagnitude;
                     if (sqrMagDistanceToSafePos >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                     {
                         // Alright lets go outside!
@@ -290,7 +291,7 @@ namespace LethalBots.AI.AIStates
                     if (!ai.AreHandsFree() && ai.HeldItem is CaveDwellerPhysicsProp)
                     {
                         // We must drop the maneater baby before we use the entrance!
-                        npcController.Npc.DiscardHeldObject();
+                        lethalBotController.DiscardHeldObject();
                         return;
                     }
                     else if (Time.timeSinceLevelLoad - ai.TimeSinceTeleporting > Const.WAIT_TIME_TO_TELEPORT)
@@ -338,7 +339,7 @@ namespace LethalBots.AI.AIStates
                         bool shouldWalkLootToShip = true;
                         if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
                         {
-                            Vector3 ourPos = npcController.Npc.transform.position;
+                            Vector3 ourPos = lethalBotController.transform.position;
                             bool areWeNearbyEntrance = false;
                             for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
                             {
@@ -362,7 +363,7 @@ namespace LethalBots.AI.AIStates
                                 GrabbableObject? heldItem = ai.HeldItem;
                                 if (heldItem != null && base.FindObject(heldItem))
                                 {
-                                    npcController.Npc.DiscardHeldObject();
+                                    lethalBotController.DiscardHeldObject();
                                     LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
                                     shouldWalkLootToShip = false;
                                 }
@@ -417,7 +418,7 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // Keep moving towards the ship!
-                float sqrMagDistanceToShip = (targetShipPos.Value - npcController.Npc.transform.position).sqrMagnitude;
+                float sqrMagDistanceToShip = (targetShipPos.Value - lethalBotController.transform.position).sqrMagnitude;
                 if (sqrMagDistanceToShip >= Const.DISTANCE_TO_CHILL_POINT * Const.DISTANCE_TO_CHILL_POINT)
                 {
                     // Find a safe path to the ship
@@ -426,7 +427,7 @@ namespace LethalBots.AI.AIStates
                     // Select and use items based on our current situation, if needed
                     SelectBestItemFromInventory();
 
-                    float sqrMagDistanceToSafePos = (this.safePathPos - npcController.Npc.transform.position).sqrMagnitude;
+                    float sqrMagDistanceToSafePos = (this.safePathPos - lethalBotController.transform.position).sqrMagnitude;
                     if (sqrMagDistanceToSafePos >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                     {
                         // Move to the ship!

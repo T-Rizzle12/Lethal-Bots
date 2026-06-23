@@ -34,7 +34,7 @@ namespace LethalBots.AI.AIStates
             if (!hasBeenStarted)
             {
                 // We are at the company building or in orbit, change back to previous state
-                if (LethalBotManager.AreWeAtTheCompanyBuilding() || LethalBotManager.AreWeInOrbit())
+                if (LethalBotManager.AreWeAtTheCompanyBuilding() || LethalBotManager.AreWeInOrbit(checkLoadingNewLevel: true))
                 {
                     if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
                     {
@@ -56,6 +56,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -63,20 +64,30 @@ namespace LethalBots.AI.AIStates
                 return;
             }
 
+            // Wait for ship to land before doing anything!
+            StartOfRound instanceSOR = StartOfRound.Instance;
+            if ((lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom)
+                && !LethalBotManager.AreWeInOrbit(instanceSOR, checkLoadingNewLevel: true)
+                && (LethalBotManager.IsTheShipLeaving(instanceSOR)
+                    || LethalBotManager.IsTheShipLanding(instanceSOR)))
+            {
+                return;
+            }
+
             // Return to the ship if needed!
             if (ShouldReturnToShip())
             {
-                LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(npcController.Npc); // Remove from loot transfer list, we are done for the day!
+                LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(lethalBotController); // Remove from loot transfer list, we are done for the day!
                 ai.State = new ReturnToShipState(this);
                 return;
             }
 
             // We are at the company building or in orbit, change back to previous state
-            if (LethalBotManager.AreWeAtTheCompanyBuilding() || LethalBotManager.AreWeInOrbit())
+            if (LethalBotManager.AreWeAtTheCompanyBuilding() || LethalBotManager.AreWeInOrbit(instanceSOR, checkLoadingNewLevel: true))
             {
-                if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
+                if (LethalBotManager.Instance.LootTransferPlayers.Contains(lethalBotController))
                 {
-                    LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(npcController.Npc);
+                    LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(lethalBotController);
                 }
                 ChangeBackToPreviousState();
                 return;
@@ -148,7 +159,7 @@ namespace LethalBots.AI.AIStates
             // NOTE: Unlike other states, we rely entirely on the safe path system to avoid danger here.
             // Since we normally wait outside near the entrance, we need to be able to react to danger that may pass by.
             // Safe path system will handle this while we wait for more loot to transfer.
-            float sqrMagDistanceToSafePos = (this.safePathPos - npcController.Npc.transform.position).sqrMagnitude;
+            float sqrMagDistanceToSafePos = (this.safePathPos - lethalBotController.transform.position).sqrMagnitude;
             if (sqrMagDistanceToSafePos >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {
                 // Alright lets go transfer some loot!
@@ -174,7 +185,7 @@ namespace LethalBots.AI.AIStates
                 ai.StopMoving();
                 npcController.OrderToStopSprint();
 
-                float sqrMagDistanceToEntrance = (targetEntrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
+                float sqrMagDistanceToEntrance = (targetEntrance.entrancePoint.position - lethalBotController.transform.position).sqrMagnitude;
                 if (sqrMagDistanceToEntrance <= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                 {
                     // We are at the entrance, wait for loot to arrive
