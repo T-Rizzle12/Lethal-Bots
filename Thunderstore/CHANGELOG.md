@@ -1,5 +1,96 @@
 # Changelog
 
+## 10.0.0 2026-6-24
+Welp, this took longer than planned. It didn't help that I kept getting sidetracked in the process. Anyhow, I finally took the time to improve the follow state as requested in #68. Its completely configurable and client sided, this means that each player gets to decide how bots should follow them. I also made a TON of backend changes and bug fixes, so lets get onto it!
+
+## Improved Follow State
+As I stated earlier, the follow state has been revamped. Here are the three options for how the bots can be set to follow you! This closes #68!
+- Standard: The bot follows behind you. 
+- Wander: The bot follows, but will wander around where you are standing. If the bot is outside, Standard is used instead.
+- Nearby: The bot follows by picking a random position nearby you. This is configurable and client sided!
+Please note that bots will use Standard following while you are in the ship!
+
+## Lethal Phones Support Improvements
+Another request was to have the bots call players at random. I decided to make bots that are searching for scrap to randomly call other players. I also improved the AI of the bots with the phones as well.
+- Bots can now randomly call player if the mod Lethal Phones is installed. This can be disabled in the config. Closes #105
+- Added a new function LethalBotAI.CallRandomPlayer, this makes the bot call a random player using their phone. (This only works if Lethal Phones are installed)
+- Bots will now put their phones into vibrate if there is an Eyeless Dog nearby.
+
+## Super Eclipse Support
+Yep, this was another request. Bots now properly work with Super Eclipse. Its pretty basic for now, but I can make adjustments as needed.
+- Implement basic bot auto-leave timer for Super Eclipse, 10 minutes if there is an alive human player; otherwise the bots leave after 5 minutes
+
+## Bot AI Improvements
+I also made some adjustments to the bots AI that I hope make them better assets to the crew.
+- Made the bot's path cost for water 10 times as expensive. (Was 5 times)
+- Bots can now pick a random entrance when searching for scrap. They will still prefer the main entrance at the beginning of the round.
+- Added new config option ChillAtShipTime, this controls how long bots will chill at the ship before moving to loot on their own
+- Added new config option ShouldOnlyUseMainAtStart, this allows you to change if bots should only use main at the start of the day
+- Improved ReturnToShipState to help bots returning to the ship with scrap recognize that someone is assigned to transfer loot
+- Improved quicksand and water hazard handling for bots. This should finally fix the damn water noise bugs with the bots.
+- Update max value for RestockEcoLimit to be consistent with the base game's max money limit
+- Refactored what I missed in LethalBotAI and NpcController logic to directly use PlayerControllerB's publicized fields.
+- Bots now know how to flee from Enemies that use the LassoManAI object
+- Updated NpcController movement logic to respect disableMoveInput.
+- Updated quicksand NavMesh modifier handling to work for all collider types. Also added coroutines for the Async NavMesh regen code.
+- Refactor bot combat AI to use WeaponInfo, removing hardcoded logic.
+- Changed how bots check when they should fight an enemy to use a query system like the fear system.
+- Refactored LethalBotSearchRoutine to support more types of SearchCenters
+
+## Bug Fixes
+You can't have an update without the bug fixes and lets just say, there were a TON of them.
+- Fixed a rare bug in voice amplitude calculation for multi-channel audio (Thanks Alduris for letting me know it existed!)
+- Hopefully fixed the bug where bots would kidnap the Kidnapper Fox.........this should also fix externalForces not really affecting bots
+- Fixed some issues with bots sometimes failing to network their LookAtTarget to other players.
+- Fixed the bot's light/occlusion logic for Direct lights. (This would cause bots to fail to detect areas lit by the sun)
+- Actually fix IndexOutOfBounds error in LethalBotSearchRoutine
+- Fixed default ConfigStockRequirements.json having the bots buy 4 weedkillers
+- Fixed enum comparisons casting to ints in LethalBotVoice.cs.
+- Fixed bot infection data not properly syncing between clients. (This is related to the bot's internal data as bots could still get infected, but the bug made it less likely)
+- Fixed a logic error that allowed players to join while bots are joining.
+- Fixed bots sometimes forgetting to grab their dropped two handed item if the item they wanted to pickup was grabbed by someone else
+- Fixed a logic error that caused human players to play a TooManyEmote when a bot attempted to sync their emote with another player. This only happened if the host had network ownership over the bot.
+- Fixed bots sometimes walking back to the ship with loot when a player was assigned to transfer loot.
+- Fixed bots with their default AI state to transfer loot removing themself from the loot transfer list when the ship is landing.
+- Fixed a logic error in the PanikState that caused bots to sometimes fail to find a place to flee to and stand out in the open
+- Fixed PlayerPhysicsRegions for bots
+- Hopefully fixed bots EnemyAI colliders shoving the company cruiser
+
+## Optimizations and Misc Changes
+I was working hand in hand with @KyberCrow to fix some optimization issues with the bots. Hopefully, I have finally fixed the game stuttering for some players if there was a bot on the terminal. Referenced Issue: #56. I also made some other optimizations to the bots as well.
+- Replaced most foreach loops with for loops to reduce allocations.
+- Changed grabbableObjectsInMap to `List<GrabbableObject>` to avoid unneeded GetComponent calls.
+- Added fast-lookup dictionary for hoarding bug items that is updated every second rather than every call to LethalBotAI.IsGrabbableObjectGrabbable.
+- Optimized mission controller and loot transfer player list tracking with local HashSet and updating them only on network sync.
+- Optimized item and enemy detection logic, again.
+- Removed the HUDTip when the bots joined the game. The chat already did this.
+- Removed a ton of Npc index calls and replaced them with a cached local variable.
+- Cleaned up GetCloseToPlayerState to make it easier to read and run better
+- Refactored CountdownTimer and IntervalTimer from classes to structs
+- Updated Unity object lookups to use a more optimized version
+- Optimized LethalBotManager.LightsOnMap to return a readonly List instead of a readonly HashSet
+
+## API Improvements
+This may not REALLY apply to the standard user, but I improved the API for the bots to make it easier to register new weapons and threats for the bots! Also this mod's XML documentation is now shipped with all releases going forward!
+### Threat Registration Improvements
+- Refactored LethalBotFearQuery to readonly struct and updated LethalBotThreat to use in-parameter delegate.
+- Refactor LethalBotFearQuery to support any Unity Object as threat, rather than just EnemyAI objects. For now, bots still only check for EnemyAIs, but it should be easier to update the system.
+
+### Combat API Addition
+Bots now have a dedicated API for registering new weapons for them to use. It can easily be expanded upon as needed.
+- Introduced abstract WeaponInfo class for weapon-specific behavior, with implementations for the shovel, knife, shotgun, and zap gun.
+- Add LethalBotAttackQuery struct for attack logic
+Check the XML documentation for more information.
+
+### General API Changes
+ - Made IsGrabbableObjectGrabbable and IsGrabbableObjectSellable accept null objects. They null check internally anyway.
+- LethalBotThreat now handles both fear and attack queries.
+- Marked `Overrideable<T>` as obsolete.
+- Added new ItemsManager singleton.
+- Mark old LethalBotAI item-check methods as obsolete.
+- Moved all item-type checks from LethalBotAI to ItemsManager.
+- Replaced IsItemPowered with HasRequiredCharge which now supports checking how much battery is left.
+
 ## 9.0.1 2026-6-5
 Just a minor patch to fix some bugs that were found.
 - Fixed a rare bug where bots could get stuck on OffMeshLinks if they stopped moving right as they started crossing it.
