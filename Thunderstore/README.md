@@ -251,6 +251,10 @@ These bots are to be more player like and this includes advantages such as count
 - [**PixelIndieDev**](https://github.com/PixelIndieDev) - Improved bot voice code and voice command system.
 - **Mathew Kelly** - Voice acting for the bots, over 700 voice lines!
 
+## Sponsors
+A special thanks to everyone who dontated to Lethal Bots!
+- Xander & Yalnif
+
 ## Things to add
 - More Orders, currently you can tell them to loot and follow you. There are a decent amount of chat commands at least?
 - ~~I hope to make them able to do more on the ship terminal in the future. Like purchasing items and who knows what else!~~ Done! :)
