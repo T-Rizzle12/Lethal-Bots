@@ -679,7 +679,6 @@ namespace LethalBots.AI.AIStates
             public bool isNodeOutOfSight; // true is good; false is bad
             public float minPathDistanceToEnemy; // Larger numbers are better!
 
-
             // These are the distance between the node and the chosen target
             public float enemyPathDistance; // further away is better
             public float botPathDistance; // closer is better
@@ -717,7 +716,7 @@ namespace LethalBots.AI.AIStates
 
                     // If we have to pick a node that runs past an enemy,
                     // pick the one the enemy has the hardest time reaching.
-                    score += Mathf.Min(enemyPathDistance - fearRange, 0f) * 1.2f;
+                    score += (enemyPathDistance - fearRange) * 1.2f;
                 }
                 else
                 {

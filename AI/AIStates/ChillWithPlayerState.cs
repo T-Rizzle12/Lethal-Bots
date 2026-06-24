@@ -19,6 +19,7 @@ namespace LethalBots.AI.AIStates
     public class ChillWithPlayerState : AIState
     {
         private CountdownTimer entranceDropTimer = new CountdownTimer();
+        private Vector3? currentFollowPosition;
 
         /// <summary>
         /// Represents the distance between the body of bot (<c>PlayerControllerB</c> position) and the target player (owner of bot), 
@@ -44,14 +45,16 @@ namespace LethalBots.AI.AIStates
             }
         }
 
-        public ChillWithPlayerState(LethalBotAI ai) : base(ai)
+        public ChillWithPlayerState(LethalBotAI ai, Vector3? currentFollowPosition = null) : base(ai)
         {
             CurrentState = EnumAIStates.ChillWithPlayer;
+            this.currentFollowPosition = currentFollowPosition;
         }
 
-        public ChillWithPlayerState(AIState state) : base(state)
+        public ChillWithPlayerState(AIState state, Vector3? currentFollowPosition = null) : base(state)
         {
             CurrentState = EnumAIStates.ChillWithPlayer;
+            this.currentFollowPosition = currentFollowPosition;
         }
 
         /// <summary>
@@ -218,8 +221,7 @@ namespace LethalBots.AI.AIStates
 
             // Target too far, get close to him
             // note: not the same distance to compare in horizontal or vertical distance
-            if (SqrHorizontalDistanceWithTarget > Const.DISTANCE_CLOSE_ENOUGH_HOR * Const.DISTANCE_CLOSE_ENOUGH_HOR
-                || SqrVerticalDistanceWithTarget > Const.DISTANCE_CLOSE_ENOUGH_VER * Const.DISTANCE_CLOSE_ENOUGH_VER)
+            if (IsTooFarFromPlayer())
             {
                 npcController.OrderToLookForward();
                 ai.State = new GetCloseToPlayerState(this);
@@ -406,6 +408,30 @@ namespace LethalBots.AI.AIStates
         protected bool DropScrapAtEntrance(GrabbableObject item)
         {
             return ItemsManager.IsItemScrap(item) && (!ai.IsGrabbableObjectInLoadout(item) || ai.HasDuplicateLoadoutItems(item, out _)); // Found a scrap item, great, we want to drop it!
+        }
+
+        private bool IsTooFarFromPlayer()
+        {
+            Vector3 targetPlayerPos = ai.targetPlayer.transform.position;
+            EnumFollowType enumFollowType = ai.GetFollowType();
+            switch (enumFollowType)
+            {
+                case EnumFollowType.Nearby:
+                {
+                    return !currentFollowPosition.HasValue || (currentFollowPosition.Value - targetPlayerPos).sqrMagnitude > Const.DISTANCE_CLOSE_ENOUGH_HOR * Const.DISTANCE_CLOSE_ENOUGH_HOR;
+                }
+
+                case EnumFollowType.Wander:
+                {
+                    return true;
+                }
+
+                case EnumFollowType.Standard:
+                default:
+                {
+                    return SqrHorizontalDistanceWithTarget > Const.DISTANCE_CLOSE_ENOUGH_HOR * Const.DISTANCE_CLOSE_ENOUGH_HOR || SqrVerticalDistanceWithTarget > Const.DISTANCE_CLOSE_ENOUGH_VER * Const.DISTANCE_CLOSE_ENOUGH_VER;
+                }
+            }
         }
     }
 }

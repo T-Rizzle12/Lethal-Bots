@@ -25,11 +25,11 @@ namespace LethalBots.Patches.MapHazardsPatches
         public static readonly ConditionalWeakTable<QuicksandTrigger, QuicksandTriggerMonitor> quicksandTriggerMonitorList = new ConditionalWeakTable<QuicksandTrigger, QuicksandTriggerMonitor>();
 
         /// <summary>
-        /// Helper function that retrieves the <see cref="QuicksandTrigger"/>
+        /// Helper function that retrieves the <see cref="QuicksandTriggerMonitor"/>
         /// for the given <see cref="QuicksandTrigger"/>
         /// </summary>
         /// <param name="quicksand"></param>
-        /// <returns>The <see cref="QuicksandTrigger"/> associated with the given <see cref="QuicksandTrigger"/></returns>
+        /// <returns>The <see cref="QuicksandTriggerMonitor"/> associated with the given <see cref="QuicksandTrigger"/></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static QuicksandTriggerMonitor GetOrCreateMonitor(QuicksandTrigger quicksand)
         {
@@ -69,7 +69,7 @@ namespace LethalBots.Patches.MapHazardsPatches
             if (__instance.isWater && !lethalBotController.isUnderwater)
             {
                 lethalBotController.underwaterCollider = __instance.gameObject.GetComponent<Collider>();
-                lethalBotController.isUnderwater = true;
+                //lethalBotController.isUnderwater = true; // I wish I knew why Zeekerss did this.........Removing this fixed an issue where bots would act like they were underwater when they were not.
                 if (!__instance.isInsideWater && lethalBotController.IsOwner && (lethalBotController.isFallingFromJump || lethalBotController.isFallingNoJump) && lethalBotController.fallValue < -4f)
                 {
                     TimeOfDay.Instance.WaterSplashEffect(lethalBotController.transform.position, lethalBotController.fallValue > -17f, syncToServer: true);

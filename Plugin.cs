@@ -274,6 +274,7 @@ namespace LethalBots
             _harmony.PatchAll(typeof(DoorLockPatch));
             _harmony.PatchAll(typeof(InteractTriggerPatch));
             _harmony.PatchAll(typeof(OutOfBoundsTriggerPatch));
+            _harmony.PatchAll(typeof(PlayerPhysicsRegionPatch));
             _harmony.PatchAll(typeof(ShipTeleporterPatch));
             _harmony.PatchAll(typeof(VehicleControllerPatch));
             _harmony.PatchAll(typeof(DepositItemsDeskPatch));

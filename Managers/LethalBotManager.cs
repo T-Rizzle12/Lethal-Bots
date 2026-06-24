@@ -257,8 +257,8 @@ namespace LethalBots.Managers
         private static Dictionary<Type, LethalBotThreat> DictionaryLethalBotThreats = new Dictionary<Type, LethalBotThreat>();
         public static List<GrabbableObject> grabbableObjectsInMap = new List<GrabbableObject>();
         private float timerUpdateLightsOnMap;
-        private static HashSet<Light> lightsOnMap = new HashSet<Light>();
-        public static IReadOnlyCollection<Light> LightsOnMap => lightsOnMap;
+        private static List<Light> lightsOnMap = new List<Light>();
+        public static IReadOnlyList<Light> LightsOnMap => lightsOnMap;
         private static float timerUpdateHoardingBugItems;
         internal static Dictionary<GrabbableObject, HoarderBugItem> DictHoardingBugItems = new Dictionary<GrabbableObject, HoarderBugItem>();
 
@@ -567,7 +567,7 @@ namespace LethalBots.Managers
                 TryRegisterLight(light, lightsOnMap, lightsToIgnore);
             }
 
-            LethalBotManager.lightsOnMap = lightsOnMap;
+            LethalBotManager.lightsOnMap = lightsOnMap.ToList();
             LethalBotManager.grabbableObjectsInMap = grabbableObjectsInMap;
             LethalBotAI.TrimDictJustDroppedItems();
             timerUpdateLightsOnMap = 0f;
@@ -584,10 +584,9 @@ namespace LethalBots.Managers
         /// <param name="targetSet"></param>
         /// <param name="ignoreList">An optional list of lights to exclude from registration. If provided and contains the specified light, the
         /// light will not be registered.</param>
-        public static void TryRegisterLight(Light light, HashSet<Light>? targetSet = null, HashSet<Light>? ignoreList = null)
+        public static void TryRegisterLight(Light light, HashSet<Light> targetSet, HashSet<Light>? ignoreList = null)
         {
             // Make sure the light is valid
-            targetSet ??= lightsOnMap;
             if (light == null)
             {
                 return;

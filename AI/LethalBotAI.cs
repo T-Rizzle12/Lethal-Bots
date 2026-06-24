@@ -727,8 +727,7 @@ namespace LethalBots.AI
             {
                 //Plugin.LogDebug($"{lethalBotController.playerUsername} ============= touch ground GroundHit.point {NpcController.GroundHit.point}");
                 StateControllerMovement = EnumStateControllerMovement.FollowAgent;
-                TeleportAgentAIAndBody(IsTouchingGroundTimedCheck.GetGroundHit(lethalBotController.thisPlayerBody.position).point);
-                SetDestinationToPositionLethalBotAI(destination); // Refresh our path!
+                TeleportAgentAIAndBody(IsTouchingGroundTimedCheck.GetGroundHit(lethalBotController.thisPlayerBody.position).point, onlyAgent: true);
                 //Plugin.LogDebug($"{lethalBotController.playerUsername} ============= lethalBotController.transform.position {lethalBotController.transform.position}");
             }
 
@@ -1045,6 +1044,38 @@ namespace LethalBots.AI
                 default:
                     return false;
             }
+        }
+
+        /// <summary>
+        /// Helper function that returns how the user wants the bots to follow them by default.
+        /// </summary>
+        /// <remarks>
+        /// If a bot is following another bot, they will use standard by default.<br/>
+        /// Bots also use standard following while in orbit
+        /// </remarks>
+        /// <returns></returns>
+        public EnumFollowType GetFollowType()
+        {
+            // Standard following if we are not following the local player.
+            EnumFollowType followType = Plugin.Config.DefaultFollowType.Value;
+            PlayerControllerB localPlayer = GameNetworkManager.Instance.localPlayerController;
+            if (localPlayer != targetPlayer)
+            {
+                return EnumFollowType.Standard;
+            }
+            // If the player is on the ship, we should be nearby them!
+            else if (localPlayer.isInElevator)
+            {
+                return EnumFollowType.Standard;
+            }
+            // Don't wander around until we are in the facility!
+            else if (!localPlayer.isInsideFactory 
+                || IsInElevatorStartRoom
+                || !NpcController.Npc.isInsideFactory)
+            {
+                return followType != EnumFollowType.Wander ? followType : EnumFollowType.Standard; 
+            }
+            return followType;
         }
 
         // FIXME: We should recreate the player push away code rather than this!
@@ -2229,9 +2260,9 @@ namespace LethalBots.AI
                 agent.enabled = enabled;
                 if (enabled && agent.isOnNavMesh) // Make sure the agent is enabled before setting area costs
                 {
-                    // 5 times the pathing cost for water!
+                    // 10 times the pathing cost for water!
                     int waterArea = NavMesh.GetAreaFromName("Water");
-                    agent.SetAreaCost(waterArea, 5f);
+                    agent.SetAreaCost(waterArea, 10f);
 
                     // High path cost for enemy only area
                     // NOTE: I can't tell the bots to not path here, or they could break on some custom moons!
@@ -5373,6 +5404,27 @@ namespace LethalBots.AI
                     }
                 }
 
+                // Physics regions
+                int priority = 0;
+                Transform? transform = null;
+                NetworkObject networkObject = null!;
+                List<PlayerPhysicsRegion> currentLethalBotPhysicsRegions = NpcController.CurrentLethalBotPhysicsRegions;
+                for (int i = 0; i < currentLethalBotPhysicsRegions.Count; i++)
+                {
+                    PlayerPhysicsRegion playerPhysicsRegion = currentLethalBotPhysicsRegions[i];
+                    if (playerPhysicsRegion.priority > priority)
+                    {
+                        priority = playerPhysicsRegion.priority;
+                        transform = playerPhysicsRegion.physicsTransform;
+                        networkObject = playerPhysicsRegion.parentNetworkObject;
+                    }
+                }
+                if (lethalBotController.isInElevator && priority <= 0)
+                {
+                    transform = null;
+                }
+                lethalBotController.physicsParent = transform;
+
                 if (lethalBotController.overridePhysicsParent != null)
                 {
                     if (lethalBotController.overridePhysicsParent != lethalBotController.lastSyncedPhysicsParent)
@@ -5390,7 +5442,7 @@ namespace LethalBots.AI
                         lethalBotController.parentedToElevatorLastFrame = false;
                         lethalBotController.lastSyncedPhysicsParent = lethalBotController.physicsParent;
                         this.ReParentLethalBot(lethalBotController.physicsParent);
-                        lethalBotController.UpdatePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, lethalBotController.physicsParent.GetComponent<NetworkObject>(), isOverride: false, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
+                        lethalBotController.UpdatePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, networkObject.GetComponent<NetworkObject>(), isOverride: false, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
                     }
                 }
                 else
@@ -6011,13 +6063,18 @@ namespace LethalBots.AI
         /// <summary>
         /// Teleport the brain and body of lethalBot
         /// </summary>
-        /// <param name="pos"></param>
-        /// <param name="skipNavMeshCheck"></param>
-        private void TeleportAgentAIAndBody(Vector3 pos, bool skipNavMeshCheck = false)
+        /// <param name="pos">The position to teleport the bot to</param>
+        /// <param name="skipNavMeshCheck">Should the navmesh check be skipped</param>
+        /// <param name="onlyAgent">Should on the <see cref="NavMeshAgent"/> and <see cref="LethalBotAI"/> be teleported</param>
+        private void TeleportAgentAIAndBody(Vector3 pos, bool skipNavMeshCheck = false, bool onlyAgent = false)
         {
             Vector3 navMeshPosition = skipNavMeshCheck ? pos : RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f);
             serverPosition = navMeshPosition;
-            NpcController.Npc.transform.position = navMeshPosition;
+
+            if (!onlyAgent)
+            {
+                NpcController.Npc.transform.position = navMeshPosition;
+            }
 
             this.transform.position = navMeshPosition;
             agent?.Warp(navMeshPosition);
@@ -6216,8 +6273,6 @@ namespace LethalBots.AI
         {
             PlayerControllerB targetPlayer = StartOfRound.Instance.allPlayerScripts[playerid];
             SetMovingTowardsTargetPlayer(targetPlayer);
-
-            SetDestinationToPositionLethalBotAI(this.targetPlayer.transform.position);
 
             if (NpcController.IsControllerInCruiser)
             {
@@ -7694,9 +7749,10 @@ namespace LethalBots.AI
             Vector3 ourPos = NpcController.Npc.gameplayCamera.transform.position;
             float lightLevel = 0f;
             int numLightsConsidered = 0;
-            foreach (var light in LethalBotManager.LightsOnMap)
+            for (int i = 0; i < LethalBotManager.LightsOnMap.Count; i++)
             {
                 // Make sure we want to consider this light source
+                var light = LethalBotManager.LightsOnMap[i];
                 if (ShouldIgnoreLightSource(light))
                     continue;
 

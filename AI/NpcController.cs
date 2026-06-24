@@ -1561,46 +1561,6 @@ namespace LethalBots.AI
                 lethalBotController.usernameCanvas.gameObject.SetActive(value: false);
             }
 
-            // Physics regions
-            //int priority = 0;
-            //Transform? transform = null;
-            //for (int i = 0; i < CurrentLethalBotPhysicsRegions.Count; i++)
-            //{
-            //    if (CurrentLethalBotPhysicsRegions[i].priority > priority)
-            //    {
-            //        priority = CurrentLethalBotPhysicsRegions[i].priority;
-            //        transform = CurrentLethalBotPhysicsRegions[i].physicsTransform;
-            //    }
-            //}
-            //if (lethalBotController.isInElevator && priority <= 0)
-            //{
-            //    transform = null;
-            //}
-            //lethalBotController.physicsParent = transform;
-
-            //if (lethalBotController.physicsParent != null)
-            //{
-            //    ReParentNotSpawnedTransform(lethalBotController.physicsParent);
-            //}
-            //else
-            //{
-            //    if (lethalBotController.isInElevator)
-            //    {
-            //        ReParentNotSpawnedTransform(lethalBotController.playersManager.elevatorTransform);
-            //        if (!LethalBotAIController.AreHandsFree())
-            //        {
-            //            lethalBotController.SetItemInElevator(lethalBotController.isInHangarShipRoom, lethalBotController.isInElevator, LethalBotAIController.HeldItem);
-            //        }
-            //    }
-            //    else
-            //    {
-            //        if (!IsControllerInCruiser)
-            //        {
-            //            ReParentNotSpawnedTransform(lethalBotController.playersManager.playersContainer);
-            //        }
-            //    }
-            //}
-
             // Health regen
             LethalBotAIController.HealthRegen();
 

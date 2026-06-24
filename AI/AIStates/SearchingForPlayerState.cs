@@ -27,14 +27,14 @@ namespace LethalBots.AI.AIStates
         {
             CurrentState = EnumAIStates.SearchingForPlayer;
             searchForPlayers = new LethalBotSearchRoutine(ai);
-            searchForPlayers.searchCenterFollowsAI = false;
+            searchForPlayers.searchCenterFollowsAI = EnumSearchCenter.CurrentTarget;
         }
 
         public SearchingForPlayerState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.SearchingForPlayer;
             searchForPlayers = new LethalBotSearchRoutine(ai);
-            searchForPlayers.searchCenterFollowsAI = false;
+            searchForPlayers.searchCenterFollowsAI = EnumSearchCenter.CurrentTarget;
         }
 
         /// <summary>

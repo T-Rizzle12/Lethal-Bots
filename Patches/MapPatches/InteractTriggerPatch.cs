@@ -385,11 +385,12 @@ namespace LethalBots.Patches.MapPatches
             ladder.onCancelAnimation.Invoke(playerController);
             playerController.currentTriggerInAnimationWith = null;
             playerController.isClimbingLadder = false;
-            playerController.thisController.enabled = true; // NEEDTOVALIDATE: What happens if this is true for players that are not the local player?
+            playerController.thisController.enabled = true;
             playerController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CLIMBINGLADDER, value: false);
             playerController.gameplayCamera.transform.localEulerAngles = Vector3.zero;
             playerController.UpdateSpecialAnimationValue(specialAnimation: false, 0);
             playerController.inSpecialInteractAnimation = false;
+            playerController.enteringSpecialAnimation = false;
             //ladder.currentCooldownValue = ladder.cooldownTime;
             if (ladder.hidePlayerItem && playerController.currentlyHeldObjectServer != null)
             {

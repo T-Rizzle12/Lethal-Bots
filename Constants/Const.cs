@@ -156,6 +156,7 @@ namespace LethalBots.Constants
         public static readonly string[] REQUEST_TELEPORT_COMMANDS = { "request teleport", "teleport me", "help fast", "help me" };
         public static readonly string[] HOP_OFF_THE_TERMINAL_COMMANDS = { "hop off the terminal", "get off the terminal", "get off", "hop off" };
         public static readonly string[] USE_KEY_COMMANDS = { "use key", "open the door", "unlock the door" };
+        //public static readonly string[] STAY_CLOSE_COMMANDS = { "stay close" }; // TODO: Find more variations for this chat command
 
         // Mission Control State Consts
         public const string ROUTE_MOON_COMMAND = "route"; // keeps "route" as the only trigger word to avoid accidental triggering

@@ -3,6 +3,7 @@ using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace LethalBots.AI.AIStates
 {
@@ -11,14 +12,19 @@ namespace LethalBots.AI.AIStates
     /// </summary>
     public class GetCloseToPlayerState : AIState
     {
+        private Vector3? currentFollowPosition;
+        private LethalBotSearchRoutine wanderNearbyPlayer = null!;
+
         public GetCloseToPlayerState(AIState state) : base(state)
         {
             CurrentState = EnumAIStates.GetCloseToPlayer;
+            InitializeWanderRoutine();
         }
 
         public GetCloseToPlayerState(LethalBotAI ai) : base(ai)
         {
             CurrentState = EnumAIStates.GetCloseToPlayer;
+            InitializeWanderRoutine();
         }
 
         public GetCloseToPlayerState(LethalBotAI ai, PlayerControllerB targetPlayer) : this(ai)
@@ -164,49 +170,29 @@ namespace LethalBots.AI.AIStates
             // Select and use items based on our current situation, if needed
             SelectBestItemFromInventory();
 
-            // Target is in awarness range
             Vector3 targetPlayerPos = ai.targetPlayer.transform.position;
-            float sqrHorizontalDistanceWithTarget = Vector3.Scale((targetPlayerPos - lethalBotController.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
-            float sqrVerticalDistanceWithTarget = Vector3.Scale((targetPlayerPos - lethalBotController.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
+            EnumFollowType enumFollowType = ai.GetFollowType();
+            Vector3 followPos = GetFollowPosition(enumFollowType);
+            if (enumFollowType != EnumFollowType.Wander)
+            {
+                if (wanderNearbyPlayer.searchInProgress)
+                {
+                    wanderNearbyPlayer.StopSearch();
+                }
+            }
+
+            // Target is in awarness range
+            float sqrHorizontalDistanceWithTarget = Vector3.Scale((followPos - lethalBotController.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
+            float sqrVerticalDistanceWithTarget = Vector3.Scale((followPos - lethalBotController.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
             if (sqrHorizontalDistanceWithTarget < Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR
                     && sqrVerticalDistanceWithTarget < Const.DISTANCE_AWARENESS_VER * Const.DISTANCE_AWARENESS_VER)
             {
                 targetLastKnownPosition = targetPlayerPos;
 
-                // If we can't path to the player, this is probably a mineshaft map and they are probably on a diffrent floor than us!
-                bool usingElevator = false;
-                bool planningToUseElevator = false;
-                if (targetLastKnownPosition.HasValue && LethalBotAI.ElevatorScript != null && !ai.IsValidPathToTarget(targetLastKnownPosition.Value, false))
-                {
-                    if (ai.targetPlayer.isInsideFactory)
-                    {
-                        bool isPlayerNearElevatorEntrance = ai.IsPlayerNearElevatorEntrance(ai.targetPlayer);
-                        if (isPlayerNearElevatorEntrance && !ai.IsInElevatorStartRoom)
-                        {
-                            usingElevator = ai.UseElevator(true);
-                            planningToUseElevator = true;
-
-                            // If we are going to use the elevator to go up,
-                            // we must drop the baby maneater before using the elevator
-                            if (usingElevator
-                            && ai.HeldItem is CaveDwellerPhysicsProp)
-                            {
-                                lethalBotController.DiscardHeldObject();
-                            }
-                        }
-                        else if (!isPlayerNearElevatorEntrance && ai.IsInElevatorStartRoom)
-                        {
-                            usingElevator = ai.UseElevator(false);
-                            planningToUseElevator = true;
-                        }
-                    }
-                }
-
                 // Don't interrupt elevator code!
-                if (!usingElevator && !planningToUseElevator)
+                if (!TryToUseElevator())
                 {
-                    ai.SyncAssignTargetAndSetMovingTo(ai.targetPlayer);
-                    ai.OrderMoveToDestination();
+                    MoveTowardsFollowPosition(enumFollowType, followPos);
                 }
             }
             else
@@ -227,45 +213,15 @@ namespace LethalBots.AI.AIStates
                     // If we can't path to the player, this is probably a mineshaft map and they are probably on a diffrent floor than us!
                     if (targetLastKnownPosition.HasValue && LethalBotAI.ElevatorScript != null && !ai.IsValidPathToTarget(targetLastKnownPosition.Value, false))
                     {
-                        bool usingElevator = false;
-                        bool planningToUseElevator = false;
-                        if (ai.targetPlayer.isInsideFactory)
-                        {
-                            bool isPlayerNearElevatorEntrance = ai.IsPlayerNearElevatorEntrance(ai.targetPlayer);
-                            if (isPlayerNearElevatorEntrance && !ai.IsInElevatorStartRoom)
-                            {
-                                usingElevator = ai.UseElevator(true);
-                                planningToUseElevator = true;
-
-                                // If we are going to use the elevator to go up,
-                                // we must drop the baby maneater before using the elevator
-                                if (usingElevator
-                                && ai.HeldItem is CaveDwellerPhysicsProp)
-                                {
-                                    lethalBotController.DiscardHeldObject();
-                                }
-                            }
-                            else if (!isPlayerNearElevatorEntrance && ai.IsInElevatorStartRoom)
-                            {
-                                usingElevator = ai.UseElevator(false);
-                                planningToUseElevator = true;
-                            }
-                        }
-
                         // Don't interrupt elevator code!
-                        if (!usingElevator && !planningToUseElevator)
+                        if (!TryToUseElevator())
                         {
-                            ai.SyncAssignTargetAndSetMovingTo(ai.targetPlayer);
-                            ai.OrderMoveToDestination();
+                            MoveTowardsFollowPosition(enumFollowType, followPos);
                         }
                     }
                     else
                     {
-                        ai.SyncAssignTargetAndSetMovingTo(ai.targetPlayer);
-
-                        // Bring closer with teleport if possible
-                        ai.CheckAndBringCloserTeleportLethalBot(0.8f);
-                        ai.OrderMoveToDestination();
+                        MoveTowardsFollowPosition(enumFollowType, followPos, allowTeleport: true);
                     }
                 }
             }
@@ -274,9 +230,10 @@ namespace LethalBots.AI.AIStates
             // If close enough, chill with player
             // Sprint if far, stop sprinting if close
             if (sqrHorizontalDistanceWithTarget < Const.DISTANCE_CLOSE_ENOUGH_HOR * Const.DISTANCE_CLOSE_ENOUGH_HOR
-                && sqrVerticalDistanceWithTarget < Const.DISTANCE_CLOSE_ENOUGH_VER * Const.DISTANCE_CLOSE_ENOUGH_VER)
+                && sqrVerticalDistanceWithTarget < Const.DISTANCE_CLOSE_ENOUGH_VER * Const.DISTANCE_CLOSE_ENOUGH_VER
+                && enumFollowType != EnumFollowType.Wander)
             {
-                ai.State = new ChillWithPlayerState(this);
+                ai.State = new ChillWithPlayerState(this, currentFollowPosition);
                 return;
             }
             else if (sqrHorizontalDistanceWithTarget > Const.DISTANCE_START_RUNNING * Const.DISTANCE_START_RUNNING
@@ -307,11 +264,131 @@ namespace LethalBots.AI.AIStates
             });
         }
 
+        public override void StopAllCoroutines()
+        {
+            base.StopAllCoroutines();
+            if (wanderNearbyPlayer.searchInProgress)
+            {
+                wanderNearbyPlayer.StopSearch();
+            }
+        }
+
         /// <inheritdoc cref="AIState.RegisterSignalTranslatorCommands"/>
         public static new void RegisterSignalTranslatorCommands()
         {
             // We are following a player, these messages mean nothing to us!
             SignalTranslatorCommandsManager.RegisterIgnoreDefaultForState<GetCloseToPlayerState>();
+        }
+
+        /// <summary>
+        /// This returns the position the bot wants to move to in order to follow <see cref="EnemyAI.targetPlayer"/>
+        /// </summary>
+        /// <returns></returns>
+        public Vector3 GetFollowPosition(EnumFollowType enumFollowType)
+        {
+            Vector3 targetPlayerPos = ai.targetPlayer.transform.position;
+            switch (enumFollowType)
+            {
+                case EnumFollowType.Nearby:
+                {
+                    if (!currentFollowPosition.HasValue 
+                        || (currentFollowPosition.Value - targetPlayerPos).sqrMagnitude > Const.DISTANCE_CLOSE_ENOUGH_HOR * Const.DISTANCE_CLOSE_ENOUGH_HOR)
+                    {
+                        // Ripped right from how the base game does it for Babbon Hawks.
+                        currentFollowPosition = RoundManager.Instance.GetRandomNavMeshPositionInRadiusSpherical(targetPlayerPos, Const.DISTANCE_CLOSE_ENOUGH_HOR, RoundManager.Instance.navHit);
+                    }
+                    return currentFollowPosition.Value; // Head to our selected follow position
+                }
+
+                case EnumFollowType.Wander:
+                {
+                    wanderNearbyPlayer.searchCenter = targetPlayerPos;
+                    if (!wanderNearbyPlayer.searchInProgress)
+                    {
+                        // Start the coroutine to wander nearby the player we our following
+                        wanderNearbyPlayer.StartSearch();
+                    }
+
+                    // Now then, let the search routine find a place to wander to
+                    Vector3? target = wanderNearbyPlayer.GetTargetPosition();
+                    if (target.HasValue)
+                    {
+                        currentFollowPosition = target.Value;
+                    }
+
+                    // Just in case the player is moving far across the map, we should do standard following until the player stops moving as much
+                    if (currentFollowPosition.HasValue 
+                        && (currentFollowPosition.Value - targetPlayerPos).sqrMagnitude > Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR)
+                    {
+                        currentFollowPosition = null;
+                    }
+
+                    // Lets go
+                    return currentFollowPosition ?? targetPlayerPos;
+                }
+
+                case EnumFollowType.Standard:
+                default:
+                {
+                    currentFollowPosition = null;
+                    return targetPlayerPos; // Lets follow the leader!
+                }
+            }
+        }
+
+        private bool TryToUseElevator()
+        {
+            // Lets see if the bot is trying to use the elevator
+            bool usingElevator = false;
+            bool planningToUseElevator = false;
+            if (ai.targetPlayer.isInsideFactory)
+            {
+                bool isPlayerNearElevatorEntrance = ai.IsPlayerNearElevatorEntrance(ai.targetPlayer);
+                if (isPlayerNearElevatorEntrance && !ai.IsInElevatorStartRoom)
+                {
+                    usingElevator = ai.UseElevator(true);
+                    planningToUseElevator = true;
+
+                    // If we are going to use the elevator to go up,
+                    // we must drop the baby maneater before using the elevator
+                    if (usingElevator
+                        && ai.HeldItem is CaveDwellerPhysicsProp)
+                    {
+                        npcController.Npc.DiscardHeldObject();
+                    }
+                }
+                else if (!isPlayerNearElevatorEntrance && ai.IsInElevatorStartRoom)
+                {
+                    usingElevator = ai.UseElevator(false);
+                    planningToUseElevator = true;
+                }
+            }
+            return usingElevator || planningToUseElevator;
+        }
+
+        private void MoveTowardsFollowPosition(EnumFollowType enumFollowType, Vector3? followPos = null, bool allowTeleport = false)
+        {
+            followPos ??= GetFollowPosition(enumFollowType);
+            ai.SyncAssignTargetAndSetMovingTo(ai.targetPlayer);
+            ai.SetDestinationToPositionLethalBotAI(followPos.Value);
+
+            if (allowTeleport)
+            {
+                // Bring closer with teleport if possible
+                ai.CheckAndBringCloserTeleportLethalBot(0.8f);
+            }
+
+            ai.OrderMoveToDestination();
+        }
+
+        private void InitializeWanderRoutine()
+        {
+            wanderNearbyPlayer = new LethalBotSearchRoutine(ai)
+            {
+                searchCenterFollowsAI = EnumSearchCenter.SetPosition,
+                searchRadius = Const.DISTANCE_AWARENESS_HOR,
+                //proximityThreshold = 0f
+            };
         }
     }
 }

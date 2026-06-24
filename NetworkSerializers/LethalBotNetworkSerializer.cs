@@ -6,7 +6,9 @@ using UnityEngine;
 
 namespace LethalBots.NetworkSerializers
 {
-    // A helper class for custom seialization functions!
+    /// <summary>
+    /// A helper class for custom seialization functions!
+    /// </summary>
     public static class LethalBotNetworkSerializer
     {
         public static void SerializeNullable<T, TReaderWriter>(BufferSerializer<TReaderWriter> serializer, ref T? value)

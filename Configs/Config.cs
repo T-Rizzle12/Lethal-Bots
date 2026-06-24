@@ -35,6 +35,7 @@ namespace LethalBots.Configs
 
         // Behaviour       
         [SyncedEntryField] public SyncedEntry<bool> FollowCrouchWithPlayer;
+        public ConfigEntry<EnumFollowType> DefaultFollowType;
         [SyncedEntryField] public SyncedEntry<bool> ChangeSuitAutoBehaviour;
         [SyncedEntryField] public SyncedEntry<bool> AllowBotsToChat;
         [SyncedEntryField] public SyncedEntry<bool> AllowMissionControlTeleport;
@@ -121,6 +122,11 @@ namespace LethalBots.Configs
                                                "Crouch with player",
                                                defaultVal: true,
                                                "Should the bot crouch like the player is crouching? (NOTE: This will not affect the dynamic crouching AI!)");
+
+            DefaultFollowType = cfg.Bind(ConfigConst.ConfigSectionBehavior,
+                                               "Default follow type (Client only)",
+                                               defaultValue: EnumFollowType.Standard,
+                                               "When a bot is following you, how should they follow you by default? \n Standard: The bot follows behind you. \n Wander: The bot follows, but will wander around where you are standing \n Nearby: The bot follows by picking a random position nearby you");
 
             ChangeSuitAutoBehaviour = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Options for automaticaly switch suit",

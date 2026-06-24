@@ -44,9 +44,8 @@ namespace LethalBots.Utils.Helpers
             this.findSingletonFunc = Object.FindObjectOfType<T>;
         }
 
-        internal Singleton(Func<T?> findSingletonFunc, float updateInterval = 1.0f)
+        internal Singleton(Func<T?> findSingletonFunc, float updateInterval = 1.0f) : this(updateInterval)
         {
-            nextFindSingletonCheck = new UpdateLimiter(updateInterval);
             this.findSingletonFunc = findSingletonFunc;
         }
 
