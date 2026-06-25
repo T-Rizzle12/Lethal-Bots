@@ -6,6 +6,9 @@ You can download the mod here: https://thunderstore.io/c/lethal-company/p/TRizzl
 
 I also have a discord server as well for any questions or support: https://discord.gg/TVqJst8yHf
 
+> [!NOTE]
+> Its recommended that you install the [LethalBots NavMesh Project](https://thunderstore.io/c/lethal-company/p/TRizzle/LethalBotsNavMeshProject/) which has a ton of NavMesh Improvements and fixes for the bots!
+
 ## Preamble:<br/>
 
 Playing solo in Lethal Company is hard, as the game is inherently designed around a team of 4 players.<br/><br/>
@@ -235,7 +238,8 @@ NOTE: All players, "humans and bots," must be on the ship before the bot will vo
 
 </br>HealPlayer
 </br>The bot has chosen to heal a player.
-</br>For now, the only healing option is weed killer..........
+</br>Bots can "heal" players using weed killer.
+</br>Bots also support healing using Usual Scrap healing items.
 
 ## On a more serious note
 This mod is very alpha and I still need some polishing.
@@ -270,5 +274,4 @@ A special thanks to everyone who dontated to Lethal Bots!
 - ~~Nutcracker ignoring bots. The cause of this is known, but I still don't know a good way to fix it yet!~~ Fixed!
 - ~~Ghost Girl spawns but does nothing if it picks a bot. Plans to fix this are currently in the works! Lets just say its a lot of transpiler work.......~~ Fixed!
 - Compatibility with modded maps, for environmental hazards damages. The cause is due to most of the player code only running on the local player, I think I can get some kill triggers to work using transpilers/postfixes.
-- Bots don't use ladders, I know this is a major issue, but fixing it is harder than it seems. For now they use the same movement as the masked!
 - Bots can hear you speak if you have push to talk set. The cause of this is how PySpeech works, since it runs a separate application that listens to your microphone. I may be able to fix this......
