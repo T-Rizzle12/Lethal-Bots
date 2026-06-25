@@ -4,6 +4,9 @@ Everyone must have the mod in order for it to work!<br/>
 
 I also have a discord server as well for any questions or support: https://discord.gg/TVqJst8yHf
 
+> [!NOTE]
+> Its recommended that you install the [LethalBots NavMesh Project](https://thunderstore.io/c/lethal-company/p/TRizzle/LethalBotsNavMeshProject/) which has a ton of NavMesh Improvements and fixes for the bots!
+
 ## Preamble:<br/>
 
 Playing solo in Lethal Company is hard, as the game is inherently designed around a team of 4 players.<br/><br/>
@@ -233,7 +236,8 @@ NOTE: All players, "humans and bots," must be on the ship before the bot will vo
 
 </br>HealPlayer
 </br>The bot has chosen to heal a player.
-</br>For now, the only healing option is weed killer..........
+</br>Bots can "heal" players using weed killer.
+</br>Bots also support healing using Usual Scrap healing items.
 
 ## On a more serious note
 This mod is very alpha and I still need some polishing.
@@ -257,16 +261,11 @@ A special thanks to everyone who dontated to Lethal Bots!
 
 ## Things to add
 - More Orders, currently you can tell them to loot and follow you. There are a decent amount of chat commands at least?
-- ~~I hope to make them able to do more on the ship terminal in the future. Like purchasing items and who knows what else!~~ Done! :)
-- ~~Add some kind of voice recognition software, so bots could respond to simple voice commands. (DEVNOTE: Looks like there are some library's on thunderstore that could help me with this endeavour!)~~ DONE! :)
 - As stated earlier, add TTS to bots so they can be better at relaying information to players. (DEVNOTE: TTS would be perfect for helping the bots declare enemies on the terminal!)
 
 ## Bugs to fix
 - The game will lag during the inital landing sequence after the bots spawn. I have no idea what causes this, but it fixes itself after the ship lands. This only seems to happen with about 21 or more bots. If you play with the default lobby size of 4 players, you won't see this issue. (DEVUPATE: Found out it might have something to do with collision, have a few ideas on how to alleviate it!)
 - Sand spider web trap not working for bots. Transpiler or Postfix should work, just need to find out what would be the best option.
 - Snare Fleas ignore bots that walk under them. The cause is that they only check for the Local Client walks under them, a transpiler or postfix can fix this!
-- ~~Nutcracker ignoring bots. The cause of this is known, but I still don't know a good way to fix it yet!~~ Fixed!
-- ~~Ghost Girl spawns but does nothing if it picks a bot. Plans to fix this are currently in the works! Lets just say its a lot of transpiler work.......~~ Fixed!
 - Compatibility with modded maps, for environmental hazards damages. The cause is due to most of the player code only running on the local player, I think I can get some kill triggers to work using transpilers/postfixes.
-- Bots don't use ladders, I know this is a major issue, but fixing it is harder than it seems. For now they use the same movement as the masked!
 - Bots can hear you speak if you have push to talk set. The cause of this is how PySpeech works, since it runs a separate application that listens to your microphone. I may be able to fix this......

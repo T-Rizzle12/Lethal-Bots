@@ -30,7 +30,7 @@ namespace LethalBots.Patches.GameEnginePatches
         static void SpawnOutsideHazards_Postfix(RoundManager __instance)
         {
             // Filter out the water quicksand triggers since those are handled by safe path.
-            QuicksandTrigger[] quicksandArray = Object.FindObjectsOfType<QuicksandTrigger>(includeInactive: true);
+            QuicksandTrigger[] quicksandArray = Object.FindObjectsByType<QuicksandTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             quicksandArray = quicksandArray.Where(quicksand => quicksand != null && !quicksand.isWater).ToArray();
             if (quicksandArray.Length == 0)
             {
@@ -49,25 +49,39 @@ namespace LethalBots.Patches.GameEnginePatches
                 if (quicksand == null || quicksand.isWater) continue;
 
                 // Change the bounds to contain where the quicksand is.
-                BoxCollider[] boxColliders = quicksand.gameObject.GetComponentsInChildren<BoxCollider>();
-                for (int i = 0; i < boxColliders.Length; i++)
+                Collider[] colliders = quicksand.gameObject.GetComponentsInChildren<Collider>();
+                for (int i = 0; i < colliders.Length; i++)
                 {
-                    BoxCollider boxCollider = boxColliders[i];
-                    if (boxCollider != null)
+                    Collider collider = colliders[i];
+                    if (collider != null)
                     {
                         // Add our proxy gameobject
                         shouldUpdateNavmesh = true;
                         GameObject navMeshModifierGameObject = new GameObject($"NavMeshModifier{i}");
-                        navMeshModifierGameObject.transform.SetParent(boxCollider.transform, worldPositionStays: true);
+                        navMeshModifierGameObject.transform.SetParent(collider.transform, worldPositionStays: true);
                         navMeshModifierGameObject.transform.localPosition = Vector3.zero;
                         navMeshModifierGameObject.transform.localRotation = Quaternion.identity;
                         navMeshModifierGameObject.layer = LayerMask.NameToLayer("NavigationSurface");
 
+                        // Get the collider info
+                        Vector3 center, size;
+                        if (collider is BoxCollider boxCollider)
+                        {
+                            center = boxCollider.center;
+                            size = boxCollider.size;
+                        }
+                        else
+                        {
+                            Bounds colliderBounds = collider.bounds;
+                            center = colliderBounds.center;
+                            size = colliderBounds.size;
+                        }
+
                         // Add the NavMeshVolume
                         NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();
                         navMeshModifier.area = Const.LETHAL_BOT_QUICKSAND_NAVAREA;
-                        navMeshModifier.center = boxCollider.center;
-                        navMeshModifier.size = boxCollider.size + colliderBuffer;
+                        navMeshModifier.center = center;
+                        navMeshModifier.size = size + colliderBuffer;
                         Plugin.LogInfo($"Added NavMeshModifierVolume to quicksand with center {navMeshModifier.center} and size {navMeshModifier.size}.");
                         //Plugin.LogInfo($"Game Object Proxy Pos: {quicksand.transform.position}");
                         //Plugin.LogInfo($"Game Object Proxy Rotation: {quicksand.transform.rotation}");
@@ -91,7 +105,6 @@ namespace LethalBots.Patches.GameEnginePatches
                 {
                     // Log about what we are updating!
                     NavMeshSurface navMeshSurface = outsideNavMesh.GetComponent<NavMeshSurface>();
-                    Plugin.LogDebug($"Updating NavMesh for surface {navMeshSurface.gameObject.name} with {navMeshSurface.GetComponentsInChildren<NavMeshModifierVolume>().Length} modifiers.");
                     //foreach (var modifier in navMeshSurface.GetComponentsInChildren<NavMeshModifierVolume>())
                     //{
                     //    if (modifier != null)
@@ -102,17 +115,43 @@ namespace LethalBots.Patches.GameEnginePatches
                     //navMeshSurface.BuildNavMesh();
                     // Since we are only adding NavMeshModifiers, no need to rebuild the mesh.
                     // Just force the game to update the NavMeshAttributes!
-                    navMeshSurface.UpdateNavMesh(navMeshSurface.navMeshData);
-                    Plugin.LogDebug($"UpdateNavMesh finished, refreshing surface data.");
-                    navMeshSurface.RemoveData();
-                    Plugin.LogDebug("Removed existing data.");
-                    navMeshSurface.AddData();
-                    Plugin.LogDebug("Added updated data.");
+                    __instance.StartCoroutine(UpdateNavmeshDelayed(navMeshSurface));
                 }
             }
         }
 
-        // FIXME: This for some unknown reason breaks the entire interior's NavMesh, I have NO idea what causes this to happen........
+        private static IEnumerator UpdateNavmeshDelayed(NavMeshSurface navMeshSurface)
+        {
+            if (navMeshSurface == null)
+            {
+                Plugin.LogWarning("Failed to update outside NavMesh. NavMeshSurface was null?");
+                yield break;
+            }
+
+            // Log about what we are updating!
+            Plugin.LogDebug($"Updating NavMesh for surface {navMeshSurface.gameObject.name} with {navMeshSurface.GetComponentsInChildren<NavMeshModifierVolume>().Length} modifiers.");
+
+            // Just in case another mod is doing some stuff
+            yield return null;
+
+            // Build our new mesh!
+            AsyncOperation asyncOperation = navMeshSurface.UpdateNavMesh(navMeshSurface.navMeshData);
+            while (asyncOperation != null && !asyncOperation.isDone)
+            {
+                yield return null;
+            }
+
+            // Update the NavMeshData!
+            Plugin.LogDebug($"UpdateNavMesh finished, refreshing surface data.");
+            navMeshSurface.RemoveData();
+            Plugin.LogDebug("Removed existing data.");
+            navMeshSurface.AddData();
+            Plugin.LogDebug("Added updated data.");
+
+            // Let the user know what we did
+            Plugin.LogDebug("Updated outside NavMesh.");
+        }
+
         [HarmonyPatch("SpawnMapObjects")]
         [HarmonyPostfix]
         static void SpawnMapObjects_Postfix(RoundManager __instance, List<NavMeshSurface> ___fullBakeSurfaces)
@@ -124,7 +163,7 @@ namespace LethalBots.Patches.GameEnginePatches
 
             bool shouldUpdateNavmesh = false;
             Vector3 colliderBuffer = new Vector3(0.8f, 0.2f, 0.8f); // Add a slight buffer to keep the bots from walking too close!
-            Landmine[] landmines = Object.FindObjectsOfType<Landmine>(includeInactive: true);
+            Landmine[] landmines = Object.FindObjectsByType<Landmine>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             if (landmines.Length == 0)
             {
                 return;
@@ -236,6 +275,7 @@ namespace LethalBots.Patches.GameEnginePatches
         /// Make sure to include our custom quicksand mask to enemies!
         /// </summary>
         /// <param name="__instance"></param>
+        /// <param name="enemyType"></param>
         /// <param name="supplyExistingMask"></param>
         /// <param name="__result"></param>
         [HarmonyPatch("GetLayermaskForEnemySizeLimit")]
@@ -372,6 +412,7 @@ namespace LethalBots.Patches.GameEnginePatches
             //Plugin.LogInfo("FinishGeneratingNewLevelClientRpc called!");
             LethalBotManager.Instance?.DisableShipNavMesh("Landing on a moon.");
             LethalBotManager.Instance?.SpawnLethalBotsAtShip();
+            LethalBotManager.botAutoLeaveTimer.Start();
         }
 
         [HarmonyPatch("RefreshEnemiesList")]

@@ -83,6 +83,21 @@ namespace LethalBots.Patches.MapPatches
             }
         }
 
+        [HarmonyPatch("CarReactToObstacle")]
+        [HarmonyPrefix]
+        static bool CarReactToObstacle_Prefix(ref bool __result, EnemyAI enemyScript = null!)
+        {
+            // Fixes bots shoving the car for some reason
+            if (enemyScript != null 
+                && enemyScript is LethalBotAI)
+            {
+                __result = false;
+                return false;
+            }
+
+            return true;
+        }
+
         /// <summary>
         /// Patch for killing bot when car is destroyed
         /// </summary>

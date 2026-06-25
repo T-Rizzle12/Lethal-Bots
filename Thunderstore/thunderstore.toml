@@ -26,6 +26,10 @@ source = "../bin/Release/netstandard2.1/LethalBots.dll"
 target = "plugins/TRizzle-LethalBot/"
 
 [[build.copy]]
+source = "../bin/Release/netstandard2.1/LethalBots.xml"
+target = "plugins/TRizzle-LethalBot/"
+
+[[build.copy]]
 source = "../UnityProject/AssetBundles/StandaloneWindows/lethalbotnpcmodassets"
 target = "plugins/TRizzle-LethalBot/"
 

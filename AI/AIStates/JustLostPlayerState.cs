@@ -16,9 +16,6 @@ namespace LethalBots.AI.AIStates
     {
         private float lookingAroundTimer;
 
-        /// <summary>
-        /// <inheritdoc cref="AIState(AIState)"/>
-        /// </summary>
         public JustLostPlayerState(AIState state) : base(state)
         {
             CurrentState = EnumAIStates.JustLostPlayer;
@@ -30,6 +27,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -51,7 +49,7 @@ namespace LethalBots.AI.AIStates
             if (lookingAroundTimer > 0f)
             {
                 lookingAroundTimer += ai.AIIntervalTime;
-                Plugin.LogDebug($"{ai.NpcController.Npc.playerUsername} Looking around to find player {lookingAroundTimer}");
+                Plugin.LogDebug($"{lethalBotController.playerUsername} Looking around to find player {lookingAroundTimer}");
                 ai.StopMoving();
 
                 StartLookingAroundCoroutine();
@@ -104,20 +102,20 @@ namespace LethalBots.AI.AIStates
             }
 
             // If the bot is close enough to the last known position
-            Plugin.LogDebug($"{npcController.Npc.playerUsername} distance to last position {Vector3.Distance(targetLastKnownPosition.Value, npcController.Npc.transform.position)}");
-            float sqrDistanceToTargetLastKnownPosition = (targetLastKnownPosition.Value - npcController.Npc.transform.position).sqrMagnitude;
+            Plugin.LogDebug($"{lethalBotController.playerUsername} distance to last position {Vector3.Distance(targetLastKnownPosition.Value, lethalBotController.transform.position)}");
+            float sqrDistanceToTargetLastKnownPosition = (targetLastKnownPosition.Value - lethalBotController.transform.position).sqrMagnitude;
             if (sqrDistanceToTargetLastKnownPosition < Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {
                 // Check for teleport entrance
                 if (ai.HeldItem is CaveDwellerPhysicsProp)
                 {
                     // We must drop the maneater baby before we use the entrance!
-                    npcController.Npc.DiscardHeldObject();
+                    lethalBotController.DiscardHeldObject();
                     return;
                 }
                 else if (Time.timeSinceLevelLoad - ai.TimeSinceTeleporting > Const.WAIT_TIME_TO_TELEPORT)
                 {
-                    EntranceTeleport? entrance = ai.IsEntranceCloseForBoth(targetLastKnownPosition.Value, npcController.Npc.transform.position);
+                    EntranceTeleport? entrance = ai.IsEntranceCloseForBoth(targetLastKnownPosition.Value, lethalBotController.transform.position);
                     Vector3? entranceTeleportPos = ai.GetTeleportPosOfEntrance(entrance);
                     if (entranceTeleportPos.HasValue)
                     {
@@ -152,7 +150,7 @@ namespace LethalBots.AI.AIStates
                             CanRepeatVoiceState = false,
 
                             ShouldSync = true,
-                            IsLethalBotInside = npcController.Npc.isInsideFactory,
+                            IsLethalBotInside = lethalBotController.isInsideFactory,
                             AllowSwearing = Plugin.Config.AllowSwearing.Value
                         });
 
@@ -180,7 +178,7 @@ namespace LethalBots.AI.AIStates
                 if (usingElevator
                 && ai.HeldItem is CaveDwellerPhysicsProp)
                 {
-                    npcController.Npc.DiscardHeldObject();
+                    lethalBotController.DiscardHeldObject();
                 }
             }
             else if (!isPositionNearEntrance && ai.IsInElevatorStartRoom)

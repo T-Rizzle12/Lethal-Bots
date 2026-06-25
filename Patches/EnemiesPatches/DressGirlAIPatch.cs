@@ -193,6 +193,7 @@ namespace LethalBots.Patches.EnemiesPatches
         /// This is basically the same code as the in the base AI, just modified to consider bots.
         /// </summary>
         /// <param name="__instance"></param>
+        /// <param name="___enemyMeshEnabled"></param>
         /// <returns></returns>
         [HarmonyPatch("Update")]
         [HarmonyPostfix]
@@ -239,6 +240,7 @@ namespace LethalBots.Patches.EnemiesPatches
         /// Patch to make the Ghost girl not play her sound effects if the player being haunted is a bot!
         /// </summary>
         /// <param name="__instance"></param>
+        /// <param name="___enemyMeshEnabled"></param>
         [HarmonyPatch("SetHauntStarePosition")]
         [HarmonyPostfix]
         public static void SetHauntStarePosition_Postfix(DressGirlAI __instance, ref bool ___enemyMeshEnabled)

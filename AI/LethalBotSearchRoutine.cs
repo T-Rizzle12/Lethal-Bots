@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using LethalBots.Constants;
+using LethalBots.Enums;
 using UnityEngine;
 using UnityEngine.AI;
 using Vector3 = UnityEngine.Vector3;
@@ -25,7 +26,7 @@ namespace LethalBots.AI
         private bool unsearchedNodesHasNullRef;
 
         public bool searchInProgress;
-        public bool searchCenterFollowsAI = true;
+        public EnumSearchCenter searchCenterFollowsAI = EnumSearchCenter.FollowsAI;
         public Vector3 searchCenter;
         public float searchRadius = float.MaxValue;
         public float proximityThreshold = 5f;
@@ -146,7 +147,7 @@ namespace LethalBots.AI
                             if (stuckChecks >= 20)
                             {
                                 currentTarget = null;
-                                if (searchCenterFollowsAI)
+                                if (searchCenterFollowsAI == EnumSearchCenter.FollowsAI)
                                 {
                                     nextTarget = null;
                                 }
@@ -196,20 +197,28 @@ namespace LethalBots.AI
 
         private IEnumerator UpdateSearchCenter()
         {
-            // If our next searchCenter use is guaranteed to be on navmesh or reachable, we can still use it to check for reachability even if we are outside navmesh
-            if (currentTarget == null || !searchCenterFollowsAI)
+            // We don't need to update the positon, the user has chosen to do this themself.
+            if (searchCenterFollowsAI == EnumSearchCenter.SetPosition)
+            {
+                yield break;
+            }
+
+            // If our next searchCenter use is guaranteed to be on navmesh or reachable,
+            // we can still use it to check for reachability even if we are outside navmesh
+            if (currentTarget == null || searchCenterFollowsAI != EnumSearchCenter.FollowsAI)
             {
                 while (!ai.agent.isOnNavMesh)
                 {
                     yield return null;
                 }
             }
-            Vector3 newSearchCenter = currentTarget?.transform.position ?? ai.transform.position;
+
             // The IsValidPathToTarget check here is because if we can't reach searchCenter, we can't reach the nodes reachable from it, so searchCenter becomes our current position
-            if (searchCenter != newSearchCenter && (searchCenterFollowsAI || !ai.IsValidPathToTarget(searchCenter)))
+            Vector3 newSearchCenter = currentTarget?.transform.position ?? ai.transform.position;
+            if (searchCenter != newSearchCenter && (searchCenterFollowsAI == EnumSearchCenter.FollowsAI || !ai.IsValidPathToTarget(searchCenter)))
             {
-                searchCenter = newSearchCenter;
                 // We stop selectTargetCoroutine so we can use the new searchCenter in the next selectTargetCoroutine
+                searchCenter = newSearchCenter;
                 if (isSelectingTarget)
                 {
                     ai.StopCoroutine(selectTargetCoroutine);
@@ -301,7 +310,7 @@ namespace LethalBots.AI
                 int checkAmount = ai.agent.isOnNavMesh ? (int)Mathf.Ceil(Mathf.Lerp(0f, unsearchedNodes.Count, Mathf.Min((ai.transform.position - lastVisitCheckPos).magnitude / checkDist, 1.0f))) : 0;
                 // if (checkAmount > 0)
                 // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: iterated through {checkAmount} nodes in a single frame");
-                visitCheckIndex = Mathf.Clamp(visitCheckIndex, 0, unsearchedNodes.Count); // Sanity check to stop index out of bounds errors!
+                visitCheckIndex = Mathf.Clamp(visitCheckIndex, 0, unsearchedNodes.Count - 1); // Sanity check to stop index out of bounds errors!
                 for (int i = 0;i < checkAmount;i++)
                 {
                     GameObject? node = unsearchedNodes[visitCheckIndex];

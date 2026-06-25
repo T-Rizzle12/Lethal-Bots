@@ -59,7 +59,7 @@ namespace LethalBots.Patches.EnemiesPatches
         /// Disables OnCollideWithPlayer for bots since its currently buggy!
         /// </summary>
         /// <param name="__instance"></param>
-        /// <param name="other"></param>
+        /// <param name="___forces"></param>
         /// <returns></returns>
         /// This should be fixed now the we use player movement for falling!
         /*[HarmonyPatch("OnCollideWithPlayer")]

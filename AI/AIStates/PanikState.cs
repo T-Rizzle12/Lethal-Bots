@@ -75,7 +75,7 @@ namespace LethalBots.AI.AIStates
                 if (fearRange.HasValue)
                 {
                     // Why run when we can fight back!
-                    if (ai.HasCombatWeapon() && ai.CanEnemyBeKilled(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
+                    if (ai.HasCombatWeapon() && ai.ShouldAttackEnemy(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
                     {
                         ai.State = new FightEnemyState(this, this.CurrentEnemy, this.previousAIState);
                         return;
@@ -115,6 +115,7 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         public override void DoAI()
         {
+            PlayerControllerB lethalBotController = npcController.Npc;
             if (CurrentEnemy == null || CurrentEnemy.isEnemyDead)
             {
                 if (wasFleeingJester)
@@ -171,20 +172,14 @@ namespace LethalBots.AI.AIStates
                 // Check if we should end early!
                 ai.StopMoving();
 
-                // Now, lets check if someone is assigned to transfer loot
-                bool shouldWalkLootToShip = true;
-                if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
-                {
-                    shouldWalkLootToShip = false;
-                }
                 if (ai.HasScrapInInventory())
                 {
-                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip);
+                    ai.State = new ReturnToShipState(this, ReturnToShipState.EnumReturnToShipType.ReturnWithScrap, new SearchingForScrapState(this));
                 }
                 else if (previousState == EnumAIStates.ReturnToShip
                     || previousState == EnumAIStates.ChillAtShip)
                 {
-                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip);
+                    ai.State = new ReturnToShipState(this, ReturnToShipState.EnumReturnToShipType.ReturnWithScrap, new SearchingForScrapState(this));
                 }
                 // Wait outside the door a bit before heading back in,
                 // if we have been waiting for a bit give up and head back!
@@ -209,9 +204,9 @@ namespace LethalBots.AI.AIStates
             }
 
             // Check to see if the bot can see the enemy, or enemy has line of sight to bot
-            float sqrDistanceToEnemy = (npcController.Npc.transform.position - CurrentEnemy.transform.position).sqrMagnitude;
+            float sqrDistanceToEnemy = (lethalBotController.transform.position - CurrentEnemy.transform.position).sqrMagnitude;
             if (this.CurrentEnemy is not JesterAI &&
-                Physics.Linecast(CurrentEnemy.transform.position, npcController.Npc.gameplayCamera.transform.position,
+                Physics.Linecast(CurrentEnemy.transform.position, lethalBotController.gameplayCamera.transform.position,
                                  StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore) 
                 && sqrDistanceToEnemy > Const.DISTANCE_FLEEING_NO_LOS * Const.DISTANCE_FLEEING_NO_LOS)
             {
@@ -257,7 +252,7 @@ namespace LethalBots.AI.AIStates
             if (panikCoroutine == null)
             {
                 if (!RetreatPos.HasValue
-                    || (RetreatPos.Value - npcController.Npc.transform.position).sqrMagnitude < Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION
+                    || (RetreatPos.Value - lethalBotController.transform.position).sqrMagnitude < Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION
                     || (updateRetreatPosTimer.HasStarted() && updateRetreatPosTimer.Elapsed())
                     || !ai.IsValidPathToTarget(RetreatPos.Value, false))
                 {
@@ -266,7 +261,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Why run when we can fight back!
-            if (ai.HasCombatWeapon() && ai.CanEnemyBeKilled(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == npcController.Npc))
+            if (ai.HasCombatWeapon() && ai.ShouldAttackEnemy(this.CurrentEnemy, LethalBotManager.Instance.MissionControlPlayer == lethalBotController))
             {
                 ai.State = new FightEnemyState(this, this.CurrentEnemy, this.previousAIState);
                 return;
@@ -294,14 +289,14 @@ namespace LethalBots.AI.AIStates
             if (targetEntrance != null)
             {
                 // If we are close enough, we should use the entrance to leave
-                float distSqrFromEntrance = (targetEntrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
+                float distSqrFromEntrance = (targetEntrance.entrancePoint.position - lethalBotController.transform.position).sqrMagnitude;
                 if (distSqrFromEntrance < Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                 {
                     // Check for teleport entrance
                     if (!ai.AreHandsFree() && ai.HeldItem is CaveDwellerPhysicsProp)
                     {
                         // We must drop the maneater baby before we use the entrance!
-                        npcController.Npc.DiscardHeldObject();
+                        lethalBotController.DiscardHeldObject();
                         return;
                     }
                     else if (Time.timeSinceLevelLoad - ai.TimeSinceTeleporting > Const.WAIT_TIME_TO_TELEPORT)
@@ -359,7 +354,7 @@ namespace LethalBots.AI.AIStates
 
             // Update our destination if needed!
             if (!RetreatPos.HasValue 
-                || (RetreatPos.Value - npcController.Npc.transform.position).sqrMagnitude > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
+                || (RetreatPos.Value - lethalBotController.transform.position).sqrMagnitude > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {
                 // Move NOW!
                 if (RetreatPos.HasValue)
@@ -605,14 +600,18 @@ namespace LethalBots.AI.AIStates
                     return true;
                 }
 
-                // This is good if we have a weapon on us, or dropped nearby us!
-                float maxRange = Const.LETHAL_BOT_OBJECT_AWARNESS;
-                GrabbableObject? weapon = FindNearbyWeapon(maxRange);
-                if (weapon != null)
+                // Don't grab an weapon if already have one
+                if (!ai.HasCombatWeapon())
                 {
-                    // Try to grab it!
-                    ai.State = new FetchingObjectState(this, weapon, ignoreEnemies: true);
-                    return true;
+                    // This is good if we have a weapon on us, or dropped nearby us!
+                    float maxRange = Const.LETHAL_BOT_OBJECT_AWARNESS;
+                    GrabbableObject? weapon = FindNearbyWeapon(maxRange);
+                    if (weapon != null)
+                    {
+                        // Try to grab it!
+                        ai.State = new FetchingObjectState(this, weapon, ignoreEnemies: true);
+                        return true;
+                    }
                 }
             }
             // Ok, there are three state indexes for nutcrackers to date!
@@ -648,14 +647,7 @@ namespace LethalBots.AI.AIStates
             float closestFoundItemSqr = maxRange * maxRange;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
-                GrabbableObject? foundItem = gameObject.GetComponent<GrabbableObject>();
+                GrabbableObject? foundItem = LethalBotManager.grabbableObjectsInMap[i];
                 if (foundItem != null
                     && ai.HasAmmoForWeapon(foundItem))
                 {
@@ -686,7 +678,6 @@ namespace LethalBots.AI.AIStates
             public bool isPathOutOfSight; // true is good; false is bad
             public bool isNodeOutOfSight; // true is good; false is bad
             public float minPathDistanceToEnemy; // Larger numbers are better!
-
 
             // These are the distance between the node and the chosen target
             public float enemyPathDistance; // further away is better
@@ -725,7 +716,7 @@ namespace LethalBots.AI.AIStates
 
                     // If we have to pick a node that runs past an enemy,
                     // pick the one the enemy has the hardest time reaching.
-                    score += Mathf.Min(enemyPathDistance - fearRange, 0f) * 1.2f;
+                    score += (enemyPathDistance - fearRange) * 1.2f;
                 }
                 else
                 {
@@ -853,6 +844,7 @@ namespace LethalBots.AI.AIStates
         /// Or should I say an attempt to code it.
         /// </remarks>
         /// <param name="enemy">Position of the enemy</param>
+        /// <param name="fearRange"></param>
         /// <returns></returns>
         private IEnumerator ChooseFleeingNodeFromPosition(EnemyAI enemy, float fearRange)
         {
@@ -908,6 +900,12 @@ namespace LethalBots.AI.AIStates
                 //{
                 //    continue;
                 //}
+
+                // Make sure not to go to a node in quicksand or underwater
+                if (IsPositionCoveredInQuickSand(nodePos, checkClosestNode: false))
+                {
+                    continue;
+                }
 
                 if (enemy != null)
                 {
@@ -1010,13 +1008,7 @@ namespace LethalBots.AI.AIStates
                 // just in case.....
                 if (ai.HasScrapInInventory())
                 {
-                    // Now, lets check if someone is assigned to transfer loot
-                    bool shouldWalkLootToShip = true;
-                    if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
-                    {
-                        shouldWalkLootToShip = false;
-                    }
-                    ai.State = new ReturnToShipState(this, !shouldWalkLootToShip, new SearchingForScrapState(this));
+                    ai.State = new ReturnToShipState(this, ReturnToShipState.EnumReturnToShipType.ReturnWithScrap, new SearchingForScrapState(this));
                     return;
                 }
             }

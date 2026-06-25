@@ -8,6 +8,7 @@ using LethalBots.Managers;
 using LethalBots.NetworkSerializers;
 using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Patches.GameEnginePatches;
+using LethalBots.Patches.MapHazardsPatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.NpcPatches;
@@ -145,6 +146,7 @@ namespace LethalBots.AI
                 return player != null ? player.currentlyHeldObjectServer : null;
             }
         }
+        private NetworkBehaviour? BotLethalPhone = null; // We store the NetworkBehaviour since Lethal Phones is a soft dependency, so we cant directly reference its classes.
         public Collider LethalBotBodyCollider = null!;
 
         public int BotId = -1;
@@ -222,10 +224,8 @@ namespace LethalBots.AI
         private float healthRegenerateTimerMax;
         private CountdownTimer timerCheckDoor = new CountdownTimer();
         private CountdownTimer timerCheckLockedDoor = new CountdownTimer();
-        private float nextExposedToEnemyTimer;
-        private bool _areWeExposed;
-        private float nextEyelessdogCheckTimer;
-        private bool _isEyelessDogInPromimity;
+        private CachedValue<bool> areWeExposed = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
+        private CachedValue<bool> isEyelessDogInPromimity = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
 
         public LineRendererUtil LineRendererUtil = null!;
         private float stuckTimer; // Used for stuck detection
@@ -259,6 +259,7 @@ namespace LethalBots.AI
                 agent.acceleration = float.MaxValue; // Is THIS a good idea?
                 agent.autoTraverseOffMeshLink = false;
                 agent.autoBraking = false; // This causes the bot's agent to slow around corners and stuff, we don't want that!
+                //agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
                 Plugin.LogDebug($"LethalBot Agent Type ID {agent.agentTypeID}");
                 Plugin.LogDebug($"LethalBot Area Mask {agent.areaMask}");
                 SetAgent(enabled: false);
@@ -291,19 +292,19 @@ namespace LethalBots.AI
         public void Init(EnumSpawnAnimation enumSpawnAnimation, bool clientJoining = false)
         {
             // Entrances
-            EntrancesTeleportArray = Object.FindObjectsOfType<EntranceTeleport>(includeInactive: false);
+            EntrancesTeleportArray = Object.FindObjectsByType<EntranceTeleport>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 
             // Ladders
             laddersInteractTrigger = RefreshLaddersList();
 
             // Doors
-            doorLocksArray = Object.FindObjectsOfType<DoorLock>(includeInactive: false);
+            doorLocksArray = Object.FindObjectsByType<DoorLock>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 
             // Elevator
             ElevatorScript = Object.FindObjectOfType<MineshaftElevatorController>();
 
             // Find all patches of quicksand and water
-            QuicksandArray = Object.FindObjectsOfType<QuicksandTrigger>();
+            QuicksandArray = Object.FindObjectsByType<QuicksandTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None);
 
             // Important colliders
             InitImportantColliders();
@@ -454,17 +455,20 @@ namespace LethalBots.AI
                 return;
             }
 
-            NpcController.IsTouchingGround = IsTouchingGroundTimedCheck.IsTouchingGround(NpcController.Npc.thisPlayerBody.position);
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            bool shouldUpdate = IsTouchingGroundTimedCheck.NeedToRecalculate();
+            NpcController.IsTouchingGround = IsTouchingGroundTimedCheck.IsTouchingGround(lethalBotController.thisPlayerBody.position);
 
             // Update current material standing on
-            if (NpcController.IsTouchingGround)
+            if (NpcController.IsTouchingGround && shouldUpdate)
             {
                 /*RaycastHit groundRaycastHit = IsTouchingGroundTimedCheck.GetGroundHit(NpcController.Npc.thisPlayerBody.position);
                 if (LethalBotManager.Instance.DictTagSurfaceIndex.ContainsKey(groundRaycastHit.collider.tag))
                 {
                     NpcController.Npc.currentFootstepSurfaceIndex = LethalBotManager.Instance.DictTagSurfaceIndex[groundRaycastHit.collider.tag];
                 }*/
-                NpcController.Npc.GetCurrentMaterialStandingOn();
+                lethalBotController.GetCurrentMaterialStandingOn();
+                lethalBotController.CalculateGroundNormal();
             }
         }
 
@@ -477,15 +481,19 @@ namespace LethalBots.AI
         /// </remarks>
         public override void Update()
         {
-            // Update identity
-            if (NpcController != null)
-            { 
-                LethalBotIdentity.Hp = NpcController.Npc.isPlayerDead ? 0 : NpcController.Npc.health;
-                isEnemyDead = !LethalBotIdentity.Alive; // Let the identity manager handle this!
+            // AI may not have finished initializing yet
+            if (NpcController == null)
+            {
+                return;
             }
 
+            // Update identity
+            PlayerControllerB lethalBotController = this.NpcController.Npc;
+            LethalBotIdentity.Hp = lethalBotController.isPlayerDead ? 0 : lethalBotController.health;
+            isEnemyDead = !LethalBotIdentity.Alive; // Let the identity manager handle this!
+
             // Not owner no AI
-            if (!IsOwner && NpcController != null)
+            if (!IsOwner)
             {
                 if (IsUsingOffMeshLink())
                 {
@@ -504,47 +512,45 @@ namespace LethalBots.AI
                 // they should leave the terminal
                 if (!State.CheckAllowsTerminalUse())
                 {
-                    if (NpcController.Npc.inTerminalMenu)
+                    if (lethalBotController.inTerminalMenu)
                     {
                         LeaveTerminal();
                     }
                 }
 
                 // No AI calculation if in special animation if climbing ladder or inSpecialInteractAnimation
-                if (!NpcController.Npc.isClimbingLadder && !NpcController.Npc.inTerminalMenu
-                    && (NpcController.Npc.inSpecialInteractAnimation || NpcController.Npc.enteringSpecialAnimation))
+                if (!lethalBotController.isClimbingLadder && !lethalBotController.inTerminalMenu
+                    && (lethalBotController.inSpecialInteractAnimation || lethalBotController.enteringSpecialAnimation))
                 {
                     // If we are using a trigger, set our position and rotation to it!
-                    InteractTrigger ourTrigger = NpcController.Npc.currentTriggerInAnimationWith;
+                    InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
                     if (ourTrigger != null && !ourTrigger.isLadder)
                     {
-                        NpcController.Npc.thisPlayerBody.localPosition = Vector3.Lerp(NpcController.Npc.thisPlayerBody.localPosition, NpcController.Npc.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
-                        NpcController.Npc.thisPlayerBody.rotation = Quaternion.Lerp(NpcController.Npc.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
+                        lethalBotController.thisPlayerBody.localPosition = Vector3.Lerp(lethalBotController.thisPlayerBody.localPosition, lethalBotController.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
+                        lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
                         NpcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
                     }
                 }
 
                 // Move the AI to where the bot controller is
-                this.transform.position = NpcController.Npc.transform.position;
-                this.serverPosition = NpcController.Npc.transform.position;
+                this.transform.position = lethalBotController.transform.position;
+                this.serverPosition = lethalBotController.transform.position;
                 return;
             }
 
-            if (NpcController == null
-                || !NpcController.Npc.gameObject.activeSelf
-                || !NpcController.Npc.isPlayerControlled
+            if (!lethalBotController.gameObject.activeSelf
+                || !lethalBotController.isPlayerControlled
                 || isEnemyDead
-                || NpcController.Npc.isPlayerDead)
+                || lethalBotController.isPlayerDead)
             {
                 // Lethal Bot dead or
                 // Not controlled we do nothing
                 SetAgent(enabled: false);
 
                 // No logic if player controller is disabled!
-                if (NpcController == null
-                || !NpcController.Npc.gameObject.activeSelf
-                || (!NpcController.Npc.isPlayerControlled 
-                    && !NpcController.Npc.isPlayerDead))
+                if (!lethalBotController.gameObject.activeSelf
+                || (!lethalBotController.isPlayerControlled 
+                    && !lethalBotController.isPlayerDead))
                 {
                     return;
                 }
@@ -565,7 +571,7 @@ namespace LethalBots.AI
                         updateDestinationIntervalLethalBotAI = AIIntervalTime;
                     }
                 }
-                else if (NpcController.Npc.isPlayerDead)
+                else if (lethalBotController.isPlayerDead)
                 {
                     State = new BrainDeadState(this);
                 }
@@ -580,15 +586,15 @@ namespace LethalBots.AI
             }
 
             // No AI calculation if in special animation if climbing ladder or inSpecialInteractAnimation
-            if (!NpcController.Npc.isClimbingLadder && !NpcController.Npc.inTerminalMenu
-                && (NpcController.Npc.inSpecialInteractAnimation || NpcController.Npc.enteringSpecialAnimation))
+            if (!lethalBotController.isClimbingLadder && !lethalBotController.inTerminalMenu
+                && (lethalBotController.inSpecialInteractAnimation || lethalBotController.enteringSpecialAnimation))
             {
                 // If we are using a trigger, set our position and rotation to it!
-                InteractTrigger ourTrigger = NpcController.Npc.currentTriggerInAnimationWith;
+                InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
                 if (ourTrigger != null && !ourTrigger.isLadder)
                 {
-                    NpcController.Npc.thisPlayerBody.localPosition = Vector3.Lerp(NpcController.Npc.thisPlayerBody.localPosition, NpcController.Npc.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
-                    NpcController.Npc.thisPlayerBody.rotation = Quaternion.Lerp(NpcController.Npc.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
+                    lethalBotController.thisPlayerBody.localPosition = Vector3.Lerp(lethalBotController.thisPlayerBody.localPosition, lethalBotController.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
+                    lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
                     NpcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
                 }
 
@@ -596,8 +602,8 @@ namespace LethalBots.AI
                 if (!IsUsingOffMeshLink())
                 {
                     SetAgent(enabled: false);
-                    this.transform.position = NpcController.Npc.transform.position;
-                    this.serverPosition = NpcController.Npc.transform.position;
+                    this.transform.position = lethalBotController.transform.position;
+                    this.serverPosition = lethalBotController.transform.position;
                 }
                 return;
             }
@@ -619,12 +625,12 @@ namespace LethalBots.AI
                 // Update if we are in the elevator start room or not!
                 if (IsInElevatorStartRoom || isOutside)
                 {
-                    if (isOutside || (NpcController.Npc.transform.position - ElevatorScript.elevatorBottomPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_BOTTOM * Const.DISTANCE_TO_ELEVATOR_BOTTOM)
+                    if (isOutside || (lethalBotController.transform.position - ElevatorScript.elevatorBottomPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_BOTTOM * Const.DISTANCE_TO_ELEVATOR_BOTTOM)
                     {
                         IsInElevatorStartRoom = false;
                     }
                 }
-                else if ((NpcController.Npc.transform.position - ElevatorScript.elevatorTopPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_TOP * Const.DISTANCE_TO_ELEVATOR_TOP)
+                else if ((lethalBotController.transform.position - ElevatorScript.elevatorTopPoint.position).sqrMagnitude < Const.DISTANCE_TO_ELEVATOR_TOP * Const.DISTANCE_TO_ELEVATOR_TOP)
                 {
                     IsInElevatorStartRoom = true;
                 }
@@ -659,12 +665,12 @@ namespace LethalBots.AI
             // Copied from PlayerControllerB!
             // This also fixes the issue where bots would move slower or even spin in place with low FPS.
             float num9 = 8f;
-            if (NpcController.Npc.jetpackControls)
+            if (lethalBotController.jetpackControls)
             {
                 num9 = 15f;
             }
-            float num10 = Mathf.Clamp(num9 * Vector3.Distance(NpcController.Npc.transform.position, this.transform.position), 0.9f, 300f);
-            Vector3 tempVector = Vector3.MoveTowards(NpcController.Npc.transform.position, this.transform.position, num10 * Time.deltaTime);
+            float num10 = Mathf.Clamp(num9 * Vector3.Distance(lethalBotController.transform.position, this.transform.position), 0.9f, 300f);
+            Vector3 tempVector = Vector3.MoveTowards(lethalBotController.transform.position, this.transform.position, num10 * Time.deltaTime);
             x = tempVector.x;
             z = tempVector.z;
 
@@ -677,39 +683,41 @@ namespace LethalBots.AI
                 || StateControllerMovement == EnumStateControllerMovement.Free)
             {
                 StateControllerMovement = EnumStateControllerMovement.Free;
-                //Plugin.LogDebug($"{NpcController.Npc.playerUsername} falling ! NpcController.Npc.transform.position {NpcController.Npc.transform.position} MoveVector {NpcController.MoveVector}");
-                /*Vector3 endPos = NpcController.Npc.transform.position + NpcController.MoveVector * Time.deltaTime;
-                if (IsTouchingGroundTimedCheck.IsTouchingGround(NpcController.Npc.transform.position) && NpcController.MoveVector.y < 0)
+                //Plugin.LogDebug($"{lethalBotController.playerUsername} falling ! lethalBotController.transform.position {lethalBotController.transform.position} MoveVector {NpcController.MoveVector}");
+                /*Vector3 endPos = lethalBotController.transform.position + NpcController.MoveVector * Time.deltaTime;
+                if (IsTouchingGroundTimedCheck.IsTouchingGround(lethalBotController.transform.position) && NpcController.MoveVector.y < 0)
                 {
-                    RaycastHit groundRaycastHit = IsTouchingGroundTimedCheck.GetGroundHit(NpcController.Npc.thisPlayerBody.position);
+                    RaycastHit groundRaycastHit = IsTouchingGroundTimedCheck.GetGroundHit(lethalBotController.thisPlayerBody.position);
                     endPos.y = groundRaycastHit.point.y;
                 }
-                NpcController.Npc.transform.position = endPos;*/
+                lethalBotController.transform.position = endPos;*/
                 // Just use the character controller as this fixes multiple issues the old addon had!
-                NpcController.Npc.thisController.Move(NpcController.MoveVector * Time.deltaTime);
+                lethalBotController.thisController.Move(NpcController.MoveVector * Time.deltaTime);
             }
-            else if (!shouldFixedMovement && StateControllerMovement == EnumStateControllerMovement.FollowAgent)
-            {
-                Vector3 aiPosition = this.transform.position;
-                //Plugin.LogDebug($"{NpcController.Npc.playerUsername} --> y {(NpcController.IsTouchingGround ? NpcController.GroundHit.point.y : aiPosition.y)} MoveVector {NpcController.MoveVector}");
-                NpcController.Npc.transform.position = new Vector3(x,
-                                                                   aiPosition.y,
-                                                                   z);
-                this.transform.position = aiPosition;
-                NpcController.Npc.ResetFallGravity();
-            }
-            else if (shouldFixedMovement)
+            else if (shouldFixedMovement 
+                || StateControllerMovement == EnumStateControllerMovement.Fixed)
             {
                 // If we are using a trigger, set our position and rotation to it!
-                InteractTrigger ourTrigger = NpcController.Npc.currentTriggerInAnimationWith;
+                InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
                 if (ourTrigger != null && !ourTrigger.isLadder)
                 {
-                    NpcController.Npc.thisPlayerBody.localPosition = Vector3.Lerp(NpcController.Npc.thisPlayerBody.localPosition, NpcController.Npc.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
-                    NpcController.Npc.thisPlayerBody.rotation = Quaternion.Lerp(NpcController.Npc.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
+                    lethalBotController.thisPlayerBody.localPosition = Vector3.Lerp(lethalBotController.thisPlayerBody.localPosition, lethalBotController.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
+                    lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
                     NpcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
                 }
-                this.transform.position = NpcController.Npc.transform.position;
-                this.serverPosition = NpcController.Npc.transform.position;
+                this.transform.position = lethalBotController.transform.position;
+                this.serverPosition = lethalBotController.transform.position;
+            }
+            else if (StateControllerMovement == EnumStateControllerMovement.FollowAgent)
+            {
+                Vector3 aiPosition = this.transform.position;
+                lethalBotController.thisController.Move(NpcController.MoveVector * Time.deltaTime); // Update player controller.
+                //Plugin.LogDebug($"{lethalBotController.playerUsername} --> y {(NpcController.IsTouchingGround ? NpcController.GroundHit.point.y : aiPosition.y)} MoveVector {NpcController.MoveVector}");
+                lethalBotController.transform.position = new Vector3(x,
+                                                                   aiPosition.y,
+                                                                   z); // Override the player controller's movement, since the NavMeshAgent will handle the actual movement.
+                this.transform.position = aiPosition;
+                lethalBotController.ResetFallGravity();
             }
 
             // Is still falling ?
@@ -717,11 +725,10 @@ namespace LethalBots.AI
                 && NpcController.IsTouchingGround
                 && !shouldFreeMovement)
             {
-                //Plugin.LogDebug($"{NpcController.Npc.playerUsername} ============= touch ground GroundHit.point {NpcController.GroundHit.point}");
+                //Plugin.LogDebug($"{lethalBotController.playerUsername} ============= touch ground GroundHit.point {NpcController.GroundHit.point}");
                 StateControllerMovement = EnumStateControllerMovement.FollowAgent;
-                TeleportAgentAIAndBody(IsTouchingGroundTimedCheck.GetGroundHit(NpcController.Npc.thisPlayerBody.position).point);
-                SetDestinationToPositionLethalBotAI(destination); // Refresh our path!
-                //Plugin.LogDebug($"{NpcController.Npc.playerUsername} ============= NpcController.Npc.transform.position {NpcController.Npc.transform.position}");
+                TeleportAgentAIAndBody(IsTouchingGroundTimedCheck.GetGroundHit(lethalBotController.thisPlayerBody.position).point, onlyAgent: true);
+                //Plugin.LogDebug($"{lethalBotController.playerUsername} ============= lethalBotController.transform.position {lethalBotController.transform.position}");
             }
 
             // No AI when falling
@@ -739,16 +746,16 @@ namespace LethalBots.AI
                 // If we are stuck, teleport to the closest node!
                 StartOfRound instanceSOR = StartOfRound.Instance;
                 if (agent.velocity.sqrMagnitude < 0.002f
-                    && StateControllerMovement != EnumStateControllerMovement.Free
+                    && StateControllerMovement == EnumStateControllerMovement.FollowAgent
                     && !this.IsUsingOffMeshLink()
                     && !IsInsideElevator
                     && (LethalBotManager.AreWeInOrbit(instanceSOR) 
-                        || LethalBotManager.IsTheShipLanded(instanceSOR))) // Mathf.Abs((NpcController.Npc.oldPlayerPosition - NpcController.Npc.transform.position).sqrMagnitude) < Const.EPSILON * Const.EPSILON
+                        || LethalBotManager.IsTheShipLanded(instanceSOR))) // Mathf.Abs((lethalBotController.oldPlayerPosition - lethalBotController.transform.position).sqrMagnitude) < Const.EPSILON * Const.EPSILON
                 {
                     if (stuckTimer > 4f)
                     {
-                        Plugin.LogWarning($"Bot {NpcController.Npc.playerClientId} {NpcController.Npc.playerUsername} is stuck! Telporting to closest node!");
-                        Plugin.LogWarning($"Agent velocity: {agent.velocity.sqrMagnitude} Previous distance from last position: {(NpcController.Npc.oldPlayerPosition - NpcController.Npc.transform.position).sqrMagnitude}");
+                        Plugin.LogWarning($"Bot {lethalBotController.playerClientId} {lethalBotController.playerUsername} is stuck! Telporting to closest node!");
+                        Plugin.LogWarning($"Agent velocity: {agent.velocity.sqrMagnitude} Previous distance from last position: {(lethalBotController.oldPlayerPosition - lethalBotController.transform.position).sqrMagnitude}");
                         State?.OnBotStuck(); // Call the OnBotStuck method of the current state if it exists
                         stuckTimer = 0f;
                     }
@@ -797,8 +804,9 @@ namespace LethalBots.AI
         /// </remarks>
         public override void DoAIInterval()
         {
+            PlayerControllerB lethalBotController = NpcController.Npc;
             if (isEnemyDead
-                || NpcController.Npc.isPlayerDead
+                || lethalBotController.isPlayerDead
                 || State == null)
             {
                 return;
@@ -833,7 +841,7 @@ namespace LethalBots.AI
             // they should leave the terminal
             if (!State.CheckAllowsTerminalUse())
             {
-                if (NpcController.Npc.inTerminalMenu)
+                if (lethalBotController.inTerminalMenu)
                 {
                     LeaveTerminal();
                 }
@@ -884,14 +892,22 @@ namespace LethalBots.AI
                 {
                     FearLevel.Value -= Time.deltaTime * 0.055f;
                 }
+
+                // Update the infection data to other clients if its out of date.
+                // NOTE: IsDirty will automatically tell Unity to update the var to other players!
+                if (BotInfectionData.IsDirty())
+                {
+                    Plugin.LogDebug($"Infection data for bot {NpcController.Npc.playerUsername} was out of date. Sending update to all clients");
+                }
             }
         }
 
         private bool ShouldFreeMovement()
         {
+            PlayerControllerB lethalBotController = this.NpcController.Npc;
             if (NpcController.IsTouchingGround)
             {
-                RaycastHit groundRaycastHit = IsTouchingGroundTimedCheck.GetGroundHit(NpcController.Npc.thisPlayerBody.position);
+                RaycastHit groundRaycastHit = IsTouchingGroundTimedCheck.GetGroundHit(lethalBotController.thisPlayerBody.position);
                 //Plugin.LogDebug($"{NpcController.Npc.playerUsername} groundRaycastHit collider and transform {groundRaycastHit.collider}: {groundRaycastHit.collider?.name ?? "NULL"}, {groundRaycastHit.transform}: {groundRaycastHit.transform?.name ?? "NULL"}");
                 Collider? collider = groundRaycastHit.collider;
                 if (collider != null && dictColliderToBridge.TryGetValue(collider, out BridgeTrigger bridgeTrigger))
@@ -900,7 +916,7 @@ namespace LethalBots.AI
                         && bridgeTrigger.fallenBridgeColliders.Length > 0
                         && bridgeTrigger.fallenBridgeColliders[0].enabled)
                     {
-                        Plugin.LogDebug($"{NpcController.Npc.playerUsername} on fallen bridge ! {collider.name}");
+                        Plugin.LogDebug($"{lethalBotController.playerUsername} on fallen bridge ! {collider.name}");
                         IsTouchingGroundTimedCheck.ForceRecalculationNextThink(true); // Make sure we actually fall and not teleport ourselves back up!
                         return true;
                     }
@@ -909,19 +925,21 @@ namespace LethalBots.AI
 
             if (StartOfRound.Instance.suckingPlayersOutOfShip)
             {
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} being sucked out of the ship!");
+                Plugin.LogDebug($"{lethalBotController.playerUsername} being sucked out of the ship!");
                 return true;
             }
 
-            if (NpcController.Npc.externalForces.y > 7.1f)
+            Vector3 externalForces = lethalBotController.externalForces;
+            float externalForces2 = externalForces.x * externalForces.x + externalForces.z * externalForces.z;
+            if (externalForces2 > 4f * 4f || externalForces.y > 7.1f)
             {
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} externalForces {NpcController.Npc.externalForces.y}");
+                Plugin.LogDebug($"{lethalBotController.playerUsername} externalForces {externalForces}");
                 return true;
             }
 
-            if (NpcController.Npc.externalForceAutoFade.sqrMagnitude > 2f * 2f)
+            if (lethalBotController.externalForceAutoFade.sqrMagnitude > 2f * 2f)
             {
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} externalForceAutoFade {NpcController.Npc.externalForceAutoFade.sqrMagnitude}");
+                Plugin.LogDebug($"{lethalBotController.playerUsername} externalForceAutoFade {lethalBotController.externalForceAutoFade.sqrMagnitude}");
                 return true;
             }
 
@@ -931,14 +949,15 @@ namespace LethalBots.AI
         private bool ShouldFixedMovement()
         {
             StartOfRound instanceSOR = StartOfRound.Instance;
-            if ((NpcController.Npc.isInElevator || NpcController.Npc.isInHangarShipRoom)
+            PlayerControllerB lethalBotController = this.NpcController.Npc;
+            if ((lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom)
                 && !LethalBotManager.AreWeInOrbit(instanceSOR)
                 && (LethalBotManager.IsTheShipLeaving(instanceSOR)
                     || !LethalBotManager.IsTheShipLanded(instanceSOR)))
             {
                 return true;
             }
-            if (NpcController.Npc.currentTriggerInAnimationWith != null)
+            if (lethalBotController.currentTriggerInAnimationWith != null)
             {
                 return true;
             }
@@ -948,17 +967,18 @@ namespace LethalBots.AI
         private void FollowCrouchStateIfCan()
         {
             // The state has TOTAL authority over crouching or not!
+            PlayerControllerB lethalBotController = this.NpcController.Npc;
             if (State != null)
             {
                 bool? shouldCrouch = State.ShouldBotCrouch();
                 if (shouldCrouch.HasValue)
                 {
                     // We can't crouch while sprinting!
-                    if (shouldCrouch.Value == true && NpcController.Npc.isSprinting)
+                    if (shouldCrouch.Value == true && lethalBotController.isSprinting)
                     {
                         NpcController.OrderToStopSprint();
                     }
-                    if (NpcController.Npc.isCrouching != shouldCrouch.Value)
+                    if (lethalBotController.isCrouching != shouldCrouch.Value)
                     {
                         Plugin.LogDebug($"[{State}] Decided to {(shouldCrouch.Value ? "crouch" : "stand")}.");
                         NpcController.OrderToToggleCrouch();
@@ -972,12 +992,12 @@ namespace LethalBots.AI
                 && IsFollowingTargetPlayer())
             {
                 if (targetPlayer.isCrouching
-                    && !NpcController.Npc.isCrouching)
+                    && !lethalBotController.isCrouching)
                 {
                     NpcController.OrderToToggleCrouch();
                 }
                 else if (!targetPlayer.isCrouching
-                        && NpcController.Npc.isCrouching)
+                        && lethalBotController.isCrouching)
                 {
                     NpcController.OrderToToggleCrouch();
                 }
@@ -1026,6 +1046,38 @@ namespace LethalBots.AI
             }
         }
 
+        /// <summary>
+        /// Helper function that returns how the user wants the bots to follow them by default.
+        /// </summary>
+        /// <remarks>
+        /// If a bot is following another bot, they will use standard by default.<br/>
+        /// Bots also use standard following while in orbit
+        /// </remarks>
+        /// <returns></returns>
+        public EnumFollowType GetFollowType()
+        {
+            // Standard following if we are not following the local player.
+            EnumFollowType followType = Plugin.Config.DefaultFollowType.Value;
+            PlayerControllerB localPlayer = GameNetworkManager.Instance.localPlayerController;
+            if (localPlayer != targetPlayer)
+            {
+                return EnumFollowType.Standard;
+            }
+            // If the player is on the ship, we should be nearby them!
+            else if (localPlayer.isInElevator)
+            {
+                return EnumFollowType.Standard;
+            }
+            // Don't wander around until we are in the facility!
+            else if (!localPlayer.isInsideFactory 
+                || IsInElevatorStartRoom
+                || !NpcController.Npc.isInsideFactory)
+            {
+                return followType != EnumFollowType.Wander ? followType : EnumFollowType.Standard; 
+            }
+            return followType;
+        }
+
         // FIXME: We should recreate the player push away code rather than this!
         public override void OnCollideWithPlayer(Collider other)
         {
@@ -1049,15 +1101,16 @@ namespace LethalBots.AI
             }
 
             if (collidedEnemy == null
-                || collidedEnemy.GetType() == typeof(LethalBotAI)
-                || collidedEnemy.GetType() == typeof(FlowerSnakeEnemy))
+                || collidedEnemy is LethalBotAI
+                || collidedEnemy is FlowerSnakeEnemy)
             {
                 return;
             }
 
-            if ((NpcController.Npc.transform.position - other.transform.position).sqrMagnitude < collidedEnemy.enemyType.pushPlayerDistance * collidedEnemy.enemyType.pushPlayerDistance)
+            PlayerControllerB lethalBotController = this.NpcController.Npc;
+            if ((lethalBotController.transform.position - other.transform.position).sqrMagnitude < collidedEnemy.enemyType.pushPlayerDistance * collidedEnemy.enemyType.pushPlayerDistance)
             {
-                NpcController.NearEntitiesPushVector += Vector3.Normalize((NpcController.Npc.transform.position - other.transform.position) * 100f) * collidedEnemy.enemyType.pushPlayerForce;
+                NpcController.NearEntitiesPushVector += Vector3.Normalize((lethalBotController.transform.position - other.transform.position) * 100f) * collidedEnemy.enemyType.pushPlayerForce;
             }
 
             // Enemy collide with the lethalBot collider
@@ -1079,18 +1132,24 @@ namespace LethalBots.AI
         // Play Audio Animatied Event: 546 Shared?
         public override void DetectNoise(Vector3 noisePosition, float noiseLoudness, int timesPlayedInOneSpot = 0, int noiseID = 0)
         {
+            // Player voice = 75 ?
+            if (noiseID != 75)
+            {
+                return;
+            }
+
             if (NpcController == null
-                || !NpcController.Npc.gameObject.activeSelf
-                || !NpcController.Npc.isPlayerControlled
                 || isEnemyDead
-                || NpcController.Npc.isPlayerDead
                 || State == null)
             {
                 return;
             }
 
-            // Player voice = 75 ?
-            if (noiseID != 75)
+            PlayerControllerB? lethalBotController = NpcController.Npc;
+            if (lethalBotController == null
+                || !lethalBotController.gameObject.activeSelf
+                || !lethalBotController.isPlayerControlled
+                || lethalBotController.isPlayerDead)
             {
                 return;
             }
@@ -1104,7 +1163,7 @@ namespace LethalBots.AI
                 LethalBotIdentity.Voice.SetNewRandomCooldownForBothAudio();
             }
 
-            Plugin.LogDebug($"Lethal Bot {NpcController.Npc.playerUsername} detected noise noisePosition {noisePosition}, noiseLoudness {noiseLoudness}, timesPlayedInOneSpot {timesPlayedInOneSpot}, noiseID {noiseID}");
+            Plugin.LogDebug($"Lethal Bot {lethalBotController.playerUsername} detected noise noisePosition {noisePosition}, noiseLoudness {noiseLoudness}, timesPlayedInOneSpot {timesPlayedInOneSpot}, noiseID {noiseID}");
             // Player heard
             State.PlayerHeard(noisePosition);
         }
@@ -1125,6 +1184,7 @@ namespace LethalBots.AI
         /// <param name="areaMask">The NavMesh area mask to use when calculating the path</param>
         /// <param name="path">A reference to the <see cref="NavMeshPath"/> that will contain the calculated path if valid</param>
         /// <param name="calculatePathDistance">This updates <paramref name="pathDistance"/> with the length of the path. <paramref name="pathDistance"/> is set to zero on failure</param>
+        /// <param name="pathDistance"></param>
         /// <returns><see langword="true"/> if a valid and complete path exists; otherwise, <see langword="false"/></returns>
 
         public static bool IsValidPathToTarget(Vector3 startPosition, Vector3 endPosition, int areaMask, ref NavMeshPath path, bool calculatePathDistance, out float pathDistance)
@@ -1348,18 +1408,19 @@ namespace LethalBots.AI
 
                         Bounds quicksandBounds = default;
                         bool foundCollider = false;
-                        foreach (Collider colldier in quicksand.gameObject.GetComponents<Collider>())
+                        Collider[] colliders = quicksand.gameObject.GetComponents<Collider>();
+                        foreach (Collider collider in colliders)
                         {
-                            if (colldier != null)
+                            if (collider != null)
                             {
                                 if (!foundCollider)
                                 {
-                                    quicksandBounds = colldier.bounds;
+                                    quicksandBounds = collider.bounds;
                                     foundCollider = true;
                                 }
                                 else
                                 {
-                                    quicksandBounds.Encapsulate(colldier.bounds);
+                                    quicksandBounds.Encapsulate(collider.bounds);
                                 }
                             }
                         }
@@ -1513,7 +1574,8 @@ namespace LethalBots.AI
 
                         Bounds quicksandBounds = default;
                         bool foundCollider = false;
-                        foreach (Collider colldier in quicksand.gameObject.GetComponents<Collider>())
+                        Collider[] colliders = quicksand.gameObject.GetComponents<Collider>();
+                        foreach (Collider colldier in colliders)
                         {
                             if (colldier != null)
                             {
@@ -1834,10 +1896,11 @@ namespace LethalBots.AI
                     continue;
                 }
 
-                Plugin.LogDebug($"{NpcController.Npc.playerUsername} is checking {enemy.enemyType.enemyName} for exposure...");
+                string enemyName = enemy.enemyType != null ? enemy.enemyType.enemyName : "Unknown Enemy";
+                Plugin.LogDebug($"{NpcController.Npc.playerUsername} is checking {enemyName} for exposure...");
                 if (enemy.isEnemyDead || ourWeOutside != enemy.isOutside) 
                 {
-                    Plugin.LogDebug($"{enemy.enemyType.enemyName}: Skipped (dead or {skipText})");
+                    Plugin.LogDebug($"{enemyName}: Skipped (dead or {skipText})");
                     continue; 
                 }
 
@@ -1845,12 +1908,12 @@ namespace LethalBots.AI
                 float? dangerRange = GetFearRangeForEnemies(enemy, EnumFearQueryType.PathfindingAvoid);
                 if (!dangerRange.HasValue)
                 {
-                    Plugin.LogDebug($"{enemy.enemyType.enemyName}: Skipped (not a threat)");
+                    Plugin.LogDebug($"{enemyName}: Skipped (not a threat)");
                     continue;
                 }
 
                 // Fog reduce the visibility
-                if (ourWeOutside && !enemy.enemyType.canSeeThroughFog && TimeOfDay.Instance.currentLevelWeather == LevelWeatherType.Foggy)
+                if (ourWeOutside && (enemy.enemyType == null || !enemy.enemyType.canSeeThroughFog) && TimeOfDay.Instance.currentLevelWeather == LevelWeatherType.Foggy)
                 {
                     dangerRange = Mathf.Clamp(dangerRange.Value, 0, 30);
                 }
@@ -1860,7 +1923,7 @@ namespace LethalBots.AI
                 Vector3 closestPoint = instanceRM.GetNavMeshPosition(GetClosestPointOnLineSegment(from, to, enemyPos), instanceRM.navHit, 2.7f);
                 if ((closestPoint - enemyPos).sqrMagnitude > dangerRange * dangerRange)
                 {
-                    Plugin.LogDebug($"{enemy.enemyType.enemyName}: Skipped (outside danger range)");
+                    Plugin.LogDebug($"{enemyName}: Skipped (outside danger range)");
                     continue;
                 }
 
@@ -1870,7 +1933,7 @@ namespace LethalBots.AI
                 if (!Physics.Linecast(closestPoint + Vector3.up * headOffset, viewPos,
                     StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                 {
-                    Plugin.LogDebug($"{enemy.enemyType.enemyName}: Segment is exposed from closest {closestPoint} to view position!");
+                    Plugin.LogDebug($"{enemyName}: Segment is exposed from closest {closestPoint} to view position!");
                     return true;
                 }
 
@@ -1879,7 +1942,7 @@ namespace LethalBots.AI
                 if (!Physics.Linecast(travelMidPoint + Vector3.up * headOffset, viewPos,
                     StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                 {
-                    Plugin.LogDebug($"{enemy.enemyType.enemyName}: Segment is exposed from midpoint {travelMidPoint} to view position!");
+                    Plugin.LogDebug($"{enemyName}: Segment is exposed from midpoint {travelMidPoint} to view position!");
                     return true;
                 }
             }
@@ -1937,8 +2000,10 @@ namespace LethalBots.AI
 
                 Bounds quicksandBounds = default;
                 bool foundCollider = false;
-                foreach (Collider collider in quicksand.gameObject.GetComponents<Collider>())
+                Collider[] colliders = quicksand.gameObject.GetComponents<Collider>();
+                for (int j = 0; j < colliders.Length; j++)
                 {
+                    Collider collider = colliders[j];
                     if (collider != null)
                     {
                         if (!foundCollider)
@@ -2062,6 +2127,7 @@ namespace LethalBots.AI
         /// <param name="calculatePathDistance">If true, set <see cref="EnemyAI.pathDistance"/> to the length of the path. Is set to 0f on failure!</param>
         /// <param name="avoidLineOfSight">If true, the bot does LOS checks to see if <paramref name="checkLOSToTarget"/> can see any point on the path</param>
         /// <param name="checkLOSToTarget">The <see cref="EnemyAI"/> that we want to test path visibility for</param>
+        /// <param name="useEnemyEyePos"></param>
         /// <returns>true: if there is no path or <paramref name="checkLOSToTarget"/> can see a point on the path. false: if there is a vaild path and <paramref name="checkLOSToTarget"/> can't see any point on the path</returns>
         public bool PathIsIntersectedByLineOfSight(Vector3 targetPos, out bool isPathVaild, bool calculatePathDistance = false, bool avoidLineOfSight = true, EnemyAI? checkLOSToTarget = null, bool useEnemyEyePos = true)
         {
@@ -2194,9 +2260,14 @@ namespace LethalBots.AI
                 agent.enabled = enabled;
                 if (enabled && agent.isOnNavMesh) // Make sure the agent is enabled before setting area costs
                 {
-                    // 5 times the pathing cost for water!
+                    // 10 times the pathing cost for water!
                     int waterArea = NavMesh.GetAreaFromName("Water");
-                    agent.SetAreaCost(waterArea, 5f);
+                    agent.SetAreaCost(waterArea, 10f);
+
+                    // High path cost for enemy only area
+                    // NOTE: I can't tell the bots to not path here, or they could break on some custom moons!
+                    int enemyOnlyArea = NavMesh.GetAreaFromName("EnemiesOnly");
+                    agent.SetAreaCost(enemyOnlyArea, 50f);
 
                     // 5 times the pathing cost for landmines!
                     agent.SetAreaCost(Const.LETHAL_BOT_LANDMINE_NAVAREA, 5f);
@@ -2310,9 +2381,10 @@ namespace LethalBots.AI
             this.targetPlayer = null;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int MaxHealthPercent(int percentage)
         {
-            return LethalBotManager.Instance.MaxHealthPercent(percentage, MaxHealth);
+            return LethalBotManager.MaxHealthPercent(percentage, MaxHealth);
         }
 
         public void CheckAndBringCloserTeleportLethalBot(float percentageOfDestination)
@@ -2510,7 +2582,7 @@ namespace LethalBots.AI
                 }
 
                 Vector3 vectorLethalBotToPlayer = cameraPlayerPosition - thisLethalBotCamera.position;
-                float distanceLethalBotToPlayer = Vector3.Distance(thisLethalBotCamera.position, cameraPlayerPosition);
+                float distanceLethalBotToPlayer = vectorLethalBotToPlayer.magnitude;
                 if ((Vector3.Angle(thisLethalBotCamera.forward, vectorLethalBotToPlayer) < width || (proximityAwareness != -1 && distanceLethalBotToPlayer < (float)proximityAwareness))
                     && distanceLethalBotToPlayer < currentClosestDistance)
                 {
@@ -2555,11 +2627,15 @@ namespace LethalBots.AI
 
             StartOfRound instanceSOR = StartOfRound.Instance;
             RoundManager instanceRM = RoundManager.Instance;
-            Transform thisLethalBotCamera = this.NpcController.Npc.gameplayCamera.transform;
+            Bounds insideShipBounds = instanceSOR.shipInnerRoomBounds.bounds;
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            Transform thisLethalBotCamera = lethalBotController.gameplayCamera.transform;
             EnemyAI? closestEnemy = null;
             float closestEnemyDistSqr = float.MaxValue;
-            foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
+            List<EnemyAI> spawnedEnemies = instanceRM.SpawnedEnemies;
+            for(int i = 0; i < spawnedEnemies.Count; i++)
             {
+                EnemyAI spawnedEnemy = spawnedEnemies[i];
                 if (spawnedEnemy == null || spawnedEnemy.isEnemyDead)
                 {
                     continue;
@@ -2574,23 +2650,12 @@ namespace LethalBots.AI
                     continue;
                 }
 
-                // Obstructed
-                Vector3 viewPos = spawnedEnemy.eye != null ? spawnedEnemy.eye.position : positionEnemy;
-                if (Physics.Linecast(thisLethalBotCamera.position, viewPos, instanceSOR.collidersAndRoomMaskAndDefault))
+                // Can they reach us?
+                if (!spawnedEnemy.isInsidePlayerShip
+                    && lethalBotController.isInHangarShipRoom
+                    && !insideShipBounds.Contains(positionEnemy))
                 {
                     continue;
-                }
-
-                // Can they reach us?
-                // FIXME: For now we only check the ship itself!
-                int pathLayerMask = instanceRM.GetLayermaskForEnemySizeLimit(spawnedEnemy.enemyType);
-                if ((NavSizeLimit)pathLayerMask != NavSizeLimit.NoLimit 
-                    && !spawnedEnemy.isInsidePlayerShip)
-                {
-                    if (NpcController.Npc.isInHangarShipRoom)
-                    {
-                        continue;
-                    }
                 }
 
                 // Fear range
@@ -2600,13 +2665,20 @@ namespace LethalBots.AI
                 {
                     continue;
                 }
+
+                // Obstructed
+                Vector3 viewPos = spawnedEnemy.eye != null ? spawnedEnemy.eye.position : positionEnemy;
+                if (Physics.Linecast(thisLethalBotCamera.position, viewPos, instanceSOR.collidersAndRoomMaskAndDefault))
+                {
+                    continue;
+                }
                 // Enemy in distance of fear range
 
                 // Proximity awareness, danger
                 if (proximityAwareness > -1
                     && sqrDistanceToEnemy < (float)proximityAwareness * (float)proximityAwareness)
                 {
-                    Plugin.LogDebug($"{NpcController.Npc.playerUsername} DANGER CLOSE \"{spawnedEnemy.enemyType.enemyName}\" {spawnedEnemy.enemyType.name}");
+                    Plugin.LogDebug($"{lethalBotController.playerUsername} DANGER CLOSE \"{spawnedEnemy.enemyType.enemyName}\" {spawnedEnemy.enemyType.name}");
                     if (spawnedEnemy is MaskedPlayerEnemy masked)
                     {
                         DictKnownMasked[masked] = true;
@@ -2622,7 +2694,7 @@ namespace LethalBots.AI
                 // Line of Sight, danger
                 else if (Vector3.Angle(thisLethalBotCamera.forward, directionEnemyFromCamera) < width)
                 {
-                    Plugin.LogDebug($"{NpcController.Npc.playerUsername} DANGER LOS \"{spawnedEnemy.enemyType.enemyName}\" {spawnedEnemy.enemyType.name}");
+                    Plugin.LogDebug($"{lethalBotController.playerUsername} DANGER LOS \"{spawnedEnemy.enemyType.enemyName}\" {spawnedEnemy.enemyType.name}");
                     if (spawnedEnemy is MaskedPlayerEnemy masked)
                     {
                         DictKnownMasked[masked] = true;
@@ -2746,19 +2818,19 @@ namespace LethalBots.AI
         /// <returns>true: if an enemy can see us, false: if no enemy can see us</returns>
         public bool AreWeExposed(bool bypassCooldown = false)
         {
-            if (!bypassCooldown && (Time.timeSinceLevelLoad - nextExposedToEnemyTimer) < Const.TIMER_CHECK_EXPOSED)
+            if (!bypassCooldown && !areWeExposed.CanUpdate())
             {
-                return _areWeExposed;
+                return areWeExposed;
             }
-
-            nextExposedToEnemyTimer = Time.timeSinceLevelLoad;
 
             Vector3 ourPos = NpcController.Npc.transform.position;
             float headOffset = NpcController.Npc.gameplayCamera.transform.position.y - ourPos.y;
             Vector3 headPos = ourPos + Vector3.up * headOffset;
             RoundManager instanceRM = RoundManager.Instance;
-            foreach (EnemyAI checkLOSToTarget in instanceRM.SpawnedEnemies)
+            List<EnemyAI> spawnedEnemies = instanceRM.SpawnedEnemies;
+            for (int i = 0; i < spawnedEnemies.Count; i++)
             {
+                EnemyAI checkLOSToTarget = spawnedEnemies[i];
                 if (checkLOSToTarget == null 
                     || checkLOSToTarget.isEnemyDead 
                     || this.isOutside != checkLOSToTarget.isOutside)
@@ -2783,13 +2855,13 @@ namespace LethalBots.AI
                         Vector3 viewPos = checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : enemyPos;
                         if (!Physics.Linecast(viewPos + Vector3.up * 0.25f, headPos, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                         {
-                            _areWeExposed = true;
+                            areWeExposed.Value = true;
                             return true;
                         }
                     }
                 }
             }
-            _areWeExposed = false;
+            areWeExposed.Value = false;
             return false;
         }
 
@@ -2797,12 +2869,13 @@ namespace LethalBots.AI
         /// Check for, an enemy, the minimal distance from enemy to lethalBot before they will panik.
         /// </summary>
         /// <param name="enemy">Enemy to check</param>
+        /// <param name="queryType"></param>
         /// <returns>The minimal distance from enemy to lethalBot before panicking, null if nothing to worry about</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float? GetFearRangeForEnemies(EnemyAI enemy, EnumFearQueryType queryType = EnumFearQueryType.BotPanic)
         {
             //Plugin.LogDebug($"enemy \"{enemy.enemyType.enemyName}\" {enemy.enemyType.name}");
-            LethalBotFearQuery fearQuery = new LethalBotFearQuery(this, enemy, queryType);
-            return LethalBotManager.GetFearRangeForEnemy(fearQuery);
+            return LethalBotManager.GetFearRangeForEnemy(new LethalBotFearQuery(this, enemy, queryType));
         }
 
         /// <summary>
@@ -2819,8 +2892,7 @@ namespace LethalBots.AI
             {
                 return null;
             }
-            LethalBotFearQuery fearQuery = new LethalBotFearQuery(this, enemy, playerToCheck, EnumFearQueryType.PlayerTeleport);
-            return LethalBotManager.GetFearRangeForEnemy(fearQuery);
+            return LethalBotManager.GetFearRangeForEnemy(new LethalBotFearQuery(this, enemy, playerToCheck, EnumFearQueryType.PlayerTeleport));
         }
 
         /// <summary>
@@ -2829,7 +2901,8 @@ namespace LethalBots.AI
         /// <param name="fearQuery">Fear query to check</param>
         /// <returns>The minimal distance from enemy based on the given fear query, null if nothing to worry about</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float? GetFearRangeForEnemies(LethalBotFearQuery fearQuery)
+        [Obsolete("This function is just a glorified call to LethalBotManager.GetFearRangeForEnemy. Use that instead!")]
+        public float? GetFearRangeForEnemies(in LethalBotFearQuery fearQuery)
         {
             //Plugin.LogDebug($"enemy \"{enemy.enemyType.enemyName}\" {enemy.enemyType.name}");
             return LethalBotManager.GetFearRangeForEnemy(fearQuery);
@@ -2839,9 +2912,11 @@ namespace LethalBots.AI
         /// Returns true if the given EnemyAI can be killed!
         /// </summary>
         /// <inheritdoc cref="LethalBotAI.CanEnemyBeKilled(EnemyAI, bool, bool, bool)"/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [Obsolete("This has been moved into ShouldAttackEnemy. Use that instead!")]
         public bool CanEnemyBeKilled(EnemyAI enemy, bool isMissionController = false)
         {
-            return CanEnemyBeKilled(enemy, HasRangedWeapon(), false, isMissionController);
+            return ShouldAttackEnemy(enemy, isMissionController);
         }
 
         /// <summary>
@@ -2852,7 +2927,11 @@ namespace LethalBots.AI
         /// TODO: Move this into a Query system like the fear ranges!
         /// </remarks>
         /// <param name="enemy"></param>
+        /// <param name="hasRangedWeapon"></param>
+        /// <param name="isHumanPlayer"></param>
+        /// <param name="isMissionController"></param>
         /// <returns>Can the enemy be killed?</returns>
+        [Obsolete("This has been replaced by ShouldAttackEnemy. Use that instead!", true)]
         public static bool CanEnemyBeKilled(EnemyAI enemy, bool hasRangedWeapon = false, bool isHumanPlayer = false, bool isMissionController = false)
         {
             // If you turn this on.....just know what you are getting yourself into......
@@ -2908,38 +2987,21 @@ namespace LethalBots.AI
             {
                 return false;
             }
-            //switch (enemy.enemyType.enemyName)
-            //{
-            //    case "Centipede":
-            //    case "Masked":
-            //    case "Crawler":
-            //    case "Hoarding bug":
-            //        return true;
-            //    case "Nutcracker":
-            //        if ((hasRangedWeapon || isHumanPlayer || isEnemyStunned)
-            //            && (enemy.currentBehaviourStateIndex == 2
-            //                || (enemy is NutcrackerEnemyAI nutcracker
-            //                    && nutcrackerIsInspecting.Invoke(nutcracker))))
-            //        {
-            //            return true;
-            //        }
-            //        return false;
-            //    case "Flowerman":
-            //    case "Bunker Spider":
-            //    case "Baboon hawk":
-            //    case "Bush Wolf":
-            //        return hasRangedWeapon || isHumanPlayer || isEnemyStunned;
-            //    case "Butler": // For now, don't kill them!
-            //    case "MouthDog":
-            //    case "Maneater":
-            //        return isHumanPlayer;
-            //    case "ForestGiant":
-            //        return false; // Don't even bother its suicide!
-            //    default:
-            //        // Either they are not killable or not dangerous
-            //        // return enemy.enemyType.canDie;
-            //        return false; // NOTE: enemy.enemyType.canDie can be true on enemies that can't be killed by our weapons!
-            //}
+        }
+
+        /// <summary>
+        /// Returns true if the given <paramref name="enemy"/> can be killed!
+        /// </summary>
+        /// <remarks>
+        /// This prefills some information about the bot.<br/>
+        /// If you want control over what is in the <see cref="LethalBotAttackQuery"/>,
+        /// you should use <see cref="LethalBotManager.ShouldAttackEnemy(in LethalBotAttackQuery)"/> instead.
+        /// </remarks>
+        /// <returns>Can the enemy be killed?</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool ShouldAttackEnemy(Object enemy, bool isMissionController = false)
+        {
+            return LethalBotManager.ShouldAttackEnemy(new LethalBotAttackQuery(this, enemy, hasRangedWeapon: HasRangedWeapon(), isHumanPlayer: false, isMissionController: isMissionController));
         }
 
         /// <summary>
@@ -2954,30 +3016,30 @@ namespace LethalBots.AI
         /// <returns>true: there is an eyeless dog nearby, false: no eyeless dog nearby</returns>
         public bool CheckProximityForEyelessDogs(bool bypassCooldown = false)
         {
-            if (!bypassCooldown && (Time.timeSinceLevelLoad - nextEyelessdogCheckTimer) < Const.TIMER_CHECK_EXPOSED)
+            if (!bypassCooldown && !isEyelessDogInPromimity.CanUpdate())
             {
-                return _isEyelessDogInPromimity;
+                return isEyelessDogInPromimity;
             }
-
-            nextEyelessdogCheckTimer = Time.timeSinceLevelLoad;
 
             RoundManager instanceRM = RoundManager.Instance;
             Vector3 ourPos = NpcController.Npc.transform.position;
-            foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
+            List<EnemyAI> spawnedEnemies = instanceRM.SpawnedEnemies;
+            for (int i = 0; i < spawnedEnemies.Count; i++)
             {
-                if (spawnedEnemy != null && !spawnedEnemy.isEnemyDead && (spawnedEnemy is MouthDogAI || spawnedEnemy.enemyType.enemyName == "MouthDog"))
+                EnemyAI spawnedEnemy = spawnedEnemies[i];
+                if (spawnedEnemy != null && !spawnedEnemy.isEnemyDead && spawnedEnemy is MouthDogAI)
                 {
                     // NOTE: We don't use GetFearRangeForEnemies since
                     // we don't want to trigger the dog in the first place
-                    float fearRange = 30f; // NOTE: 22f is the footstep range when running!
+                    const float fearRange = 30f; // NOTE: 22f is the footstep range when running!
                     if ((spawnedEnemy.transform.position - ourPos).sqrMagnitude < fearRange * fearRange)
                     {
-                        _isEyelessDogInPromimity = true;
+                        isEyelessDogInPromimity.Value = true;
                         return true;
                     }
                 }
             }
-            _isEyelessDogInPromimity = false;
+            isEyelessDogInPromimity.Value = false;
             return false;
         }
 
@@ -3034,9 +3096,10 @@ namespace LethalBots.AI
 
         internal static ShipTeleporter? FindTeleporter(bool inverseTeleporter = false)
         {
-            ShipTeleporter[] shipTeleporters = Object.FindObjectsOfType<ShipTeleporter>(includeInactive: false);
-            foreach (var teleporter in shipTeleporters)
+            ShipTeleporter[] shipTeleporters = Object.FindObjectsByType<ShipTeleporter>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            for (int i = 0; i < shipTeleporters.Length; i++)
             {
+                var teleporter = shipTeleporters[i];
                 if (teleporter == null)
                 {
                     continue;
@@ -3058,23 +3121,17 @@ namespace LethalBots.AI
         public GrabbableObject? FindItemOnShip(Func<GrabbableObject, bool> filter)
         {
             // Lets check the ship for our target item!
+            Vector3 ourPos = NpcController.Npc.transform.position;
             GrabbableObject? closestFoundItem = null;
             float closestFoundItemSqr = float.MaxValue;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
-                GrabbableObject? foundItem = gameObject.GetComponent<GrabbableObject>();
+                GrabbableObject? foundItem = LethalBotManager.grabbableObjectsInMap[i];
                 if (foundItem != null
                     && foundItem.isInShipRoom
                     && filter(foundItem))
                 {
-                    float foundItemSqr = (foundItem.transform.position - NpcController.Npc.transform.position).sqrMagnitude;
+                    float foundItemSqr = (foundItem.transform.position - ourPos).sqrMagnitude;
                     if (foundItemSqr < closestFoundItemSqr
                         && IsGrabbableObjectGrabbable(foundItem)) // NOTE: IsGrabbableObjectGrabbable has a pathfinding check, so we run it last since it can be expensive!
                     {
@@ -3119,13 +3176,7 @@ namespace LethalBots.AI
         /// <returns>The ladder to use, null if nothing close</returns>
         public InteractTrigger? GetLadderIfWantsToUseLadder()
         {
-            bool checkDistToBot = false;
             OffMeshLinkData offMeshLinkData = agent.currentOffMeshLinkData;
-            if (!offMeshLinkData.valid)
-            {
-                offMeshLinkData = agent.nextOffMeshLinkData;
-                checkDistToBot = true;
-            }
             if (!offMeshLinkData.valid 
                 || this.offMeshLinkCoroutine != null)
             {
@@ -3147,8 +3198,9 @@ namespace LethalBots.AI
 
             InteractTrigger? closestLadder = null;
             float closestLadderDistSqr = Const.DISTANCE_NPCBODY_FROM_LADDER * Const.DISTANCE_NPCBODY_FROM_LADDER;
-            foreach (InteractTrigger ladder in laddersInteractTrigger)
+            for (int i = 0; i < laddersInteractTrigger.Length; i++)
             {
+                InteractTrigger ladder = laddersInteractTrigger[i];
                 if (ladder == null || !ladder.interactable) continue;
 
                 // Setup important local variables
@@ -3158,26 +3210,21 @@ namespace LethalBots.AI
                 float ladderDistSqrToTop = (ladderTopPos - closestLinkPos).sqrMagnitude;
 
                 // Find the closest part of the ladder to us!
-                Vector3 closestLadderPos;
                 float bestLadderDistSqr;
                 bool climbUp;
                 if (ladderDistSqrToBottom < ladderDistSqrToTop)
                 {
-                    closestLadderPos = ladderBottomPos;
                     bestLadderDistSqr = ladderDistSqrToBottom;
                     climbUp = true;
                 }
                 else
                 {
-                    closestLadderPos = ladderTopPos;
                     bestLadderDistSqr = ladderDistSqrToTop;
                     climbUp = false;
                 }
 
                 // Check if this is the closest ladder
-                if (bestLadderDistSqr < closestLadderDistSqr 
-                    && (!checkDistToBot 
-                        || (closestLadderPos - ourPos).sqrMagnitude < Const.DISTANCE_NPCBODY_FROM_LADDER * Const.DISTANCE_NPCBODY_FROM_LADDER))
+                if (bestLadderDistSqr < closestLadderDistSqr)
                 {
                     Plugin.LogDebug($"{NpcController.Npc.playerUsername} Path wants to climb {(climbUp ? "UP" : "DOWN")} ladder");
                     NpcController.OrderToGoUpDownLadder(hasToGoDown: !climbUp);
@@ -3201,12 +3248,14 @@ namespace LethalBots.AI
         /// <returns>The entrance close for both, else null</returns>
         public EntranceTeleport? IsEntranceCloseForBoth(Vector3 entityPos1, Vector3 entityPos2)
         {
-            foreach (var entrance in EntrancesTeleportArray)
+            for (int i = 0; i < EntrancesTeleportArray.Length; i++)
             {
+                var entrance = EntrancesTeleportArray[i];
                 if (entrance == null) continue;
 
-                if ((entityPos1 - entrance.entrancePoint.position).sqrMagnitude < Const.DISTANCE_TO_ENTRANCE * Const.DISTANCE_TO_ENTRANCE
-                    && (entityPos2 - entrance.entrancePoint.position).sqrMagnitude < Const.DISTANCE_TO_ENTRANCE * Const.DISTANCE_TO_ENTRANCE)
+                Vector3 entrancePos = entrance.entrancePoint.position;
+                if ((entityPos1 - entrancePos).sqrMagnitude < Const.DISTANCE_TO_ENTRANCE * Const.DISTANCE_TO_ENTRANCE
+                    && (entityPos2 - entrancePos).sqrMagnitude < Const.DISTANCE_TO_ENTRANCE * Const.DISTANCE_TO_ENTRANCE)
                 {
                     return entrance;
                 }
@@ -3225,16 +3274,6 @@ namespace LethalBots.AI
             {
                 return null;
             }
-
-            /*for (int i = 0; i < entrancesTeleportArray.Length; i++)
-            {
-                EntranceTeleport entrance = entrancesTeleportArray[i];
-                if (entrance.entranceId == entranceToUse.entranceId
-                    && entrance.isEntranceToBuilding != entranceToUse.isEntranceToBuilding)
-                {
-                    return entrance.entrancePoint.position;
-                }
-            }*/
             return entranceToUse.exitScript.entrancePoint.position;
         }
 
@@ -3245,8 +3284,9 @@ namespace LethalBots.AI
         public DoorLock? GetDoorIfWantsToOpen()
         {
             Vector3 npcBodyPos = NpcController.Npc.thisController.transform.position;
-            foreach (var door in doorLocksArray)
+            for (int i = 0; i < doorLocksArray.Length; i++)
             {
+                var door = doorLocksArray[i];
                 if (door != null && !door.isLocked && (door.transform.position - npcBodyPos).sqrMagnitude < Const.DISTANCE_NPCBODY_FROM_DOOR * Const.DISTANCE_NPCBODY_FROM_DOOR)
                 {
                     return door;
@@ -3294,8 +3334,9 @@ namespace LethalBots.AI
                 }
 
                 Vector3 npcBodyPos = NpcController.Npc.thisController.transform.position;
-                foreach (var lockedDoor in doorLocksArray)
+                for (int i = 0; i < doorLocksArray.Length; i++)
                 {
+                    var lockedDoor = doorLocksArray[i];
                     if (lockedDoor != null && lockedDoor.isLocked && !lockedDoor.isPickingLock)
                     {
                         float distSqrFromDoor = (lockedDoor.transform.position - npcBodyPos).sqrMagnitude;
@@ -3608,9 +3649,6 @@ namespace LethalBots.AI
         /// <summary>
         /// Check ladders if lethalBot needs to use one to follow player.
         /// </summary>
-        /// <remarks>
-        /// FIXME: This causes many issues that I can't seem to identify the cause yet!
-        /// </remarks>
         /// <returns>true: the lethalBot is using or is waiting to use the ladder, else false</returns>
         private bool UseLadderIfNeeded()
         {
@@ -3626,7 +3664,8 @@ namespace LethalBots.AI
                 // If this is a gap, do the default logic instead!
                 if (agent.isOnOffMeshLink)
                 {
-                    if (agent.currentOffMeshLinkData.activated)
+                    OffMeshLinkData offMeshLinkData = agent.currentOffMeshLinkData;
+                    if (offMeshLinkData.valid && offMeshLinkData.activated)
                     {
                         if (offMeshLinkCoroutine == null)
                         {
@@ -3713,11 +3752,14 @@ namespace LethalBots.AI
                 {
                     break;
                 }
+                endPos = data.endPos + Vector3.up * agent.baseOffset; // Link end position could be moving (like a moving platform), so we need to update it every frame!
                 float duration = horizontalDistance / agent.speed;
                 float num = height * 4f * (normalizedTime - normalizedTime * normalizedTime);
                 Plugin.LogDebug($"Moving on off mesh link; time: {normalizedTime}; y: {num}");
-                this.transform.position = Vector3.Lerp(startPos, endPos, normalizedTime) + num * Vector3.up;
-                agent.transform.position = this.transform.position;
+                Vector3 newPos = Vector3.Lerp(startPos, endPos, normalizedTime) + num * Vector3.up;
+                this.transform.position = newPos;
+                agent.transform.position = newPos;
+                NpcController.Npc.transform.position = newPos;
                 normalizedTime += Time.deltaTime / duration;
                 yield return null;
             }
@@ -3739,7 +3781,7 @@ namespace LethalBots.AI
                 if (currentOffMeshLinkData.valid)
                 {
                     Plugin.LogDebug($"Completed off mesh EARLY link due to an interruption; position: {base.transform.position}");
-                    if (Vector3.Distance(base.transform.position, currentOffMeshLinkData.startPos) < Vector3.Distance(base.transform.position, currentOffMeshLinkData.endPos))
+                    if ((base.transform.position - currentOffMeshLinkData.startPos).sqrMagnitude < (base.transform.position - currentOffMeshLinkData.endPos).sqrMagnitude)
                     {
                         Plugin.LogDebug($"Warping agent to start position at {currentOffMeshLinkData.startPos}");
                         if (warpToEnd)
@@ -3791,7 +3833,7 @@ namespace LethalBots.AI
             {
                 return false;
             }
-            return IsItemWeapon(heldItem);
+            return ItemsManager.Instance.IsItemWeapon(heldItem);
         }
 
         /// <summary>
@@ -3807,7 +3849,7 @@ namespace LethalBots.AI
             {
                 return false;
             }
-            return IsItemRangedWeapon(heldItem);
+            return ItemsManager.Instance.IsItemRangedWeapon(heldItem);
         }
 
         /// <summary>
@@ -3818,7 +3860,7 @@ namespace LethalBots.AI
         [MemberNotNullWhen(true, nameof(HeldItem))]
         public bool IsHoldingKey(bool keyOnly = false)
         {
-            return IsItemKey(this.HeldItem, keyOnly);
+            return ItemsManager.IsItemKey(this.HeldItem, keyOnly);
         }
 
         /// <summary>
@@ -3832,14 +3874,16 @@ namespace LethalBots.AI
                 return true;
             }
             GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
-            if (itemOnlySlot != null && HasAmmoForWeapon(itemOnlySlot))
+            if (HasAmmoForWeapon(itemOnlySlot))
             {
                 return true;
             }
-            foreach (var weapon in NpcController.Npc.ItemSlots)
+            GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+            for (int i = 0; i < itemSlots.Length; i++)
             {
                 // Do we need ammo in order to use this weapon?
                 // NOTE: HasAmmoForWeapon, checks if the item is a weapon internally!
+                GrabbableObject weapon = itemSlots[i];
                 if (!HasAmmoForWeapon(weapon))
                 {
                     continue;
@@ -3859,17 +3903,19 @@ namespace LethalBots.AI
             {
                 return true;
             }
+            ItemsManager instanceIM = ItemsManager.Instance;
             GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
-            if (itemOnlySlot != null 
-                && HasAmmoForWeapon(itemOnlySlot) 
-                && IsItemRangedWeapon(itemOnlySlot))
+            if (HasAmmoForWeapon(itemOnlySlot) 
+                && instanceIM.IsItemRangedWeapon(itemOnlySlot))
             {
                 return true;
             }
-            foreach (var weapon in NpcController.Npc.ItemSlots)
+            GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+            for (int i = 0; i < itemSlots.Length; i++)
             {
+                GrabbableObject weapon = itemSlots[i];
                 if (HasAmmoForWeapon(weapon) 
-                    && IsItemRangedWeapon(weapon))
+                    && instanceIM.IsItemRangedWeapon(weapon))
                 {
                     return true;
                 }
@@ -3889,13 +3935,14 @@ namespace LethalBots.AI
                 return true;
             }
             GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
-            if (IsItemKey(itemOnlySlot, keyOnly))
+            if (ItemsManager.IsItemKey(itemOnlySlot, keyOnly))
             {
                 return true;
             }
-            foreach (var item in NpcController.Npc.ItemSlots)
+            GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+            for (int i = 0; i < itemSlots.Length; i++)
             {
-                if (IsItemKey(item, keyOnly))
+                if (ItemsManager.IsItemKey(itemSlots[i], keyOnly))
                 {
                     return true;
                 }
@@ -3907,17 +3954,14 @@ namespace LethalBots.AI
         /// Is the given item a ranged weapon ?
         /// </summary>
         /// <remarks>
-        /// I will note that it only works on items derived off of the ShotgunItem or PatcherTool class!</br>
+        /// I will note that it only works on items derived off of the ShotgunItem or PatcherTool class!<br/>
         /// Modders can once again override this as desired!
         /// </remarks>
         /// <returns>I mean come on</returns>
+        [Obsolete("This has been moved to ItemsManager. Use that one instead!")]
         public static bool IsItemRangedWeapon([NotNullWhen(true)] GrabbableObject? weapon)
         {
-            if (weapon == null)
-            {
-                return false;
-            }
-            return weapon is ShotgunItem || weapon is PatcherTool;
+            return ItemsManager.Instance.IsItemRangedWeapon(weapon);
         }
 
         /// <summary>
@@ -3928,21 +3972,10 @@ namespace LethalBots.AI
         /// </remarks>
         /// <param name="weapon">The item to check</param>
         /// <returns>I mean come on</returns>
+        [Obsolete("This has been moved to ItemsManager. Use that one instead!")]
         public static bool IsItemWeapon([NotNullWhen(true)] GrabbableObject? weapon)
         {
-            if (weapon == null)
-            {
-                return false;
-            }
-
-            // Ranged weapons count as weapons!
-            if (IsItemRangedWeapon(weapon))
-            {
-                return true;
-            }
-
-            // HACKHACK: weapon.itemProperties.isDefensiveWeapon is set to false on the shovel and shotgun!?
-            return weapon is Shovel || weapon is KnifeItem;
+            return ItemsManager.Instance.IsItemWeapon(weapon);
         }
 
         /// <summary>
@@ -3953,32 +3986,22 @@ namespace LethalBots.AI
         /// </remarks>
         /// <param name="item">The item to check</param>
         /// <returns>I mean come on</returns>
+        [Obsolete("This has been moved to ItemsManager. Use that one instead!")]
         public static bool IsItemScrap([NotNullWhen(true)] GrabbableObject? item)
         {
-            if (item == null)
-            {
-                return false;
-            }
-            return item.itemProperties.isScrap && item.scrapValue > 0;
+            return ItemsManager.IsItemScrap(item);
         }
 
         /// <summary>
         /// Is the given item a key or lockpicker ?
         /// </summary>
+        /// <param name="item"></param>
         /// <param name="keyOnly">Should we only consider "actual" keys</param>
         /// <returns>I mean come on</returns>
+        [Obsolete("This has been moved to ItemsManager. Use that one instead!")]
         public static bool IsItemKey([NotNullWhen(true)] GrabbableObject? item, bool keyOnly = false)
         {
-            if (item == null)
-            {
-                return false;
-            }
-
-            if (item is KeyItem)
-            {
-                return true;
-            }
-            return !keyOnly && item is LockPicker;
+            return ItemsManager.IsItemKey(item, keyOnly);
         }
 
         /// <summary>
@@ -3987,24 +4010,10 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="item">The item to check</param>
         /// <returns>true: the item has a charge or doesn't use batteries; otherwise false</returns>
+        [Obsolete("This has been moved to ItemsManager. Use that one instead!")]
         public static bool IsItemPowered([NotNullWhen(true)] GrabbableObject? item)
         {
-            if (item == null)
-            {
-                return false;
-            }
-            
-            if (!item.itemProperties.requiresBattery)
-            {
-                return true; // Battery is not required, so it has a "charge"
-            }
-
-            if (item.insertedBattery == null || item.insertedBattery.empty)
-            {
-                return false; // No battery or battery is empty, so it has no charge
-            }
-
-            return true; // Item requires a battery and has a non-empty battery, so it has charge
+            return ItemsManager.HasRequiredCharge(item);
         }
 
         /// <summary>
@@ -4013,63 +4022,12 @@ namespace LethalBots.AI
         /// <remarks>
         /// This also checks if the item is a weapon internally!
         /// </remarks>
-        /// <param name="weapon"></param>
+        /// <param name="weapon">The weapon we are checking</param>
+        /// <param name="spareOnly">Should we only consider the spare ammunation for this weapon?</param>
         /// <returns></returns>
         public bool HasAmmoForWeapon([NotNullWhen(true)] GrabbableObject? weapon, bool spareOnly = false)
         {
-            if (!IsItemWeapon(weapon))
-            {
-                return false;
-            }
-
-            // This weapon uses batteries!
-            if (!IsItemPowered(weapon))
-            {
-                return false;
-            }
-
-            // We can only check for shotguns.....for now
-            if (weapon is ShotgunItem shotgun)
-            {
-                // Ammo is in the gun!
-                if (!spareOnly && shotgun.shellsLoaded > 0)
-                {
-                    return true;
-                }
-
-                // Check if the lethalBot has ammo in its item only slot
-                GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
-                if (itemOnlySlot != null)
-                {
-                    GunAmmo? gunAmmo = itemOnlySlot as GunAmmo;
-                    if (gunAmmo != null && gunAmmo.ammoType == shotgun.gunCompatibleAmmoID)
-                    {
-                        return true;
-                    }
-                }
-
-                // Using foreach with manual index tracking
-                int index = 0;
-                foreach (var item in NpcController.Npc.ItemSlots)
-                {
-                    if (item != null)
-                    {
-                        GunAmmo? gunAmmo = item as GunAmmo;
-                        Plugin.LogDebug($"Ammo null in slot #{index}?: {gunAmmo == null}");
-                        if (gunAmmo != null)
-                        {
-                            Plugin.LogDebug($"Ammo in slot #{index} id: {gunAmmo.ammoType}");
-                        }
-                        if (gunAmmo != null && gunAmmo.ammoType == shotgun.gunCompatibleAmmoID)
-                        {
-                            return true;
-                        }
-                    }
-                    index++;
-                }
-                return false;
-            }
-            return true;
+            return ItemsManager.Instance.TryGetWeaponInfo(weapon, out WeaponInfo? weaponInfo) && weaponInfo.HasAmmo(NpcController.Npc, weapon, spareOnly);
         }
 
         /// <summary>
@@ -4102,15 +4060,15 @@ namespace LethalBots.AI
             }
 
             // Check if the lethalBot has the object in its inventory
-            int index = 0;
-            foreach(var item in NpcController.Npc.ItemSlots)
+            GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+            for (int index = 0; index < itemSlots.Length; index++)
             {
+                var item = itemSlots[index];
                 if (item == grabbableObject)
                 {
                     objectSlot = index;
                     return true;
                 }
-                index++;
             }
             return false;
         }
@@ -4124,7 +4082,7 @@ namespace LethalBots.AI
         /// <param name="typeOfObject">The type of the object in the inventory!</param>
         /// <param name="objectSlot">The slot of where the object was found at! Is set to <see cref="Const.INVALID_ITEM_SLOT"/> if item was not found!</param>
         /// <returns>true: the bot has the object in its inventory, false: the bot doesn't have the given object in its inventory</returns>
-        [Obsolete("Its not recommended to use this function as it has been superseded by HasGrabbableObjectInInventory(Func<GrabbableObject, bool>, out int). Use that instead!")]
+        [Obsolete("Its not recommended to use this function as it has been superseded by HasGrabbableObjectInInventory(Func<GrabbableObject, bool>, out int). Use that instead!", error: true)]
         public bool HasGrabbableObjectInInventory(Type typeOfObject, out int objectSlot)
         {
             // Check if the lethalBot is holding the object
@@ -4165,7 +4123,7 @@ namespace LethalBots.AI
         /// </remarks>
         /// <param name="objectPredicate">The function to inspect the object in the inventory!</param>
         /// <param name="objectSlot">The slot of where the object was found at! Is set to <see cref="Const.INVALID_ITEM_SLOT"/> if item was not found!</param>
-        /// <returns>true: the bot has the object in its inventory, false: the bot doesn't have the given object in its inventory</returns>
+        /// <returns><see langword="true"/>: the bot has the object in its inventory, <see langword="false"/>: the bot doesn't have the given object in its inventory</returns>
         public bool HasGrabbableObjectInInventory(Func<GrabbableObject, bool> objectPredicate, out int objectSlot)
         {
             // Check if the lethalBot is holding the object
@@ -4186,15 +4144,15 @@ namespace LethalBots.AI
             }
 
             // Check if the lethalBot has the object in its inventory
-            int index = 0;
-            foreach (var item in NpcController.Npc.ItemSlots)
+            GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+            for (int index = 0; index < itemSlots.Length; index++)
             {
+                var item = itemSlots[index];
                 if (item != null && objectPredicate(item))
                 {
                     objectSlot = index;
                     return true;
                 }
-                index++;
             }
             return false;
         }
@@ -4224,10 +4182,11 @@ namespace LethalBots.AI
                 objectSlot = Const.RESERVED_EQUIPMENT_SLOT;
             }
 
-            // Onto the regular item slots, using foreach with manual index tracking
-            int index = 0;
-            foreach (var canidate in NpcController.Npc.ItemSlots)
+            // Onto the regular item slots, using for since we need manual index tracking
+            GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+            for (int index = 0; index < itemSlots.Length; index++)
             {
+                var canidate = itemSlots[index];
                 if (canidate != null && filter(canidate))
                 {
                     if (bestItem == null || isBetter(bestItem, canidate))
@@ -4236,7 +4195,6 @@ namespace LethalBots.AI
                         objectSlot = index;
                     }
                 }
-                index++;
             }
             return bestItem != null;
         }
@@ -4319,9 +4277,10 @@ namespace LethalBots.AI
             {
                 return true;
             }
-            foreach (var item in NpcController.Npc.ItemSlots)
+            GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+            for (int i = 0; i < itemSlots.Length; i++)
             {
-                if (item != null)
+                if (itemSlots[i] != null)
                 {
                     return true;
                 }
@@ -4337,21 +4296,25 @@ namespace LethalBots.AI
         {
             GrabbableObject? heldItem = this.HeldItem;
             if (heldItem != null
-                && IsItemScrap(heldItem) 
+                && ItemsManager.IsItemScrap(heldItem) 
                 && !IsGrabbableObjectInLoadout(heldItem))
             {
                 return true;
             }
             GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
             if (itemOnlySlot != null 
-                && IsItemScrap(itemOnlySlot)
+                && heldItem != itemOnlySlot
+                && ItemsManager.IsItemScrap(itemOnlySlot)
                 && !IsGrabbableObjectInLoadout(itemOnlySlot))
             {
                 return true;
             }
-            foreach (var scrap in NpcController.Npc.ItemSlots)
+            GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+            for (int i = 0; i < itemSlots.Length; i++)
             {
-                if (IsItemScrap(scrap) 
+                var scrap = itemSlots[i];
+                if (scrap != heldItem 
+                    && ItemsManager.IsItemScrap(scrap) 
                     && !IsGrabbableObjectInLoadout(scrap))
                 {
                     return true;
@@ -4372,14 +4335,15 @@ namespace LethalBots.AI
                 return true;
             }
             GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
-            if (itemOnlySlot != null && IsGrabbableObjectSellable(itemOnlySlot, true, true))
+            if (itemOnlySlot != null && heldItem != itemOnlySlot && IsGrabbableObjectSellable(itemOnlySlot, true, true))
             {
                 return true;
             }
-            foreach (var item in NpcController.Npc.ItemSlots)
+            GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+            for (int i = 0; i < itemSlots.Length; i++)
             {
-                if (item != null
-                    && IsGrabbableObjectSellable(item, true, true))
+                var item = itemSlots[i];
+                if (item != heldItem && IsGrabbableObjectSellable(item, true, true))
                 {
                     return true;
                 }
@@ -4672,25 +4636,27 @@ namespace LethalBots.AI
         /// <returns><c>GrabbableObject</c> if lethalBot sees an item he can grab, else null.</returns>
         public GrabbableObject? LookingForObjectToGrab()
         {
+            Vector3 ourEyePos = this.eye.position;
+            Vector3 ourEyeForward = this.eye.forward;
             GrabbableObject? closestObject = null;
             float closestObjectDistSqr = Const.LETHAL_BOT_OBJECT_RANGE * Const.LETHAL_BOT_OBJECT_RANGE;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
+                // Get grabbable object infos
+                GrabbableObject? grabbableObject = LethalBotManager.grabbableObjectsInMap[i];
+                if (grabbableObject == null)
                 {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
                     continue;
                 }
 
                 // Object not outside when ai inside and vice versa
                 // NEEDTOVALIDATE: Should I use grabbableObject.isInFactory to check this?
-                Vector3 gameObjectPosition = gameObject.transform.position;
-                if (isOutside && gameObjectPosition.y < -100f)
+                Vector3 grabbableObjectPosition = grabbableObject.transform.position;
+                if (isOutside && grabbableObjectPosition.y < -100f)
                 {
                     continue;
                 }
-                else if (!isOutside && gameObjectPosition.y > -80f)
+                else if (!isOutside && grabbableObjectPosition.y > -80f)
                 {
                     continue;
                 }
@@ -4698,21 +4664,8 @@ namespace LethalBots.AI
                 // Object in range ?
                 // Check if object is further away from the closest object
                 // FIXME: This should be PATH distance not elucian!
-                float sqrDistanceEyeGameObject = (gameObjectPosition - this.eye.position).sqrMagnitude;
-                if (sqrDistanceEyeGameObject > closestObjectDistSqr)
-                {
-                    continue;
-                }
-
-                // Get grabbable object infos
-                GrabbableObject? grabbableObject = gameObject.GetComponent<GrabbableObject>();
-                if (grabbableObject == null)
-                {
-                    continue;
-                }
-
-                // Black listed ? 
-                if (IsGrabbableObjectBlackListed(grabbableObject))
+                float sqrDistanceEyeGrabbableObject = (grabbableObjectPosition - ourEyePos).sqrMagnitude;
+                if (sqrDistanceEyeGrabbableObject > closestObjectDistSqr)
                 {
                     continue;
                 }
@@ -4725,10 +4678,17 @@ namespace LethalBots.AI
                     continue;
                 }
 
+                // Black listed ? 
+                if (IsGrabbableObjectBlackListed(grabbableObject))
+                {
+                    continue;
+                }
+
                 // Object in cruiser vehicle
                 // TODO: Let the bot move items between the ship and the cruiser
-                if (grabbableObject.transform.parent != null
-                    && grabbableObject.transform.parent.name.StartsWith("CompanyCruiser"))
+                Transform? companyCruiser = grabbableObject.transform.parent;
+                if (companyCruiser != null
+                    && companyCruiser.name.StartsWith("CompanyCruiser"))
                 {
                     continue;
                 }
@@ -4758,15 +4718,15 @@ namespace LethalBots.AI
                 }
 
                 // Object close to awareness distance ?
-                if (sqrDistanceEyeGameObject < Const.LETHAL_BOT_OBJECT_AWARNESS * Const.LETHAL_BOT_OBJECT_AWARNESS)
+                if (sqrDistanceEyeGrabbableObject < Const.LETHAL_BOT_OBJECT_AWARNESS * Const.LETHAL_BOT_OBJECT_AWARNESS)
                 {
                     Plugin.LogDebug($"awareness {grabbableObject.name}");
                 }
                 // Object visible ?
-                else if (!Physics.Linecast(eye.position, grabbableObject.transform.position + Vector3.up * 0.05f, StartOfRound.Instance.collidersAndRoomMaskAndDefault)) // Was + Vector3.up * grabbableObject.itemProperties.verticalOffset, testing a small value to see if it has any kind of effect!
+                else if (!Physics.Linecast(ourEyePos, grabbableObjectPosition + Vector3.up * 0.05f, StartOfRound.Instance.collidersAndRoomMaskAndDefault)) // Was + Vector3.up * grabbableObject.itemProperties.verticalOffset, testing a small value to see if it has any kind of effect!
                 {
-                    Vector3 to = gameObjectPosition - eye.position;
-                    if (Vector3.Angle(eye.forward, to) < Const.LETHAL_BOT_FOV)
+                    Vector3 to = grabbableObjectPosition - ourEyePos;
+                    if (Vector3.Angle(ourEyeForward, to) < Const.LETHAL_BOT_FOV)
                     {
                         // Object in FOV
                         Plugin.LogDebug($"LOS {grabbableObject.name}");
@@ -4783,7 +4743,7 @@ namespace LethalBots.AI
                 }
 
                 closestObject = grabbableObject;
-                closestObjectDistSqr = sqrDistanceEyeGameObject;
+                closestObjectDistSqr = sqrDistanceEyeGrabbableObject;
             }
 
             return closestObject;
@@ -4808,27 +4768,20 @@ namespace LethalBots.AI
             int closestObjectValue = int.MaxValue;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
+                // Get grabbable object infos
+                GrabbableObject? grabbableObject = LethalBotManager.grabbableObjectsInMap[i];
+                if (grabbableObject == null)
                 {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
                     continue;
                 }
 
                 // Object not outside when ai inside and vice versa
-                Vector3 gameObjectPosition = gameObject.transform.position;
-                if (isOutside && gameObjectPosition.y < -100f)
+                Vector3 grabbableObjectPosition = grabbableObject.transform.position;
+                if (isOutside && grabbableObjectPosition.y < -100f)
                 {
                     continue;
                 }
-                else if (!isOutside && gameObjectPosition.y > -80f)
-                {
-                    continue;
-                }
-
-                // Get grabbable object infos
-                GrabbableObject? grabbableObject = gameObject.GetComponent<GrabbableObject>();
-                if (grabbableObject == null)
+                else if (!isOutside && grabbableObjectPosition.y > -80f)
                 {
                     continue;
                 }
@@ -4858,7 +4811,7 @@ namespace LethalBots.AI
 
                 // Object is further away from the closest object
                 // FIXME: This should be PATH distance not elucian!
-                float gameObjectDistSqr = (gameObjectPosition - ourPos).sqrMagnitude;
+                float gameObjectDistSqr = (grabbableObjectPosition - ourPos).sqrMagnitude;
                 if (gameObjectDistSqr > closestObjectDistSqr)
                 {
                     continue;
@@ -4911,20 +4864,15 @@ namespace LethalBots.AI
                 return null;
             }
 
+            Vector3 ourEyePos = this.eye.position;
+            Vector3 ourEyeForward = this.eye.forward;
             PlayerControllerB? closestDeadPlayer = null;
-            float closestDeadPlayerDistSqr = float.MaxValue;
+            float closestDeadPlayerDistSqr = Const.LETHAL_BOT_RESCUE_RANGE * Const.LETHAL_BOT_RESCUE_RANGE;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
                 // Get grabbable object infos
                 // NOTE: This also functions as a null check!
-                GrabbableObject? grabbableObject = gameObject.GetComponent<GrabbableObject>();
+                GrabbableObject? grabbableObject = LethalBotManager.grabbableObjectsInMap[i];
                 if (grabbableObject is not RagdollGrabbableObject deadBody)
                 {
                     //Plugin.LogInfo("Body is null!");
@@ -4933,7 +4881,7 @@ namespace LethalBots.AI
 
                 // Object not outside when ai inside and vice versa
                 bool isHeld = grabbableObject.isHeld || grabbableObject.isPocketed;
-                Vector3 deadBodyPosition = gameObject.transform.position;
+                Vector3 deadBodyPosition = grabbableObject.transform.position;
                 if (!isHeld)
                 {
                     if (isOutside && deadBodyPosition.y < -100f)
@@ -4951,10 +4899,19 @@ namespace LethalBots.AI
                 // Object in range ?
                 // Check if object is further away from the closest object
                 // FIXME: This should be PATH distance not elucian!
-                float sqrDistanceEyeDeadPlayer = (deadBodyPosition - this.eye.position).sqrMagnitude;
-                if ((!isHeld && sqrDistanceEyeDeadPlayer > Const.LETHAL_BOT_RESCUE_RANGE * Const.LETHAL_BOT_RESCUE_RANGE)
-                    || sqrDistanceEyeDeadPlayer > closestDeadPlayerDistSqr)
+                float sqrDistanceEyeDeadPlayer = (deadBodyPosition - ourEyePos).sqrMagnitude;
+                if (sqrDistanceEyeDeadPlayer > closestDeadPlayerDistSqr)
                 {
+                    continue;
+                }
+
+                // Object on ship
+                if (shipOnly
+                    && !isHeld
+                    && !grabbableObject.isInElevator
+                    && !grabbableObject.isInShipRoom)
+                {
+                    //Plugin.LogInfo("Body is not on the ship");
                     continue;
                 }
 
@@ -4969,16 +4926,6 @@ namespace LethalBots.AI
                 if (IsGrabbableObjectBlackListed(grabbableObject, EnumGrabbableObjectCall.Reviving))
                 {
                     //Plugin.LogInfo("Body is blacklisted?");
-                    continue;
-                }
-
-                // Object on ship
-                if (shipOnly 
-                    && !isHeld 
-                    && !grabbableObject.isInElevator 
-                    && !grabbableObject.isInShipRoom)
-                {
-                    //Plugin.LogInfo("Body is not on the ship");
                     continue;
                 }
 
@@ -5018,10 +4965,10 @@ namespace LethalBots.AI
                         Plugin.LogDebug($"awareness {grabbableObject.name}");
                     }
                     // Object visible ?
-                    else if (!Physics.Linecast(eye.position, grabbableObject.transform.position + Vector3.up * 0.05f, StartOfRound.Instance.collidersAndRoomMaskAndDefault)) // Was + Vector3.up * grabbableObject.itemProperties.verticalOffset, testing a small value to see if it has any kind of effect!
+                    else if (!Physics.Linecast(ourEyePos, deadBodyPosition + Vector3.up * 0.05f, StartOfRound.Instance.collidersAndRoomMaskAndDefault)) // Was + Vector3.up * grabbableObject.itemProperties.verticalOffset, testing a small value to see if it has any kind of effect!
                     {
-                        Vector3 to = deadBodyPosition - eye.position;
-                        if (Vector3.Angle(eye.forward, to) < Const.LETHAL_BOT_FOV)
+                        Vector3 to = deadBodyPosition - ourEyePos;
+                        if (Vector3.Angle(ourEyeForward, to) < Const.LETHAL_BOT_FOV)
                         {
                             // Object in FOV
                             Plugin.LogDebug($"LOS {grabbableObject.name}");
@@ -5076,14 +5023,17 @@ namespace LethalBots.AI
             }
 
             StartOfRound instanceSOR = StartOfRound.Instance;
-            Transform thisLethalBotCamera = this.NpcController.Npc.gameplayCamera.transform;
+            Vector3 ourPos = this.transform.position;
+            Vector3 ourEyePos = lethalBotController.gameplayCamera.transform.position;
+            Vector3 ourEyeForward = lethalBotController.gameplayCamera.transform.forward;
             float currentClosestDistance = float.MaxValue;
             PlayerControllerB? closestPlayer = null;
             for (int i = 0; i < instanceSOR.allPlayerScripts.Length; i++)
             {
                 // Check if they are a valid heal target
                 PlayerControllerB player = instanceSOR.allPlayerScripts[i];
-                if (!HealPlayerState.CanHealPlayer(this, player, requiredInfectionLevel))
+                if (player == lethalBotController 
+                    || !HealPlayerState.CanHealPlayer(this, player, requiredInfectionLevel))
                 {
                     continue;
                 }
@@ -5098,20 +5048,20 @@ namespace LethalBots.AI
 
                 // Target close enough ?
                 Vector3 cameraPlayerPosition = player.gameplayCamera.transform.position;
-                if ((cameraPlayerPosition - this.transform.position).sqrMagnitude > range * range)
+                if ((cameraPlayerPosition - ourPos).sqrMagnitude > range * range)
                 {
                     continue;
                 }
 
                 // Nothing in between to break line of sight ?
-                if (!ignoreLOS && Physics.Linecast(thisLethalBotCamera.position, cameraPlayerPosition, instanceSOR.collidersAndRoomMaskAndDefault))
+                if (!ignoreLOS && Physics.Linecast(ourEyePos, cameraPlayerPosition, instanceSOR.collidersAndRoomMaskAndDefault))
                 {
                     continue;
                 }
 
-                Vector3 vectorLethalBotToPlayer = cameraPlayerPosition - thisLethalBotCamera.position;
-                float distanceLethalBotToPlayer = Vector3.Distance(thisLethalBotCamera.position, cameraPlayerPosition);
-                if ((ignoreLOS || Vector3.Angle(thisLethalBotCamera.forward, vectorLethalBotToPlayer) < width || (proximityAwareness != -1 && distanceLethalBotToPlayer < proximityAwareness))
+                Vector3 vectorLethalBotToPlayer = cameraPlayerPosition - ourEyePos;
+                float distanceLethalBotToPlayer = vectorLethalBotToPlayer.magnitude;
+                if ((ignoreLOS || Vector3.Angle(ourEyeForward, vectorLethalBotToPlayer) < width || (proximityAwareness != -1 && distanceLethalBotToPlayer < proximityAwareness))
                     && distanceLethalBotToPlayer < currentClosestDistance)
                 {
                     // Target in FOV or proximity awareness range
@@ -5133,18 +5083,22 @@ namespace LethalBots.AI
         /// <param name="grabbableObject">Item to check</param>
         /// <param name="enumGrabbable">Type of blacklist checks that should be done or skipped</param>
         /// <returns></returns>
-        public bool IsGrabbableObjectGrabbable(GrabbableObject grabbableObject, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default)
+        public bool IsGrabbableObjectGrabbable(GrabbableObject? grabbableObject, EnumGrabbableObjectCall enumGrabbable = EnumGrabbableObjectCall.Default)
         {
             if (enumGrabbable == EnumGrabbableObjectCall.Selling)
             {
-                Plugin.LogWarning("IsGrabbableObjectGrabbable was called with enumGrabbable set to Selling. You should use IsGrabbableObjectSellable instead!");
                 return IsGrabbableObjectSellable(grabbableObject);
             }
 
             if (grabbableObject == null
-                || !grabbableObject.gameObject.activeSelf 
-                || grabbableObject.NetworkObject == null
-                || !grabbableObject.NetworkObject.IsSpawned)
+                || !grabbableObject.gameObject.activeSelf)
+            {
+                return false;
+            }
+
+            NetworkObject? networkObject = grabbableObject.NetworkObject;
+            if (networkObject == null
+                || !networkObject.IsSpawned)
             {
                 return false;
             }
@@ -5177,11 +5131,10 @@ namespace LethalBots.AI
 
             // Don't steal from loot bugs, unless the object was already stolen
             // FIXME: If the loot bugs are dead, the bots will still ignore their loot!
-            foreach (HoarderBugItem item in HoarderBugAI.HoarderBugItems)
+            if (grabbableObject.isInFactory)
             {
-                if (item != null
-                    && grabbableObject.isInFactory
-                    && item.itemGrabbableObject == grabbableObject
+                if (LethalBotManager.DictHoardingBugItems.TryGetValue(grabbableObject, out HoarderBugItem? item)
+                    && item.itemGrabbableObject == grabbableObject // Just to be safe, should always be true if the dictionary is managed correctly
                     && item.status != HoarderBugItemStatus.Any
                     && item.status != HoarderBugItemStatus.Stolen)
                 {
@@ -5190,19 +5143,20 @@ namespace LethalBots.AI
                 }
             }
             
-            RagdollGrabbableObject? ragdollGrabbableObject = grabbableObject as RagdollGrabbableObject;
-            if (ragdollGrabbableObject != null)
-            {
-                if (ragdollGrabbableObject?.ragdoll?.attachedTo != null)
-                {
-                    SpikeRoofTrap? attachedToTrap = ragdollGrabbableObject.ragdoll.attachedTo?.parent?.gameObject?.GetComponent<SpikeRoofTrap>();
-                    if (attachedToTrap != null)
-                    {
-                        // Don't try to grab bodies stuck in traps
-                        return false;
-                    }
-                }
-            }
+            // Disabled as this never worked and is just a waste of CPU time.
+            //RagdollGrabbableObject? ragdollGrabbableObject = grabbableObject as RagdollGrabbableObject;
+            //if (ragdollGrabbableObject != null)
+            //{
+            //    if (ragdollGrabbableObject?.ragdoll?.attachedTo != null)
+            //    {
+            //        SpikeRoofTrap? attachedToTrap = ragdollGrabbableObject.ragdoll.attachedTo?.parent?.gameObject?.GetComponent<SpikeRoofTrap>();
+            //        if (attachedToTrap != null)
+            //        {
+            //            // Don't try to grab bodies stuck in traps
+            //            return false;
+            //        }
+            //    }
+            //}
 
             // Item just dropped, should wait a bit before grab it again
             CaveDwellerPhysicsProp? caveDwellerGrabbableObject = grabbableObject as CaveDwellerPhysicsProp;
@@ -5215,10 +5169,14 @@ namespace LethalBots.AI
                 {
                     return false;
                 }
+
+                // Remove redundant dictionary entry to save memory.
+                DictJustDroppedItems.Remove(grabbableObject);
             }
 
             // Are we holding a two handed item and is the item we are grabbing two handed
-            GrabbableObject? heldItem = this.HeldItem;
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            GrabbableObject? heldItem = lethalBotController.currentlyHeldObjectServer;
             if (heldItem != null && enumGrabbable != EnumGrabbableObjectCall.Reviving && heldItem.itemProperties.twoHanded)
             {
                 // If the item requires one hand then we can set down our large item and pick up the small one!
@@ -5231,34 +5189,33 @@ namespace LethalBots.AI
             }
 
             // Is item too close to entrance (with config option enabled)
+            Vector3 itemPos = grabbableObject.transform.position;
             bool shouldReturnToShip = this.State?.ShouldReturnToShip() ?? false;
-            bool botIsTransferringItems = LethalBotManager.Instance.LootTransferPlayers.Contains(NpcController.Npc);
+            bool botIsTransferringItems = LethalBotManager.Instance.LootTransferPlayers.Contains(lethalBotController);
             if (((!Plugin.Config.GrabItemsNearEntrances.Value 
                     && !LethalBotManager.Instance.AreAllHumanPlayersDead())
                     || (LethalBotManager.Instance.LootTransferPlayers.Count > 0 && !shouldReturnToShip))
                 && !botIsTransferringItems 
                 && enumGrabbable != EnumGrabbableObjectCall.Reviving)
             {
-                foreach (EntranceTeleport entrance in EntrancesTeleportArray)
+                for (int i = 0; i < EntrancesTeleportArray.Length; i++)
                 {
+                    EntranceTeleport entrance = EntrancesTeleportArray[i];
                     if (entrance == null) continue;
 
                     if (entrance.isEntranceToBuilding 
-                        && (grabbableObject.transform.position - entrance.entrancePoint.position).sqrMagnitude < Const.DISTANCE_ITEMS_TO_ENTRANCE * Const.DISTANCE_ITEMS_TO_ENTRANCE)
+                        && (itemPos - entrance.entrancePoint.position).sqrMagnitude < Const.DISTANCE_ITEMS_TO_ENTRANCE * Const.DISTANCE_ITEMS_TO_ENTRANCE)
                     {
                         return false;
                     }
                 }
             }
 
-            // Trim dictionnary if too large
-            TrimDictJustDroppedItems();
-
             // Is the item reachable with the agent pathfind ? (only owner knows and calculate) real position of ai lethalBot)
-            Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(grabbableObject.transform.position, default, NpcController.Npc.grabDistance, NavMesh.AllAreas);
+            Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(itemPos, default, lethalBotController.grabDistance, NavMesh.AllAreas);
             if (IsOwner
                 && !skipPathCheck
-                && !this.IsValidPathToTarget(objectPos, false, maxRangeToEnd: NpcController.Npc.grabDistance))
+                && !this.IsValidPathToTarget(objectPos, false, maxRangeToEnd: lethalBotController.grabDistance))
             {
                 //Plugin.LogDebug($"object {grabbableObject.name} pathfind is not reachable");
                 return false;
@@ -5271,13 +5228,20 @@ namespace LethalBots.AI
         /// Check all conditions for deciding if an item is sellable or not.
         /// </summary>
         /// <param name="grabbableObject">Item to check</param>
+        /// <param name="ignoreHeldFlag"></param>
+        /// <param name="skipPathCheck"></param>
         /// <returns></returns>
-        public bool IsGrabbableObjectSellable(GrabbableObject grabbableObject, bool ignoreHeldFlag = false, bool skipPathCheck = false)
+        public bool IsGrabbableObjectSellable(GrabbableObject? grabbableObject, bool ignoreHeldFlag = false, bool skipPathCheck = false)
         {
             if (grabbableObject == null
-                || !grabbableObject.gameObject.activeSelf 
-                || grabbableObject.NetworkObject == null
-                || !grabbableObject.NetworkObject.IsSpawned)
+                || !grabbableObject.gameObject.activeSelf)
+            {
+                return false;
+            }
+
+            NetworkObject? networkObject = grabbableObject.NetworkObject;
+            if (networkObject == null
+                || !networkObject.IsSpawned)
             {
                 return false;
             }
@@ -5285,7 +5249,7 @@ namespace LethalBots.AI
             if ((!ignoreHeldFlag && (grabbableObject.isHeld || grabbableObject.isPocketed))
                 || !grabbableObject.grabbable
                 || grabbableObject.deactivated 
-                || !IsItemScrap(grabbableObject))
+                || !ItemsManager.IsItemScrap(grabbableObject))
             {
                 return false;
             }
@@ -5307,8 +5271,7 @@ namespace LethalBots.AI
             // Bots will only sell bodies if we don't have enough items to reach the profit quota
             RagdollGrabbableObject? ragdollGrabbableObject = grabbableObject as RagdollGrabbableObject;
             if (ragdollGrabbableObject != null 
-                && grabbableObject.tag == "PhysicsProp"
-                && grabbableObject.GetComponentInParent<DeadBodyInfo>() != null)
+                && ragdollGrabbableObject.ragdoll != null)
             {
                 // Welp, are we desperate for cash?
                 int valueOfScrapInShip = LethalBotManager.GetValueOfAllScrapOnShip(this);
@@ -5324,16 +5287,6 @@ namespace LethalBots.AI
                 return false;
             }
 
-            // Ignore drop cooldowns when selling!
-            // Item just dropped, should wait a bit before grab it again
-            /*if (DictJustDroppedItems.TryGetValue(grabbableObject, out float justDroppedItemTime))
-            {
-                if (Time.realtimeSinceStartup - justDroppedItemTime < Const.WAIT_TIME_FOR_GRAB_DROPPED_OBJECTS)
-                {
-                    return false;
-                }
-            }*/
-
             // Are we holding a two handed item and is the item we are grabbing two handed
             if (!ignoreHeldFlag)
             {
@@ -5347,9 +5300,6 @@ namespace LethalBots.AI
                     }
                 }
             }
-
-            // Trim dictionnary if too large
-            TrimDictJustDroppedItems();
 
             // Is the item reachable with the agent pathfind ? (only owner knows and calculate) real position of ai lethalBot)
             Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(grabbableObject.transform.position, default, NpcController.Npc.grabDistance, NavMesh.AllAreas);
@@ -5367,7 +5317,7 @@ namespace LethalBots.AI
         /// <summary>
         /// Trim dictionnary if too large, trim only the dropped item since a long time
         /// </summary>
-        private static void TrimDictJustDroppedItems()
+        internal static void TrimDictJustDroppedItems()
         {
             if (DictJustDroppedItems != null && DictJustDroppedItems.Count > 20)
             {
@@ -5385,8 +5335,6 @@ namespace LethalBots.AI
 
         public void SetLethalBotInElevator()
         {
-            StartOfRound instanceSOR = StartOfRound.Instance;
-
             if (this.NpcController == null)
             {
                 return;
@@ -5396,6 +5344,7 @@ namespace LethalBots.AI
             if (base.IsOwner && lethalBotController.isPlayerControlled)
             {
                 // Do the same ship checks as the base game.
+                StartOfRound instanceSOR = StartOfRound.Instance;
                 Vector3 playerPos = lethalBotController.transform.position;
                 Bounds shipBounds = instanceSOR.shipBounds.bounds;
                 Bounds shipInnerRoomBounds = instanceSOR.shipInnerRoomBounds.bounds;
@@ -5455,6 +5404,27 @@ namespace LethalBots.AI
                     }
                 }
 
+                // Physics regions
+                int priority = 0;
+                Transform? transform = null;
+                NetworkObject networkObject = null!;
+                List<PlayerPhysicsRegion> currentLethalBotPhysicsRegions = NpcController.CurrentLethalBotPhysicsRegions;
+                for (int i = 0; i < currentLethalBotPhysicsRegions.Count; i++)
+                {
+                    PlayerPhysicsRegion playerPhysicsRegion = currentLethalBotPhysicsRegions[i];
+                    if (playerPhysicsRegion.priority > priority)
+                    {
+                        priority = playerPhysicsRegion.priority;
+                        transform = playerPhysicsRegion.physicsTransform;
+                        networkObject = playerPhysicsRegion.parentNetworkObject;
+                    }
+                }
+                if (lethalBotController.isInElevator && priority <= 0)
+                {
+                    transform = null;
+                }
+                lethalBotController.physicsParent = transform;
+
                 if (lethalBotController.overridePhysicsParent != null)
                 {
                     if (lethalBotController.overridePhysicsParent != lethalBotController.lastSyncedPhysicsParent)
@@ -5472,7 +5442,7 @@ namespace LethalBots.AI
                         lethalBotController.parentedToElevatorLastFrame = false;
                         lethalBotController.lastSyncedPhysicsParent = lethalBotController.physicsParent;
                         this.ReParentLethalBot(lethalBotController.physicsParent);
-                        lethalBotController.UpdatePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, lethalBotController.physicsParent.GetComponent<NetworkObject>(), isOverride: false, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
+                        lethalBotController.UpdatePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, networkObject.GetComponent<NetworkObject>(), isOverride: false, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
                     }
                 }
                 else
@@ -5524,9 +5494,8 @@ namespace LethalBots.AI
             if (!Plugin.Config.GrabDeadBodies.Value
                 && enumGrabbable != EnumGrabbableObjectCall.Selling
                 && enumGrabbable != EnumGrabbableObjectCall.Reviving
-                && grabbableObjectToEvaluate.name.Contains("RagdollGrabbableObject")
-                && grabbableObjectToEvaluate.tag == "PhysicsProp"
-                && grabbableObjectToEvaluate.GetComponentInParent<DeadBodyInfo>() != null)
+                && grabbableObjectToEvaluate is RagdollGrabbableObject deadBody
+                && deadBody.ragdoll != null)
             {
                 return true;
             }
@@ -5584,7 +5553,7 @@ namespace LethalBots.AI
             // Giant Kiwi/Sapsucker eggs
             if (enumGrabbable != EnumGrabbableObjectCall.Selling && grabbableObjectToEvaluate is KiwiBabyItem egg)
             {
-                GiantKiwiAI giantKiwiAI = egg.mamaAI;
+                GiantKiwiAI? giantKiwiAI = egg.mamaAI;
                 if (giantKiwiAI == null || giantKiwiAI.isEnemyDead)
                 {
                     return false; // Parent is dead, allow pickup
@@ -5618,6 +5587,12 @@ namespace LethalBots.AI
                 return true;
             }
 
+            // Don't pickup radar boosters unless we are returning to the ship
+            if (grabbableObjectToEvaluate is RadarBoosterItem && !shouldReturnToShip)
+            {
+                return true;
+            }
+
             // Lockpickers in use!
             if (grabbableObjectToEvaluate is LockPicker lockPicker && lockPicker.isPickingLock)
             {
@@ -5633,6 +5608,7 @@ namespace LethalBots.AI
             return false;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool IsGrabbableObjectInContainerMod(GrabbableObject grabbableObject)
         {
             return CustomItemBehaviourLibrary.AbstractItems.ContainerBehaviour.CheckIfItemInContainer(grabbableObject);
@@ -5671,7 +5647,8 @@ namespace LethalBots.AI
                 dictColliderToBridge.Clear();
             }
 
-            BridgeTrigger[] bridgeTriggers = Object.FindObjectsOfType<BridgeTrigger>(includeInactive: false);
+            // Find and cache the colliders associated with bridges!
+            BridgeTrigger[] bridgeTriggers = Object.FindObjectsByType<BridgeTrigger>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach (var bridge in bridgeTriggers)
             {
                 // It was the animator that held the bridge colliders, not the physics parts container
@@ -5871,6 +5848,10 @@ namespace LethalBots.AI
         /// <param name="pos">Position destination</param>
         /// <param name="setOutside">Is the teleport destination outside of the facility</param>
         /// <param name="targetEntrance">Is the lethalBot actually using entrance to teleport ?</param>
+        /// <param name="withRotation"></param>
+        /// <param name="rot"></param>
+        /// <param name="allowInteractTrigger"></param>
+        /// <param name="skipNavMeshCheck"></param>
         public void SyncTeleportLethalBot(Vector3 pos, bool? setOutside = null, EntranceTeleport? targetEntrance = null, bool withRotation = false, float rot = 0f, bool allowInteractTrigger = false, bool skipNavMeshCheck = false)
         {
             if (!IsOwner)
@@ -5922,9 +5903,7 @@ namespace LethalBots.AI
         /// <summary>
         /// Server side, call clients to sync teleport lethalBot
         /// </summary>
-        /// <param name="pos">Position destination</param>
-        /// <param name="setOutside">Is the teleport destination outside of the facility</param>
-        /// <param name="targetEntrance">Is the lethalBot actually using entrance to teleport ?</param>
+        /// <param name="teleportData"></param>
         [ServerRpc]
         private void TeleportLethalBotServerRpc(TeleportLethalBotNetworkSerializable teleportData)
         {
@@ -5933,9 +5912,7 @@ namespace LethalBots.AI
         /// <summary>
         /// Client side, teleport lethalBot on client, only for not the owner
         /// </summary>
-        /// <param name="pos">Position destination</param>
-        /// <param name="setOutside">Is the teleport destination outside of the facility</param>
-        /// <param name="targetEntrance">Is the lethalBot actually using entrance to teleport ?</param>
+        /// <param name="teleportLethalBotNetworkSerializable"></param>
         [ClientRpc]
         private void TeleportLethalBotClientRpc(TeleportLethalBotNetworkSerializable teleportLethalBotNetworkSerializable)
         {
@@ -5982,6 +5959,10 @@ namespace LethalBots.AI
         /// <param name="pos">Position destination</param>
         /// <param name="setOutside">Is the teleport destination outside of the facility</param>
         /// <param name="targetEntrance">Is the lethalBot actually using entrance to teleport ?</param>
+        /// <param name="withRotation"></param>
+        /// <param name="rot"></param>
+        /// <param name="allowInteractTrigger"></param>
+        /// <param name="skipNavMeshCheck"></param>
         public void TeleportLethalBot(Vector3 pos, bool? setOutside = null, EntranceTeleport? targetEntrance = null, bool withRotation = false, float rot = 0f, bool allowInteractTrigger = false, bool skipNavMeshCheck = false)
         {
             // teleport body
@@ -6061,17 +6042,39 @@ namespace LethalBots.AI
                     }
                 }
             }
+
+            if (!lethalBotController.isUnderwater && !lethalBotController.isSinking)
+            {
+                return;
+            }
+            Plugin.LogInfo($"Bot {lethalBotController.playerUsername} is sinking; disable all quicksand locally");
+            for (int i = 0; i < QuicksandArray.Length; i++)
+            {
+                QuicksandTrigger quicksand = QuicksandArray[i];
+                QuicksandTriggerPatch.QuicksandTriggerMonitor quicksandTriggerMonitor = QuicksandTriggerPatch.GetOrCreateMonitor(quicksand);
+                if (quicksandTriggerMonitor.IsSinkingLethalBot(this))
+                {
+                    quicksand.OnExit(lethalBotController.gameObject.GetComponent<Collider>());
+                    break;
+                }
+            }
         }
 
         /// <summary>
         /// Teleport the brain and body of lethalBot
         /// </summary>
-        /// <param name="pos"></param>
-        private void TeleportAgentAIAndBody(Vector3 pos, bool skipNavMeshCheck = false)
+        /// <param name="pos">The position to teleport the bot to</param>
+        /// <param name="skipNavMeshCheck">Should the navmesh check be skipped</param>
+        /// <param name="onlyAgent">Should on the <see cref="NavMeshAgent"/> and <see cref="LethalBotAI"/> be teleported</param>
+        private void TeleportAgentAIAndBody(Vector3 pos, bool skipNavMeshCheck = false, bool onlyAgent = false)
         {
             Vector3 navMeshPosition = skipNavMeshCheck ? pos : RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f);
             serverPosition = navMeshPosition;
-            NpcController.Npc.transform.position = navMeshPosition;
+
+            if (!onlyAgent)
+            {
+                NpcController.Npc.transform.position = navMeshPosition;
+            }
 
             this.transform.position = navMeshPosition;
             agent?.Warp(navMeshPosition);
@@ -6137,8 +6140,6 @@ namespace LethalBots.AI
                     NpcController.Npc.physicsParent = vehicleController.transform;
                     this.ReParentLethalBot(vehicleController.transform);
                 }
-
-                this.StopSinkingState();
             }
             else
             {
@@ -6170,8 +6171,9 @@ namespace LethalBots.AI
             }
 
             List<GameObject> nodeList = this.allAINodes.ToList();
-            foreach (var node in shipNodes)
+            for (int i = 0; i < shipNodes.Length; i++)
             {
+                var node = shipNodes[i];
                 if (node != null)
                 { 
                     nodeList.Add(node.gameObject); 
@@ -6272,8 +6274,6 @@ namespace LethalBots.AI
             PlayerControllerB targetPlayer = StartOfRound.Instance.allPlayerScripts[playerid];
             SetMovingTowardsTargetPlayer(targetPlayer);
 
-            SetDestinationToPositionLethalBotAI(this.targetPlayer.transform.position);
-
             if (NpcController.IsControllerInCruiser)
             {
                 this.State = new PlayerInCruiserState(this, this.GetVehicleCruiserTargetPlayerIsIn());
@@ -6367,8 +6367,10 @@ namespace LethalBots.AI
             this.isInsidePlayerShip = isInShip;
 
             // NEEDTOVAIDATE: Does this create issues?
-            foreach(var item in lethalBotController.ItemSlots)
+            GrabbableObject[] itemSlots = lethalBotController.ItemSlots;
+            for (int i = 0; i < itemSlots.Length; i++)
             {
+                var item = itemSlots[i];
                 if (item != null && item.isHeld)
                 {
                     if (item.isInShipRoom != isInShip)
@@ -6436,10 +6438,8 @@ namespace LethalBots.AI
         /// <summary>
         /// Sync the lethalBot body rotation and rotation of head (where he looks) between server and clients.
         /// </summary>
-        /// <param name="direction">Direction to turn body towards to</param>
-        /// <param name="intEnumObjectsLookingAt">State to know where the lethalBot should look</param>
-        /// <param name="playerEyeToLookAt">Position of the player eyes to look at</param>
-        /// <param name="positionToLookAt">Position to look at</param>
+        /// <param name="stateIndicator"></param>
+        /// <param name="lookAtTarget"></param>
         public void SyncUpdateLethalBotRotationAndLook(string stateIndicator, LookAtTarget lookAtTarget)
         {
             if (IsServer)
@@ -6455,10 +6455,8 @@ namespace LethalBots.AI
         /// <summary>
         /// Server side, call clients to update lethalBot body rotation and rotation of head (where he looks)
         /// </summary>
-        /// <param name="direction">Direction to turn body towards to</param>
-        /// <param name="intEnumObjectsLookingAt">State to know where the lethalBot should look</param>
-        /// <param name="playerEyeToLookAt">Position of the player eyes to look at</param>
-        /// <param name="positionToLookAt">Position to look at</param>
+        /// <param name="stateIndicator"></param>
+        /// <param name="lookAtTarget"></param>
         [ServerRpc(RequireOwnership = false)]
         private void UpdatelLethalBotRotationAndLookServerRpc(string stateIndicator, LookAtTarget lookAtTarget)
         {
@@ -6468,10 +6466,8 @@ namespace LethalBots.AI
         /// <summary>
         /// Client side, update the lethalBot body rotation and rotation of head (where he looks).
         /// </summary>
-        /// <param name="direction">Direction to turn body towards to</param>
-        /// <param name="intEnumObjectsLookingAt">State to know where the lethalBot should look</param>
-        /// <param name="playerEyeToLookAt">Position of the player eyes to look at</param>
-        /// <param name="positionToLookAt">Position to look at</param>
+        /// <param name="stateIndicator"></param>
+        /// <param name="lookAtTarget"></param>
         [ClientRpc]
         private void UpdateLethalBotRotationAndLookClientRpc(string stateIndicator, LookAtTarget lookAtTarget)
         {
@@ -6480,7 +6476,8 @@ namespace LethalBots.AI
                 return;
             }
 
-            NpcController.Npc.playersManager.gameStats.allPlayerStats[NpcController.Npc.playerClientId].turnAmount++;
+            PlayerControllerB lethalBotController = this.NpcController.Npc;
+            lethalBotController.playersManager.gameStats.allPlayerStats[lethalBotController.playerClientId].turnAmount++;
             if (IsClientOwnerOfLethalBot())
             {
                 // Only update if not owner
@@ -6594,22 +6591,6 @@ namespace LethalBots.AI
 
         #endregion
 
-        #region SyncFaceUnderwater
-
-        [ServerRpc(RequireOwnership = false)]
-        public void SyncSetFaceUnderwaterServerRpc(bool isUnderwater)
-        {
-            SyncSetFaceUnderwaterClientRpc(isUnderwater);
-        }
-
-        [ClientRpc]
-        private void SyncSetFaceUnderwaterClientRpc(bool isUnderwater)
-        {
-            NpcController.Npc.isUnderwater = isUnderwater;
-        }
-
-        #endregion
-
         #region Grab item RPC
 
         /// <summary>
@@ -6704,14 +6685,14 @@ namespace LethalBots.AI
             if (lethalBotController.twoHanded
                 || lethalBotController.sinkingValue > 0.73f
                 || lethalBotController.inSpecialMenu 
-                || NpcController.TimeSinceSwitchingSlots < 0.2f)
+                || lethalBotController.timeSinceSwitchingSlots < 0.2f)
             {
                 return false;
             }
             if (!lethalBotController.isGrabbingObjectAnimation 
                 && !lethalBotController.isTypingChat 
                 && !lethalBotController.inTerminalMenu 
-                && !NpcController.ThrowingObject 
+                && !lethalBotController.throwingObject 
                 && !lethalBotController.IsInspectingItem 
                 && lethalBotController.inAnimationWithEnemy == null 
                 && !lethalBotController.jetpackControls 
@@ -6723,7 +6704,7 @@ namespace LethalBots.AI
                     return true;
                 }
             }
-            return false; ;
+            return false;
         }
 
         /// <summary>
@@ -6773,6 +6754,7 @@ namespace LethalBots.AI
         /// <summary>
         /// Helper function that checks if the bot has an open reserved item slot for this item!
         /// </summary>
+        /// <param name="foundIndex"></param>
         /// <param name="grabbableObject">The object the bot is grabbing!</param>
         /// <returns>Returns the open slot <c>int</c> or <see cref="Const.INVALID_ITEM_SLOT"/></returns>
         private int GetFirstEmptyReservedItemSlot(int foundIndex, GrabbableObject? grabbableObject = null)
@@ -6782,7 +6764,8 @@ namespace LethalBots.AI
                 return foundIndex;
             }
 
-            if (grabbableObject == null || !ReservedPlayerData.allPlayerData.TryGetValue(NpcController.Npc, out var playerData))
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            if (grabbableObject == null || !ReservedPlayerData.allPlayerData.TryGetValue(lethalBotController, out var playerData))
             { 
                 return foundIndex; 
             }
@@ -6798,13 +6781,13 @@ namespace LethalBots.AI
             var reservedItemSlot = playerData.GetFirstEmptySlotForReservedItem(itemName);
             if (reservedItemSlot != null)
             {
-                return reservedItemSlot.GetIndexInInventory(NpcController.Npc);
+                return reservedItemSlot.GetIndexInInventory(lethalBotController);
             }
 
             if (playerData.IsReservedItemSlot(foundIndex))
             {
                 foundIndex = Const.INVALID_ITEM_SLOT;
-                GrabbableObject[] itemSlots = NpcController.Npc.ItemSlots;
+                GrabbableObject[] itemSlots = lethalBotController.ItemSlots;
                 for (int i = 0; i < itemSlots.Length; i++)
                 {
                     if (!playerData.IsReservedItemSlot(i) && itemSlots[i] == null)
@@ -6908,8 +6891,8 @@ namespace LethalBots.AI
                 || thisBot.activatingItem 
                 || thisBot.jetpackControls 
                 || thisBot.disablingJetpackControls
-                || NpcController.ThrowingObject
-                || NpcController.TimeSinceSwitchingSlots < 0.3f)
+                || thisBot.throwingObject
+                || thisBot.timeSinceSwitchingSlots < 0.3f)
             {
                 return false;
             }
@@ -6996,7 +6979,7 @@ namespace LethalBots.AI
                 thisBot.twoHanded = false;
                 thisBot.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CANCELHOLDING, true);
             }
-            NpcController.TimeSinceSwitchingSlots.Value = 0f;
+            thisBot.timeSinceSwitchingSlots = 0f;
         }
 
         /// <summary>
@@ -7266,9 +7249,43 @@ namespace LethalBots.AI
         }
 
         /// <summary>
+        /// Has the bot call a random alive player using Lethal Phones!
+        /// </summary>
+        public void CallRandomPlayer()
+        {
+            // Grab all possible players to call
+            List<PlayerControllerB> playerControllers = StartOfRound.Instance.allPlayerScripts.ToList();
+            PlayerControllerB? playerToCall = null;
+            while (playerControllers.Count > 0)
+            {
+                // Make sure this player is valid, not us, and alive!
+                int index = UnityEngine.Random.Range(0, playerControllers.Count);
+                playerToCall = playerControllers[index];
+                if (playerToCall == null
+                    || playerToCall == NpcController.Npc
+                    || !playerToCall.isPlayerControlled
+                    || playerToCall.isPlayerDead)
+                {
+                    playerControllers.RemoveAt(index);
+                    playerToCall = null;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // Lets give them a call!
+            if (playerToCall != null)
+            {
+                CallPlayer(playerToCall);
+            }
+        }
+
+        /// <summary>
         /// Carbon copy of <see cref="PlayerPhone.HangupButtonPressed()"/>, but adjusted to work for bots.
         /// </summary>
-        public void HangupPhone()
+        public void HangupPhone(bool putAwayPhone = true)
         {
             // Only the owner can hang up the phone!
             if (!base.IsOwner)
@@ -7307,7 +7324,10 @@ namespace LethalBots.AI
             }
 
             // Make sure to put the phone away after hanging up!
-            ourPhone.ToggleServerPhoneModelServerRpc(false);
+            if (putAwayPhone)
+            {
+                ourPhone.ToggleServerPhoneModelServerRpc(false);
+            }
         }
 
         /// <summary>
@@ -7395,7 +7415,7 @@ namespace LethalBots.AI
                     ourPhone.ToggleServerPhoneModelServerRpc(true);
                 }
             });
-            HangupPhone();
+            HangupPhone(putAwayPhone: false);
 
             // Alright, we need to fake dialing in the number
             short phoneNumber = 0;
@@ -7520,10 +7540,13 @@ namespace LethalBots.AI
         /// Helper function to get the bot's phone, if it has one! 
         /// </summary>
         /// <returns>The bot's <see cref="PlayerPhone"/>.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PlayerPhone? GetOurPlayerPhone()
         {
-            return NpcController.Npc.transform?.Find("PhonePrefab(Clone)")?.GetComponent<PlayerPhone>();
+            if (BotLethalPhone == null)
+            {
+                BotLethalPhone = NpcController.Npc.transform?.Find("PhonePrefab(Clone)")?.GetComponent<PlayerPhone>();
+            }
+            return BotLethalPhone as PlayerPhone;
         }
 
         /// <summary>
@@ -7644,20 +7667,21 @@ namespace LethalBots.AI
         /// Makes the bot leave the terminal, this has proper support for animations!
         /// </summary>
         /// <param name="syncTerminalInUse">Should the terminal update its status on all clients?</param>
+        /// <param name="forceEndUse">Should the code run even if <see cref="IsUsingTerminal"/> returns false?</param>
         public void LeaveTerminal(bool syncTerminalInUse = true, bool forceEndUse = false)
         {
             // Terminal is invalid for some reason, report the error!
+            PlayerControllerB localPlayerController = NpcController.Npc;
             Terminal ourTerminal = Managers.TerminalManager.Instance.GetTerminal();
             if (ourTerminal == null)
             {
-                NpcController.Npc.inTerminalMenu = false;
-                NpcController.Npc.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANINATION_TRIGGER_TERMINAL);
-                Plugin.LogError($"[ERROR] Bot {NpcController.Npc.playerUsername} was unable to properly leave the terminal. Issues may occur!");
+                localPlayerController.inTerminalMenu = false;
+                localPlayerController.playerBodyAnimator.ResetTrigger(Const.PLAYER_ANINATION_TRIGGER_TERMINAL);
+                Plugin.LogError($"[ERROR] Bot {localPlayerController.playerUsername} was unable to properly leave the terminal. Issues may occur!");
                 return;
             }
 
-            PlayerControllerB localPlayerController = NpcController.Npc;
-            if (!localPlayerController.inTerminalMenu && !forceEndUse)
+            if (!forceEndUse && !IsUsingTerminal())
             {
                 Plugin.LogWarning($"Bot {localPlayerController.playerUsername} was told to leave a terminal when they were not using it!");
                 return;
@@ -7695,6 +7719,8 @@ namespace LethalBots.AI
         /// <summary>
         /// Helper rpc that allows non owners to make the bot leave the terminal
         /// </summary>
+        /// <param name="syncTerminalInUse">Should the terminal update its status on all clients?</param>
+        /// <param name="forceEndUse">Should the code run even if <see cref="IsUsingTerminal"/> returns false?</param>
         [Rpc(SendTo.Owner, RequireOwnership = false)]
         public void LeaveTerminalRpc(bool syncTerminalInUse = true, bool forceEndUse = false)
         {
@@ -7723,16 +7749,28 @@ namespace LethalBots.AI
             Vector3 ourPos = NpcController.Npc.gameplayCamera.transform.position;
             float lightLevel = 0f;
             int numLightsConsidered = 0;
-            foreach (var light in LethalBotManager.LightsOnMap)
+            for (int i = 0; i < LethalBotManager.LightsOnMap.Count; i++)
             {
                 // Make sure we want to consider this light source
+                var light = LethalBotManager.LightsOnMap[i];
                 if (ShouldIgnoreLightSource(light))
                     continue;
 
-                // Check the light direction (if applicable)
+                // Have to be in range of the light to consider it
+                LightType lightType = light.type;
                 Vector3 toBot = ourPos - light.transform.position;
+                float dist = toBot.sqrMagnitude; // NOTE: We don't use sqr distance since we need to use the exact range later.
+                float lightRange = light.range;
+                if (lightType != LightType.Directional 
+                    && dist > lightRange * lightRange)
+                    continue;
+
+                // Convert distance to squared distance for attenuation calculation
+                dist = lightType != LightType.Directional ? Mathf.Sqrt(dist) : 0f;
+
+                // Check the light direction (if applicable)
                 float coneFactor = 1f;
-                if (light.type == LightType.Spot)
+                if (lightType == LightType.Spot)
                 {
                     float angle = Vector3.Angle(light.transform.forward, toBot.normalized);
                     float halfAngle = light.spotAngle * 0.5f;
@@ -7743,13 +7781,8 @@ namespace LethalBots.AI
                     coneFactor = Mathf.Clamp01(coneFactor - (angle / halfAngle));
                 }
 
-                // Have to be in range of the light to consider it
-                float dist = toBot.magnitude; // NOTE: We don't use sqr distance since we need to use the exact range later.
-                if (dist > light.range)
-                    continue;
-
                 // Adjust the light strength based on its distance from the bot and its intensity
-                float atten = 1f - Mathf.Clamp01(dist / light.range);
+                float atten = lightType != LightType.Directional ? 1f - Mathf.Clamp01(dist / lightRange) : 1f;
                 atten *= atten;
                 float occlusion = GetLightOcclusionFactor(light.transform.position, ourPos);
                 lightLevel += light.intensity * atten * coneFactor * occlusion;
@@ -7763,6 +7796,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="light">The light to check</param>
         /// <returns>true: don't consider this light source; otherwise false</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool ShouldIgnoreLightSource([NotNullWhen(false)] Light? light)
         {
             // Make sure its a active light!
@@ -7796,11 +7830,12 @@ namespace LethalBots.AI
 
             right = right.normalized * 0.2f;
 
-            if (Physics.Linecast(lightPos, targetPos, instanceSOR.collidersAndRoomMaskAndDefault)) blocked++;
-            if (Physics.Linecast(lightPos + right, targetPos, instanceSOR.collidersAndRoomMaskAndDefault)) blocked++;
-            if (Physics.Linecast(lightPos - right, targetPos, instanceSOR.collidersAndRoomMaskAndDefault)) blocked++;
+            int layerMask = instanceSOR.collidersAndRoomMaskAndDefault;
+            if (Physics.Linecast(lightPos, targetPos, layerMask)) blocked++;
+            if (Physics.Linecast(lightPos + right, targetPos, layerMask)) blocked++;
+            if (Physics.Linecast(lightPos - right, targetPos, layerMask)) blocked++;
 
-            float occlusion = 1f - (blocked / (float)samples);
+            float occlusion = 1f - ((float)blocked / (float)samples);
             return Mathf.Max(occlusion, 0.15f); // light wrap
         }
 
@@ -7830,6 +7865,8 @@ namespace LethalBots.AI
         /// Apply the damage to the lethalBot, kill him if needed, or make critically injured
         /// </summary>
         /// <param name="damageNumber"></param>
+        /// <param name="hasDamageSFX"></param>
+        /// <param name="callRPC"></param>
         /// <param name="causeOfDeath"></param>
         /// <param name="deathAnimation"></param>
         /// <param name="fallDamage">Coming from a long fall ?</param>
@@ -7879,7 +7916,7 @@ namespace LethalBots.AI
                     && !lethalBotController.criticallyInjured)
                 {
                     // Client side only, since we are already in an rpc send to all clients
-                    lethalBotController.MakeCriticallyInjured(true);
+                    lethalBotController.MakeCriticallyInjured(enable: true);
                 }
                 else
                 {
@@ -7937,12 +7974,12 @@ namespace LethalBots.AI
 
         public void HealthRegen()
         {
-            if (NpcController.LimpMultiplier > 0f)
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            if (lethalBotController.limpMultiplier > 0f)
             {
-                NpcController.LimpMultiplier -= Time.deltaTime / 1.8f;
+                lethalBotController.limpMultiplier -= Time.deltaTime / 1.8f;
             }
 
-            PlayerControllerB lethalBotController = NpcController.Npc;
             if (lethalBotController.health < MaxHealthPercent(20)
                 || lethalBotController.health == MaxHealthPercent(5))
             {
@@ -7984,6 +8021,8 @@ namespace LethalBots.AI
         /// <param name="spawnBody">Should a body be spawned ?</param>
         /// <param name="causeOfDeath"></param>
         /// <param name="deathAnimation"></param>
+        /// <param name="positionOffset"></param>
+        /// <param name="setOverrideDropItems"></param>
         internal void KillLethalBot(Vector3 bodyVelocity,
                                 bool spawnBody,
                                 CauseOfDeath causeOfDeath,
@@ -8023,10 +8062,10 @@ namespace LethalBots.AI
             lethalBotController.DisablePlayerModel(lethalBotController.gameObject);
             lethalBotController.isInsideFactory = false;
             lethalBotController.IsInspectingItem = false;
-            if (lethalBotController.inTerminalMenu)
+            if (IsUsingTerminal())
             {
                 // If we were using the terminal, we should "leave" it so other players can use it!
-                LeaveTerminal();
+                LeaveTerminal(syncTerminalInUse: true, forceEndUse: true);
             }
             lethalBotController.inTerminalMenu = false;
             lethalBotController.twoHanded = false;
@@ -8133,177 +8172,6 @@ namespace LethalBots.AI
                 CallLethalPhonesDeath((int)causeOfDeath);
             }
         }
-
-        /// <summary>
-        /// Do the action of killing the lethalBot
-        /// </summary>
-        /// <param name="bodyVelocity"></param>
-        /// <param name="spawnBody"></param>
-        /// <param name="causeOfDeath"></param>
-        /// <param name="deathAnimation"></param>
-        //private void KillLethalBot(Vector3 bodyVelocity,
-        //                        bool spawnBody,
-        //                        CauseOfDeath causeOfDeath,
-        //                        int deathAnimation,
-        //                        Vector3 positionOffset,
-        //                        bool setOverrideDropItems)
-        //{
-        //    PlayerControllerB lethalBotController = NpcController.Npc;
-        //    Plugin.LogDebug(@$"KillLethalBot for LOCAL client #{NetworkManager.LocalClientId}, lethalBot object: Bot #{this.BotId} {lethalBotController.playerUsername}
-        //                    bodyVelocity {bodyVelocity}, spawnBody {spawnBody}, causeOfDeath {causeOfDeath}, deathAnimation {deathAnimation}, positionOffset {positionOffset}");
-        //    if (lethalBotController.isPlayerDead)
-        //    {
-        //        return;
-        //    }
-        //    if (!lethalBotController.AllowPlayerDeath())
-        //    {
-        //        return;
-        //    }
-
-        //    // Mark the bot as dead to the Round Manager
-        //    StartOfRound.Instance.gameStats.deaths++;
-        //    lethalBotController.playersManager.livingPlayers--;
-        //    if (lethalBotController.playersManager.livingPlayers == 0)
-        //    {
-        //        lethalBotController.playersManager.allPlayersDead = true;
-        //        lethalBotController.playersManager.ShipLeaveAutomatically();
-        //    }
-
-        //    // Reset body
-        //    lethalBotController.overrideDontSpawnBody = false;
-        //    lethalBotController.overrideDropItems = setOverrideDropItems;
-        //    lethalBotController.isPlayerDead = true;
-        //    lethalBotController.isSprinting = false;
-        //    if (!spawnBody)
-        //    {
-        //        deathAnimation = -1;
-        //    }
-
-        //    // WHY ZEEKERSS, now I have to recreate a bunch of logic for the bots. :(
-        //    // NOTE: Ok looking at the code, only one enemy in the game hooks into this, it uses the provided controller.
-        //    // I had to make a small transpiler patch to make sure it only uses the provided controller so it works with both the local player and bots.
-        //    // I hope other modders that use this even in the future only use the provided controller, otherwise things may break in very weird ways!
-        //    StartOfRound.Instance.LocalPlayerDieEvent.Invoke(lethalBotController, deathAnimation);
-        //    lethalBotController.isPlayerControlled = false;
-        //    lethalBotController.thisPlayerModelArms.enabled = false;
-        //    lethalBotController.localVisor.position = lethalBotController.playersManager.notSpawnedPosition.position;
-        //    lethalBotController.DisablePlayerModel(lethalBotController.gameObject, enable: false, disableLocalArms: false);
-        //    lethalBotController.isInsideFactory = false;
-        //    lethalBotController.IsInspectingItem = false;
-        //    if (lethalBotController.inTerminalMenu)
-        //    {
-        //        // If we were using the terminal, we should "leave" it so other players can use it!
-        //        LeaveTerminal();
-        //    }
-        //    lethalBotController.inTerminalMenu = false;
-        //    lethalBotController.twoHanded = false;
-        //    lethalBotController.isHoldingObject = false;
-        //    lethalBotController.currentlyHeldObjectServer = null;
-        //    lethalBotController.carryWeight = 1f;
-        //    lethalBotController.fallValue = 0f;
-        //    lethalBotController.fallValueUncapped = 0f;
-        //    lethalBotController.takingFallDamage = false;
-        //    StopSinkingState();
-        //    lethalBotController.sinkingValue = 0f;
-        //    lethalBotController.hinderedMultiplier = 1f;
-        //    lethalBotController.isMovementHindered = 0;
-        //    lethalBotController.inAnimationWithEnemy = null;
-        //    lethalBotController.bleedingHeavily = false;
-        //    lethalBotController.setPositionOfDeadPlayer = true;
-        //    lethalBotController.snapToServerPosition = false;
-        //    lethalBotController.causeOfDeath = causeOfDeath;
-        //    lethalBotController.drunkness = 0f;
-        //    lethalBotController.drunknessInertia = 0f;
-        //    lethalBotController.poison = 0f;
-        //    lethalBotController.poisonInertia = 0f;
-        //    lethalBotController.slipperyFloor = 0f;
-        //    lethalBotController.slimeSlipAudio.Stop();
-        //    PatchesUtil.slimeSlipAudioVolumeSyncFiled.Invoke(lethalBotController) = 0f;
-        //    lethalBotController.slimeOnFaceDecals[0].gameObject.SetActive(value: false);
-        //    lethalBotController.slimeOnFaceDecals[1].gameObject.SetActive(value: false);
-        //    PatchesUtil.positionOfDeathField.Invoke(lethalBotController) = lethalBotController.transform.position;
-        //    if (spawnBody && !lethalBotController.overrideDontSpawnBody)
-        //    {
-        //        lethalBotController.SpawnDeadBody((int)lethalBotController.playerClientId, bodyVelocity, (int)causeOfDeath, lethalBotController, deathAnimation, null, null, positionOffset: positionOffset);
-
-        //        // Sigh, if the death animation is set to 9 the body has a chance to be null!
-        //        if (lethalBotController.deadBody != null)
-        //        {
-        //            ResizeRagdoll(lethalBotController.deadBody.transform);
-        //            // Replace body position or else disappear with shotgun or knife (don't know why)
-        //            lethalBotController.deadBody.transform.position = lethalBotController.transform.position + Vector3.up + positionOffset;
-        //            // Need to be set to true (don't know why) (so many mysteries unsolved tonight)
-        //            lethalBotController.deadBody.canBeGrabbedBackByPlayers = true;
-        //            this.LethalBotIdentity.DeadBody = lethalBotController.deadBody;
-        //            // Lets make sure the bots don't attempt to grab dead bodies as soon as a player is killed!
-        //            GrabbableObject? deadBody = lethalBotController.deadBody?.grabBodyObject;
-        //            if (deadBody != null)
-        //            {
-        //                DictJustDroppedItems[deadBody] = Time.realtimeSinceStartup;
-        //            }
-        //        }
-        //        else
-        //        {
-        //            Plugin.LogWarning($"Bot {lethalBotController.playerUsername} dead body was not spawned. This is probably a bug with another mod or the base game itself!");
-        //        }
-        //    }
-        //    lethalBotController.physicsParent = null;
-        //    lethalBotController.overridePhysicsParent = null;
-        //    lethalBotController.lastSyncedPhysicsParent = null;
-        //    NpcController.CurrentLethalBotPhysicsRegions.Clear();
-        //    this.ReParentLethalBot(lethalBotController.playersManager.playersContainer);
-        //    SoundManager.Instance.playerVoicePitchTargets[lethalBotController.playerClientId] = 1f;
-        //    SoundManager.Instance.playerVoicePitchLerpSpeed[lethalBotController.playerClientId] = 3f;
-        //    if (lethalBotController.overrideDropItems)
-        //    {
-        //        // This kill call is networked to all other players, DropAllHeldItemsAndSync is a network call,
-        //        // so we only run this on the owning client.
-        //        if (base.IsOwner)
-        //        {
-        //            lethalBotController.DropAllHeldItemsAndSync(lethalBotController.transform.position, lethalBotController.serverItemHolder.position, lethalBotController.serverItemHolder.eulerAngles, lethalBotController.playerEye.position, lethalBotController.playerEye.eulerAngles);
-        //        }
-        //    }
-        //    else
-        //    {
-        //        lethalBotController.DropAllHeldItems(spawnBody);
-        //    }
-        //    if (this.State?.TargetItem != null)
-        //    {
-        //        // If the bot died trying to pickup an item, we need to make sure no other bot tries to pick it up!
-        //        // As it may be too dangerous around the item
-        //        DictJustDroppedItems[this.State.TargetItem] = Time.realtimeSinceStartup;
-        //    }
-        //    lethalBotController.DisableJetpackControlsLocally();
-        //    NpcController.IsControllerInCruiser = false;
-        //    if (GameNetworkManager.Instance.localPlayerController.isPlayerDead)
-        //    {
-        //        HUDManager.Instance.UpdateBoxesSpectateUI();
-        //    }
-        //    this.isEnemyDead = true;
-        //    this.LethalBotIdentity.Hp = 0;
-        //    SetAgent(enabled: false);
-        //    //this.LethalBotIdentity.Voice.StopAudioFadeOut();
-        //    this.State = new BrainDeadState(this);
-        //    Plugin.LogDebug($"Ran kill lethalBot function for LOCAL client #{NetworkManager.LocalClientId}, lethalBot object: Bot #{this.BotId} {lethalBotController.playerUsername}");
-
-        //    // Remove bot from their group
-        //    if (base.IsOwner)
-        //    {
-        //        GroupManager.Instance.RemoveFromCurrentGroupAndSync(lethalBotController);
-        //    }
-
-        //    // Compat with revive company mod
-        //    if (Plugin.IsModReviveCompanyLoaded)
-        //    {
-        //        ReviveCompanySetPlayerDiedAt((int)lethalBotController.playerClientId);
-        //    }
-
-        //    // Compat with Lethal Phones
-        //    if (Plugin.IsModLethalPhonesLoaded)
-        //    {
-        //        CallLethalPhonesDeath((int)causeOfDeath);
-        //    }
-        //}
 
         /// <summary>
         /// Method separate to not load type of plugin of revive company if mod is not loaded in modpack
@@ -8494,6 +8362,7 @@ namespace LethalBots.AI
         internal AIState GetDesiredAIState()
         {
             // Check if we have a set default AI state
+            PlayerControllerB lethalBotController = NpcController.Npc;
             EnumDefaultAIState defaultAIState = this.LethalBotIdentity.DefaultAIState;
             if (defaultAIState != EnumDefaultAIState.Dynamic)
             {
@@ -8509,23 +8378,23 @@ namespace LethalBots.AI
                     }
                     case EnumDefaultAIState.ShipDuty:
                     {
-                        if (LethalBotManager.Instance.MissionControlPlayer != NpcController.Npc)
+                        if (LethalBotManager.Instance.MissionControlPlayer != lethalBotController)
                         {
-                            LethalBotManager.Instance.MissionControlPlayer = NpcController.Npc;
+                            LethalBotManager.Instance.MissionControlPlayer = lethalBotController;
                         }
                         return new MissionControlState(this);
                     }
                     case EnumDefaultAIState.TransferLoot:
                     {
-                        if (!LethalBotManager.Instance.LootTransferPlayers.Contains(NpcController.Npc))
+                        if (!LethalBotManager.Instance.LootTransferPlayers.Contains(lethalBotController))
                         {
-                            LethalBotManager.Instance.AddPlayerToLootTransferListAndSync(NpcController.Npc);
+                            LethalBotManager.Instance.AddPlayerToLootTransferListAndSync(lethalBotController);
                         }
                         return new TransferLootState(this);
                     }
                     default:
                     {
-                        Plugin.LogWarning($"Bot {NpcController.Npc.playerUsername} has an invaild default AI state. Falling back to dynamic!");
+                        Plugin.LogWarning($"Bot {lethalBotController.playerUsername} has an invaild default AI state. Falling back to dynamic!");
                         break;
                     }
                 }
@@ -8533,29 +8402,29 @@ namespace LethalBots.AI
 
             // If we spawned on the ship as it was landing or taking off, follow closest player!
             PlayerControllerB closestHumanPlayer = GetClosestIrlPlayer();
-            if ((NpcController.Npc.isInElevator || NpcController.Npc.isInHangarShipRoom) 
+            if ((lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom) 
                 && (StartOfRound.Instance.shipIsLeaving
                     || !StartOfRound.Instance.shipHasLanded))
             {
                 return new GetCloseToPlayerState(this, closestHumanPlayer);
             }
 
+            // We are the current mission controller, better get back to it!
+            if (LethalBotManager.Instance.MissionControlPlayer == lethalBotController)
+            {
+                return new MissionControlState(this);
+            }
+
             // We are within awareness range, they probably revived us! Better get back to following them now.
             if (closestHumanPlayer != null && closestHumanPlayer.isPlayerControlled && !closestHumanPlayer.isPlayerDead)
             {
-                float sqrHorizontalDistanceWithTarget = Vector3.Scale((closestHumanPlayer.transform.position - NpcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
-                float sqrVerticalDistanceWithTarget = Vector3.Scale((closestHumanPlayer.transform.position - NpcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
+                float sqrHorizontalDistanceWithTarget = Vector3.Scale((closestHumanPlayer.transform.position - lethalBotController.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
+                float sqrVerticalDistanceWithTarget = Vector3.Scale((closestHumanPlayer.transform.position - lethalBotController.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
                 if (sqrHorizontalDistanceWithTarget < Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR
                         && sqrVerticalDistanceWithTarget < Const.DISTANCE_AWARENESS_VER * Const.DISTANCE_AWARENESS_VER)
                 {
                     return new GetCloseToPlayerState(this, closestHumanPlayer);
                 }
-            }
-
-            // We are the current mission controller, better get back to it!
-            if (LethalBotManager.Instance.MissionControlPlayer == NpcController.Npc)
-            {
-                return new MissionControlState(this);
             }
 
             // No human player nearby? Welp, back to the mines....I mean facility.
@@ -8566,6 +8435,7 @@ namespace LethalBots.AI
         {
             PlayerControllerB closest = null!;
             float closestDistSqr = float.MaxValue;
+            Vector3 ourPos = this.NpcController.Npc.transform.position;
             foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
             {
                 if (!player.isPlayerControlled
@@ -8576,7 +8446,7 @@ namespace LethalBots.AI
                     continue;
                 }
 
-                float playerDistSqr = (player.transform.position - this.NpcController.Npc.transform.position).sqrMagnitude;
+                float playerDistSqr = (player.transform.position - ourPos).sqrMagnitude;
                 if (closest == null || playerDistSqr < closestDistSqr)
                 {
                     closest = player;
@@ -9006,59 +8876,7 @@ namespace LethalBots.AI
 
         #endregion
 
-        #region Sinking RPC
-
-        /// <summary>
-        /// Sync the state of sink of the lethalBot between server and clients
-        /// </summary>
-        /// <param name="startSinking"></param>
-        /// <param name="sinkingSpeed"></param>
-        /// <param name="audioClipIndex"></param>
-        public void SyncChangeSinkingState(bool startSinking, float sinkingSpeed = 0f, int audioClipIndex = 0)
-        {
-            if (IsServer)
-            {
-                ChangeSinkingStateClientRpc(startSinking, sinkingSpeed, audioClipIndex);
-            }
-            else
-            {
-                ChangeSinkingStateServerRpc(startSinking, sinkingSpeed, audioClipIndex);
-            }
-        }
-
-        /// <summary>
-        /// Server side, call clients to update the state of sink of the lethalBot
-        /// </summary>
-        /// <param name="startSinking"></param>
-        /// <param name="sinkingSpeed"></param>
-        /// <param name="audioClipIndex"></param>
-        [ServerRpc]
-        private void ChangeSinkingStateServerRpc(bool startSinking, float sinkingSpeed, int audioClipIndex)
-        {
-            ChangeSinkingStateClientRpc(startSinking, sinkingSpeed, audioClipIndex);
-        }
-
-        /// <summary>
-        /// Client side, update the state of sink of the lethalBot
-        /// </summary>
-        /// <param name="startSinking"></param>
-        /// <param name="sinkingSpeed"></param>
-        /// <param name="audioClipIndex"></param>
-        [ClientRpc]
-        private void ChangeSinkingStateClientRpc(bool startSinking, float sinkingSpeed, int audioClipIndex)
-        {
-            if (startSinking)
-            {
-                NpcController.Npc.sinkingSpeedMultiplier = sinkingSpeed;
-                NpcController.Npc.isSinking = true;
-                NpcController.Npc.statusEffectAudio.clip = StartOfRound.Instance.statusEffectClips[audioClipIndex];
-                NpcController.Npc.statusEffectAudio.Play();
-            }
-            else
-            {
-                StopSinkingState();
-            }
-        }
+        #region Sinking Helper
 
         public void StopSinkingState()
         {
@@ -9183,7 +9001,7 @@ namespace LethalBots.AI
             StartCoroutine(Wait2EndOfFrameToRefreshBillBoard());
             LethalBotIdentity.SuitID = suitID;
 
-            Plugin.LogDebug($"Changed suit of lethalBot {NpcController.Npc.playerUsername} to {suitID}: {StartOfRound.Instance.unlockablesList.unlockables[suitID].unlockableName}");
+            Plugin.LogDebug($"Changed suit of lethalBot {lethalBotController.playerUsername} to {suitID}: {StartOfRound.Instance.unlockablesList.unlockables[suitID].unlockableName}");
         }
 
         private IEnumerator Wait2EndOfFrameToRefreshBillBoard()
@@ -9278,8 +9096,8 @@ namespace LethalBots.AI
         private bool isTouchingGround = true;
         private RaycastHit groundHit;
 
-        private long timer = 200 * TimeSpan.TicksPerMillisecond;
-        private long lastTimeCalculate;
+        private const float TIMER = 0.2f;
+        private float lastTimeCalculate;
 
         public bool IsTouchingGround(Vector3 lethalBotPosition)
         {
@@ -9308,7 +9126,7 @@ namespace LethalBots.AI
             if (invalidateIsTouchingGround)
             {
                 isTouchingGround = false;
-                lastTimeCalculate = DateTime.Now.Ticks; // HACKHACK: Give time for the bridge to fall away before checking again!
+                lastTimeCalculate = Time.realtimeSinceStartup + TIMER; // HACKHACK: Give time for the bridge to fall away before checking again!
             }
             else
             {
@@ -9316,22 +9134,14 @@ namespace LethalBots.AI
             }
         }
 
-        private bool NeedToRecalculate()
+        public bool NeedToRecalculate()
         {
-            long elapsedTime = DateTime.Now.Ticks - lastTimeCalculate;
-            if (elapsedTime > timer)
-            {
-                lastTimeCalculate = DateTime.Now.Ticks;
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            return lastTimeCalculate < Time.realtimeSinceStartup;
         }
 
         private void CalculateTouchingGround(Vector3 lethalBotPosition)
         {
+            lastTimeCalculate = Time.realtimeSinceStartup + TIMER;
             isTouchingGround = Physics.Raycast(new Ray(lethalBotPosition + Vector3.up, Vector3.down),
                                                out groundHit,
                                                2.5f,

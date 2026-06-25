@@ -97,6 +97,7 @@ namespace LethalBots.Patches.EnemiesPatches
         /// <summary>
         /// </summary>
         /// <param name="instructions"></param>
+        /// <param name="generator"></param>
         /// <returns></returns>
         [HarmonyPatch("Update")]
         [HarmonyTranspiler]

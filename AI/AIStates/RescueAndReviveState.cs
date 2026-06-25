@@ -82,6 +82,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -99,7 +100,7 @@ namespace LethalBots.AI.AIStates
             // If they are no longer reviveable, revert to previous state
             if (!CanRevivePlayer())
             {
-                Plugin.LogInfo($"[{npcController.Npc.playerUsername}] Cannot revive player {playerToRevive.playerUsername} with method {reviveMethod}. Reverting to previous state.");
+                Plugin.LogInfo($"[{lethalBotController.playerUsername}] Cannot revive player {playerToRevive.playerUsername} with method {reviveMethod}. Reverting to previous state.");
                 ChangeBackToPreviousState();
                 return;
             }
@@ -112,7 +113,7 @@ namespace LethalBots.AI.AIStates
                 {
                     if (heldItem != null && (heldItem.itemProperties.twoHanded || !ai.HasSpaceInInventory()))
                     {
-                        npcController.Npc.DiscardHeldObject();
+                        lethalBotController.DiscardHeldObject();
                     }
                     LethalBotAI.DictJustDroppedItems.Remove(playerBody); // HACKHACK: Skip the dropped item cooldown so bot can grab the body immediately
                     if (ai.IsGrabbableObjectGrabbable(playerBody, EnumGrabbableObjectCall.Reviving))
@@ -122,7 +123,7 @@ namespace LethalBots.AI.AIStates
                     }
                     else
                     {
-                        Plugin.LogWarning($"[{npcController.Npc.playerUsername}] Cannot grab dead body of player {playerToRevive.playerUsername}. Reverting to previous state.");
+                        Plugin.LogWarning($"[{lethalBotController.playerUsername}] Cannot grab dead body of player {playerToRevive.playerUsername}. Reverting to previous state.");
                         ChangeBackToPreviousState();
                         return;
                     }
@@ -140,7 +141,7 @@ namespace LethalBots.AI.AIStates
 
             // If our tool needs to be charged, lets charge it
             if (allowRecharging 
-                && (npcController.Npc.isInElevator || npcController.Npc.isInHangarShipRoom)
+                && (lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom)
                 && ChargeHeldItemState.HasItemToCharge(ai, out _))
             {
                 ai.State = new ChargeHeldItemState(this, true);
@@ -434,6 +435,7 @@ namespace LethalBots.AI.AIStates
         /// Another helper function to check if the body is valid for revivial
         /// </summary>
         /// <param name="defibUnit"></param>
+        /// <param name="playerToRevive"></param>
         /// <returns></returns>
         private static bool UsualScrapCanBodyBeRevived(GrabbableObject? defibUnit, PlayerControllerB playerToRevive)
         {
@@ -1292,7 +1294,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         private static bool FindZapGun(GrabbableObject item)
         {
-            return item is PatcherTool zapGun && (zapGun.isInElevator || zapGun.isInShipRoom || LethalBotAI.IsItemPowered(zapGun)); // For anyone wondering PatcherTool is the internal class name for the Zap Gun!
+            return item is PatcherTool zapGun && (zapGun.isInElevator || zapGun.isInShipRoom || ItemsManager.HasRequiredCharge(zapGun)); // For anyone wondering PatcherTool is the internal class name for the Zap Gun!
         }
 
         /// <summary>
@@ -1304,7 +1306,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         private static bool FindDefibUnit(GrabbableObject item)
         {
-            return item is DefibrillatorScript defibrillator && CanUsualScrapDefibUnitBeUsed(defibrillator) && (defibrillator.isInElevator || defibrillator.isInShipRoom || LethalBotAI.IsItemPowered(defibrillator));
+            return item is DefibrillatorScript defibrillator && CanUsualScrapDefibUnitBeUsed(defibrillator) && (defibrillator.isInElevator || defibrillator.isInShipRoom || ItemsManager.HasRequiredCharge(defibrillator));
         }
 
         /// <summary>

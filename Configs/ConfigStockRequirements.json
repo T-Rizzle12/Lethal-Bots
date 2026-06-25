@@ -57,7 +57,7 @@
     },
     {
       "itemName": "Weed killer",
-      "desiredStock": 4,
+      "desiredStock": 0,
       "overrideEcoLimit": false,
       "ecoLimit": 0,
       "requiredItems": []

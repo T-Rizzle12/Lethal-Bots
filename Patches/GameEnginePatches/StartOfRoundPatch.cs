@@ -56,6 +56,9 @@ namespace LethalBots.Patches.GameEnginePatches
             objectManager = new GameObject("RestockManager");
             objectManager.AddComponent<RestockManager>();
 
+            objectManager = new GameObject("ItemsManager");
+            objectManager.AddComponent<ItemsManager>();
+
             // NetworkBehaviours
             objectManager = Object.Instantiate(PluginManager.Instance.TerminalManagerPrefab);
             if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
@@ -251,6 +254,8 @@ namespace LethalBots.Patches.GameEnginePatches
         /// Patch to update the bot's xp since the game does not do it for bots
         /// </summary>
         /// <param name="__instance"></param>
+        /// <param name="scrapCollectedOnServer"></param>
+        /// <param name="___localPlayerWasMostProfitableThisRound"></param>
         [HarmonyPatch("EndOfGameClientRpc")]
         [HarmonyPostfix]
         static void EndOfGameClientRpc_PostFix(StartOfRound __instance, int scrapCollectedOnServer, bool ___localPlayerWasMostProfitableThisRound)
@@ -716,6 +721,8 @@ namespace LethalBots.Patches.GameEnginePatches
         /// <summary>
         /// Check only real players not bots
         /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="clientId"></param>
         /// <param name="instructions"></param>
         /// <param name="generator"></param>
         /// <returns></returns>
@@ -822,6 +829,7 @@ namespace LethalBots.Patches.GameEnginePatches
         /// Patch for sync the info from the save from the server to the client (who does not load the save file)
         /// </summary>
         /// <param name="__instance"></param>
+        /// <param name="clientId"></param>
         [HarmonyPatch("OnPlayerConnectedClientRpc")]
         [HarmonyPostfix]
         static void OnPlayerConnectedClientRpc_PostFix(StartOfRound __instance, ulong clientId)

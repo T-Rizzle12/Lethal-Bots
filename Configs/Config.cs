@@ -35,6 +35,7 @@ namespace LethalBots.Configs
 
         // Behaviour       
         [SyncedEntryField] public SyncedEntry<bool> FollowCrouchWithPlayer;
+        public ConfigEntry<EnumFollowType> DefaultFollowType;
         [SyncedEntryField] public SyncedEntry<bool> ChangeSuitAutoBehaviour;
         [SyncedEntryField] public SyncedEntry<bool> AllowBotsToChat;
         [SyncedEntryField] public SyncedEntry<bool> AllowMissionControlTeleport;
@@ -47,6 +48,7 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> SellAllScrapOnShip;
         [SyncedEntryField] public SyncedEntry<bool> DropHeldEquipmentAtShip;
         [SyncedEntryField] public SyncedEntry<bool> ShouldKillEverything;
+        [SyncedEntryField] public SyncedEntry<bool> ShouldOnlyUseMainAtStart;
         [SyncedEntryField] public SyncedEntry<bool> GrabItemsNearEntrances;
         [SyncedEntryField] public SyncedEntry<bool> GrabBeesNest;
         [SyncedEntryField] public SyncedEntry<bool> GrabDeadBodies;
@@ -55,6 +57,7 @@ namespace LethalBots.Configs
         [SyncedEntryField] public SyncedEntry<bool> AdvancedManeaterBabyAI;
         [SyncedEntryField] public SyncedEntry<bool> GrabWheelbarrow;
         [SyncedEntryField] public SyncedEntry<bool> GrabShoppingCart;
+        [SyncedEntryField] public SyncedEntry<float> ChillAtShipTime;
 
         // Voice Recognition
         public ConfigEntry<bool> AllowVoiceRecognition;
@@ -68,6 +71,9 @@ namespace LethalBots.Configs
 
         // Debug
         public ConfigEntry<bool> EnableDebugLog;
+
+        // Mod Related Settings
+        [SyncedEntryField] public SyncedEntry<bool> AllowRandomCalling;
 
         // Config identities
         public ConfigIdentities ConfigIdentities;
@@ -117,6 +123,11 @@ namespace LethalBots.Configs
                                                defaultVal: true,
                                                "Should the bot crouch like the player is crouching? (NOTE: This will not affect the dynamic crouching AI!)");
 
+            DefaultFollowType = cfg.Bind(ConfigConst.ConfigSectionBehavior,
+                                               "Default follow type (Client only)",
+                                               defaultValue: EnumFollowType.Standard,
+                                               "When a bot is following you, how should they follow you by default? \n Standard: The bot follows behind you. \n Wander: The bot follows, but will wander around where you are standing \n Nearby: The bot follows by picking a random position nearby you");
+
             ChangeSuitAutoBehaviour = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Options for automaticaly switch suit",
                                                defaultVal: false,
@@ -151,7 +162,7 @@ namespace LethalBots.Configs
                                                 "Bot restock spending limit",
                                                 defaultValue: 550,
                                                 new ConfigDescription("How much money should the bot leave in reserve when restocking the ship. This is useful if you want the bot to keep some spare cash on hand.", 
-                                                    new AcceptableValueRange<int>(0, int.MaxValue)));
+                                                    new AcceptableValueRange<int>(0, 100000000))); // Was int.MaxValue, but the base game caps money to 100000000!
 
             ReturnToShipTime = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                 "Return to ship time",
@@ -178,6 +189,11 @@ namespace LethalBots.Configs
                                                 "Should bots attempt to kill everything",
                                                 defaultVal: false,
                                                 "Should bots attempt to kill every enemy in the game, even if they can't be killed normally?");
+
+            ShouldOnlyUseMainAtStart = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                                "Should bots only use main at start",
+                                                defaultVal: true,
+                                                "Should bots only use the main entrance to search for scrap at the begining of the day? (Bots will pick a random entrance later in the day.)");
 
             GrabItemsNearEntrances = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Grab items near entrances",
@@ -218,6 +234,11 @@ namespace LethalBots.Configs
                                       "Grab the shopping cart",
                                       defaultVal: false,
                                       "Should the bot try to grab the shopping cart (mod)?");
+
+            ChillAtShipTime = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
+                                      "Chill at ship time",
+                                      defaultVal: Const.TIMER_CHILL_AT_SHIP,
+                                      "How long should a bot chill at the ship before they go to loot on their own.");
 
             // Voice Recognition
             AllowVoiceRecognition = cfg.Bind(ConfigConst.ConfigSectionVoiceRecognition,
@@ -263,6 +284,12 @@ namespace LethalBots.Configs
                                       "EnableDebugLog  (Client only)",
                                       defaultValue: true,
                                       "Enable the debug logs used for this mod.");
+
+            // Mod Related Settings
+            AllowRandomCalling = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMods, 
+                                                    "Allow Random Calling", 
+                                                    defaultVal: true, 
+                                                    "Are bots allowed to use their phones to randomly call players while they are searching for scrap?");
 
             ClearUnusedEntries(cfg);
             cfg.SaveOnConfigSet = true;

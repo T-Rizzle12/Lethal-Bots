@@ -2,12 +2,14 @@
 using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Utils.Helpers;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.Events;
 using AudioManager = LethalBots.Managers.AudioManager;
+using Random = UnityEngine.Random;
 
 namespace LethalBots.AI
 {
@@ -39,8 +41,7 @@ namespace LethalBots.AI
         // Cooldown for responsiveness voice states
         private float cooldownResponsiveness = 0f;
 
-        private float[] leftSamples = new float[256];
-        private float[] rightSamples = new float[256];
+        private readonly float[] tempSamples = new float[256];
         private bool aboutToTalk;
 
         public EnumVoicesState LastVoiceState
@@ -162,31 +163,77 @@ namespace LethalBots.AI
         /// <returns>0-1 value based on the current amplitude of our voice chat audio</returns>
         public float GetVoiceAmplitude()
         {
+            // If we don't have an audio source, or it's not playing, or it doesn't have a clip, return 0 amplitude
             if (CurrentAudioSource == null 
-                || !CurrentAudioSource.isPlaying)
+                || !CurrentAudioSource.isPlaying 
+                || CurrentAudioSource.clip == null)
             {
                 return 0f;
             }
 
-            // Get the current amplitude of the audio source
-            CurrentAudioSource.GetOutputData(leftSamples, 0); // Channel 0 is the left channel
-            CurrentAudioSource.GetOutputData(rightSamples, 1); // Channel 1 is the right channel
+            // Make sure we have channels to avoid errors, if no channels return 0 amplitude
+            int channels = Mathf.Min(CurrentAudioSource.clip.channels, GetOutputChannelCount());
+            if (channels <= 0)
+                return 0f;
 
-            float leftSum = 0f;
-            float rightSum = 0f;
-            foreach (float sample in leftSamples)
+            // Get the total voice amplitude by averaging the RMS of all channels,
+            // and then normalizing it to a 0-1 value (assuming max amplitude is 1)
+            float totalRms = 0f;
+            int totalSamples = 0;
+            for (int channel = 0; channel < channels; channel++)
             {
-                leftSum += sample * sample;
+                // GetOutputData can sometimes throw errors if the audio source is in a weird state,
+                // so we catch any errors and just skip that channel if it happens
+                try
+                {
+                    CurrentAudioSource.GetOutputData(tempSamples, channel);
+                }
+                catch (Exception e)
+                {
+                    Plugin.LogError($"Error getting output data for channel {channel} of audio source on bot {BotID}: {e}");
+                    continue;
+                }
+
+                // Total the samples for this channel.
+                float sum = 0f;
+                for (int i = 0; i < tempSamples.Length; i++)
+                {
+                    float sample = tempSamples[i];
+                    sum += sample * sample;
+                }
+
+                // Get average
+                totalRms += Mathf.Sqrt(sum / tempSamples.Length);
+                totalSamples++;
             }
-            foreach (float sample in rightSamples)
+
+            // Get total average
+            return Mathf.Clamp01(totalRms / Mathf.Max(totalSamples, 1));
+        }
+
+        /// <summary>
+        /// Helper that gets the user's audio channel limit.
+        /// </summary>
+        /// <returns></returns>
+        private static int GetOutputChannelCount()
+        {
+            switch (AudioSettings.GetConfiguration().speakerMode)
             {
-                rightSum += sample * sample;
+                case AudioSpeakerMode.Mono:
+                    return 1;
+                case AudioSpeakerMode.Stereo:
+                    return 2;
+                case AudioSpeakerMode.Quad:
+                    return 4;
+                case AudioSpeakerMode.Surround:
+                    return 5;
+                case AudioSpeakerMode.Mode5point1:
+                    return 6;
+                case AudioSpeakerMode.Mode7point1:
+                    return 8;
+                default:
+                    return 2; // Same as stereo
             }
-
-            float rmsLeft = Mathf.Sqrt(leftSum / leftSamples.Length);
-            float rmsRight = Mathf.Sqrt(rightSum / rightSamples.Length);
-
-            return Mathf.Clamp01((rmsLeft + rmsRight) / 2f);
         }
 
         public void TryPlayVoiceAudio(PlayVoiceParameters parameters)
@@ -196,7 +243,7 @@ namespace LethalBots.AI
             bool isResponsiveness = IsResponsivenessState(parameters.VoiceState);
             if (isResponsiveness)
             {
-                if (Plugin.Config.Responsiveness.Value == (int)EnumResponsiveness.NoResponses)
+                if (Plugin.Config.Responsiveness.Value == EnumResponsiveness.NoResponses)
                 {
                     return;
                 }
@@ -208,7 +255,7 @@ namespace LethalBots.AI
             }
             else
             {
-                if (Plugin.Config.Talkativeness.Value == (int)EnumTalkativeness.NoTalking)
+                if (Plugin.Config.Talkativeness.Value == EnumTalkativeness.NoTalking)
                 {
                     return;
                 }
@@ -302,15 +349,20 @@ namespace LethalBots.AI
             SetCooldownAudio(LastVoiceState, audioClip.length + GetRandomCooldown(LastVoiceState));
         }
 
-        // inputs EnumVoicesState, meaning it will run the IsResponsivenessState()
-        // If IsResponsivenessState() already has run, then use the GetRandomCooldown(bool isResponsiveness) instead
+        /// <summary>
+        /// Inputs EnumVoicesState, meaning it will run the IsResponsivenessState()<br/>
+        /// If IsResponsivenessState() already has run, then use the GetRandomCooldown(bool isResponsiveness) instead
+        /// </summary>
+        /// <param name="voiceState"></param>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private float GetRandomCooldown(EnumVoicesState voiceState)
         {
             return GetRandomCooldown(IsResponsivenessState(voiceState));
         }
 
         /// <summary>
-        /// Returns a random cooldown duration using whichever slider (talkativeness or responsiveness) controls <paramref name="voiceState"/>.
+        /// Returns a random cooldown duration using whichever slider (talkativeness or responsiveness) controls.
         /// </summary>
         private float GetRandomCooldown(bool isResponsiveness) // Used for passing through the IsResponsivenessState() result
         {

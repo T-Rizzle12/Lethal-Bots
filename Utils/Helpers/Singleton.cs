@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Text;
-using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace LethalBots.Utils.Helpers
@@ -15,12 +12,12 @@ namespace LethalBots.Utils.Helpers
     /// This has build-in throttling to keep <see cref="findSingletonFunc"/> from being called every frame
     /// </remarks>
     /// <typeparam name="T">The Unity <see cref="Object"/> to make the Singleton for</typeparam>
-    public sealed class Singleton<T> 
+    public sealed class Singleton<T>
         where T : Object
     {
         private readonly UpdateLimiter nextFindSingletonCheck;
 
-        private Func<T?> findSingletonFunc;
+        private readonly Func<T?> findSingletonFunc;
 
         /// <summary>
         /// Gets or sets the cached singleton instance of <typeparamref name="T"/>.<br/>
@@ -41,15 +38,14 @@ namespace LethalBots.Utils.Helpers
             }
         }
 
-        internal Singleton(float updateInterval = 0.5f)
+        internal Singleton(float updateInterval = 1.0f)
         {
             nextFindSingletonCheck = new UpdateLimiter(updateInterval);
             this.findSingletonFunc = Object.FindObjectOfType<T>;
         }
 
-        internal Singleton(Func<T?> findSingletonFunc, float updateInterval = 0.5f)
+        internal Singleton(Func<T?> findSingletonFunc, float updateInterval = 1.0f) : this(updateInterval)
         {
-            nextFindSingletonCheck = new UpdateLimiter(updateInterval);
             this.findSingletonFunc = findSingletonFunc;
         }
 

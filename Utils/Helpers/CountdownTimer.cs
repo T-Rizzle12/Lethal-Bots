@@ -8,7 +8,7 @@ using UnityEngine;
 namespace LethalBots.Utils.Helpers
 {
     [Serializable]
-    public class CountdownTimer : INetworkSerializable, IEquatable<CountdownTimer>
+    public struct CountdownTimer : INetworkSerializable, IEquatable<CountdownTimer>
     {
         public const float INVALID_TIME = -1.0f;
         public float startTime;
@@ -40,8 +40,9 @@ namespace LethalBots.Utils.Helpers
         /// <param name="time">How long should this timer run</param>
         public void Start(float time)
         {
-            startTime = Time.realtimeSinceStartup;
-            endTime = Time.realtimeSinceStartup + (time >= 0 ? time : 0);
+            float now = Time.realtimeSinceStartup;
+            startTime = now;
+            endTime = now + (time >= 0 ? time : 0);
         }
 
         /// <summary>
@@ -111,8 +112,6 @@ namespace LethalBots.Utils.Helpers
 
         public static bool operator ==(CountdownTimer? left, CountdownTimer? right)
         {
-            if (ReferenceEquals(left, right)) return true;
-            if (left is null || right is null) return false;
             return left.Equals(right);
         }
 

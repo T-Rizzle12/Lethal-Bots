@@ -71,6 +71,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -107,7 +108,7 @@ namespace LethalBots.AI.AIStates
 
             // If our tool needs to be charged, lets charge it
             if (allowRecharging
-                && (npcController.Npc.isInElevator || npcController.Npc.isInHangarShipRoom)
+                && (lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom)
                 && ChargeHeldItemState.HasItemToCharge(ai, out _))
             {
                 ai.State = new ChargeHeldItemState(this, true);
@@ -243,7 +244,7 @@ namespace LethalBots.AI.AIStates
             if (Plugin.IsModUsualScrapLoaded)
             {
                 // Grab our player object
-                PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
+                PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
                 if (healTarget.health >= 100)
                 {
                     return false;

@@ -33,6 +33,7 @@ namespace LethalBots.AI.AIStates
             StartSearchingWanderCoroutine();
 
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -95,7 +96,7 @@ namespace LethalBots.AI.AIStates
             if (ai.isOutside)
             {
                 // If we are outside, we should not be in this state
-                Plugin.LogError($"Bot {npcController.Npc.playerUsername} is outside but in LostInFacilityState. This should not happen!");
+                Plugin.LogError($"Bot {lethalBotController.playerUsername} is outside but in LostInFacilityState. This should not happen!");
                 ChangeBackToPreviousState();
                 return;
             }

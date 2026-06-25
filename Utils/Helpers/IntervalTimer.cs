@@ -8,10 +8,15 @@ using UnityEngine;
 namespace LethalBots.Utils.Helpers
 {
     [Serializable]
-    public class IntervalTimer : INetworkSerializable, IEquatable<IntervalTimer>
+    public struct IntervalTimer : INetworkSerializable, IEquatable<IntervalTimer>
     {
         public const float INVALID_TIME = -1.0f;
-        public float timestamp = INVALID_TIME;
+        public float timestamp;
+
+        public IntervalTimer()
+        {
+            timestamp = INVALID_TIME;
+        }
 
         /// <summary>
         /// Restarts the Interval Timer
@@ -113,8 +118,6 @@ namespace LethalBots.Utils.Helpers
 
         public static bool operator ==(IntervalTimer? left, IntervalTimer? right)
         {
-            if (ReferenceEquals(left, right)) return true;
-            if (left is null || right is null) return false;
             return left.Equals(right);
         }
 

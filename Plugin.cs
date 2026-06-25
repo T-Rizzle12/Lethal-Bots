@@ -76,6 +76,7 @@ namespace LethalBots
     [BepInDependency(LCVR.Plugin.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(DawnLib.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LCAutoRevive.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(Super_Eclipse.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         // Please don't use the MyPluginInfo class for the GUID, my mod is
@@ -112,6 +113,7 @@ namespace LethalBots
         internal static bool IsModDawnLibLoaded = false;
         internal static bool IsModUsualScrapLoaded = false;
         internal static bool IsModAutoReviveLoaded = false;
+        internal static bool IsModSuperEclipseLoaded = false;
         private readonly Harmony _harmony = new(ModGUID);
 
         private void Awake()
@@ -272,6 +274,7 @@ namespace LethalBots
             _harmony.PatchAll(typeof(DoorLockPatch));
             _harmony.PatchAll(typeof(InteractTriggerPatch));
             _harmony.PatchAll(typeof(OutOfBoundsTriggerPatch));
+            _harmony.PatchAll(typeof(PlayerPhysicsRegionPatch));
             _harmony.PatchAll(typeof(ShipTeleporterPatch));
             _harmony.PatchAll(typeof(VehicleControllerPatch));
             _harmony.PatchAll(typeof(DepositItemsDeskPatch));
@@ -310,6 +313,7 @@ namespace LethalBots
             IsModDawnLibLoaded = IsModLoaded(DawnLib.PLUGIN_GUID);
             IsModUsualScrapLoaded = IsModLoaded(UsualScrap.Plugin.PLUGIN_GUID);
             IsModAutoReviveLoaded = IsModLoaded(LCAutoRevive.MyPluginInfo.PLUGIN_GUID);
+            IsModSuperEclipseLoaded = IsModLoaded(Super_Eclipse.MyPluginInfo.PLUGIN_GUID);
 
             bool isModMoreEmotesLoaded = IsModLoaded(Const.MOREEMOTES_GUID);
             bool isModBetterEmotesLoaded = IsModLoaded(Const.BETTEREMOTES_GUID);

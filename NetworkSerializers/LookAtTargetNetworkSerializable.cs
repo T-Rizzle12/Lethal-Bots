@@ -83,7 +83,7 @@ namespace LethalBots.NetworkSerializers
         /// <summary>
         /// Checks if the bot is allowed to swap aim states
         /// </summary>
-        /// <param name="priority">The <see cref="EnumLookAtPriority"/> of the given <paramref name="lookAtPos"/></param>
+        /// <param name="priority">The <see cref="EnumLookAtPriority"/> of the given <see cref="lookAtPos"/></param>
         /// <param name="lookAtMustExpire">If we must wait until <see cref="lookAtExpireTimer"/> elapses first!</param>
         /// <param name="bypassSteadyCheck">If the given <paramref name="priority"/> is the same as our current, should we bypass the steady head checks</param>
         /// <returns>true: is the bot able to swap aim states; otherwise false</returns>
@@ -158,7 +158,8 @@ namespace LethalBots.NetworkSerializers
                 hasBeenSightedIn = this.hasBeenSightedIn,
                 headSteadyTimer = this.headSteadyTimer.Clone(),
                 directionToUpdateTurnBodyTowardsTo = this.directionToUpdateTurnBodyTowardsTo,
-                maxBodyFOV = this.maxBodyFOV
+                maxBodyFOV = this.maxBodyFOV,
+                enumObjectsLookingAt = this.enumObjectsLookingAt
             };
         }
 
@@ -346,7 +347,8 @@ namespace LethalBots.NetworkSerializers
                 && hasBeenSightedIn == other.hasBeenSightedIn
                 && headSteadyTimer == other.headSteadyTimer
                 && directionToUpdateTurnBodyTowardsTo == other.directionToUpdateTurnBodyTowardsTo 
-                && maxBodyFOV == other.maxBodyFOV;
+                && maxBodyFOV == other.maxBodyFOV
+                && enumObjectsLookingAt == other.enumObjectsLookingAt;
         }
 
         public override bool Equals(object? obj)
@@ -368,6 +370,7 @@ namespace LethalBots.NetworkSerializers
             hash.Add(headSteadyTimer);
             hash.Add(directionToUpdateTurnBodyTowardsTo);
             hash.Add(maxBodyFOV);
+            hash.Add(enumObjectsLookingAt);
             return hash.ToHashCode();
         }
 

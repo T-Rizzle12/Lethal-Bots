@@ -19,6 +19,7 @@ using MoreCompany;
 using Scoops.customization;
 using Scoops.gameobjects;
 using Scoops.misc;
+using Scoops.patch;
 using Scoops.service;
 using SpeechRecognitionAPI;
 using System;
@@ -34,6 +35,7 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
+using static LethalBots.AI.LethalBotThreat;
 using Object = UnityEngine.Object;
 using Quaternion = UnityEngine.Quaternion;
 using Random = System.Random;
@@ -164,20 +166,12 @@ namespace LethalBots.Managers
                     SetMissionControllerAndSync(default);
                 }
             }
-            get
-            {
-                if (_missionControlPlayer.Value.TryGet(out PlayerControllerB player))
-                {
-                    return player;
-                }
-                else
-                {
-                    return null;
-                }
-            }
+            get => _missionControlPlayer;
         }
 
-        private NetworkVariable<NetworkBehaviourReference> _missionControlPlayer = new NetworkVariable<NetworkBehaviourReference>(writePerm: NetworkVariableWritePermission.Server);
+        private PlayerControllerB? _missionControlPlayer;
+
+        private NetworkVariable<NetworkBehaviourReference> missionControlPlayerNetworkVar = new NetworkVariable<NetworkBehaviourReference>(writePerm: NetworkVariableWritePermission.Server);
 
         /// <summary>
         /// Gets the list of bots moving loot from the facility to the ship.
@@ -185,7 +179,12 @@ namespace LethalBots.Managers
         /// <remarks>
         /// Only the server can modify this list.
         /// </remarks>
-        public NetworkList<NetworkBehaviourReference> LootTransferPlayers = new NetworkList<NetworkBehaviourReference>(writePerm: NetworkVariableWritePermission.Server);
+        internal NetworkList<NetworkBehaviourReference> LootTransferPlayersNetworkList = new NetworkList<NetworkBehaviourReference>(writePerm: NetworkVariableWritePermission.Server);
+
+        /// <summary>
+        /// Gets the list of bots moving loot from the facility to the ship.
+        /// </summary>
+        public HashSet<PlayerControllerB> LootTransferPlayers = new HashSet<PlayerControllerB>();
 
         /// <summary>
         /// This is the last reported time of day from the last <see cref="MissionControlPlayer"/>.
@@ -197,6 +196,8 @@ namespace LethalBots.Managers
         public VehicleController? VehicleController;
 
         // Variables that handle the ship's NavMesh
+        #region Ship NavMesh
+
         public NavMeshSurface shipNavMeshSurface = null!;
         public GameObject? shipNavMeshInstance = null!;
         public bool shipNavMeshBuilt => shipNavMeshSurface != null
@@ -205,6 +206,13 @@ namespace LethalBots.Managers
         public bool shipNavMeshActive = false;
         public NavMeshObstacle landingShipNavObstacle = null!;
         public (float height, float radius) landingShipNavObstacleInfo = (0f, 0f);
+
+        #endregion
+
+        /// <summary>
+        /// A timer made if <see cref="Plugin.IsModSuperEclipseLoaded"/> is active and enabled
+        /// </summary>
+        internal static IntervalTimer botAutoLeaveTimer = new IntervalTimer(); 
 
         public Dictionary<EnemyAI, INoiseListener> DictEnemyAINoiseListeners = new Dictionary<EnemyAI, INoiseListener>();
 
@@ -229,7 +237,7 @@ namespace LethalBots.Managers
             get; 
         }
         /// <summary>
-        /// Returns if there is a trapped player in the facility.</br>
+        /// Returns if there is a trapped player in the facility.<br/>
         /// Use by the <see cref="LethalBotAI"/> to check if they should bring a key 
         /// and look for locked doors to free them.
         /// </summary>
@@ -240,22 +248,20 @@ namespace LethalBots.Managers
         }
         private ClientRpcParams ClientRpcParams = new ClientRpcParams();
 
-        private static float nextCheckForShipSafety;
-        private static bool _isShipCompromised;
-        private float nextCheckForAliveHumanPlayers;
-        private bool _areAllHumanPlayersDead;
-        private float nextCheckForAllPlayersOnShip;
-        private bool _areAllPlayersOnTheShip;
+        private static CachedValue<bool> isShipCompromised = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
+        private CachedValue<bool> areAllHumanPlayersDead = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
+        private CachedValue<bool> areAllPlayersOnTheShip = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
 
         private float timerRegisterAINoiseListener;
         private HashSet<EnemyAI> ListEnemyAINonNoiseListeners = new HashSet<EnemyAI>();
         private static Dictionary<Type, LethalBotThreat> DictionaryLethalBotThreats = new Dictionary<Type, LethalBotThreat>();
-        public static List<GameObject> grabbableObjectsInMap = new List<GameObject>();
+        public static List<GrabbableObject> grabbableObjectsInMap = new List<GrabbableObject>();
         private float timerUpdateLightsOnMap;
-        private static HashSet<Light> lightsOnMap = new HashSet<Light>();
-        public static IReadOnlyCollection<Light> LightsOnMap => lightsOnMap;
+        private static List<Light> lightsOnMap = new List<Light>();
+        public static IReadOnlyList<Light> LightsOnMap => lightsOnMap;
+        private static float timerUpdateHoardingBugItems;
+        internal static Dictionary<GrabbableObject, HoarderBugItem> DictHoardingBugItems = new Dictionary<GrabbableObject, HoarderBugItem>();
 
-        private float timerSetLethalBotInElevator;
         private float timerUpdateOwnershipOfBot;
         private static bool registeredVoiceCommands = false;
 
@@ -322,6 +328,8 @@ namespace LethalBots.Managers
             base.OnNetworkSpawn();
 
             blacklistedNetworkList.OnListChanged += OnBlacklistChanged;
+            LootTransferPlayersNetworkList.OnListChanged += OnLootTransferPlayersChanged;
+            missionControlPlayerNetworkVar.OnValueChanged += OnMissionControllerChanged;
 
             if (!base.NetworkManager.IsServer)
             {
@@ -338,6 +346,8 @@ namespace LethalBots.Managers
         {
             base.OnNetworkDespawn();
             blacklistedNetworkList.OnListChanged -= OnBlacklistChanged;
+            LootTransferPlayersNetworkList.OnListChanged -= OnLootTransferPlayersChanged;
+            missionControlPlayerNetworkVar.OnValueChanged -= OnMissionControllerChanged;
         }
 
         // If we get destroyed for some reason destory the NavMesh object we created as well!
@@ -372,6 +382,8 @@ namespace LethalBots.Managers
                 timerUpdateLightsOnMap = 0f;
                 RegisterItems(false); // Update items and lights!
             }
+
+            UpdateHoardingBugsItems(Time.fixedDeltaTime);
         }
 
         private void RegisterAINoiseListener(float deltaTime)
@@ -411,6 +423,36 @@ namespace LethalBots.Managers
             }
         }
 
+        private static void UpdateHoardingBugsItems(float deltaTime)
+        {
+            timerUpdateHoardingBugItems += deltaTime;
+            if (timerUpdateHoardingBugItems < 1f)
+            {
+                return;
+            }
+
+            // We update the list of hoarding bug items every second.
+            // Before we used to check per item per bot every bot AI think, but
+            // that was really bad for performance.
+            // Instead we now use a dictionary for its fast lookups.
+            timerUpdateHoardingBugItems = 0f;
+            DictHoardingBugItems.Clear();
+            if (HoarderBugAI.HoarderBugItems.Count == 0)
+            {
+                return; // We are done here, no items to update!
+            }
+
+            // Loop through all hoarding bug items and add them to the dictionary for fast lookups by the bots!
+            foreach (var item in HoarderBugAI.HoarderBugItems)
+            {
+                if (item != null
+                    && item.itemGrabbableObject != null)
+                {
+                    DictHoardingBugItems[item.itemGrabbableObject] = item;
+                }
+            }
+        }
+
         #region Items and Lights management
 
         /// <summary>
@@ -420,7 +462,7 @@ namespace LethalBots.Managers
         public void GrabbableObjectSpawned(GrabbableObject newItem)
         {
             // Don't add it again!
-            if (grabbableObjectsInMap.Contains(newItem.gameObject))
+            if (grabbableObjectsInMap.Contains(newItem))
             {
                 return;
             }
@@ -439,7 +481,7 @@ namespace LethalBots.Managers
 
             // Above code was from HordingBugAI, but it's not needed here!
             // After all we are player bots!
-            grabbableObjectsInMap.Add(newItem.gameObject);
+            grabbableObjectsInMap.Add(newItem);
         }
 
         public void RegisterItems(bool updateShipState = true)
@@ -453,12 +495,12 @@ namespace LethalBots.Managers
         private IEnumerator RegisterItemsCoroutine(bool updateShipState = true)
         {
             HashSet<Light> lightsOnMap = new HashSet<Light>();
-            List<GameObject> grabbableObjectsInMap = new List<GameObject>();
+            List<GrabbableObject> grabbableObjectsInMap = new List<GrabbableObject>();
             yield return null;
 
-            Light[] lights = Object.FindObjectsOfType<Light>();
+            Light[] lights = Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             HashSet<Light> lightsToIgnore = new HashSet<Light>();
-            GrabbableObject[] array = Object.FindObjectsOfType<GrabbableObject>();
+            GrabbableObject[] array = Object.FindObjectsByType<GrabbableObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             Plugin.LogDebug($"Bot register grabbable objects, found: {array.Length}");
             Plugin.LogDebug($"Bot register lights, found: {lights.Length}");
             for (int i = 0; i < array.Length; i++)
@@ -490,9 +532,9 @@ namespace LethalBots.Managers
                     }
 
                     // Don't add it again!
-                    if (!grabbableObjectsInMap.Contains(grabbableObject.gameObject))
+                    if (!grabbableObjectsInMap.Contains(grabbableObject))
                     { 
-                        grabbableObjectsInMap.Add(grabbableObject.gameObject); 
+                        grabbableObjectsInMap.Add(grabbableObject); 
                     }
 
                     // While we have the flashlight object, add its light objects to the ignore list!
@@ -525,8 +567,9 @@ namespace LethalBots.Managers
                 TryRegisterLight(light, lightsOnMap, lightsToIgnore);
             }
 
-            LethalBotManager.lightsOnMap = lightsOnMap;
+            LethalBotManager.lightsOnMap = lightsOnMap.ToList();
             LethalBotManager.grabbableObjectsInMap = grabbableObjectsInMap;
+            LethalBotAI.TrimDictJustDroppedItems();
             timerUpdateLightsOnMap = 0f;
             registerItemsCoroutine = null!;
             yield break;
@@ -538,12 +581,12 @@ namespace LethalBots.Managers
         /// </summary>
         /// <param name="light">The light to register. Cannot be null. If the light is a suit light or is already registered, it will not
         /// be added.</param>
+        /// <param name="targetSet"></param>
         /// <param name="ignoreList">An optional list of lights to exclude from registration. If provided and contains the specified light, the
         /// light will not be registered.</param>
-        public static void TryRegisterLight(Light light, HashSet<Light>? targetSet = null, HashSet<Light>? ignoreList = null)
+        public static void TryRegisterLight(Light light, HashSet<Light> targetSet, HashSet<Light>? ignoreList = null)
         {
             // Make sure the light is valid
-            targetSet ??= lightsOnMap;
             if (light == null)
             {
                 return;
@@ -589,12 +632,15 @@ namespace LethalBots.Managers
         /// the player's helmet lights collection; otherwise, false.</returns>
         private static bool IsPlayerLight(Light light)
         {
-            foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
+            PlayerControllerB[] playerControllers = StartOfRound.Instance.allPlayerScripts;
+            for (int i = 0; i < playerControllers.Length; i++)
             {
-                if (player.nightVision == light
+                PlayerControllerB player = playerControllers[i];
+                if (player != null
+                    && (player.nightVision == light
                     || player.nightVisionRadar == light
                     || player.helmetLight == light
-                    || player.allHelmetLights.Contains(light))
+                    || player.allHelmetLights.Contains(light)))
                 {
                     return true;
                 }
@@ -868,6 +914,84 @@ namespace LethalBots.Managers
             }
         }
 
+        /// <summary>
+        /// Called when we recevive an update from the server that the <see cref="LootTransferPlayersNetworkList"/> has been modified
+        /// </summary>
+        /// <param name="change"></param>
+        private void OnLootTransferPlayersChanged(NetworkListEvent<NetworkBehaviourReference> change)
+        {
+            switch (change.Type)
+            {
+                case NetworkListEvent<NetworkBehaviourReference>.EventType.Add:
+                case NetworkListEvent<NetworkBehaviourReference>.EventType.Insert:
+                {
+                    // Validate the network object first
+                    if (!change.Value.TryGet(out PlayerControllerB player))
+                    {
+                        Plugin.LogWarning("LethalBotManager.OnLootTransferPlayer: Failed to resolve NetworkBehaviourReference (likely despawned).");
+                        return;
+                    }
+
+                    LootTransferPlayers.Add(player);
+                    break;
+                }
+                case NetworkListEvent<NetworkBehaviourReference>.EventType.Remove:
+                case NetworkListEvent<NetworkBehaviourReference>.EventType.RemoveAt:
+                {
+                    // Validate the network object first
+                    if (!change.Value.TryGet(out PlayerControllerB player))
+                    {
+                        Plugin.LogWarning("LethalBotManager.OnLootTransferPlayer: Failed to resolve NetworkBehaviourReference (likely despawned).");
+                        return;
+                    }
+
+                    LootTransferPlayers.Remove(player);
+                    break;
+                }
+                case NetworkListEvent<NetworkBehaviourReference>.EventType.Clear:
+                {
+                    LootTransferPlayers.Clear();
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Called when we recevive an update from the server that the <see cref="missionControlPlayerNetworkVar"/> has been modified
+        /// </summary>
+        /// <param name="previousValue"></param>
+        /// <param name="newValue"></param>
+        private void OnMissionControllerChanged(NetworkBehaviourReference previousValue, NetworkBehaviourReference newValue)
+        {
+            // Validate the network objects first
+            PlayerControllerB? previousMissionController;
+            PlayerControllerB? newMissionController;
+            if (previousValue.TryGet(out PlayerControllerB prevMC))
+            {
+                previousMissionController = prevMC;
+            }
+            else
+            {
+                previousMissionController = null;
+            }
+
+            // Validate the network objects first
+            if (newValue.TryGet(out PlayerControllerB newMC))
+            {
+                newMissionController = newMC;
+            }
+            else
+            {
+                newMissionController = null;
+            }
+
+            // Log the change for debugging purposes
+            Plugin.LogDebug($"Mission controller changed, old value: {previousMissionController?.playerUsername ?? "(None)"}, new value: {newMissionController?.playerUsername ?? "(None)"}");
+            _missionControlPlayer = newMissionController;
+        }
+
         #endregion
 
         private void Start()
@@ -1086,17 +1210,17 @@ namespace LethalBots.Managers
         /// <summary>
         /// Get the threat range for a given threat name
         /// </summary>
-        /// <param name="fearQuery"></param>
+        /// <param name="fearQuery">Fear query to check</param>
         /// <returns>The fear range based on the given query</returns>
-        public static float? GetFearRangeForEnemy(LethalBotFearQuery fearQuery)
+        public static float? GetFearRangeForEnemy(in LethalBotFearQuery fearQuery)
         {
             // Make sure we have a valid enemyAI
-            if (fearQuery.EnemyAI == null)
+            if (!fearQuery.GetThreat(out EnemyAI? enemyAI)) // Until fear system is updated, only allow EnemyAI's fearQuery.Threat == null
             {
                 Plugin.LogWarning($"GetFearRangeForEnemy: EnemyAI is null");
                 return null;
             }
-            Type threatType = fearQuery.EnemyAI.GetType();
+            Type threatType = enemyAI.GetType();
             if (DictionaryLethalBotThreats.TryGetValue(threatType, out LethalBotThreat threatInfo))
             {
                 return threatInfo.GetFearRangeForEnemy(fearQuery);
@@ -1105,20 +1229,44 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
+        /// Check if the given threat should be killed by the bot
+        /// </summary>
+        /// <param name="attackQuery"></param>
+        /// <returns>Can the enemy be killed?</returns>
+        public static bool ShouldAttackEnemy(in LethalBotAttackQuery attackQuery)
+        {
+            // Make sure we have a valid enemyAI
+            if (!attackQuery.GetThreat(out EnemyAI? enemyAI)) // Until fear system is updated, only allow EnemyAI's fearQuery.Threat == null
+            {
+                Plugin.LogWarning($"ShouldAttackEnemy: EnemyAI is null");
+                return false;
+            }
+            Type threatType = enemyAI.GetType();
+            if (DictionaryLethalBotThreats.TryGetValue(threatType, out LethalBotThreat threatInfo))
+            {
+                return threatInfo.ShouldAttackEnemy(attackQuery);
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Helper function for registering threats that don't need any special logic
         /// </summary>
-        /// <param name="threatType">Type of the threat this should the same as the one in <see cref="EnemyAI.enemyType"/></param>
+        /// <param name="threatType"></param>
         /// <param name="panik">Bot panik range</param>
         /// <param name="mission">Bot teleport player range</param>
         /// <param name="path">Bot Avoid LOS range</param>
+        /// <param name="shouldAttack"></param>
+        /// <inheritdoc cref="RegisterThreat(Type, FearRangeDelegate, FearRangeDelegate, FearRangeDelegate, ShouldAttackDelegate?)"/>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void RegisterThreat(Type threatType, float? panik, float? mission, float? path)
+        public static void RegisterThreat(Type threatType, float? panik, float? mission, float? path, ShouldAttackDelegate? shouldAttack = null)
         {
             RegisterThreat(
                 threatType,
-                _ => panik,
-                _ => mission,
-                _ => path
+                (in query) => panik,
+                (in query) => mission,
+                (in query) => path,
+                shouldAttack
             );
         }
 
@@ -1129,7 +1277,8 @@ namespace LethalBots.Managers
         /// <param name="panik">Bot panik function</param>
         /// <param name="mission">Bot teleport player function</param>
         /// <param name="path">Bot Avoid LOS function</param>
-        public static void RegisterThreat(Type threatType, Func<LethalBotFearQuery, float?> panik, Func<LethalBotFearQuery, float?> mission, Func<LethalBotFearQuery, float?> path)
+        /// <param name="shouldAttack">Bot should attack function</param>
+        public static void RegisterThreat(Type threatType, FearRangeDelegate panik, FearRangeDelegate mission, FearRangeDelegate path, ShouldAttackDelegate? shouldAttack = null)
         {
             if (DictionaryLethalBotThreats.ContainsKey(threatType))
             {
@@ -1139,7 +1288,8 @@ namespace LethalBots.Managers
                 threatType,
                 panik,
                 mission,
-                path
+                path,
+                shouldAttack
             );
             Plugin.LogInfo($"Registered {threatType.Name} as a threat to LethalBots!");
         }
@@ -1160,89 +1310,127 @@ namespace LethalBots.Managers
         private static void RegisterDefaultThreats()
         {
             // Static value threats
-            RegisterThreat(typeof(CrawlerAI), 20f, 10f, 20f); // Thumper
+            RegisterThreat(typeof(CrawlerAI), 20f, 10f, 20f, (in _) => true); // Thumper
             RegisterThreat(typeof(ForestGiantAI), 30f, 10f, 40f); // Forest Giants
             //RegisterThreat("ImmortalSnail", 10f, null, 10f);
             RegisterThreat(typeof(ClaySurgeonAI), 15f, null, 10f); // Barber
-            RegisterThreat(typeof(FlowermanAI), 10f, null, 5f); // Bracken
-            RegisterThreat(typeof(BushWolfEnemy), 15f, 10f, 15f); // Kidnapper Fox
+            RegisterThreat(typeof(FlowermanAI), 10f, null, 5f, (in aq) => aq.hasRangedWeapon || aq.isHumanPlayer || aq.IsEnemyStunned()); // Bracken
             RegisterThreat(typeof(PufferAI), 2f, null, 2f); // Spore Lizard
             RegisterThreat(typeof(RedLocustBees), 10f, null, 15f); // BEEEEEEESSS!
             RegisterThreat(typeof(ButlerBeesEnemyAI), 20f, null, 15f); // Butler Bees
-            RegisterThreat(typeof(BaboonBirdAI), 10f, 5f, 10f); // Annoying, Baboon Hawks......
-            RegisterThreat(typeof(PumaAI), 10f, null, 10f); // Feiopars
-            RegisterThreat(typeof(CadaverBloomAI), 20f, null, 20f); // Cadaver Bloom
+            RegisterThreat(typeof(BaboonBirdAI), 10f, 5f, 10f, (in _) => true); // Annoying, Baboon Hawks......
+            RegisterThreat(typeof(PumaAI), 10f, null, 10f, (in aq) => aq.GetThreat(out PumaAI? pumaAI) && (!aq.isMissionController || pumaAI.isInsidePlayerShip)); // Feiopars
+            RegisterThreat(typeof(CadaverBloomAI), 20f, null, 20f, (in aq) => aq.GetThreat(out CadaverBloomAI? cadaverBloom) && (!aq.isMissionController || cadaverBloom.isInsidePlayerShip)); // Cadaver Bloom
+            RegisterThreat(typeof(LassoManAI), 20f, null, 20f); // Just in case someone restores LassoMan
 
             // Dynamic behavior threats
             // Old Birds!
             RegisterThreat(typeof(RadMechAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null,
-                fq => 40f // Always 40 for pathfinding
+                (in fq) => fq.GetThreat(out RadMechAI? radMech) && radMech.currentBehaviourStateIndex > 0 ? 30f : null,
+                (in fq) => fq.GetThreat(out RadMechAI? radMech) && radMech.currentBehaviourStateIndex > 0 ? 20f : null,
+                (in fq) => 40f // Always 40 for pathfinding
+            );
+
+            // Kidnapper Fox
+            RegisterThreat(typeof(BushWolfEnemy),
+                (in fq) => 15f,
+                (in fq) => fq.GetThreat(out BushWolfEnemy? bushWolf) && bushWolf.draggingPlayer == fq.PlayerToCheck ? float.MaxValue : 10f,
+                (in fq) => 15f,
+                (in aq) =>
+                {
+                    BushWolfEnemy? bushWolf = aq.GetThreat<BushWolfEnemy>();
+                    if (bushWolf == null)
+                    {
+                        return false;
+                    }
+
+                    if (bushWolf.draggingPlayer != null)
+                    {
+                        return true; // We need to save a player, ATTACK!
+                    }
+                    return aq.hasRangedWeapon || aq.isHumanPlayer || aq.IsEnemyStunned() || bushWolf.isInsidePlayerShip;
+                }
             );
 
             // Modded Enemy, Broken until I add a dll reference.
             // This should probably be in its own mod......
             //RegisterThreat("T-rex",
-            //    fearQuery => fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-            //    fearQuery => fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-            //    fearQuery => 40f // Always 40 for pathfinding
+            //    (in fearQuery) => fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
+            //    (in fearQuery) => fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
+            //    (in fearQuery) => 40f // Always 40 for pathfinding
             //);
 
             // Maneater
             RegisterThreat(typeof(CaveDwellerAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 2 ? 30f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 30f : null
+                (in fq) => fq.GetThreat(out CaveDwellerAI? caveDweller) && caveDweller.currentBehaviourStateIndex > 0 ? 30f : null,
+                (in fq) => fq.GetThreat(out CaveDwellerAI? caveDweller) && caveDweller.currentBehaviourStateIndex > 2 ? 30f : null,
+                (in fq) => fq.GetThreat(out CaveDwellerAI? caveDweller) && caveDweller.currentBehaviourStateIndex > 0 ? 30f : null,
+                (in aq) => aq.isHumanPlayer
             );
 
             // Jester
             RegisterThreat(typeof(JesterAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? float.MaxValue : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 && (fq.PlayerToCheck == null || fq.PlayerToCheck.isInsideFactory) ? float.MaxValue : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? null : 20f // Always 20 for pathfinding, unless they are winding up, then we need to move NOW!
+                (in fq) => fq.GetThreat(out JesterAI? jesterAI) && jesterAI.currentBehaviourStateIndex > 0 ? float.MaxValue : null,
+                (in fq) => fq.GetThreat(out JesterAI? jesterAI) && jesterAI.currentBehaviourStateIndex == 2 && (fq.PlayerToCheck == null || fq.PlayerToCheck.isInsideFactory) ? float.MaxValue : null,
+                (in fq) => fq.GetThreat(out JesterAI? jesterAI) && jesterAI.currentBehaviourStateIndex > 0 ? null : 20f // Always 20 for pathfinding, unless they are winding up, then we need to move NOW!
             );
 
             // Eyeless dog
             RegisterThreat(typeof(MouthDogAI),
-                fq => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel >= 9 ? 20f : 5f,
-                fq => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel >= 9 ? 20f : null,
-                fq => fq.EnemyAI is MouthDogAI dog && dog.suspicionLevel > 0 ? 30f : 20f // Increase the danger range if they are angry!
+                (in fq) => fq.GetThreat(out MouthDogAI? dog) && dog.suspicionLevel >= 9 ? 20f : 5f,
+                (in fq) => fq.GetThreat(out MouthDogAI? dog) && dog.suspicionLevel >= 9 ? 20f : null,
+                (in fq) => fq.GetThreat(out MouthDogAI? dog) && dog.suspicionLevel > 0 ? 30f : 20f, // Increase the danger range if they are angry!
+                (in aq) => aq.isHumanPlayer
             );
 
             // Snare Flea
             RegisterThreat(typeof(CentipedeAI),
-                fq =>
+                (in fq) =>
                 {
-                    if (fq.EnemyAI is CentipedeAI c && c.clingingToPlayer != null)
+                    if (fq.GetThreat(out CentipedeAI? c))
                     {
-                        return c.clingingToPlayer == fq.Bot ? 1f : 15f;
+                        if (c.clingingToPlayer != null)
+                        {
+                            PlayerControllerB? lethalBotController = fq.LethalBotAI != null ? fq.LethalBotAI.NpcController?.Npc : null;
+                            return c.clingingToPlayer == lethalBotController ? 1f : 15f;
+                        }
+                        else
+                        {
+                            return c.currentBehaviourStateIndex > 1 ? 15f : 1f;
+                        }
                     }
-                    return fq.EnemyAI.currentBehaviourStateIndex > 1 ? 15f : 1f;
+                    return 1f;
                 },
-                fq => fq.EnemyAI is CentipedeAI c && c.clingingToPlayer == fq.PlayerToCheck ? float.MaxValue : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 1 ||
-                      (fq.EnemyAI is CentipedeAI c && c.clingingToPlayer != null) ? 15f : 1f
+                (in fq) => fq.GetThreat(out CentipedeAI? c) && c.clingingToPlayer == fq.PlayerToCheck ? float.MaxValue : null,
+                (in fq) => fq.GetThreat(out CentipedeAI? c) && (c.currentBehaviourStateIndex > 1 || c.clingingToPlayer != null) ? 15f : 1f,
+                (in _) => true
             );
 
-            float? CoilHeadPanikFunc(LethalBotFearQuery fearQuery)
+            float? CoilHeadPanikFunc(in LethalBotFearQuery fearQuery)
             {
                 // If the coil hasn't moved for 8 seconds, stop being afraid of it!
                 const float stopFearTimer = 8f;
-                if (fearQuery.EnemyAI is SpringManAI coilHead)
+                if (fearQuery.GetThreat(out SpringManAI? coilHead))
                 {
                     SpringManAIPatch.SpringManMonitor coilHeadMonitor = SpringManAIPatch.GetOrCreateMonitor(coilHead);
                     if (!coilHeadMonitor.HasMovedRecently(stopFearTimer))
                     {
                         return null;
                     }
+
+                    if (coilHead.currentBehaviourStateIndex > 0)
+                    {
+                        return 20f;
+                    }
                 }
-                return fearQuery.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null;
+                return null;
             }
 
-            float? CoilHeadMissionFunc(LethalBotFearQuery fearQuery)
+            float? CoilHeadMissionFunc(in LethalBotFearQuery fearQuery)
             {
-                if (fearQuery.EnemyAI.currentBehaviourStateIndex > 0 && fearQuery.PlayerToCheck is PlayerControllerB playerToCheck)
+                if (fearQuery.GetThreat(out SpringManAI? coilHead) 
+                    && coilHead.currentBehaviourStateIndex > 0 
+                    && fearQuery.PlayerToCheck is PlayerControllerB playerToCheck)
                 {
                     const float trappedTeleportTimer = 10f;
                     if (playerToCheck.timeSincePlayerMoving > trappedTeleportTimer)
@@ -1257,34 +1445,41 @@ namespace LethalBots.Managers
             RegisterThreat(typeof(SpringManAI),
                 CoilHeadPanikFunc,
                 CoilHeadMissionFunc,
-                fq => fq.EnemyAI.currentBehaviourStateIndex > 0 ? 20f : null
+                (in fq) => fq.GetThreat(out SpringManAI? coilHead) && coilHead.currentBehaviourStateIndex > 0 ? 20f : null
             );
 
             // Butler
             RegisterThreat(typeof(ButlerEnemyAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
-                fq => (fq.EnemyAI.currentBehaviourStateIndex == 2 || (fq.Bot is LethalBotAI lethalBotAI && lethalBotAI.NpcController.Npc.isPlayerAlone)) ? 20f : null
+                (in fq) => fq.GetThreat(out ButlerEnemyAI? butlerEnemyAI) && butlerEnemyAI.currentBehaviourStateIndex == 2 ? 20f : null,
+                (in fq) => fq.GetThreat(out ButlerEnemyAI? butlerEnemyAI) && butlerEnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
+                (in fq) => ((fq.GetThreat(out ButlerEnemyAI? butlerEnemyAI) && butlerEnemyAI.currentBehaviourStateIndex == 2) || (fq.LethalBotAI != null && fq.LethalBotAI.NpcController.Npc.isPlayerAlone)) ? 20f : null,
+                (in aq) => aq.isHumanPlayer
             );
 
             // Loot Bugs
             RegisterThreat(typeof(HoarderBugAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 5f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : null
+                (in fq) => fq.GetThreat(out HoarderBugAI? hoarderBug) && hoarderBug.currentBehaviourStateIndex == 2 ? 20f : null,
+                (in fq) => fq.GetThreat(out HoarderBugAI? hoarderBug) && hoarderBug.currentBehaviourStateIndex == 2 ? 5f : null,
+                (in fq) => fq.GetThreat(out HoarderBugAI? hoarderBug) && hoarderBug.currentBehaviourStateIndex == 2 ? 20f : null,
+                (in _) => true
             );
 
-            float? MaskedPanikFunc(LethalBotFearQuery fearQuery)
+            float? MaskedPanikFunc(in LethalBotFearQuery fearQuery)
             {
+                MaskedPlayerEnemy? masked = fearQuery.GetThreat<MaskedPlayerEnemy>();
+                if (masked == null)
+                {
+                    return 15f;
+                }
+
                 bool aware =
-                fearQuery.EnemyAI is MaskedPlayerEnemy masked
-                && fearQuery.Bot is LethalBotAI lethalBotAI
-                && lethalBotAI.DictKnownMasked.TryGetValue(masked, out bool known)
+                fearQuery.LethalBotAI != null
+                && fearQuery.LethalBotAI.DictKnownMasked.TryGetValue(masked, out bool known)
                 && known;
 
                 bool handsOut =
-                    fearQuery.EnemyAI.creatureAnimator != null
-                    && fearQuery.EnemyAI.creatureAnimator.GetBool("HandsOut");
+                    masked.creatureAnimator != null
+                    && masked.creatureAnimator.GetBool("HandsOut");
 
                 return (aware || handsOut) ? 30f : 15f;
             }
@@ -1292,28 +1487,36 @@ namespace LethalBots.Managers
             // Masked
             RegisterThreat(typeof(MaskedPlayerEnemy),
                 MaskedPanikFunc,
-                _ => 8f, // Always 8 for mission control
-                MaskedPanikFunc
+                (in _) => 8f, // Always 8 for mission control
+                MaskedPanikFunc,
+                (in _) => true
             );
 
             // Spider!
             RegisterThreat(typeof(SandSpiderAI),
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 5f, // Sigh, i may or may not of added this after a particular experience where bots got stuck in a loop of running away and coming back despite the spider not actually chasing them!
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 10f : null,
-                fq => fq.EnemyAI.currentBehaviourStateIndex == 2 ? 20f : 10f // Based on what the spider is doing!
+                (in fq) => fq.GetThreat(out SandSpiderAI? spiderAI) && spiderAI.currentBehaviourStateIndex == 2 ? 20f : 5f, // Sigh, i may or may not of added this after a particular experience where bots got stuck in a loop of running away and coming back despite the spider not actually chasing them!
+                (in fq) => fq.GetThreat(out SandSpiderAI? spiderAI) && spiderAI.currentBehaviourStateIndex == 2 ? 10f : null,
+                (in fq) => fq.GetThreat(out SandSpiderAI? spiderAI) && spiderAI.currentBehaviourStateIndex == 2 ? 20f : 10f, // Based on what the spider is doing!
+                (in aq) => aq.hasRangedWeapon || aq.isHumanPlayer || aq.IsEnemyStunned()
             );
 
             // Register threat is compatable with functions!
             // This makes it really easy to add advanced logic for when the bot should be afraid!
-            float? NutcrackerPanikFunc(LethalBotFearQuery fearQuery)
+            float? NutcrackerPanikFunc(in LethalBotFearQuery fearQuery)
             {
+                NutcrackerEnemyAI? nutcracker = fearQuery.GetThreat<NutcrackerEnemyAI>();
+                if (nutcracker == null)
+                {
+                    return 15f;
+                }
+
                 // Ok, there are three state indexes to date!
                 // 0. Patroling
                 // 1. Scanning
                 // 2. Hunting/Attacking
-                int stateIndex = fearQuery.EnemyAI.currentBehaviourStateIndex;
+                int stateIndex = nutcracker.currentBehaviourStateIndex;
                 if (stateIndex == 1
-                    || (stateIndex == 2 && fearQuery.EnemyAI is NutcrackerEnemyAI nutcracker && fearQuery.Bot is LethalBotAI lethalBotAI && nutcracker.lastPlayerSeenMoving == (int)lethalBotAI.NpcController.Npc.playerClientId))
+                    || (stateIndex == 2 && fearQuery.LethalBotAI != null && nutcracker.lastPlayerSeenMoving == (int)fearQuery.LethalBotAI.NpcController.Npc.playerClientId))
                 {
                     return 60f; // Got from the Nutcracker source code, 60f is the maximum range it can see moving players!
                 }
@@ -1324,7 +1527,7 @@ namespace LethalBots.Managers
                 return 15f; // Let's make sure not to walk into them, of course!
             }
 
-            float? NutcrackerMissionFunc(LethalBotFearQuery fearQuery)
+            float? NutcrackerMissionFunc(in LethalBotFearQuery fearQuery)
             {
                 // TODO: Add a check for if the player is holding a weapon, they may be attempting to fight it,
                 // and teleporting them is not a good idea!
@@ -1337,17 +1540,42 @@ namespace LethalBots.Managers
                 return 10f;
             }
 
+            bool NutcrackerShouldAttackFunc(in LethalBotAttackQuery attackQuery)
+            {
+                NutcrackerEnemyAI? nutcracker = attackQuery.GetThreat<NutcrackerEnemyAI>();
+                if (nutcracker == null)
+                {
+                    return false;
+                }
+
+                bool isEnemyStunned = nutcracker.stunnedIndefinitely > 0f || nutcracker.stunNormalizedTimer > 0f;
+                if ((attackQuery.hasRangedWeapon || attackQuery.isHumanPlayer || isEnemyStunned)
+                        && (nutcracker.currentBehaviourStateIndex == 2
+                            || nutcracker.isInspecting))
+                {
+                    return true;
+                }
+                return false;
+            }
+
             // Nutcracker, with a gun
             RegisterThreat(typeof(NutcrackerEnemyAI),
                 NutcrackerPanikFunc,
                 NutcrackerMissionFunc,
-                NutcrackerPanikFunc // Just use panik func, better for not triggering them in the first place!
+                NutcrackerPanikFunc, // Just use panik func, better for not triggering them in the first place!
+                NutcrackerShouldAttackFunc
             );
 
             // TODO: Improve this as I study the AI!
-            float? GiantKiwiPanikFunc(LethalBotFearQuery fearQuery)
+            float? GiantKiwiPanikFunc(in LethalBotFearQuery fearQuery)
             {
-                int stateIndex = fearQuery.EnemyAI.currentBehaviourStateIndex;
+                GiantKiwiAI? giantKiwi = fearQuery.GetThreat<GiantKiwiAI>();
+                if (giantKiwi == null)
+                {
+                    return 5f;
+                }
+
+                int stateIndex = giantKiwi.currentBehaviourStateIndex;
                 if (stateIndex == 1)
                 {
                     return 8f; // Not attacking, but getting close will cause the Giant Sapsucker to retaliate!
@@ -1363,13 +1591,13 @@ namespace LethalBots.Managers
             // Giant Sapsucker
             RegisterThreat(typeof(GiantKiwiAI),
                 GiantKiwiPanikFunc,
-                _ => null,
+                (in fq) => null,
                 GiantKiwiPanikFunc
             );
 
-            float? SandWormPanikFunc(LethalBotFearQuery fearQuery)
+            float? SandWormPanikFunc(in LethalBotFearQuery fearQuery)
             {
-                if (fearQuery.EnemyAI is SandWormAI sandWormAI)
+                if (fearQuery.GetThreat(out SandWormAI? sandWormAI))
                 {
                     // If the Earth Leviathan is emerging, stay further away
                     if (sandWormAI.inEmergingState)
@@ -1385,9 +1613,9 @@ namespace LethalBots.Managers
                 return 10f;
             }
 
-            float? SandWormPathFunc(LethalBotFearQuery fearQuery)
+            float? SandWormPathFunc(in LethalBotFearQuery fearQuery)
             {
-                if (fearQuery.EnemyAI is SandWormAI sandWormAI)
+                if (fearQuery.GetThreat(out SandWormAI? sandWormAI))
                 {
                     // If the Earth Leviathan is emerging, stay further away
                     if (sandWormAI.inEmergingState)
@@ -1406,22 +1634,22 @@ namespace LethalBots.Managers
             // Earth Leviathans
             RegisterThreat(typeof(SandWormAI),
                 SandWormPanikFunc, 
-                fq => null,
+                (in fq) => null,
                 SandWormPathFunc
             );
 
             // Blob
             RegisterThreat(typeof(BlobAI), 
-                fq => fq.EnemyAI is BlobAI blob && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f, 
-                fq => null, 
-                fq => fq.EnemyAI is BlobAI blob && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f
+                (in fq) => fq.GetThreat(out BlobAI? blob) && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f, 
+                (in fq) => null, 
+                (in fq) => fq.GetThreat(out BlobAI? blob) && blob.tamedTimer > 0f && blob.angeredTimer <= 0f ? null : 10f
             );
 
             // Girl aka Ghost Girl
-            RegisterThreat(typeof(DressGirlAI), 
-                fq => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && (ghostGirl.staringInHaunt || ghostGirl.currentBehaviourStateIndex > 0) ? 40f : null,
-                _ => null,  // No value for mission control
-                fq => fq.EnemyAI is DressGirlAI ghostGirl && fq.Bot is LethalBotAI lethalBotAI && ghostGirl.hauntingPlayer == lethalBotAI.NpcController.Npc && ghostGirl.staringInHaunt ? 60f : null   // We don't want to go near her.....
+            RegisterThreat(typeof(DressGirlAI),
+                (in fq) => fq.GetThreat(out DressGirlAI? ghostGirl) && fq.LethalBotAI != null && ghostGirl.hauntingPlayer == fq.LethalBotAI.NpcController.Npc && (ghostGirl.staringInHaunt || ghostGirl.currentBehaviourStateIndex > 0) ? 40f : null,
+                (in fq) => null,  // No value for mission control
+                (in fq) => fq.GetThreat(out DressGirlAI? ghostGirl) && fq.LethalBotAI != null && ghostGirl.hauntingPlayer == fq.LethalBotAI.NpcController.Npc && ghostGirl.staringInHaunt ? 60f : null   // We don't want to go near her.....
             );
         }
 
@@ -1447,9 +1675,7 @@ namespace LethalBots.Managers
         /// <summary>
         /// Rpc method on server spawning network object from bot prefab and calling the client
         /// </summary>
-        /// <param name="spawnPosition">Where the bots will spawn</param>
-        /// <param name="yRot">Rotation of the bots when spawning</param>
-        /// <param name="isOutside">Spawning outside or inside the facility (used for initializing AI Nodes)</param>
+        /// <param name="spawnLethalBotsParamsNetworkSerializable"></param>
         [ServerRpc(RequireOwnership = false)]
         public void SpawnLethalBotServerRpc(SpawnLethalBotParamsNetworkSerializable spawnLethalBotsParamsNetworkSerializable)
         {
@@ -1594,11 +1820,7 @@ namespace LethalBots.Managers
         /// adds it to its corresponding arrays
         /// </summary>
         /// <param name="networkObjectReferenceLethalBotAI"><c>NetworkObjectReference</c> for the <c>LethalBotAI</c> spawned on server</param>
-        /// <param name="indexNextLethalBot">Corresponding index in <c>AllLethalBotAIs</c> for the body <c>GameObject</c> at another index in <c>allPlayerObjects</c></param>
-        /// <param name="indexNextPlayerObject">Corresponding index in <c>allPlayerObjects</c> for the body of bot</param>
-        /// <param name="spawnPosition">Where the bots will spawn</param>
-        /// <param name="yRot">Rotation of the bots when spawning</param>
-        /// <param name="isOutside">Spawning outside or inside the facility (used for initializing AI Nodes)</param>
+        /// <param name="spawnParamsNetworkSerializable"></param>
         [ClientRpc]
         private void SpawnLethalBotClientRpc(NetworkObjectReference networkObjectReferenceLethalBotAI,
                                           SpawnLethalBotParamsNetworkSerializable spawnParamsNetworkSerializable)
@@ -1633,10 +1855,8 @@ namespace LethalBots.Managers
         /// Attach the brain to the body, attach <c>LethalBotAI</c> <c>Transform</c> to the <c>GameObject</c> of the <c>PlayerControllerB</c>.
         /// </summary>
         /// <param name="lethalBotAI"><c>LethalBotAI</c> to initialize</param>
-        /// <param name="indexNextPlayerObject">Corresponding index in <c>allPlayerObjects</c> for the body of bot</param>
-        /// <param name="spawnPosition">Where the bots will spawn</param>
-        /// <param name="yRot">Rotation of the bots when spawning</param>
-        /// <param name="isOutside">Spawning outside or inside the facility (used for initializing AI Nodes)</param>
+        /// <param name="spawnParamsNetworkSerializable"></param>
+        /// <param name="clientJoining"></param>
         private void InitLethalBotSpawning(LethalBotAI lethalBotAI,
                                         SpawnLethalBotParamsNetworkSerializable spawnParamsNetworkSerializable,
                                         bool clientJoining = false)
@@ -1921,7 +2141,7 @@ namespace LethalBots.Managers
 
         /// <summary>
         /// A stripped down version of <see cref="InitLethalBotSpawning(LethalBotAI, SpawnLethalBotParamsNetworkSerializable, bool)"/> made to
-        /// call <see cref="LethalBotAI.Init(EnumSpawnAnimation)"/> for already spawned bots.
+        /// call <see cref="LethalBotAI.Init(EnumSpawnAnimation, bool)"/> for already spawned bots.
         /// </summary>
         /// <param name="lethalBotAI"><c>LethalBotAI</c> to initialize</param>
         private void ReinitSpawnedBot(LethalBotAI lethalBotAI)
@@ -1998,7 +2218,8 @@ namespace LethalBots.Managers
         /// <summary>
         /// Helper coroutine that waits until the end of the frame after spawning the phone to toggle the phone model for bots
         /// </summary>
-        /// <param name="playerPhone"></param>
+        /// <param name="playerPhoneNetworkBehavior"></param>
+        /// <param name="botName"></param>
         /// <returns></returns>
         private IEnumerator togglePhoneModelAfterSpawn(NetworkBehaviour playerPhoneNetworkBehavior, string botName)
         {
@@ -2046,6 +2267,7 @@ namespace LethalBots.Managers
         /// <summary>
         /// Helper function that sends the bot's cosmetics to all other players!
         /// </summary>
+        /// <param name="lethalBotIdentity"></param>
         /// <param name="lethalBotController"></param>
         private void SetupMoreCompanyCosmetics(LethalBotIdentity lethalBotIdentity, PlayerControllerB lethalBotController)
         {
@@ -2584,10 +2806,21 @@ namespace LethalBots.Managers
                         if (LethalBotAI.ShouldIgnoreLightSource(light))
                             continue;
 
-                        // Check the light direction (if applicable)
+                        // Have to be in range of the light to consider it
+                        LightType lightType = light.type;
                         Vector3 toBot = ourPos - light.transform.position;
+                        float dist = toBot.sqrMagnitude; // NOTE: We don't use sqr distance since we need to use the exact range later.
+                        float lightRange = light.range;
+                        if (lightType != LightType.Directional
+                            && dist > lightRange * lightRange)
+                            continue;
+
+                        // Convert distance to squared distance for attenuation calculation
+                        dist = lightType != LightType.Directional ? Mathf.Sqrt(dist) : 0f;
+
+                        // Check the light direction (if applicable)
                         float coneFactor = 1f;
-                        if (light.type == LightType.Spot)
+                        if (lightType == LightType.Spot)
                         {
                             float angle = Vector3.Angle(light.transform.forward, toBot.normalized);
                             float halfAngle = light.spotAngle * 0.5f;
@@ -2598,13 +2831,8 @@ namespace LethalBots.Managers
                             coneFactor = Mathf.Clamp01(coneFactor - (angle / halfAngle));
                         }
 
-                        // Have to be in range of the light to consider it
-                        float dist = toBot.magnitude; // NOTE: We don't use sqr distance since we need to use the exact range later.
-                        if (dist > light.range)
-                            continue;
-
                         // Adjust the light strength based on its distance from the bot and its intensity
-                        float atten = 1f - Mathf.Clamp01(dist / light.range);
+                        float atten = lightType != LightType.Directional ? 1f - Mathf.Clamp01(dist / lightRange) : 1f;
                         atten *= atten;
                         float occlusion = LethalBotAI.GetLightOcclusionFactor(light.transform.position, ourPos);
                         lightLevel += light.intensity * atten * coneFactor * occlusion;
@@ -2927,12 +3155,13 @@ namespace LethalBots.Managers
         /// Checks if we are currently in orbit
         /// </summary>
         /// <param name="instanceSOR">If you already have the <see cref="StartOfRound"/> instance, you may provide it here.</param>
+        /// <param name="checkLoadingNewLevel">Should we consider ourself in orbit if we are starting to land?</param>
         /// <returns><see langword="true"/> if we are in orbit; otherwise <see langword="false"/></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool AreWeInOrbit(StartOfRound? instanceSOR = null)
+        public static bool AreWeInOrbit(StartOfRound? instanceSOR = null, bool checkLoadingNewLevel = false)
         {
             instanceSOR ??= StartOfRound.Instance;
-            return instanceSOR != null && instanceSOR.inShipPhase;
+            return instanceSOR != null && instanceSOR.inShipPhase && (!checkLoadingNewLevel || !instanceSOR.beganLoadingNewLevel);
         }
 
         /// <summary>
@@ -2956,7 +3185,7 @@ namespace LethalBots.Managers
         public static bool IsTheShipLanding(StartOfRound? instanceSOR = null)
         {
             instanceSOR ??= StartOfRound.Instance;
-            return instanceSOR != null && !instanceSOR.shipHasLanded && !AreWeInOrbit(instanceSOR) && !IsTheShipLeaving(instanceSOR);
+            return instanceSOR != null && !instanceSOR.shipHasLanded && !AreWeInOrbit(instanceSOR, checkLoadingNewLevel: true) && !IsTheShipLeaving(instanceSOR);
         }
 
         /// <summary>
@@ -3077,15 +3306,8 @@ namespace LethalBots.Managers
             int totalScrapValue = 0;
             for (int i = 0; i < grabbableObjectsInMap.Count; i++)
             {
-                GameObject gameObject = grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
                 // Get grabbable object infos
-                GrabbableObject? grabbableObject = gameObject.GetComponent<GrabbableObject>();
+                GrabbableObject? grabbableObject = grabbableObjectsInMap[i];
                 if (grabbableObject == null 
                     || grabbableObject is RagdollGrabbableObject)
                 {
@@ -3368,10 +3590,6 @@ namespace LethalBots.Managers
             yield return null;
             int nbSpawnedBots = 0;
             int nbBotsToSpawn = Plugin.Config.MaxBotsAllowedToSpawn;
-
-            // NEEDTOVALIDATE: Should I cache the amount of living players and old player counts
-            // This would be the most reliable way of reseting them back, but would break with Late Company
-            // since it would not consider late joining players......
             StartOfRound instanceSOR = StartOfRound.Instance;
             int newPlayerCount = instanceSOR.connectedPlayersAmount;
             int newLivingPlayerCount = instanceSOR.livingPlayers;
@@ -3450,7 +3668,8 @@ namespace LethalBots.Managers
             // Only display if we actually spawned in bots.
             if (nbSpawnedBots > 0)
             {
-                HUDManager.Instance.DisplayTip("Finished Spawning Bots!", string.Format("{0} bots were spawned!", nbSpawnedBots), false, false, "LC_Tip1");
+                //HUDManager.Instance.DisplayTip("Finished Spawning Bots!", string.Format("{0} bots were spawned!", nbSpawnedBots), false, false, "LC_Tip1");
+                Plugin.LogInfo($"Finished Spawning Bots! {nbSpawnedBots} bots were spawned!");
             }
 
             // Mark the bots as loaded if we were asked to do so!
@@ -3831,33 +4050,40 @@ namespace LethalBots.Managers
         /// <returns>true: the ship is compromised, false: the ship is safe</returns>
         public static bool IsShipCompromised(LethalBotAI? lethalBotAI = null, bool bypassCooldown = false)
         {
-            if (!bypassCooldown && (Time.timeSinceLevelLoad - nextCheckForShipSafety) < Const.TIMER_CHECK_EXPOSED)
+            if (!bypassCooldown && !isShipCompromised.CanUpdate())
             {
-                return _isShipCompromised;
+                return isShipCompromised;
             }
 
-            nextCheckForShipSafety = Time.timeSinceLevelLoad;
-
+            Bounds insideShipBounds = StartOfRound.Instance.shipInnerRoomBounds.bounds;
             RoundManager instanceRM = RoundManager.Instance;
-            foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
+            List<EnemyAI> spawnedEnemies = instanceRM.SpawnedEnemies;
+            for (int i = 0; i < spawnedEnemies.Count; i++)
             {
+                // Make sure the enemy is valid and not already dead
+                EnemyAI spawnedEnemy = spawnedEnemies[i];
+                if (spawnedEnemy == null || spawnedEnemy.isEnemyDead)
+                {
+                    continue;
+                }
+
+                // If the enemy is not inside the ship and not inside the ship bounds, we ignore it since it can't hurt us!
+                if (!spawnedEnemy.isInsidePlayerShip
+                    && !insideShipBounds.Contains(spawnedEnemy.transform.position))
+                {
+                    continue;
+                }
+
                 // We check if the bots think this enemy is dangerous,
                 // we don't use fear range for anything else
                 float? fearRange = GetFearRangeForEnemy(new LethalBotFearQuery(lethalBotAI, spawnedEnemy, EnumFearQueryType.BotPanic));
                 if (fearRange.HasValue)
                 {
-                    // NEEDTOVALIDATE: Should using the ship bounds instead?
-                    int pathLayerMask = instanceRM.GetLayermaskForEnemySizeLimit(spawnedEnemy.enemyType);
-                    if ((NavSizeLimit)pathLayerMask != NavSizeLimit.MediumSpaces 
-                        && !spawnedEnemy.isEnemyDead 
-                        && spawnedEnemy.isInsidePlayerShip)
-                    {
-                        _isShipCompromised = true;
-                        return true;
-                    }
+                    isShipCompromised.Value = true;
+                    return true;
                 }
             }
-            _isShipCompromised = false;
+            isShipCompromised.Value = false;
             return false;
         }
 
@@ -3868,26 +4094,26 @@ namespace LethalBots.Managers
         /// <returns>true: all human players are dead, false: if there is a human player alive!</returns>
         public bool AreAllHumanPlayersDead(bool bypassCooldown = false)
         {
-            if (!bypassCooldown && (Time.timeSinceLevelLoad - nextCheckForAliveHumanPlayers) < Const.TIMER_CHECK_EXPOSED)
+            if (!bypassCooldown && !areAllHumanPlayersDead.CanUpdate())
             {
-                return _areAllHumanPlayersDead;
+                return areAllHumanPlayersDead;
             }
 
-            nextCheckForAliveHumanPlayers = Time.timeSinceLevelLoad;
-
-            foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
+            PlayerControllerB[] allPlayers = StartOfRound.Instance.allPlayerScripts;
+            for (int i = 0; i < allPlayers.Length; i++)
             {
+                PlayerControllerB player = allPlayers[i];
                 if (player.isPlayerControlled && !player.isPlayerDead)
                 {
                     if (!IsPlayerLethalBot(player) 
                         && (!Plugin.IsModLethalInternsLoaded || !IsPlayerIntern(player)))
                     {
-                        _areAllHumanPlayersDead = false;
+                        areAllHumanPlayersDead.Value = false;
                         return false;
                     }
                 }
             }
-            _areAllHumanPlayersDead = true;
+            areAllHumanPlayersDead.Value = true;
             return true;
         }
 
@@ -3898,26 +4124,26 @@ namespace LethalBots.Managers
         /// <returns>true: all players are on the ship, false: if there is a player not on the ship!</returns>
         public bool AreAllPlayersOnTheShip(bool bypassCooldown = false)
         {
-            if (!bypassCooldown && (Time.timeSinceLevelLoad - nextCheckForAllPlayersOnShip) < Const.TIMER_CHECK_EXPOSED)
+            if (!bypassCooldown && !areAllPlayersOnTheShip.CanUpdate())
             {
-                return _areAllPlayersOnTheShip;
+                return areAllPlayersOnTheShip;
             }
 
-            nextCheckForAllPlayersOnShip = Time.timeSinceLevelLoad;
-
-            foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
+            PlayerControllerB[] allPlayers = StartOfRound.Instance.allPlayerScripts;
+            for (int i = 0; i < allPlayers.Length; i++)
             {
+                PlayerControllerB player = allPlayers[i];
                 if (player.isPlayerControlled && !player.isPlayerDead 
                     && (!Plugin.IsModLethalInternsLoaded || !IsPlayerIntern(player)))
                 {
                     if (!player.isInElevator && !player.isInHangarShipRoom)
                     {
-                        _areAllPlayersOnTheShip = false;
+                        areAllPlayersOnTheShip.Value = false;
                         return false;
                     }
                 }
             }
-            _areAllPlayersOnTheShip = true;
+            areAllPlayersOnTheShip.Value = true;
             return true;
         }
 
@@ -4251,27 +4477,6 @@ namespace LethalBots.Managers
             return results.ToArray();
         }
 
-        // NEEDTOVALIDATE: Should this be done in the NpcController's LateUpdate instead?
-        public void SetLethalBotsInElevatorLateUpdate(float deltaTime)
-        {
-            timerSetLethalBotInElevator += deltaTime;
-            if (timerSetLethalBotInElevator < 0.5)
-            {
-                return;
-            }
-            timerSetLethalBotInElevator = 0f;
-
-            foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
-            {
-                if (lethalBotAI == null)
-                {
-                    continue;
-                }
-
-                lethalBotAI.SetLethalBotInElevator();
-            }
-        }
-
         public void UpdateOwnershipOfBotServer(float deltaTime)
         {
             timerUpdateOwnershipOfBot += deltaTime;
@@ -4328,7 +4533,8 @@ namespace LethalBots.Managers
             return 35;
         }
 
-        public int MaxHealthPercent(int percentage, int maxHealth)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int MaxHealthPercent(int percentage, int maxHealth)
         {
             int healthPercent = (int)(((double)percentage / (double)100) * (double)maxHealth);
             return healthPercent < 1 ? 1 : healthPercent;
@@ -4341,14 +4547,15 @@ namespace LethalBots.Managers
 
             // Clear the mission controller bot!
             // No need for an RPC here since this is called for all players!
-            if (IsServer || IsHost)
+            if (IsServer)
             {
                 MissionControlPlayer = null;
-                LootTransferPlayers.Clear();
+                LootTransferPlayersNetworkList.Clear();
                 GroupManager.Instance.ResetAndRemoveAllGroups();
             }
             SetLastReportedTimeOfDay(DayMode.Dawn);
             AIState.ResetEntranceSafetyCache();
+            botAutoLeaveTimer.Invalidate();
 
             if (preRevive)
             {
@@ -4632,14 +4839,6 @@ namespace LethalBots.Managers
                 {
                     // We still set the died last round flag
                     lethalBotAI.LethalBotIdentity.DiedLastRound = lethalBotController.isPlayerDead;
-
-                    // TODO: Add special state for in orbit
-                    //if (lethalBotAI.State != null
-                    //&& lethalBotAI.State.GetAIState() != EnumAIStates.BrainDead)
-                    //{
-                    //    // If the bot was not in the BrainDead state, we set it to it so it doesn't do anything after this!
-                    //    lethalBotAI.State = new BrainDeadState(lethalBotAI);
-                    //}
 
                     if (Plugin.IsModLethalPhonesLoaded)
                     {
@@ -4971,22 +5170,6 @@ namespace LethalBots.Managers
 
             if (base.IsServer)
             {
-                /*foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
-                {
-                    if (lethalBotAI == null
-                        || lethalBotAI.isEnemyDead
-                        || lethalBotAI.NpcController.Npc.isPlayerDead
-                        || !lethalBotAI.NpcController.Npc.isPlayerControlled
-                        || !lethalBotAI.HasSomethingInInventory())
-                    {
-                        continue;
-                    }
-
-                    // NOTE: Drop all held items handles all of this now!
-                    //lethalBotAI.DropItem();
-                    lethalBotAI.NpcController.Npc.DropAllHeldItems();
-                }*/
-
                 SyncEndOfRoundLethalBotsFromServerToClientRpc(preRevive);
             }
             else
@@ -5427,7 +5610,7 @@ namespace LethalBots.Managers
         {
             if (base.IsServer)
             {
-                _missionControlPlayer.Value = playerToSync; // Sync to clients
+                missionControlPlayerNetworkVar.Value = playerToSync; // Sync to clients
             }
             else
             {
@@ -5455,9 +5638,9 @@ namespace LethalBots.Managers
         {
             if (base.IsServer)
             {
-                if (!LootTransferPlayers.Contains(playerToAdd))
+                if (!LootTransferPlayersNetworkList.Contains(playerToAdd))
                 { 
-                    LootTransferPlayers.Add(playerToAdd); 
+                    LootTransferPlayersNetworkList.Add(playerToAdd); 
                 }
             }
             else
@@ -5474,7 +5657,7 @@ namespace LethalBots.Managers
         {
             if (base.IsServer)
             {
-                LootTransferPlayers.Remove(playerToRemove);
+                LootTransferPlayersNetworkList.Remove(playerToRemove);
             }
             else
             {

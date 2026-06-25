@@ -17,7 +17,8 @@ namespace LethalBots.Patches.GameEnginePatches
         /// This essentially duplicates the logic used in the patched class!
         /// </remarks>
         /// <param name="__instance"></param>
-        /// <param name="other"></param>
+        /// <param name="pScript"></param>
+        /// <param name="__runOriginal"></param>
         /*[HarmonyPatch("OnTriggerStay")]
         [HarmonyPrefix]
         public static bool OnTriggerStay_Prefix(AudioReverbTrigger __instance, Collider other)

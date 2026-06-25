@@ -385,11 +385,12 @@ namespace LethalBots.Patches.MapPatches
             ladder.onCancelAnimation.Invoke(playerController);
             playerController.currentTriggerInAnimationWith = null;
             playerController.isClimbingLadder = false;
-            playerController.thisController.enabled = true; // NEEDTOVALIDATE: What happens if this is true for players that are not the local player?
-            playerController.playerBodyAnimator.SetBool("ClimbingLadder", value: false);
+            playerController.thisController.enabled = true;
+            playerController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_CLIMBINGLADDER, value: false);
             playerController.gameplayCamera.transform.localEulerAngles = Vector3.zero;
             playerController.UpdateSpecialAnimationValue(specialAnimation: false, 0);
             playerController.inSpecialInteractAnimation = false;
+            playerController.enteringSpecialAnimation = false;
             //ladder.currentCooldownValue = ladder.cooldownTime;
             if (ladder.hidePlayerItem && playerController.currentlyHeldObjectServer != null)
             {
@@ -405,8 +406,9 @@ namespace LethalBots.Patches.MapPatches
         /// Due to the bot running its code on the local client, it causes player related events to happen to the Local Player!
         /// I have to change it to make the code check for the human player if possible so nothing breaks as a result!
         /// </remarks>
-        /// <param name="instructions"></param>
-        /// <param name="generator"></param>
+        /// <param name="__instance"></param>
+        /// <param name="playerTransform"></param>
+        /// <param name="___hasTriggered"></param>
         [HarmonyPatch("Interact")]
         [HarmonyPrefix]
         public static bool Interact_Prefix(InteractTrigger __instance, Transform playerTransform, ref bool ___hasTriggered)
@@ -558,7 +560,7 @@ namespace LethalBots.Patches.MapPatches
                     player.overridePhysicsParent = null;
                 }
                 player.currentTriggerInAnimationWith = null;
-                if (player.isClimbingLadder)
+                if (player.isClimbingLadder || lethalBotAI.useLadderCoroutine != null)
                 {
                     CancelLadderAnimation(__instance, player);
                     player.isClimbingLadder = false;

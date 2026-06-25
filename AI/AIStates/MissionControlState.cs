@@ -61,6 +61,7 @@ namespace LethalBots.AI.AIStates
         private static Dictionary<SpikeRoofTrap, TerminalAccessibleObject> spikeRoofTraps = new Dictionary<SpikeRoofTrap, TerminalAccessibleObject>();
         private Dictionary<string, float> calledOutEnemies = new Dictionary<string, float>(); // Should this be an enemy name rather than the AI itself?
         private PriorityQueue<string> messageQueue = new PriorityQueue<string>();
+        private static RaycastHit[] raycastColliders = new RaycastHit[20];
 
         public MissionControlState(AIState oldState) : base(oldState)
         {
@@ -81,14 +82,6 @@ namespace LethalBots.AI.AIStates
                 {
                     LethalBotManager.Instance.MissionControlPlayer = npcController.Npc;
                 }
-                // Might not need this as we moved this to a synced version up in bot manager
-                /*TimeOfDay timeOfDay = TimeOfDay.Instance;
-                DayMode dayMode = timeOfDay.GetDayPhase(timeOfDay.currentDayTime / timeOfDay.totalTime);
-                if (LethalBotManager.lastReportedTimeOfDay != dayMode)
-                {
-                    LethalBotManager.lastReportedTimeOfDay = dayMode;
-                    LethalBotManager.Instance.SetLastReportedTimeOfDayAndSync(dayMode);
-                }*/
                 SetupTerminalAccessibleObjects();
                 FindWalkieTalkie();
                 FindWeapon();
@@ -130,7 +123,8 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // If we are not the mission controller or the ship is leaving, we should not be in this state
-            if (LethalBotManager.Instance.MissionControlPlayer != npcController.Npc 
+            PlayerControllerB lethalBotController = npcController.Npc;
+            if (LethalBotManager.Instance.MissionControlPlayer != lethalBotController 
                 || (!Plugin.Config.AllowBotsInOrbit.Value && StartOfRound.Instance.shipIsLeaving))
             {
                 GetOffTerminal();
@@ -143,19 +137,19 @@ namespace LethalBots.AI.AIStates
             }
 
             // We are assigned to man the ship, make sure we are not on the loot transfer list
-            if (LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc))
+            if (LethalBotManager.Instance.LootTransferPlayers.Contains(lethalBotController))
             {
-                LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(npcController.Npc);
+                LethalBotManager.Instance.RemovePlayerFromLootTransferListAndSync(lethalBotController);
             }
 
             // If we are the mission controller, we cannot be in a group
-            if (GroupManager.Instance.IsPlayerInGroup(npcController.Npc))
+            if (GroupManager.Instance.IsPlayerInGroup(lethalBotController))
             {
-                GroupManager.Instance.RemoveFromCurrentGroupAndSync(npcController.Npc);
+                GroupManager.Instance.RemoveFromCurrentGroupAndSync(lethalBotController);
             }
 
             // Its kinda hard to be the mission controller if we are not on the ship!
-            if (!npcController.Npc.isInElevator && !npcController.Npc.isInHangarShipRoom)
+            if (!lethalBotController.isInElevator && !lethalBotController.isInHangarShipRoom)
             {
                 ai.State = new ReturnToShipState(this);
                 return;
@@ -230,7 +224,7 @@ namespace LethalBots.AI.AIStates
                 {
                     return;
                 }
-                npcController.Npc.DiscardHeldObject();
+                lethalBotController.DiscardHeldObject();
                 return;
             }
             // If we still have stuff in our inventory,
@@ -288,7 +282,7 @@ namespace LethalBots.AI.AIStates
                         {
                             return;
                         }
-                        StartOfRound instanceSOR = npcController.Npc.playersManager;
+                        StartOfRound instanceSOR = lethalBotController.playersManager;
                         if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
                             && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
@@ -297,7 +291,7 @@ namespace LethalBots.AI.AIStates
                                 ai.PullShipLever(startMatchLever);
                                 playerRequestLeave = false;
                             }
-                            //npcController.Npc.playersManager.ShipLeaveAutomatically(true);
+                            //lethalBotController.playersManager.ShipLeaveAutomatically(true);
                         }
                     }
                     else
@@ -316,8 +310,8 @@ namespace LethalBots.AI.AIStates
                 bool isShipCompromised = LethalBotManager.IsShipCompromised(ai);
                 if (playerRequestLeave
                     || (ShouldReturnToShip()
-                    && LethalBotManager.Instance.AreAllPlayersOnTheShip(true)
-                    && (LethalBotManager.Instance.AreAllHumanPlayersDead(true)
+                    && LethalBotManager.Instance.AreAllPlayersOnTheShip()
+                    && (LethalBotManager.Instance.AreAllHumanPlayersDead()
                         || isShipCompromised)))
                 {
                     if (leavePlanetTimer > Const.LETHAL_BOT_TIMER_LEAVE_PLANET
@@ -327,7 +321,7 @@ namespace LethalBots.AI.AIStates
                         {
                             return;
                         }
-                        StartOfRound instanceSOR = npcController.Npc.playersManager;
+                        StartOfRound instanceSOR = lethalBotController.playersManager;
                         if ((LethalBotManager.IsTheShipLanded(instanceSOR) || LethalBotManager.AreWeInOrbit(instanceSOR))
                             && !LethalBotManager.IsTheShipLeaving(instanceSOR))
                         {
@@ -336,7 +330,7 @@ namespace LethalBots.AI.AIStates
                                 ai.PullShipLever(startMatchLever);
                                 playerRequestLeave = false;
                             }
-                            //npcController.Npc.playersManager.ShipLeaveAutomatically(true);
+                            //lethalBotController.playersManager.ShipLeaveAutomatically(true);
                         }
                     }
                     else
@@ -375,7 +369,7 @@ namespace LethalBots.AI.AIStates
                         }
                     }
                     // If our weapon uses batteries and its low on battery, we should charge it!
-                    else if (!LethalBotAI.IsItemPowered(weapon))
+                    else if (!ItemsManager.HasRequiredCharge(weapon))
                     {
                         // We should charge our weapon if we can!
                         ai.State = new ChargeHeldItemState(this, weapon);
@@ -452,8 +446,7 @@ namespace LethalBots.AI.AIStates
                     }
                 }
                 // If our walkie-talkie is low on battery, we should charge it!
-                else if (walkieTalkie.insertedBattery.empty
-                    || walkieTalkie.insertedBattery.charge < 0.1f)
+                else if (!ItemsManager.HasRequiredCharge(walkieTalkie, requiredChargeLevel: 0.1f))
                 {
                     // We should charge the walkie-talkie if we can!
                     ai.State = new ChargeHeldItemState(this, walkieTalkie);
@@ -470,7 +463,7 @@ namespace LethalBots.AI.AIStates
 
             // If we are not at the ship or terminal, we should move there now!
             InteractTrigger terminalTrigger = ourTerminal.terminalTrigger;
-            float sqrDistFromTerminal = (terminalTrigger.playerPositionNode.position - npcController.Npc.transform.position).sqrMagnitude;
+            float sqrDistFromTerminal = (terminalTrigger.playerPositionNode.position - lethalBotController.transform.position).sqrMagnitude;
             if (sqrDistFromTerminal > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {
                 ai.SetDestinationToPositionLethalBotAI(terminalTrigger.playerPositionNode.position);
@@ -511,7 +504,7 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // Can't do anything without the terminal!
-                if (!npcController.Npc.inTerminalMenu)
+                if (!lethalBotController.inTerminalMenu)
                 {
                     // Wait if someone else is on the terminal!
                     if (ourTerminal.terminalInUse 
@@ -524,7 +517,7 @@ namespace LethalBots.AI.AIStates
                     overrideCrouch = true;
 
                     // Wait until we are standing!
-                    if (npcController.Npc.isCrouching)
+                    if (lethalBotController.isCrouching)
                     {
                         return;
                     }
@@ -532,7 +525,7 @@ namespace LethalBots.AI.AIStates
                     // Make sure our walkie-talkie is on!
                     if (walkieTalkie != null 
                         && !walkieTalkie.isBeingUsed 
-                        && LethalBotAI.IsItemPowered(walkieTalkie))
+                        && ItemsManager.HasRequiredCharge(walkieTalkie))
                     {
                         walkieTalkie.ItemInteractLeftRightOnClient(false);
                         return;
@@ -560,7 +553,6 @@ namespace LethalBots.AI.AIStates
                     // We are in orbit, we have different logic!
                     else if (LethalBotManager.AreWeInOrbit())
                     {
-                        // TODO: Add a way for players to tell the bot to route to moons!
                         StopMonitoringCrew();
                         StopUsingSignalTranslator();
                         StopRestockingTheShip();
@@ -714,8 +706,9 @@ namespace LethalBots.AI.AIStates
         private IEnumerator UseTerminalAccessibleObjects(PlayerControllerB player)
         {
             TerminalAccessibleObject[] objectsToUse = FindTerminalAccessibleObjectsToUse(player);
-            foreach (TerminalAccessibleObject terminalAccessible in objectsToUse)
+            for (int i = 0; i < objectsToUse.Length; i++)
             {
+                TerminalAccessibleObject terminalAccessible = objectsToUse[i];
                 yield return SendCommandToTerminal(terminalAccessible.objectCode);
             }
         }
@@ -724,6 +717,7 @@ namespace LethalBots.AI.AIStates
         /// Makes the bot teleport the currently targeted player
         /// </summary>
         /// <param name="isDeadBody"></param>
+        /// <param name="skipPostCheck"></param>
         /// <returns></returns>
         private IEnumerator TryTeleportPlayer(bool isDeadBody = false, bool skipPostCheck = false)
         {
@@ -903,7 +897,7 @@ namespace LethalBots.AI.AIStates
                     if (!spawnedEnemy.isEnemyDead && (!calledOutEnemies.TryGetValue(enemyName, out var lastCalledTime) || Time.timeSinceLevelLoad - lastCalledTime > Const.TIMER_NEXT_ENEMY_CALL))
                     {
                         float? fearRange = ai.GetFearRangeForEnemies(spawnedEnemy); // NOTE: This is what the bot perceives as dangerous!
-                        if ((fearRange.HasValue || IsEnemy(spawnedEnemy)) && (spawnedEnemy.transform.position - playerPos).sqrMagnitude < 40f * 40f)
+                        if (fearRange.HasValue && (spawnedEnemy.transform.position - playerPos).sqrMagnitude < 40f * 40f)
                         {
                             calledOutEnemies[enemyName] = Time.timeSinceLevelLoad;
                             QueuePriority messagePriority = spawnedEnemy is JesterAI ? QueuePriority.Critical : QueuePriority.Low; // If we see a jester, that is an immediate callout!
@@ -935,6 +929,7 @@ namespace LethalBots.AI.AIStates
         /// This queues a message to be sent by the bot using the signal translator!
         /// </summary>
         /// <param name="message"></param>
+        /// <param name="priority"></param>
         public void SendMessageUsingSignalTranslator(string message, QueuePriority priority = QueuePriority.Low)
         {
             if (!string.IsNullOrWhiteSpace(message))
@@ -963,11 +958,6 @@ namespace LethalBots.AI.AIStates
         /// <returns>true: we have a message to send, false: we don't have any messages to send</returns>
         private bool HasMessageToSend()
         {
-            // Sanity check, make sure everything is valid!
-            if (messageQueue.TryPeek(out var message) && !string.IsNullOrEmpty(message))
-            {
-                return true;
-            }
             return messageQueue.Count > 0;
         }
 
@@ -1213,15 +1203,8 @@ namespace LethalBots.AI.AIStates
             int numOwned = 0;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
-                GrabbableObject? itemObject = gameObject.GetComponent<GrabbableObject>();
-                if (itemObject != null
+                GrabbableObject? itemObject = LethalBotManager.grabbableObjectsInMap[i];
+                if (itemObject != null 
                     && itemObject.itemProperties.itemName == targetName 
                     && (!shipOnly || itemObject.isInShipRoom))
                 {
@@ -1244,14 +1227,7 @@ namespace LethalBots.AI.AIStates
             numFound = 0;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
-                {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
-                    continue;
-                }
-
-                GrabbableObject? item = gameObject.GetComponent<GrabbableObject>();
+                GrabbableObject? item = LethalBotManager.grabbableObjectsInMap[i];
                 if (item != null && item.itemProperties.itemName == name)
                 {
                     numFound++;
@@ -1353,6 +1329,11 @@ namespace LethalBots.AI.AIStates
             StopOrbitLogic();
         }
 
+        /// <summary>
+        /// Makes the bot attempt to route to the given <paramref name="moonName"/>
+        /// </summary>
+        /// <param name="moonName"></param>
+        /// <returns></returns>
         private IEnumerator RouteToMoon(string moonName)
         {
             // Make sure we have a moon here!
@@ -1429,76 +1410,6 @@ namespace LethalBots.AI.AIStates
         }
 
         /// <summary>
-        /// Different from <see cref="LethalBotAI.GetFearRangeForEnemies(EnemyAI, PlayerControllerB?)"/>
-        /// as most enemies are called out early!
-        /// </summary>
-        /// <param name="enemy"></param>
-        /// <returns></returns>
-        private static bool IsEnemy(EnemyAI enemy)
-        {
-            if (enemy == null)
-            {
-                return false;
-            }
-
-            switch(enemy.enemyType.enemyName)
-            {
-                case "Masked":
-                case "Jester":
-                case "Crawler":
-                case "Bunker Spider":
-                case "ForestGiant":
-                case "Butler Bees":
-                case "Earth Leviathan":
-                case "Nutcracker":
-                case "Red Locust Bees":
-                case "Blob":
-                case "ImmortalSnail":
-                case "Clay Surgeon":
-                case "Flowerman":
-                case "Bush Wolf":
-                case "T-rex":
-                case "MouthDog":
-                case "Centipede":
-                case "Spring":
-                case "Butler":
-                    return true;
-
-                case "Hoarding bug":
-                    if (enemy.currentBehaviourStateIndex == 2)
-                    {
-                        // Mad
-                        return true;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-
-                case "RadMech":
-                    return true;
-
-                case "Baboon hawk":
-                    return false;
-
-
-                case "Maneater":
-                    if (enemy.currentBehaviourStateIndex > 0)
-                    {
-                        // Mad
-                        return true;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-
-                default:
-                    return false;
-            }
-        }
-
-        /// <summary>
         /// Returns the name of an enemy, used so modders can define custom names
         /// for the bots to send!
         /// </summary>
@@ -1507,31 +1418,55 @@ namespace LethalBots.AI.AIStates
         private static string GetEnemyName(EnemyAI enemy)
         {
             string defaultName = enemy.enemyType.enemyName;
-            switch(defaultName)
+            if (enemy is ClaySurgeonAI)
             {
-                case "Clay Surgeon":
-                    return "Barber";
-                case "Red Locust Bees":
-                    return "BEEES";
-                case "Centipede":
-                    return "Snare Flea";
-                case "Flowerman":
-                    return "Braken";
-                case "Crawler":
-                    return "Thumper";
-                case "Spring":
-                    return "Coil Head";
-                case "MouthDog":
-                    return "Dog";
-                case "RadMech":
-                    return "Old Bird";
-                case "Bunker Spider":
-                    return "Spider";
-                case "ForestGiant":
-                    return "Giant";
-                default:
-                    return defaultName;
+                return "Barber";
             }
+            else if (enemy is RedLocustBees)
+            {
+                string name = "B";
+                int numberOfEs = Random.Range(2, 5);
+                for (int i = 0; i < numberOfEs; i++)
+                {
+                    name += "E";
+                }
+                name += "S";
+                return name;
+            }
+            else if (enemy is CentipedeAI)
+            {
+                return "Snare Flea";
+            }
+            else if (enemy is FlowermanAI)
+            {
+                return "Braken";
+            }
+            else if (enemy is CrawlerAI)
+            {
+                return "Thumper";
+            }
+            else if (enemy is SpringManAI)
+            {
+                return "Coil Head";
+            }
+            else if (enemy is MouthDogAI)
+            {
+                return "Dog";
+            }
+            else if (enemy is RadMechAI)
+            {
+                return "Old Bird";
+            }
+            else if (enemy is SandSpiderAI)
+            {
+                return "Spider";
+            }
+            else if (enemy is ForestGiantAI)
+            {
+                return "Giant";
+            }
+
+            return defaultName;
         }
 
         private void StopMonitoringCrew()
@@ -1583,10 +1518,10 @@ namespace LethalBots.AI.AIStates
             if (deadBodyInfo != null
                 && !deadBodyInfo.isInShip
                 && !deadBodyInfo.grabBodyObject.isHeld
-                && !RescueAndReviveState.CanRevivePlayer(ai, player, true)
-                && (!RescueAndReviveState.IsAnyReviveModInstalled() || !IsBodyNearbyLivingPlayers(deadBodyInfo, 17f))
+                && !ai.CheckProximityForEyelessDogs()
                 && !StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position)
-                && !ai.CheckProximityForEyelessDogs())
+                && (!RescueAndReviveState.IsAnyReviveModInstalled() || !IsBodyNearbyLivingPlayers(deadBodyInfo, 17f))
+                && !RescueAndReviveState.CanRevivePlayer(ai, player, true))
             {
                 return true;
             }
@@ -1602,14 +1537,19 @@ namespace LethalBots.AI.AIStates
         private bool IsBodyNearbyLivingPlayers(DeadBodyInfo deadBody, float checkRadius = 10f)
         {
             // Go through each active player and check how close are they to the body
-            foreach (PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
+            PlayerControllerB[] allPlayerScripts = StartOfRound.Instance.allPlayerScripts;
+            PlayerControllerB ourPlayerController = npcController.Npc;
+            PlayerControllerB deadPlayer = deadBody.playerScript;
+            Vector3 deadBodyPos = deadBody.transform.position;
+            for (int i = 0; i < allPlayerScripts.Length; i++)
             {
+                PlayerControllerB player = allPlayerScripts[i];
                 if (player != null
-                    && player != npcController.Npc
-                    && player != deadBody.playerScript
+                    && player != ourPlayerController
+                    && player != deadPlayer
                     && player.isPlayerControlled
                     && !player.isPlayerDead
-                    && (deadBody.transform.position - player.transform.position).sqrMagnitude < checkRadius * checkRadius)
+                    && (deadBodyPos - player.transform.position).sqrMagnitude < checkRadius * checkRadius)
                 {
                     return true;
                 }
@@ -1647,10 +1587,18 @@ namespace LethalBots.AI.AIStates
             // or shake their camera instead?
             if (!player.isInElevator && !player.isInHangarShipRoom)
             {
+                // Setup some information about the player
+                LethalBotAI? isPlayerBot = LethalBotManager.Instance.GetLethalBotAI(player);
+                bool hasRangedWeapon = isPlayerBot?.HasRangedWeapon() ?? false; // NOTE: hasRangedWeapon has no effect for human players in CanEnemyBeKilled
+                bool doesPlayerHaveAWeapon = DoesPlayerHaveWeaponInInventory(player);
+
+                // Alright, lets see if the player is in danger
                 RoundManager instanceRM = RoundManager.Instance;
                 Vector3 playerPos = player.transform.position;
-                foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
+                List<EnemyAI> spawnedEnemies = instanceRM.SpawnedEnemies;
+                for (int i = 0; i < spawnedEnemies.Count; i++)
                 {
+                    EnemyAI spawnedEnemy = spawnedEnemies[i];
                     if (spawnedEnemy != null && !spawnedEnemy.isEnemyDead)
                     {
                         float? fearRange = ai.GetFearRangeForEnemies(spawnedEnemy, player); // NOTE: This is what the bot perceves as dangerous!
@@ -1664,9 +1612,7 @@ namespace LethalBots.AI.AIStates
                             }
 
                             // They are probably fighting an enemy, leave them alone!
-                            LethalBotAI? isPlayerBot = LethalBotManager.Instance.GetLethalBotAI(player);
-                            bool hasRangedWeapon = isPlayerBot?.HasRangedWeapon() ?? false; // NOTE: hasRangedWeapon has no effect for human players in CanEnemyBeKilled
-                            if (LethalBotAI.CanEnemyBeKilled(spawnedEnemy, hasRangedWeapon, isPlayerBot == null) && DoesPlayerHaveWeaponInInventory(player))
+                            if (doesPlayerHaveAWeapon && LethalBotManager.ShouldAttackEnemy(new LethalBotAttackQuery(isPlayerBot, spawnedEnemy, hasRangedWeapon, isPlayerBot == null)))
                             {
                                 return false;
                             }
@@ -1719,18 +1665,21 @@ namespace LethalBots.AI.AIStates
             }
 
             // Check if the player has a weapon in their item only slot
+            ItemsManager instanceIM = ItemsManager.Instance;
             bool isPlayerBot = LethalBotManager.Instance.IsPlayerLethalBot(player);
             GrabbableObject? itemOnlySlot = player.ItemOnlySlot;
-            if (LethalBotAI.IsItemWeapon(itemOnlySlot) 
+            if (instanceIM.IsItemWeapon(itemOnlySlot) 
                 || (!isPlayerBot && itemOnlySlot != null && itemOnlySlot.itemProperties.isDefensiveWeapon))
             {
                 return true;
             }
 
             // Check if the player has a weapon in their inventory
-            foreach (var weapon in player.ItemSlots)
+            GrabbableObject[] itemSlots = player.ItemSlots;
+            for (int i = 0; i < itemSlots.Length; i++)
             {
-                if (LethalBotAI.IsItemWeapon(weapon) 
+                var weapon = itemSlots[i];
+                if (instanceIM.IsItemWeapon(weapon) 
                     || (!isPlayerBot && weapon != null && weapon.itemProperties.isDefensiveWeapon))
                 {
                     return true; 
@@ -1754,7 +1703,8 @@ namespace LethalBots.AI.AIStates
             }
 
             // Now we need to go through each type of hazard and disable them if possible or needed
-            List<TerminalAccessibleObject> objectsToUse = new List<TerminalAccessibleObject>();
+            const float terminalViewRange = 40f; // NEEDTOVALIDATE: Is this too high or too low?
+            HashSet<TerminalAccessibleObject> objectsToUse = new HashSet<TerminalAccessibleObject>();
             Vector3 playerPos = player.transform.position;
             if (player.redirectToEnemy != null)
             {
@@ -1770,9 +1720,8 @@ namespace LethalBots.AI.AIStates
                 if (turret != null)
                 {
                     // Only use objects in terminal view range!
-                    // NEEDTOVALIDATE: Is this too high or too low?
                     if (turret.targetPlayerWithRotation == player 
-                        || (turret.transform.position - playerPos).sqrMagnitude < 40f * 40f)
+                        || (turret.transform.position - playerPos).sqrMagnitude < terminalViewRange * terminalViewRange)
                     {
                         TerminalAccessibleObject accessibleObject = turretInfo.Value;
                         if (accessibleObject != null && !accessibleObject.inCooldown)
@@ -1790,8 +1739,7 @@ namespace LethalBots.AI.AIStates
                 if (landmine != null && !landmine.hasExploded)
                 {
                     // Only use objects in terminal view range!
-                    // NEEDTOVALIDATE: Is this too high or too low?
-                    if ((landmine.transform.position - playerPos).sqrMagnitude < 40f * 40f)
+                    if ((landmine.transform.position - playerPos).sqrMagnitude < terminalViewRange * terminalViewRange)
                     {
                         TerminalAccessibleObject accessibleObject = landmineInfo.Value;
                         if (accessibleObject != null && !accessibleObject.inCooldown)
@@ -1809,8 +1757,7 @@ namespace LethalBots.AI.AIStates
                 if (spikeRoofTrap != null)
                 {
                     // Only use objects in terminal view range!
-                    // NEEDTOVALIDATE: Is this too high or too low?
-                    if ((spikeRoofTrap.spikeTrapAudio.transform.position - playerPos).sqrMagnitude < 40f * 40f)
+                    if ((spikeRoofTrap.spikeTrapAudio.transform.position - playerPos).sqrMagnitude < terminalViewRange * terminalViewRange)
                     {
                         TerminalAccessibleObject accessibleObject = spikeRoofTrapInfo.Value;
                         if (accessibleObject != null && !accessibleObject.inCooldown)
@@ -1825,14 +1772,14 @@ namespace LethalBots.AI.AIStates
             // TODO: Get the bot to close big doors when there is danger!
             Ray ray = new Ray(player.transform.position + Vector3.up * 2.3f, player.transform.forward);
             float maxDistance = player.grabDistance * 2f;
-            LayerMask layerMask = 1342179585;// walkableSurfacesNoPlayersMask: 1342179585
-            RaycastHit[] raycastHits = Physics.RaycastAll(ray, maxDistance, layerMask);
-            foreach (RaycastHit raycastHit in raycastHits)
+            LayerMask layerMask = player.walkableSurfacesNoPlayersMask;
+            int raycastHits = Physics.RaycastNonAlloc(ray, raycastColliders, maxDistance, layerMask);
+            for (int i = 0; i < raycastHits; i++)
             {
+                RaycastHit raycastHit = raycastColliders[i];
                 TerminalAccessibleObject accessibleObject = raycastHit.collider.gameObject.GetComponent<TerminalAccessibleObject>();
                 if (accessibleObject != null 
                     && accessibleObject.isBigDoor 
-                    && !objectsToUse.Contains(accessibleObject)
                     && !accessibleObject.inCooldown
                     && !accessibleObject.isDoorOpen)
                 {
@@ -1909,7 +1856,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // So, we don't have a walkie-talkie in our inventory, lets check the ship!
-            this.walkieTalkie = ai.FindItemOnShip(foundItem => foundItem is WalkieTalkie) as WalkieTalkie;
+            this.walkieTalkie = ai.FindItemOnShip(FindWalkieHelper) as WalkieTalkie;
         }
 
         /// <summary>
@@ -1941,7 +1888,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // So, we don't have a weapon in our inventory, lets check the ship!
-            this.weapon = ai.FindItemOnShip(foundItem => ai.HasAmmoForWeapon(foundItem));
+            this.weapon = ai.FindItemOnShip(FindWeaponHelper);
         }
 
         /// <summary>
@@ -2002,26 +1949,6 @@ namespace LethalBots.AI.AIStates
             {
                 if (spikeRoofTrap == null) continue;
 
-                // This works, but is a lot slower!
-                //Component[] components = spikeRoofTrap.gameObject.GetComponentsInParent<Component>();
-                //foreach (Component component in components)
-                //{
-                //    if (component == null) continue;
-                //    // Based on my research, GetComponentInChildren also calls GetComponent internally!
-                //    //Plugin.LogDebug($"Checking if {component} has TerminalAccessableObject");
-                //    //TerminalAccessibleObject terminalAccessible = component.GetComponent<TerminalAccessibleObject>();
-                //    //Plugin.LogDebug($"{component} {(terminalAccessible != null ? "did" : "did not")} have a terminal accessable object!\n");
-
-                //    // Aliright, second look at the log file shows the TerminalAccessableObject as a child component
-                //    // Time to find it!
-                //    terminalAccessibleObject = component.GetComponentInChildren<TerminalAccessibleObject>();
-                //    if (terminalAccessibleObject != null)
-                //    {
-                //        break;
-                //    }
-
-                //}
-
                 // Much more efficent method!
                 TerminalAccessibleObject? terminalAccessibleObject = spikeRoofTrap.transform?.root?.GetComponentInChildren<TerminalAccessibleObject>();
                 if (terminalAccessibleObject == null)
@@ -2043,17 +1970,18 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         private EnemyAI? CheckForInvadingEnemy(bool onlyKillable = true, bool checkOutsideShip = false)
         {
-            RoundManager instanceRM = RoundManager.Instance;
-            Transform thisLethalBotCamera = this.npcController.Npc.gameplayCamera.transform;
+            Vector3 ourPos = this.npcController.Npc.gameplayCamera.transform.position;
             Bounds shipBounds = checkOutsideShip ? StartOfRound.Instance.shipBounds.bounds : StartOfRound.Instance.shipInnerRoomBounds.bounds;
             EnemyAI? closestEnemy = null;
             float closestEnemyDistSqr = float.MaxValue;
-            foreach (EnemyAI spawnedEnemy in instanceRM.SpawnedEnemies)
+            List<EnemyAI> spawnedEnemies = RoundManager.Instance.SpawnedEnemies;
+            for (int i = 0; i < spawnedEnemies.Count; i++)
             {
                 // Only check for alive and invading enemies!
+                EnemyAI spawnedEnemy = spawnedEnemies[i];
                 if (spawnedEnemy == null
                     || spawnedEnemy.isEnemyDead 
-                    || (onlyKillable && !ai.CanEnemyBeKilled(spawnedEnemy, true)))
+                    || (onlyKillable && !ai.ShouldAttackEnemy(spawnedEnemy, true)))
                 {
                     continue;
                 }
@@ -2079,8 +2007,7 @@ namespace LethalBots.AI.AIStates
                 }
 
                 Vector3 positionEnemy = spawnedEnemy.transform.position;
-                Vector3 directionEnemyFromCamera = positionEnemy - thisLethalBotCamera.position;
-                float sqrDistanceToEnemy = directionEnemyFromCamera.sqrMagnitude;
+                float sqrDistanceToEnemy = (positionEnemy - ourPos).sqrMagnitude;
                 if (sqrDistanceToEnemy < closestEnemyDistSqr)
                 {
                     closestEnemyDistSqr = sqrDistanceToEnemy;
@@ -2275,6 +2202,7 @@ namespace LethalBots.AI.AIStates
                     PlayerPhone? ourPhone = ai.GetOurPlayerPhone();
                     if (ourPhone != null && (ourPhone.IsBusy() || ai.IsPhoneEquipped()))
                     {
+                        stayInCallTimer.Reset();
                         ai.HangupPhone();
                         return;
                     }

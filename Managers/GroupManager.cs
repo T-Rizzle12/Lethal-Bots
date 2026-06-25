@@ -404,6 +404,7 @@ namespace LethalBots.Managers
         /// If you want to check if the player is in a group in general, use <see cref="IsPlayerInGroup(PlayerControllerB)"/> instead.
         /// </remarks>
         /// <param name="player"></param>
+        /// <param name="groupID"></param>
         /// <returns></returns>
         public bool IsPlayerInGroup(PlayerControllerB player, int groupID)
         {
@@ -560,10 +561,12 @@ namespace LethalBots.Managers
         public bool DoesGroupHaveScrap(int groupId)
         {
             List<PlayerControllerB> groupMembers = GetGroupMembers(groupId);
-            foreach (PlayerControllerB member in groupMembers)
+            for (int i = 0; i < groupMembers.Count; i++)
             {
                 // Must be a valid player
+                PlayerControllerB member = groupMembers[i];
                 if (member == null) continue;
+
                 LethalBotAI? isPlayerBot = LethalBotManager.Instance.GetLethalBotAI(member);
                 if (isPlayerBot != null)
                 {
@@ -577,13 +580,15 @@ namespace LethalBots.Managers
                 {
                     // Support for human players
                     GrabbableObject? itemOnlySlot = member.ItemOnlySlot;
-                    if (itemOnlySlot != null && LethalBotAI.IsItemScrap(itemOnlySlot))
+                    if (itemOnlySlot != null && ItemsManager.IsItemScrap(itemOnlySlot))
                     {
                         return true;
                     }
-                    foreach (GrabbableObject item in member.ItemSlots)
+                    GrabbableObject[] itemSlots = member.ItemSlots;
+                    for (int j = 0; j < itemSlots.Length; j++)
                     {
-                        if (item != null && LethalBotAI.IsItemScrap(item))
+                        GrabbableObject item = itemSlots[j];
+                        if (item != null && ItemsManager.IsItemScrap(item))
                         {
                             return true;
                         }

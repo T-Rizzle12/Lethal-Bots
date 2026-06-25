@@ -7,6 +7,7 @@ using LethalBots.NetworkSerializers;
 using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using Scoops.misc;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -32,17 +33,13 @@ namespace LethalBots.AI
         protected AIState? previousAIState;
         public EnumAIStates? previousState { protected set; get; }
 
-        private EnumAIStates currentState;
         protected EnumAIStates CurrentState
         {
-            get
-            {
-                return this.currentState;
-            }
+            get;
             set
             {
-                this.currentState = value;
-                Plugin.LogDebug($"Bot {npcController.Npc.playerClientId} ({npcController.Npc.playerUsername}) new state :                 {this.currentState}");
+                field = value;
+                Plugin.LogDebug($"Bot {npcController.Npc.playerClientId} ({npcController.Npc.playerUsername}) new state :                 {field}");
             }
         }
 
@@ -64,6 +61,7 @@ namespace LethalBots.AI
         }
         protected AIStateInfo previousStateUpdate;
 
+        protected CountdownTimer stayInCallTimer = new CountdownTimer();
         protected CountdownTimer useNoiseMakerCooldown = new CountdownTimer();
         protected Coroutine? panikCoroutine;
         protected Coroutine? safePathCoroutine;
@@ -80,6 +78,7 @@ namespace LethalBots.AI
         /// Constructor from another state
         /// </summary>
         /// <param name="oldState"></param>
+        /// <param name="changeToOnEnd"></param>
         protected AIState(AIState oldState, AIState? changeToOnEnd = null) : this(oldState.ai, changeToOnEnd)
         {
             this.previousAIState = changeToOnEnd ?? oldState;
@@ -90,12 +89,14 @@ namespace LethalBots.AI
             this.panikCoroutine = oldState.panikCoroutine;
             this.CurrentEnemy = oldState.CurrentEnemy;
             this.useNoiseMakerCooldown = oldState.useNoiseMakerCooldown;
+            this.stayInCallTimer = oldState.stayInCallTimer;
         }
 
         /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="ai"></param>
+        /// <param name="changeToOnEnd"></param>
         /// <exception cref="System.NullReferenceException"><c>LethalBotAI</c> null in parameters</exception>
         protected AIState(LethalBotAI ai, AIState? changeToOnEnd = null)
         {
@@ -159,7 +160,7 @@ namespace LethalBots.AI
         public virtual void PlayerHeard(Vector3 noisePosition) { }
 
         // TODO: Remove this function, I don't think I will ever find a way to get this to work.
-        [Obsolete("Broken on purpose! This function is never called and will never be fixed since you can't tell who created a sound!")]
+        [Obsolete("Broken on purpose! This function is never called and will never be fixed since you can't tell who created a sound!", true)]
         public virtual void EnemyHeard(Vector3 noisePosition) { }
 
         /// <summary>
@@ -180,6 +181,7 @@ namespace LethalBots.AI
         /// but adjusted for bot use!
         /// </summary>
         /// <param name="pos"></param>
+        /// <param name="ignoreNode"></param>
         /// <returns></returns>
         private Transform? GetClosestNode(Vector3 pos, GameObject? ignoreNode = null)
         {
@@ -205,8 +207,9 @@ namespace LethalBots.AI
 
             float num = 99999f;
             GameObject? closestNode = null;
-            foreach (GameObject node in array)
+            for (int i = 0; i < array.Length; i++)
             {
+                GameObject node = array[i];
                 if (node == null) continue;
 
                 float sqrMagnitude = (node.transform.position - pos).sqrMagnitude;
@@ -333,6 +336,7 @@ namespace LethalBots.AI
         /// Function taken from PULL Request by <see href="https://github.com/iSeeEthan"/>
         /// </remarks>
         /// <param name="player">The player to check for bot interaction. Cannot be null.</param>
+        /// <param name="lethalBotController"></param>
         /// <returns>true if the player is addressing this bot and the bot is eligible to respond; otherwise, false.</returns>
         public bool IsBotBeingAddressed(PlayerControllerB player, [NotNullWhen(true)] out PlayerControllerB? lethalBotController)
         {
@@ -392,7 +396,7 @@ namespace LethalBots.AI
             // We could down if we do!
             // FIXME: We should probably let the bot crouch if they are under water,
             // but we should make them stand up if they are close to drowning!
-            if (npcController.Npc.isUnderwater)
+            if (npcController.Npc.isUnderwater && npcController.DrowningTimer < 0.3f)
             {
                 return false;
             }
@@ -466,7 +470,7 @@ namespace LethalBots.AI
         /// Find an entrance we can path to so we can enter or exit the main building!
         /// </summary>
         /// <remarks>
-        /// We check if the bot can path to it since if the bot can't we could go into an infinite loop!
+        /// We check if the bot can path to it since if the bot can't we could go into an infinite loop!<br/>
         /// We also have to check if the exit position lets the bot reach the ship. Offence is a good example where the bots can't path down the fire exit!
         /// </remarks>
         /// <returns>The closest entrance or else null</returns>
@@ -478,9 +482,10 @@ namespace LethalBots.AI
             EntranceTeleport? closestEntrance = null;
             float closestEntranceDist = float.MaxValue;
             shipPos ??= RoundManager.Instance.GetNavMeshPosition(StartOfRound.Instance.middleOfShipNode.position);
-            foreach (var entrance in LethalBotAI.EntrancesTeleportArray)
+            for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
             {
                 // If we are avoiding specific entrances, we should skip it!
+                var entrance = LethalBotAI.EntrancesTeleportArray[i];
                 if (entrance == null || (entrancesToAvoid != null && entrancesToAvoid.Contains(entrance)))
                 {
                     continue;
@@ -536,6 +541,92 @@ namespace LethalBots.AI
             return closestEntrance;
         }
 
+        /// <remarks>
+        /// Helper function that only avoids a single entrance!<br/>
+        /// <inheritdoc cref="PickRandomEntrance(Vector3?, HashSet{EntranceTeleport}?)"></inheritdoc>
+        /// </remarks>
+        /// <inheritdoc cref="PickRandomEntrance(Vector3?, HashSet{EntranceTeleport}?)"></inheritdoc>
+        protected virtual EntranceTeleport? PickRandomEntrance(EntranceTeleport? entranceToAvoid, Vector3? shipPos = null)
+        {
+            HashSet<EntranceTeleport>? entrancesToAvoid;
+            if (entranceToAvoid != null)
+            {
+                entrancesToAvoid = new HashSet<EntranceTeleport>() { entranceToAvoid };
+            }
+            else
+            {
+                entrancesToAvoid = null;
+            }
+            return PickRandomEntrance(shipPos, entrancesToAvoid);
+        }
+
+        /// <summary>
+        /// Picks a random entrance we can path to so we can enter or exit the main building!
+        /// </summary>
+        /// <remarks>
+        /// We check if the bot can path to it since if the bot can't we could go into an infinite loop!<br/>
+        /// We also have to check if the exit position lets the bot reach the ship. Offence is a good example where the bots can't path down the fire exit!
+        /// </remarks>
+        /// <returns>A random valid entrance or else null</returns>
+        protected virtual EntranceTeleport? PickRandomEntrance(Vector3? shipPos = null, HashSet<EntranceTeleport>? entrancesToAvoid = null)
+        {
+            // If we are only supposed to use the front entrance,
+            // let FindClosestEntrance handle that logic
+            bool ourWeOutside = ai.isOutside;
+            if (ourWeOutside && ShouldOnlyUseFrontEntrance())
+            {
+                return FindClosestEntrance(shipPos, entrancesToAvoid);
+            }
+
+            List<EntranceTeleport> validEntrances = new List<EntranceTeleport>();
+            shipPos ??= RoundManager.Instance.GetNavMeshPosition(StartOfRound.Instance.middleOfShipNode.position);
+            for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
+            {
+                // If we are avoiding specific entrances, we should skip it!
+                var entrance = LethalBotAI.EntrancesTeleportArray[i];
+                if (entrance == null || (entrancesToAvoid != null && entrancesToAvoid.Contains(entrance)))
+                {
+                    continue;
+                }
+
+                if (ourWeOutside && entrance.isEntranceToBuilding)
+                {
+                    // NOTE: We don't need to check if the entrance can reach the ship as we will check that on the return trip
+                    if (entrance.FindExitPoint()
+                        && !IsEntranceCoveredInQuickSand(entrance)
+                        && CanPathToEntrance(entrance, false))
+                    {
+                        validEntrances.Add(entrance);
+                    }
+                }
+                else if (!ourWeOutside && !entrance.isEntranceToBuilding)
+                {
+                    // NOTE: We use exit point here or the pathfind would always fail since the entrance we are using is inside the facility!
+                    if (entrance.FindExitPoint()
+                        && !IsEntranceCoveredInQuickSand(entrance)
+                        && LethalBotAI.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, false, out _)
+                        && CanPathToEntrance(entrance, false))
+                    {
+                        validEntrances.Add(entrance);
+                    }
+                }
+            }
+
+            // Return null if we found nothing
+            if (validEntrances.Count <= 0)
+            {
+                return null;
+            }
+            // Only one option.......
+            else if (validEntrances.Count == 1)
+            {
+                return validEntrances[0];
+            }
+
+            // Alright, pick a random one from the list
+            return validEntrances[Random.Range(0, validEntrances.Count)];
+        }
+
         /// <summary>
         /// Checks if the given entrance is a front entrance!
         /// </summary>
@@ -552,20 +643,11 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="entrance"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected bool IsEntranceCoveredInQuickSand(EntranceTeleport? entrance)
         {
-            // Check to make sure that the quicksand array is not null or empty
-            if (LethalBotAI.QuicksandArray == null || LethalBotAI.QuicksandArray.Length == 0)
-            {
-                return false;
-            }
-
             // Check if the entrance is covered in quicksand
-            if (entrance != null)
-            {
-                return IsPositionCoveredInQuickSand(entrance.isEntranceToBuilding ? entrance.entrancePoint.position : entrance.exitScript.entrancePoint.position);
-            }
-            return false;
+            return entrance != null && IsPositionCoveredInQuickSand(entrance.isEntranceToBuilding ? entrance.entrancePoint.position : entrance.exitScript.entrancePoint.position);
         }
 
         /// <summary>
@@ -585,75 +667,83 @@ namespace LethalBots.AI
             // Check if the position is covered in quicksand
             RoundManager instanceRM = RoundManager.Instance;
             float headOffset = npcController.Npc.gameplayCamera.transform.position.y - npcController.Npc.transform.position.y;
-            if (targetPos != null)
+            Vector3 entrancePos = instanceRM.GetNavMeshPosition(targetPos, instanceRM.navHit, 2.7f, ai.agent.areaMask);
+            Plugin.LogDebug($"Testing quicksand safety for pos {targetPos}");
+            for (int i = 0; i < LethalBotAI.QuicksandArray.Length; i++)
             {
-                Vector3 entrancePos = instanceRM.GetNavMeshPosition(targetPos, instanceRM.navHit, 2.7f, ai.agent.areaMask);
-                const float quicksandBuffer = 2f;
-                Plugin.LogDebug($"Testing quicksand safety for pos {targetPos}");
-                foreach (var quicksand in LethalBotAI.QuicksandArray)
+                var quicksand = LethalBotAI.QuicksandArray[i];
+                if (quicksand == null || !quicksand.isActiveAndEnabled)
+                    continue;
+
+                Bounds quicksandBounds = default;
+                bool foundCollider = false;
+                Collider[] colliders = quicksand.gameObject.GetComponents<Collider>();
+                for (int j = 0; j < colliders.Length; j++)
                 {
-                    if (quicksand == null || !quicksand.isActiveAndEnabled)
-                        continue;
-
-                    Collider? collider = quicksand.gameObject.GetComponent<Collider>();
-                    if (collider == null)
-                        continue;
-
-                    if (!quicksand.isWater)
+                    Collider collider = colliders[j];
+                    if (collider != null)
                     {
-                        Plugin.LogDebug("This is quicksand!");
-
-                        // Check if the closest point is within or on the collider
-                        Vector3 testPoint = collider.ClosestPoint(entrancePos);
-                        if ((testPoint - entrancePos).sqrMagnitude < quicksandBuffer * quicksandBuffer)
+                        if (!foundCollider)
                         {
-                            Plugin.LogDebug("Segment intersects solid quicksand!");
+                            quicksandBounds = collider.bounds;
+                            foundCollider = true;
+                        }
+                        else
+                        {
+                            quicksandBounds.Encapsulate(collider.bounds);
+                        }
+                    }
+                }
+
+                if (!foundCollider)
+                {
+                    continue;
+                }
+
+                if (!quicksand.isWater)
+                {
+                    Plugin.LogDebug("This is quicksand!");
+
+                    // Check if the closest point is within or on the collider
+                    if (quicksandBounds.Contains(entrancePos))
+                    {
+                        Plugin.LogDebug("Segment intersects solid quicksand!");
+                        return true;
+                    }
+                }
+                else
+                {
+                    Plugin.LogDebug("This is water!");
+
+                    // For some reason this works really well like this unlike the code above
+                    Vector3 simulatedHead = entrancePos + Vector3.up * headOffset;
+                    if (quicksandBounds.Contains(simulatedHead))
+                    {
+                        // Ignore the closest node, this position is underwater!
+                        if (!checkClosestNode)
+                        {
+                            Plugin.LogDebug("Simulated head intersects water!");
                             return true;
                         }
-                        /*float dangerRange = 2f;
-                        Collider[] hitColliders = Physics.OverlapSphere(closestPoint, dangerRange);
-                        foreach (var hitCollider in hitColliders)
+
+                        // We might be able to walk through the water, lets check the closest node to the entrance
+                        // FIXME: This isn't the best way to do this, but it works for now
+                        // We should probably get the closest node that is not in the water and check that instead
+                        Plugin.LogDebug("Simulated head intersects water! Checking nearby AI node!");
+                        Transform closestNode = instanceRM.GetClosestNode(entrancePos, true);
+                        Vector3 closestNodePos = instanceRM.GetNavMeshPosition(closestNode.position, instanceRM.navHit, 2.7f, ai.agent.areaMask);
+                        float moveSpeed = npcController.Npc.movementSpeed > 0f ? npcController.Npc.movementSpeed : 4.5f;
+                        moveSpeed /= npcController.Npc.carryWeight;
+                        float modifiedMoveSpeed = moveSpeed / (2f * (1f * quicksand.movementHinderance));
+                        float travelTime = Vector3.Distance(closestNodePos, entrancePos) / modifiedMoveSpeed;
+                        float downingDelta = travelTime / Const.LETHAL_BOT_DROWN_TIME; // Match game logic
+                        float predictedDrownTimer = 1f - downingDelta;
+
+                        simulatedHead = closestNodePos + Vector3.up * headOffset;
+                        if (predictedDrownTimer <= 0f || quicksandBounds.Contains(simulatedHead))
                         {
-                            if (hitCollider == collider)
-                            {
-                                Plugin.LogDebug("Segment intersects solid quicksand!");
-                                return true;
-                            }
-                        }*/
-                    }
-                    else
-                    {
-                        Plugin.LogDebug("This is water!");
-
-                        // For some reason this works really well like this unlike the code above
-                        Vector3 simulatedHead = entrancePos + Vector3.up * headOffset;
-                        if (collider.bounds.Contains(simulatedHead))
-                        {
-                            // Ignore the closest node, this position is underwater!
-                            if (!checkClosestNode)
-                            {
-                                Plugin.LogDebug("Simulated head intersects water!");
-                                return true;
-                            }
-
-                            // We might be able to walk through the water, lets check the closest node to the entrance
-                            // FIXME: This isn't the best way to do this, but it works for now
-                            // We should probably get the closest node that is not in the water and check that instead
-                            Transform closestNode = instanceRM.GetClosestNode(entrancePos, true);
-                            Vector3 closestNodePos = instanceRM.GetNavMeshPosition(closestNode.position, instanceRM.navHit, 2.7f, ai.agent.areaMask);
-                            float moveSpeed = npcController.Npc.movementSpeed > 0f ? npcController.Npc.movementSpeed : 4.5f;
-                            moveSpeed /= npcController.Npc.carryWeight;
-                            float modifiedMoveSpeed = moveSpeed / (2f * (1f * quicksand.movementHinderance));
-                            float travelTime = Vector3.Distance(closestNodePos, entrancePos) / modifiedMoveSpeed;
-                            float downingDelta = travelTime / Const.LETHAL_BOT_DROWN_TIME; // Match game logic
-                            float predictedDrownTimer = 1f - downingDelta;
-
-                            simulatedHead = closestNodePos + Vector3.up * headOffset;
-                            if (predictedDrownTimer <= 0f || collider.bounds.Contains(simulatedHead))
-                            {
-                                Plugin.LogDebug("Simulated head intersects water!");
-                                return true;
-                            }
+                            Plugin.LogDebug("Simulated head intersects water!");
+                            return true;
                         }
                     }
                 }
@@ -724,9 +814,11 @@ namespace LethalBots.AI
 
             // If we don't have a cached value, we need to check if the entrance is safe
             Vector3 entrancePoint = useEntrancePoint ? entrance.entrancePoint.position : entrance.exitScript.entrancePoint.position;
-            foreach (EnemyAI enemy in RoundManager.Instance.SpawnedEnemies)
+            List<EnemyAI> spawnedEnemies = RoundManager.Instance.SpawnedEnemies;
+            for (int i = 0; i < spawnedEnemies.Count; i++)
             {
                 const float dangerRange = 7.7f; // 7.7f is the same distance used by the base game to show the enemy activity nearby message!
+                EnemyAI enemy = spawnedEnemies[i];
                 if (enemy != null && !enemy.isEnemyDead && enemy is not LethalBotAI && (enemy.transform.position - entrancePoint).sqrMagnitude < dangerRange * dangerRange)
                 {
                     // We found an enemy near the exit point, so we should not use this entrance!
@@ -743,6 +835,7 @@ namespace LethalBots.AI
         /// <summary>
         /// Simple helper function to clear the <see cref="entranceSafetyCache"/>
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ResetEntranceSafetyCache()
         {
             entranceSafetyCache.Clear();
@@ -759,13 +852,16 @@ namespace LethalBots.AI
         {
             // Took this from the TimeOfDay class file,
             // if we just started the day we should use the front entrance!
-            TimeOfDay timeOfDay = TimeOfDay.Instance;
-            if (timeOfDay != null)
+            if (Plugin.Config.ShouldOnlyUseMainAtStart)
             {
-                DayMode dayMode = timeOfDay.GetDayPhase(timeOfDay.currentDayTime / timeOfDay.totalTime);
-                if (dayMode == DayMode.Dawn)
+                TimeOfDay timeOfDay = TimeOfDay.Instance;
+                if (timeOfDay != null)
                 {
-                    return true;
+                    DayMode dayMode = timeOfDay.GetDayPhase(timeOfDay.currentDayTime / timeOfDay.totalTime);
+                    if (dayMode == DayMode.Dawn)
+                    {
+                        return true;
+                    }
                 }
             }
             return false;
@@ -790,18 +886,27 @@ namespace LethalBots.AI
                 }
             }
 
-            // Took this from the TimeOfDay class file,
-            // if its getting late out, we should return to the ship!
-            TimeOfDay timeOfDay = TimeOfDay.Instance;
-            if (timeOfDay != null)
+            // Super Eclipse has special logic, as you can't vote and the day never auto ends!
+            if (Plugin.IsModSuperEclipseLoaded)
             {
-                // TODO: Change this to be better with longer day mods.
-                // I mean it works partially, but could be better!
-                if (timeOfDay.normalizedTimeOfDay > Plugin.Config.ReturnToShipTime
-                    || timeOfDay.votesForShipToLeaveEarly >= LethalBotManager.Instance.AllRealPlayersCount 
-                    || timeOfDay.shipLeavingAlertCalled)
+                float autoLeaveTime = LethalBotManager.Instance.AreAllHumanPlayersDead() ? 300f : 600f; // 600 seconds is 10 minutes, 300 seconds is 5 minutes
+                return LethalBotManager.botAutoLeaveTimer.HasStarted() && LethalBotManager.botAutoLeaveTimer.IsGreaterThan(autoLeaveTime);
+            }
+            else
+            {
+                // Took this from the TimeOfDay class file,
+                // if its getting late out, we should return to the ship!
+                TimeOfDay timeOfDay = TimeOfDay.Instance;
+                if (timeOfDay != null)
                 {
-                    return true;
+                    // TODO: Change this to be better with longer day mods.
+                    // I mean it works partially, but could be better!
+                    if (timeOfDay.normalizedTimeOfDay > Plugin.Config.ReturnToShipTime
+                        || timeOfDay.votesForShipToLeaveEarly >= LethalBotManager.Instance.AllRealPlayersCount
+                        || timeOfDay.shipLeavingAlertCalled)
+                    {
+                        return true;
+                    }
                 }
             }
 
@@ -837,7 +942,7 @@ namespace LethalBots.AI
         /// <remarks>
         /// There is only AI for four items at the time; The walkie-talkie, the shotgun, TZPInhalant, and the Maneater baby!<br/>
         /// The walkie-talkie will be used if the bot is talking!<br/>
-        /// The shotgun will be used if the safety is not on or the bot has spare ammo and the shotgun needs to be reloaded!<br/>
+        /// Weapons that the bot is holding will have their respective <see cref="WeaponInfo.UseHeldWeapon(PlayerControllerB, GrabbableObject, ref bool)"/> called!<br/>
         /// The TZPInhalant is managed by the <see cref="UseTZPInhalantState"/> state!<br/>
         /// The flashlight will be used if the bot believes it is dark enough to need it.<br/>
         /// The Maneater baby will be rocked if the baby is crying!<br/>
@@ -857,7 +962,7 @@ namespace LethalBots.AI
                     if (ai.LethalBotIdentity.Voice.IsTalking())
                     {
                         canUseLethalPhones = false;
-                        if (!walkieTalkie.isBeingUsed && LethalBotAI.IsItemPowered(walkieTalkie))
+                        if (!walkieTalkie.isBeingUsed && ItemsManager.HasRequiredCharge(walkieTalkie))
                         {
                             walkieTalkie.ItemInteractLeftRightOnClient(false);
                         }
@@ -872,20 +977,9 @@ namespace LethalBots.AI
                         walkieTalkie.UseItemOnClient(false);
                     }
                 }
-                else if (heldItem is ShotgunItem shotgun)
+                else if (ItemsManager.Instance.TryGetWeaponInfo(heldItem, out WeaponInfo? weaponInfo))
                 {
-                    // Put the saftey back on
-                    if (!shotgun.safetyOn)
-                    {
-                        canUseLethalPhones = false;
-                        shotgun.ItemInteractLeftRightOnClient(false);
-                    }
-                    // Reload as needed!
-                    else if (shotgun.shellsLoaded < 2 && ai.HasAmmoForWeapon(shotgun, true))
-                    {
-                        canUseLethalPhones = false;
-                        shotgun.ItemInteractLeftRightOnClient(true);
-                    }
+                    weaponInfo.UseHeldWeapon(npcController.Npc, heldItem, ref canUseLethalPhones);
                 }
                 else if (heldItem is TetraChemicalItem tzpItem)
                 {
@@ -899,7 +993,7 @@ namespace LethalBots.AI
                 else if (heldItem is FlashlightItem flashlight)
                 {
                     // Kinda hard to use the flashlight if it has no juice!
-                    if (LethalBotAI.IsItemPowered(flashlight)
+                    if (ItemsManager.HasRequiredCharge(flashlight)
                         && !ai.CheckProximityForEyelessDogs())
                     {
                         // Now do we need to turn it on or off?
@@ -1030,7 +1124,7 @@ namespace LethalBots.AI
         protected virtual bool SelectBestItemFromInventoryFilter(GrabbableObject item)
         {
             // If this item uses batteries, make sure it has a charge before we try to use it!
-            if (!LethalBotAI.IsItemPowered(item))
+            if (!ItemsManager.HasRequiredCharge(item))
             {
                 return false;
             }
@@ -1043,10 +1137,10 @@ namespace LethalBots.AI
                     return true;
                 }
             }
-            else if (item is ShotgunItem shotgun)
+            else if (ItemsManager.Instance.TryGetWeaponInfo(item, out WeaponInfo? weaponInfo))
             {
-                // If we have a shotgun and we need to reload or the safety is off, we should use it!
-                if (!shotgun.safetyOn || (shotgun.shellsLoaded < 2 && ai.HasAmmoForWeapon(shotgun, true)))
+                // Check if we should equip this weapon
+                if (weaponInfo.ShouldEquip(item, npcController.Npc))
                 {
                     return true;
                 }
@@ -1097,8 +1191,8 @@ namespace LethalBots.AI
         {
             // If we have a walkie-talkie in our inventory, we should use it!
             if (item is WalkieTalkie) return 3;
-            // If we have a shotgun and we need to reload or the safety is off, we should use it!
-            else if (item is ShotgunItem) return 2;
+            // If we have a weapon and it wants to be equipped, we should use it!
+            else if (ItemsManager.Instance.TryGetWeaponInfo(item, out WeaponInfo? weaponInfo)) return weaponInfo.EquipPriority(item, npcController.Npc);
             // If we have a flashlight and its dark enough to need it, we should use it!
             else if (item is FlashlightItem) return 1;
             return 0;
@@ -1114,17 +1208,51 @@ namespace LethalBots.AI
         /// </remarks>
         public virtual void UseLethalPhones()
         {
-            // If we have an incoming call, better pick it up!
-            if (!ai.IsLethalPhonesCoroutineRunning()
-                && ai.HasIncomingCall())
+            // Don't do anything if we are using the phone!
+            if (!ai.IsLethalPhonesCoroutineRunning())
             {
-                ai.AcceptIncomingCall();
+                // If we have an incoming call, better pick it up!
+                if (ai.HasIncomingCall())
+                {
+                    stayInCallTimer.Reset();
+                    ai.AcceptIncomingCall();
+                }
+                // If have been in a call for a while, end it after a bit
+                else if (ai.AreWeInCall())
+                {
+                    const float MIN_CALL_TIME = 20f;
+                    const float MAX_CALL_TIME = 60f;
+                    if (!stayInCallTimer.HasStarted())
+                    {
+                        stayInCallTimer.Start(Random.Range(MIN_CALL_TIME, MAX_CALL_TIME));
+                        return;
+                    }
+
+                    if (stayInCallTimer.Elapsed())
+                    {
+                        stayInCallTimer.Reset();
+                        ai.HangupPhone();
+                    }
+                }
+                // If we are not in a call or attempting to call someone,
+                // just put the phone away if we have it out!
+                else if (ai.IsPhoneEquipped())
+                {
+                    stayInCallTimer.Reset();
+                    ai.HangupPhone();
+                }
             }
-            // If we are not in a call or attempting to call someone,
-            // just put the phone away if we have it out!
-            else if (!ai.AreWeInCall() && ai.IsPhoneEquipped())
+
+            // Put our phone on vibrate if there are Eyeless dogs nearby.
+            PlayerPhone? ourPhone = ai.GetOurPlayerPhone();
+            if (ourPhone != null)
             {
-                ai.HangupPhone();
+                PlayerPhone.phoneVolume previousValue = ourPhone.currentVolume.Value;
+                PlayerPhone.phoneVolume newValue = ai.CheckProximityForEyelessDogs() ? PlayerPhone.phoneVolume.Vibrate : PlayerPhone.phoneVolume.Ring;
+                if (newValue != previousValue)
+                {
+                    ourPhone.currentVolume.Value = newValue;
+                }
             }
         }
 
@@ -1156,7 +1284,8 @@ namespace LethalBots.AI
         {
             yield return null;
 
-            while (ai.State != null)
+            while (ai.State != null 
+                && ai.State == this)
             {
                 // Grab the desired position we want to make a safe path to!
                 Vector3? targetDestination = GetDesiredSafePathPosition();
@@ -1217,6 +1346,12 @@ namespace LethalBots.AI
                     if (i % 15 == 0)
                     {
                         yield return null;
+                    }
+
+                    // Make sure not to go to a node in quicksand or underwater
+                    if (IsPositionCoveredInQuickSand(nodePos, checkClosestNode: false))
+                    {
+                        continue;
                     }
 
                     // Can we path to the node and is it safe?
@@ -1502,8 +1637,8 @@ namespace LethalBots.AI
                 // Convert angle to world position for looking
                 // Convert to local space (relative to the bot's forward direction)
                 Vector3 lookDirection = Quaternion.Euler(0, angleRandom, 0) * Vector3.forward;
-                float minLookDistance = 2f; // TODO: Move these into the Const class!
-                float maxLookDistance = 8f;
+                const float minLookDistance = 2f; // TODO: Move these into the Const class!
+                const float maxLookDistance = 8f;
                 float lookDistance = Random.Range(minLookDistance, maxLookDistance); // Hardcoded for now
                 Vector3 lookAtPoint = npcController.Npc.gameplayCamera.transform.position + lookDirection * lookDistance;
 
@@ -1618,7 +1753,7 @@ namespace LethalBots.AI
                     continue;
                 }
 
-                if (enemy.enemyType.enemyName != "Jester" && enemy is not JesterAI)
+                if (enemy is not JesterAI)
                 {
                     continue;
                 }

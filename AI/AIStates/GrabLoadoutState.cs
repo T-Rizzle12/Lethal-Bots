@@ -1,4 +1,5 @@
-﻿using LethalBots.Constants;
+﻿using GameNetcodeStuff;
+using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using Steamworks.Ugc;
@@ -48,6 +49,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -56,7 +58,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // We are not at the ship, go back to the previous state!
-            if (!npcController.Npc.isInElevator && !npcController.Npc.isInHangarShipRoom)
+            if (!lethalBotController.isInElevator && !lethalBotController.isInHangarShipRoom)
             {
                 ChangeBackToPreviousState();
                 return;

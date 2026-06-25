@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using GameNetcodeStuff;
+using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
@@ -80,6 +81,7 @@ namespace LethalBots.AI.AIStates
         {
             // The company desk is invaild, we are not at the company building,
             // or the company is pissed, return!
+            PlayerControllerB lethalBotController = npcController.Npc;
             if (!SingletonManager.CompanyDesk.TryGet(out DepositItemsDesk? companyDesk)
                 || !LethalBotManager.AreWeAtTheCompanyBuilding() 
                 || companyDesk.attacking)
@@ -89,7 +91,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Get the closest nav area to the desk!
-            Vector3 closestAreaToDesk = RoundManager.Instance.GetNavMeshPosition(companyDesk.triggerCollider.ClosestPoint(npcController.Npc.transform.position), default, 20f, NavMesh.AllAreas);
+            Vector3 closestAreaToDesk = RoundManager.Instance.GetNavMeshPosition(companyDesk.triggerCollider.ClosestPoint(lethalBotController.transform.position), default, 20f, NavMesh.AllAreas);
             if (!RoundManager.Instance.GotNavMeshPositionResult)
             {
                 ai.State = new ReturnToShipState(this);
@@ -106,7 +108,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // We should wait nearby the desk if its full!
-            float sqrDistToDesk = (closestAreaToDesk - npcController.Npc.transform.position).sqrMagnitude;
+            float sqrDistToDesk = (closestAreaToDesk - lethalBotController.transform.position).sqrMagnitude;
             if (!waitNearbyDesk 
                 && (LethalBotManager.GetNumberOfItemsOnDesk() >= 150 
                     || (ai.LookingForObjectsToSell(true) == null && LethalBotManager.AreThereItemsOnDesk())))
@@ -123,12 +125,12 @@ namespace LethalBots.AI.AIStates
                     {
                         // Make the bot ring the bell!
                         npcController.OrderToLookAtPosition(bellInteractTrigger.transform.position, EnumLookAtPriority.HIGH_PRIORITY);
-                        bellInteractTrigger.Interact(npcController.Npc.thisPlayerBody);
+                        bellInteractTrigger.Interact(lethalBotController.thisPlayerBody);
                     }
                     else
                     {
                         // No bell interact trigger, so we need to fake the sound!
-                        RoundManager.Instance.PlayAudibleNoise(npcController.Npc.transform.position);
+                        RoundManager.Instance.PlayAudibleNoise(lethalBotController.transform.position);
                     }
                     return;
                 }
@@ -183,14 +185,14 @@ namespace LethalBots.AI.AIStates
                 if (heldItem != null && FindObject(heldItem))
                 {
                     // NEEDTOVALIDATE: Do we use a custom method for this?
-                    companyDesk.PlaceItemOnCounter(npcController.Npc);
+                    companyDesk.PlaceItemOnCounter(lethalBotController);
                 }
                 else
                 {
                     // Swap to our next item!
                     if (heldItem != null && heldItem.itemProperties.twoHanded)
                     {
-                        npcController.Npc.DiscardHeldObject();
+                        lethalBotController.DiscardHeldObject();
                         return;
                     }
                     if (ai.HasGrabbableObjectInInventory(FindObject, out int itemSlot))

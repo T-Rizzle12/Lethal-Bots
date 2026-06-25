@@ -24,7 +24,6 @@ namespace LethalBots.Patches.ModPatches.DawnLib
         /// Helper patch that marks the bots as ready when we are asked to queue the moon scene!
         /// </summary>
         /// <param name="__instance"></param>
-        /// <param name="____playerStates"></param>
         [HarmonyPatch("QueueMoonSceneLoadingClientRpc")]
         [HarmonyPostfix]
         static void QueueMoonSceneLoadingClientRpc_Postfix(DawnMoonNetworker __instance)

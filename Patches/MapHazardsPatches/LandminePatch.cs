@@ -141,6 +141,8 @@ namespace LethalBots.Patches.MapHazardsPatches
         /// <param name="killRange"></param>
         /// <param name="damageRange"></param>
         /// <param name="nonLethalDamage"></param>
+        /// <param name="physicsForce"></param>
+        /// <param name="goThroughCar"></param>
         [HarmonyPatch("SpawnExplosion")]
         [HarmonyPostfix]
         static void SpawnExplosion_PostFix(Vector3 explosionPosition, 

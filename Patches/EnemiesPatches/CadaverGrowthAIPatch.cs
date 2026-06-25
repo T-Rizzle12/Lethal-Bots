@@ -157,9 +157,10 @@ namespace LethalBots.Patches.EnemiesPatches
             // Mimic the local player logic for bots as well.
             PlayerControllerB sickPlayer = StartOfRound.Instance.allPlayerScripts[playerId];
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-            foreach (var lethalBotAI in lethalBotAIs)
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
-                PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
+                var lethalBotAI = lethalBotAIs[i];
+                PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
                 if (lethalBotController != null)
                 {
                     // Must be looking at the player in order to potentially infect them.
@@ -348,6 +349,7 @@ namespace LethalBots.Patches.EnemiesPatches
         /// </summary>
         /// <param name="cadaver"></param>
         /// <param name="player"></param>
+        /// <param name="infectedNum"></param>
         /// <returns></returns>
         private static IEnumerator BurstFromPlayerCoroutine(CadaverGrowthAI cadaver, PlayerControllerB player, int infectedNum)
         {
@@ -375,7 +377,8 @@ namespace LethalBots.Patches.EnemiesPatches
         /// otherwise we risk breaking the flow of the base game's logic and potentially causing bugs.
         /// </summary>
         /// <remarks>
-        /// This is a prefix and not a postfix since we need to get the index of the bloom enemy that will burst from the player before the base game logic does.
+        /// This is a prefix and not a postfix since we need to get the index of the bloom enemy that will burst from the player before the base game logic does.<br/>
+        /// TODO: Maybe I should make this a transpiler instead.....
         /// </remarks>
         /// <param name="__instance"></param>
         /// <param name="playerScript"></param>
@@ -646,7 +649,7 @@ namespace LethalBots.Patches.EnemiesPatches
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
             foreach (var lethalBot in lethalBotAIs)
             {
-                PlayerControllerB? lethalBotController = lethalBot?.NpcController?.Npc;
+                PlayerControllerB? lethalBotController = lethalBot.NpcController?.Npc;
                 if (lethalBotController != null && lethalBotController != playerScript)
                 {
                     lethalBot?.BotInfectionData.Value.totalTimeSpentInPlants = 0f;

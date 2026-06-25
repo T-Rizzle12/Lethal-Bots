@@ -4,6 +4,7 @@ using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,31 +21,38 @@ namespace LethalBots.AI.AIStates
     /// </summary>
     public class ReturnToShipState : AIState
     {
+        public enum EnumReturnToShipType
+        {
+            StandardReturn = 0,
+            HeadOutside,
+            ReturnWithScrap
+        }
+
         private Transform? targetShipTransform; // The transform on the ship we want to go to
         private Vector3? targetShipPos; // The point of the transform on the ship we want to go to
         private Vector3 targetEntrancePos; // The position we want to path to reach the entrance!
         private bool attemptedToUseTZP = false;
-        private bool endIfOutside;
+        private EnumReturnToShipType returnToShipType;
         private float findEntranceTimer;
         private float shipPositionUpdateTimer;
 
-        public ReturnToShipState(AIState oldState, bool endIfOutside = false, AIState? changeToOnEnd = null) : base(oldState, changeToOnEnd)
+        public ReturnToShipState(AIState oldState, EnumReturnToShipType returnToShipType = EnumReturnToShipType.StandardReturn, AIState? changeToOnEnd = null) : base(oldState, changeToOnEnd)
         {
             CurrentState = EnumAIStates.ReturnToShip;
-            this.endIfOutside = endIfOutside;
+            this.returnToShipType = returnToShipType;
 
             // Lets pick a random node on the ship to go to
-            targetShipTransform = GetRandomInsideShipTransform(false);
+            targetShipTransform = GetRandomInsideShipTransform(allowFallback: false);
             targetShipPos = null;
         }
 
-        public ReturnToShipState(LethalBotAI ai, bool endIfOutside = false, AIState? changeToOnEnd = null) : base(ai, changeToOnEnd)
+        public ReturnToShipState(LethalBotAI ai, EnumReturnToShipType returnToShipType = EnumReturnToShipType.StandardReturn, AIState? changeToOnEnd = null) : base(ai, changeToOnEnd)
         {
             CurrentState = EnumAIStates.ReturnToShip;
-            this.endIfOutside = endIfOutside;
+            this.returnToShipType = returnToShipType;
 
             // Lets pick a random node on the ship to go to
-            targetShipTransform = GetRandomInsideShipTransform(false);
+            targetShipTransform = GetRandomInsideShipTransform(allowFallback: false);
             targetShipPos = null;
         }
 
@@ -71,6 +79,7 @@ namespace LethalBots.AI.AIStates
             StartLookingAroundCoroutine();
 
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -114,14 +123,14 @@ namespace LethalBots.AI.AIStates
             }
 
             // Group logic
-            int groupID = GroupManager.Instance.GetGroupId(npcController.Npc);
+            int groupID = GroupManager.Instance.GetGroupId(lethalBotController);
             if (groupID != GroupManager.INVALID_GROUP_INDEX)
             {
                 // The group leader does their best to make sure no one falls behind.......
                 PlayerControllerB? groupLeader = GroupManager.Instance.GetGroupLeader(groupID);
-                if (groupLeader == npcController.Npc)
+                if (groupLeader == lethalBotController)
                 {
-                    // NOTE: We can safely assume that groupLeader is the same as npcController.Npc here
+                    // NOTE: We can safely assume that groupLeader is the same as lethalBotController here
                     PlayerControllerB? straggler = GroupManager.Instance.GetFurthestMemberFromCenter(groupID);
                     if (straggler != null && !ai.AreWeExposed()) // straggler != groupLeader // actually, we allow ourself since the rest of the group may have fallen behind
                     {
@@ -140,8 +149,8 @@ namespace LethalBots.AI.AIStates
                 else if (groupLeader != null)
                 {
                     // Cheat a little here and let the bot have perfect knowledge of where their group leader is.....
-                    float sqrHorizontalDistanceWithTarget = Vector3.Scale((groupLeader.transform.position - npcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
-                    float sqrVerticalDistanceWithTarget = Vector3.Scale((groupLeader.transform.position - npcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
+                    float sqrHorizontalDistanceWithTarget = Vector3.Scale((groupLeader.transform.position - lethalBotController.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
+                    float sqrVerticalDistanceWithTarget = Vector3.Scale((groupLeader.transform.position - lethalBotController.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
                     if (sqrHorizontalDistanceWithTarget < Const.DISTANCE_AWARENESS_HOR * Const.DISTANCE_AWARENESS_HOR
                             && sqrVerticalDistanceWithTarget < Const.DISTANCE_AWARENESS_VER * Const.DISTANCE_AWARENESS_VER)
                     {
@@ -150,13 +159,13 @@ namespace LethalBots.AI.AIStates
                     }
                     else
                     {
-                        GroupManager.Instance.RemoveFromCurrentGroupAndSync(npcController.Npc);
+                        GroupManager.Instance.RemoveFromCurrentGroupAndSync(lethalBotController);
                     }
                 }
                 // This should never happen, but you never know......
                 else
                 {
-                    GroupManager.Instance.RemoveFromCurrentGroupAndSync(npcController.Npc);
+                    GroupManager.Instance.RemoveFromCurrentGroupAndSync(lethalBotController);
                 }
             }
 
@@ -219,7 +228,7 @@ namespace LethalBots.AI.AIStates
                         if (!ai.AreHandsFree()
                             && ai.HeldItem is CaveDwellerPhysicsProp)
                         {
-                            npcController.Npc.DiscardHeldObject();
+                            lethalBotController.DiscardHeldObject();
                         }
                     }
                 }
@@ -247,10 +256,10 @@ namespace LethalBots.AI.AIStates
                 SelectBestItemFromInventory();
 
                 // If we are close enough, we should use the entrance to leave
-                float entranceDistSqr = (this.targetEntrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
+                float entranceDistSqr = (this.targetEntrance.entrancePoint.position - lethalBotController.transform.position).sqrMagnitude;
                 if (entranceDistSqr >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                 {
-                    float sqrMagDistanceToSafePos = (this.safePathPos - npcController.Npc.transform.position).sqrMagnitude;
+                    float sqrMagDistanceToSafePos = (this.safePathPos - lethalBotController.transform.position).sqrMagnitude;
                     if (sqrMagDistanceToSafePos >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                     {
                         // Alright lets go outside!
@@ -282,7 +291,7 @@ namespace LethalBots.AI.AIStates
                     if (!ai.AreHandsFree() && ai.HeldItem is CaveDwellerPhysicsProp)
                     {
                         // We must drop the maneater baby before we use the entrance!
-                        npcController.Npc.DiscardHeldObject();
+                        lethalBotController.DiscardHeldObject();
                         return;
                     }
                     else if (Time.timeSinceLevelLoad - ai.TimeSinceTeleporting > Const.WAIT_TIME_TO_TELEPORT)
@@ -316,10 +325,72 @@ namespace LethalBots.AI.AIStates
                 // We made it outside, we can end this state
                 // Some state probably wanted to move us outside!
                 // NOTE: We do this so I don't have to duplicate the move outside code in multiple states!
-                if (endIfOutside)
+                if (returnToShipType == EnumReturnToShipType.HeadOutside)
                 {
                     ChangeBackToPreviousState();
                     return;
+                }
+                // If we were returning with scrap, check to see if we should leave it at the entrance or take it back.
+                else if (returnToShipType == EnumReturnToShipType.ReturnWithScrap)
+                {
+                    if (ai.HasScrapInInventory() || (groupID != GroupManager.INVALID_GROUP_INDEX && GroupManager.Instance.DoesGroupHaveScrap(groupID)))
+                    {
+                        // Now, lets check if someone is assigned to transfer loot
+                        bool shouldWalkLootToShip = true;
+                        if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
+                        {
+                            Vector3 ourPos = lethalBotController.transform.position;
+                            bool areWeNearbyEntrance = false;
+                            for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
+                            {
+                                EntranceTeleport entrance = LethalBotAI.EntrancesTeleportArray[i];
+                                if (entrance == null) continue;
+
+                                if (entrance.isEntranceToBuilding
+                                    && (entrance.entrancePoint.position - ourPos).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE)
+                                {
+                                    areWeNearbyEntrance = true;
+                                    break;
+                                }
+                            }
+
+                            if (areWeNearbyEntrance)
+                            {
+                                // Stop moving while we drop our items
+                                ai.StopMoving();
+                                npcController.OrderToStopSprint();
+
+                                GrabbableObject? heldItem = ai.HeldItem;
+                                if (heldItem != null && base.FindObject(heldItem))
+                                {
+                                    lethalBotController.DiscardHeldObject();
+                                    LethalBotAI.DictJustDroppedItems.Remove(heldItem); //HACKHACK: Since DropItem set the just dropped item timer, we clear it here!
+                                    shouldWalkLootToShip = false;
+                                }
+                                else if (ai.HasGrabbableObjectInInventory(base.FindObject, out int objectSlot))
+                                {
+                                    ai.SwitchItemSlotsAndSync(objectSlot);
+                                    shouldWalkLootToShip = false;
+                                }
+                            }
+                        }
+
+                        // Only return if we are supposed to walk the loot to the ship!
+                        if (shouldWalkLootToShip)
+                        {
+                            returnToShipType = EnumReturnToShipType.StandardReturn;
+                        }
+                        else
+                        {
+                            StopSafePathCoroutine(); // Don't need this while we are dropping our scrap!
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        ChangeBackToPreviousState();
+                        return;
+                    }
                 }
 
                 // If our target ship transform is invalid, find another one!
@@ -347,7 +418,7 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // Keep moving towards the ship!
-                float sqrMagDistanceToShip = (targetShipPos.Value - npcController.Npc.transform.position).sqrMagnitude;
+                float sqrMagDistanceToShip = (targetShipPos.Value - lethalBotController.transform.position).sqrMagnitude;
                 if (sqrMagDistanceToShip >= Const.DISTANCE_TO_CHILL_POINT * Const.DISTANCE_TO_CHILL_POINT)
                 {
                     // Find a safe path to the ship
@@ -356,7 +427,7 @@ namespace LethalBots.AI.AIStates
                     // Select and use items based on our current situation, if needed
                     SelectBestItemFromInventory();
 
-                    float sqrMagDistanceToSafePos = (this.safePathPos - npcController.Npc.transform.position).sqrMagnitude;
+                    float sqrMagDistanceToSafePos = (this.safePathPos - lethalBotController.transform.position).sqrMagnitude;
                     if (sqrMagDistanceToSafePos >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                     {
                         // Move to the ship!
@@ -438,7 +509,7 @@ namespace LethalBots.AI.AIStates
             SignalTranslatorCommandsManager.RegisterCommandForState<ReturnToShipState>(new SignalTranslatorCommand(Const.RETURN_COMMAND, (state, lethalBotAI, message) =>
             {
                 ReturnToShipState returnToShipState = (ReturnToShipState)state;
-                returnToShipState.endIfOutside = false; // We need to head back the entire way!
+                returnToShipState.returnToShipType = EnumReturnToShipType.StandardReturn; // We need to head back the entire way!
                 return true;
             }));
         }
@@ -485,7 +556,7 @@ namespace LethalBots.AI.AIStates
                 //const int playerSpawnPositionsMask = 67108864;
                 //&& (!Physics.CheckSphere(shipPos, radius: 0.2f, playerSpawnPositionsMask, QueryTriggerInteraction.Ignore) 
                         //|| !Physics.CheckSphere(shipPos + Vector3.up, radius: 0.2f, playerSpawnPositionsMask, QueryTriggerInteraction.Ignore))
-                int index = Random.Range(0, ourShip.Count - 1);
+                int index = UnityEngine.Random.Range(0, ourShip.Count - 1);
                 Transform shipTransform = ourShip[index];
                 ourShip.RemoveAt(index);
                 Vector3 shipPos = RoundManager.Instance.GetNavMeshPosition(shipTransform.position, default, 2.7f);
@@ -512,7 +583,7 @@ namespace LethalBots.AI.AIStates
         /// <remarks>
         /// The position is cached and only updated every <see cref="Const.TIMER_CHECK_EXPOSED"/> seconds.
         /// </remarks>
-        /// <returns>A <see cref="Vector3?"/> representing the most recently determined position of the target ship.</returns>
+        /// <returns>A <see cref="Vector3"/> representing the most recently determined position of the target ship.</returns>
         private Vector3? GetTargetShipPos()
         {
             // No transform, no pos!

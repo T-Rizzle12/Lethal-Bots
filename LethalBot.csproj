@@ -6,7 +6,7 @@
     <AssemblyName>LethalBots</AssemblyName>
     <Product>LethalBots</Product>
     <!-- Change to whatever version you're currently on. This will be used by tcli when building our Thunderstore package. -->
-    <Version>9.0.1</Version>
+    <Version>10.0.0</Version>
   </PropertyGroup>
 
   <!-- Project Properties -->
@@ -38,9 +38,9 @@
     </RestoreAdditionalProjectSources>
   </PropertyGroup>
 
-  <!-- Disable Publicizer Warnings -->
+  <!-- Disable Publicizer and Missing XML Documentation Warnings -->
   <PropertyGroup>
-    <NoWarn>$(NoWarn);CS0436</NoWarn>
+    <NoWarn>$(NoWarn);CS0436,CS1591,CS0419,CS1587</NoWarn>
   </PropertyGroup>
 
   <!-- Embed Debug Symbols for Easier Debugging -->
@@ -54,7 +54,7 @@
     <PathMap>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))=./</PathMap>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <GenerateDocumentationFile>False</GenerateDocumentationFile>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <Optimize>True</Optimize>
@@ -94,6 +94,7 @@
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" PrivateAssets="all" />
     <PackageReference Include="Evaisa.LethalLib" Version="1.2.0" />
     <PackageReference Include="Lost.Compat.NullabilityAttributes" Version="0.0.4" PrivateAssets="all" />
+    <PackageReference Include="MillieTheSilly-SuperEclipse" Version="0.1.0" />
     <PackageReference Include="Mono.pdb2mdb" Version="0.1.0.20130128" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Rune580.Mods.LethalCompany.InputUtils" Version="0.7.13" />
@@ -152,7 +153,7 @@
 	<Reference Include="GeneralImprovements">
 		<HintPath>lib\mods\GeneralImprovements.dll</HintPath>
 	</Reference>
-    <Reference Include="LethalPhones">
+    <Reference Include="LethalPhones" Publicize="true">
       <HintPath>lib\mods\LethalPhones.dll</HintPath>
     </Reference>
     <Reference Include="ModelReplacementAPI">
@@ -270,10 +271,7 @@
 	  </PropertyGroup>
 
 	  <!-- Put our dependencies into a file -->
-	  <WriteLinesToFile
-		File="$(NetcodePatcherDepsListFile)"
-		Lines="@(ReferencePathWithRefAssemblies)"
-		Overwrite="true" />
+	  <WriteLinesToFile File="$(NetcodePatcherDepsListFile)" Lines="@(ReferencePathWithRefAssemblies)" Overwrite="true" />
 
 	  <!-- Actually run Netcode patcher -->
 	  <Exec Command="dotnet netcode-patch -uv 2022.3.62 -nv 1.12.0 -tv 1.0.0 &quot;$(TargetPath)&quot; --dependency-file &quot;$(NetcodePatcherDepsListFile)&quot;" />

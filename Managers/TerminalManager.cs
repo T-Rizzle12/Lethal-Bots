@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Unity.Netcode;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace LethalBots.Managers
 {
@@ -63,7 +64,7 @@ namespace LethalBots.Managers
         {
             if (terminalScript == null)
             {
-                terminalScript = GameObject.Find("TerminalScript").GetComponent<Terminal>();
+                terminalScript = Object.FindObjectOfType<Terminal>() ?? GameObject.Find("TerminalScript").GetComponent<Terminal>();
             }
             return terminalScript;
         }
@@ -123,8 +124,9 @@ namespace LethalBots.Managers
         /// </summary>
         /// <remarks>
         /// WARNING: This may or may not work for custom commands from other mods, then again, the old system didn't work with other mods anyway....<br/>
-        /// WARMING: This MUST be manually updated for every LC update that changes the terminal. That switch statement the base game uses could have more commands!
+        /// WARNING: This MUST be manually updated for every LC update that changes the terminal. That switch statement the base game uses could have more commands!
         /// </remarks>
+        /// <param name="ourTerminal"></param>
         /// <param name="text"></param>
         /// <returns></returns>
         private TerminalNode? ParsePlayerSentence(Terminal ourTerminal, string text)

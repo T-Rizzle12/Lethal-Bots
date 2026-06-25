@@ -1,4 +1,5 @@
-﻿using LethalBots.Constants;
+﻿using GameNetcodeStuff;
+using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Utils;
@@ -28,6 +29,7 @@ namespace LethalBots.AI.AIStates
         public override void DoAI()
         {
             // Check for enemies
+            PlayerControllerB lethalBotController = npcController.Npc;
             EnemyAI? enemyAI = ai.CheckLOSForEnemy(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (enemyAI != null)
             {
@@ -44,13 +46,13 @@ namespace LethalBots.AI.AIStates
 
             // Say hello to the ugliest thing in the world.
             // I got this from the mod Problematic Pilotry.
-            Vector3 ourPos = npcController.Npc.transform.position;
+            Vector3 ourPos = lethalBotController.transform.position;
             Vector3 dropshipLandingPos = itemDropship.transform.parent.gameObject.transform.position;
             float sqrDistToLandingSpot = (dropshipLandingPos - ourPos).sqrMagnitude;
             float sqrDistToInteractTrigger = (itemDropship.transform.position - ourPos).sqrMagnitude;
 
             // Move to the landing spot if we are not nearby it!
-            float grabDistance = npcController.Npc.grabDistance; // grabDistance determines our interact trigger distance!
+            float grabDistance = lethalBotController.grabDistance; // grabDistance determines our interact trigger distance!
             if (Mathf.Min(sqrDistToInteractTrigger, sqrDistToLandingSpot) > grabDistance * grabDistance)
             {
                 if (!npcController.WaitForFullStamina && sqrDistToLandingSpot > Const.DISTANCE_START_RUNNING * Const.DISTANCE_START_RUNNING)
@@ -71,7 +73,7 @@ namespace LethalBots.AI.AIStates
                     // We are WAY TOO CLOSE, FALLBACK!
                     if (sqrDistToLandingSpot < Const.DISTANCE_FALLBACK_FROM_DROPSHIP * Const.DISTANCE_FALLBACK_FROM_DROPSHIP)
                     {
-                        Ray ray = new Ray(npcController.Npc.transform.position, npcController.Npc.transform.position + Vector3.up * 0.2f - dropshipLandingPos + Vector3.up * 0.2f);
+                        Ray ray = new Ray(lethalBotController.transform.position, lethalBotController.transform.position + Vector3.up * 0.2f - dropshipLandingPos + Vector3.up * 0.2f);
                         ray.direction = new Vector3(ray.direction.x, 0f, ray.direction.z);
                         Vector3 pos = (!Physics.Raycast(ray, out RaycastHit hit, Const.DISTANCE_FALLBACK_FROM_DROPSHIP, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)) ? ray.GetPoint(Const.DISTANCE_FALLBACK_FROM_DROPSHIP) : hit.point;
 
@@ -97,7 +99,7 @@ namespace LethalBots.AI.AIStates
                     // We are WAY TOO CLOSE, FALLBACK!
                     if (sqrDistToLandingSpot < Const.DISTANCE_FALLBACK_FROM_DROPSHIP * Const.DISTANCE_FALLBACK_FROM_DROPSHIP)
                     {
-                        Ray ray = new Ray(npcController.Npc.transform.position, npcController.Npc.transform.position + Vector3.up * 0.2f - dropshipLandingPos + Vector3.up * 0.2f);
+                        Ray ray = new Ray(lethalBotController.transform.position, lethalBotController.transform.position + Vector3.up * 0.2f - dropshipLandingPos + Vector3.up * 0.2f);
                         ray.direction = new Vector3(ray.direction.x, 0f, ray.direction.z);
                         Vector3 pos = (!Physics.Raycast(ray, out RaycastHit hit, Const.DISTANCE_FALLBACK_FROM_DROPSHIP, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)) ? ray.GetPoint(Const.DISTANCE_FALLBACK_FROM_DROPSHIP) : hit.point;
                     
@@ -111,7 +113,7 @@ namespace LethalBots.AI.AIStates
                 // Collect the items!
                 if (!itemDropship.shipDoorsOpened && itemDropship.shipLanded)
                 {
-                    itemDropship.triggerScript.Interact(npcController.Npc.thisPlayerBody);
+                    itemDropship.triggerScript.Interact(lethalBotController.thisPlayerBody);
                     CollectDeliveredItems = true;
                 }
                 else
@@ -237,31 +239,26 @@ namespace LethalBots.AI.AIStates
             float closestItemDistSqr = float.MaxValue;
             for (int i = 0; i < LethalBotManager.grabbableObjectsInMap.Count; i++)
             {
-                GameObject gameObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (gameObject == null)
+                GrabbableObject? item = LethalBotManager.grabbableObjectsInMap[i];
+                if (item == null)
                 {
-                    LethalBotManager.grabbableObjectsInMap.TrimExcess();
                     continue;
                 }
 
-                GrabbableObject? item = gameObject.GetComponent<GrabbableObject>();
-                if (item != null)
+                // Only grab stuff near the dropship!
+                float itemDistSqr = (item.transform.position - dropshipLandingPos).sqrMagnitude;
+                if (itemDistSqr > Const.DISTANCE_ITEM_TO_COLLECT * Const.DISTANCE_ITEM_TO_COLLECT) // Cheap way to limit range!
                 {
-                    // Only grab stuff near the dropship!
-                    float itemDistSqr = (item.transform.position - dropshipLandingPos).sqrMagnitude;
-                    if (itemDistSqr > Const.DISTANCE_ITEM_TO_COLLECT * Const.DISTANCE_ITEM_TO_COLLECT) // Cheap way to limit range!
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    // Check distance to us!
-                    itemDistSqr = (item.transform.position - ourPos).sqrMagnitude;
-                    if (itemDistSqr < closestItemDistSqr 
-                        && ai.IsGrabbableObjectGrabbable(item))
-                    {
-                        bestItem = item;
-                        closestItemDistSqr = itemDistSqr;
-                    }
+                // Check distance to us!
+                itemDistSqr = (item.transform.position - ourPos).sqrMagnitude;
+                if (itemDistSqr < closestItemDistSqr
+                    && ai.IsGrabbableObjectGrabbable(item))
+                {
+                    bestItem = item;
+                    closestItemDistSqr = itemDistSqr;
                 }
             }
             return bestItem;

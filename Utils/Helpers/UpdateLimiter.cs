@@ -8,6 +8,9 @@ namespace LethalBots.Utils.Helpers
     /// <summary>
     /// Helper class that allows me to limit how often a patch is run!
     /// </summary>
+    /// <remarks>
+    /// This is a class since <see cref="ConditionalWeakTable{TKey, TValue}"/> only accepts classes!
+    /// </remarks>
     public class UpdateLimiter
     {
         // Static variables
@@ -38,7 +41,7 @@ namespace LethalBots.Utils.Helpers
         }
 
         // Member variables
-        private readonly CountdownTimer nextUpdateTimer = new CountdownTimer();
+        private CountdownTimer nextUpdateTimer = new CountdownTimer();
         private float updateInterval;
 
         internal UpdateLimiter(float updateInterval = 0.5f)
