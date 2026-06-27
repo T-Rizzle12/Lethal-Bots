@@ -299,6 +299,12 @@ namespace LethalBots.NetworkSerializers
                 isSightedIn = false;
             }
 
+            // Check if our look input is disabled.
+            if (lethalBotController.disableLookInput)
+            {
+                return;
+            }
+
             // HACKHACK: Fix the look at code rather than doing this
             if (lethalBotController.isClimbingLadder)
             {

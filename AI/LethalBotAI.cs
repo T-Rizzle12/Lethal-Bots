@@ -568,7 +568,7 @@ namespace LethalBots.AI
                         // Do the AI calculation behaviour for the current state
                         State.DoAI();
                         State.TryPlayCurrentStateVoiceAudio();
-                        updateDestinationIntervalLethalBotAI = AIIntervalTime;
+                        updateDestinationIntervalLethalBotAI = AIIntervalTime + UnityEngine.Random.Range(-0.015f, 0.015f);
                     }
                 }
                 else if (lethalBotController.isPlayerDead)
@@ -790,7 +790,7 @@ namespace LethalBots.AI
 
                 // Do the actual AI calculation
                 DoAIInterval();
-                updateDestinationIntervalLethalBotAI = AIIntervalTime;
+                updateDestinationIntervalLethalBotAI = AIIntervalTime + UnityEngine.Random.Range(-0.015f, 0.015f);
             }
         }
 
@@ -811,6 +811,9 @@ namespace LethalBots.AI
             {
                 return;
             }
+
+            // Update area costs for bots
+            SetAreaCostsForBot();
 
             // Do the AI calculation behaviour for the current state
             State.DoAI();
@@ -930,10 +933,11 @@ namespace LethalBots.AI
             }
 
             Vector3 externalForces = lethalBotController.externalForces;
-            float externalForces2 = externalForces.x * externalForces.x + externalForces.z * externalForces.z;
-            if (externalForces2 > 4f * 4f || externalForces.y > 7.1f)
+            Vector3 previousExternalForces = NpcController.PreviousExternalForces;
+            if (externalForces.sqrMagnitude > 2f * 2f 
+                || previousExternalForces.sqrMagnitude > 2f * 2f)
             {
-                Plugin.LogDebug($"{lethalBotController.playerUsername} externalForces {externalForces}");
+                Plugin.LogDebug($"{lethalBotController.playerUsername} externalForces {externalForces.sqrMagnitude} previousExternalForces {previousExternalForces}");
                 return true;
             }
 
@@ -2253,28 +2257,47 @@ namespace LethalBots.AI
             return false;
         }
 
+        /// <summary>
+        /// Enables or disables the bot's <see cref="EnemyAI.agent"/>
+        /// </summary>
+        /// <remarks>
+        /// This calls <see cref="SetAreaCostsForBot"/> internally
+        /// </remarks>
+        /// <param name="enabled"></param>
         public void SetAgent(bool enabled)
         {
             if (agent != null && agent.enabled != enabled)
             {
                 agent.enabled = enabled;
-                if (enabled && agent.isOnNavMesh) // Make sure the agent is enabled before setting area costs
+                if (enabled)
                 {
-                    // 10 times the pathing cost for water!
-                    int waterArea = NavMesh.GetAreaFromName("Water");
-                    agent.SetAreaCost(waterArea, 10f);
-
-                    // High path cost for enemy only area
-                    // NOTE: I can't tell the bots to not path here, or they could break on some custom moons!
-                    int enemyOnlyArea = NavMesh.GetAreaFromName("EnemiesOnly");
-                    agent.SetAreaCost(enemyOnlyArea, 50f);
-
-                    // 5 times the pathing cost for landmines!
-                    agent.SetAreaCost(Const.LETHAL_BOT_LANDMINE_NAVAREA, 5f);
-
-                    // High path cost for quicksand
-                    agent.SetAreaCost(Const.LETHAL_BOT_QUICKSAND_NAVAREA, 50f);
+                    SetAreaCostsForBot();
                 }
+            }
+        }
+
+        /// <summary>
+        /// This helper applies the preset area costs for the bots
+        /// </summary>
+        public void SetAreaCostsForBot()
+        {
+            // Make sure the agent is enabled before setting area costs
+            if (agent.enabled && agent.isOnNavMesh)
+            {
+                // 10 times the pathing cost for water!
+                int waterArea = NavMesh.GetAreaFromName("Water");
+                agent.SetAreaCost(waterArea, 10f);
+
+                // High path cost for enemy only area
+                // NOTE: I can't tell the bots to not path here, or they could break on some custom moons!
+                int enemyOnlyArea = NavMesh.GetAreaFromName("EnemiesOnly");
+                agent.SetAreaCost(enemyOnlyArea, 100f);
+
+                // 5 times the pathing cost for landmines!
+                agent.SetAreaCost(Const.LETHAL_BOT_LANDMINE_NAVAREA, 5f);
+
+                // High path cost for quicksand
+                agent.SetAreaCost(Const.LETHAL_BOT_QUICKSAND_NAVAREA, 100f);
             }
         }
 
