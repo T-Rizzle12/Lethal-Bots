@@ -1,5 +1,16 @@
 # Changelog
 
+## 10.1.0 2026-6-27
+Hey everyone, just have some minor bug fixes. Anyhow, lets get on with em.<br/>
+Change Log:
+- Moved NavMesh area costs for bots into its own function: LethalBotAI.SetAreaCostsForBot
+- Fixed a bug that caused the bots to reset their area costs back to default. No more bots dive bombing into the water on March.
+- Added randomization to AI update intervals to be consistent with how the base game does it.
+- Improved handling of external forces on bots
+- Changed chat command handling to use a Harmony transpiler rather than a postfix. This fixes the bots sometimes sending messages twice.
+- Added `UseOldChatRecevier` config for chat command fallback
+- Actually fixed bots being able to look around when their look input is disabled
+
 ## 10.0.0 2026-6-24
 Welp, this took longer than planned. It didn't help that I kept getting sidetracked in the process. Anyhow, I finally took the time to improve the follow state as requested in #68. Its completely configurable and client sided, this means that each player gets to decide how bots should follow them. I also made a TON of backend changes and bug fixes, so lets get onto it!
 

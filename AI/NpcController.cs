@@ -45,6 +45,7 @@ namespace LethalBots.AI
         public AudioLowPassFilter AudioLowPassFilterComponent = null!;
         public AudioHighPassFilter AudioHighPassFilterComponent = null!;
 
+        public Vector3 PreviousExternalForces { get; private set; }
         public Vector3 MoveVector;
         public bool IsTouchingGround;
         public EnemyAI? EnemyInAnimationWith;
@@ -224,6 +225,7 @@ namespace LethalBots.AI
                     // Check if the bot is falling and update values accordingly
                     UpdateFallValuesForOwner();
 
+                    PreviousExternalForces = lethalBotController.externalForces;
                     lethalBotController.externalForces = Vector3.zero;
                     if (!lethalBotController.teleportingThisFrame && lethalBotController.teleportedLastFrame)
                     {
@@ -957,18 +959,17 @@ namespace LethalBots.AI
         {
             PlayerControllerB lethalBotController = Npc;
             Vector3 direction = lethalBotController.thisPlayerBody.up;
-            Vector3 origin = lethalBotController.gameplayCamera.transform.position + lethalBotController.thisPlayerBody.up * 0.07f;
             if ((lethalBotController.externalForces + lethalBotController.externalForceAutoFade).sqrMagnitude > 8f * 8f)
             {
                 lethalBotController.CancelSpecialTriggerAnimations();
             }
+            PreviousExternalForces = lethalBotController.externalForces;
             lethalBotController.externalForces = Vector3.zero;
             lethalBotController.externalForceAutoFade = Vector3.Lerp(lethalBotController.externalForceAutoFade, Vector3.zero, 5f * Time.deltaTime);
 
             if (goDownLadder)
             {
                 direction = -lethalBotController.thisPlayerBody.up;
-                origin = lethalBotController.transform.position;
             }
             lethalBotController.thisPlayerBody.transform.position += direction * (Const.BASE_MAX_SPEED * lethalBotController.climbSpeed * Time.deltaTime);
             //if (!Physics.Raycast(origin, direction, 0.15f, StartOfRound.Instance.allPlayersCollideWithMask, QueryTriggerInteraction.Ignore))

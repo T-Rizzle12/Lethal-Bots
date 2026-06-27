@@ -2623,7 +2623,7 @@ namespace LethalBots.Managers
                     if (AreWeInOrbit() && Plugin.Config.AllowBotsInOrbit.Value)
                     {
                         EnsureShipNavMeshBuilt();
-                        EnableShipNavMesh();
+                        EnableShipNavMesh(reason: "Bots spawning in orbit!");
                         SpawnLethalBotsAtShip(markBotsAsLoaded: true);
                     }
                     else
@@ -2736,7 +2736,7 @@ namespace LethalBots.Managers
                 }
                 //else if (message.Contains("get navarea"))
                 //{
-                //    if (NavMesh.SamplePosition(playerWhoSentMessage.transform.position, out RoundManager.Instance.navHit, 30f, 1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA))
+                //    if (NavMesh.SamplePosition(playerWhoSentMessage.transform.position, out RoundManager.Instance.navHit, 30f, 1 << NavMesh.GetAreaFromName("EnemiesOnly")))
                 //    {
                 //        HUDManager.Instance.AddTextToChatOnServer($"Found NavArea: {RoundManager.Instance.navHit.position}. Distance to Player {Vector3.Distance(playerWhoSentMessage.transform.position, RoundManager.Instance.navHit.position)}");
                 //        HUDManager.Instance.AddTextToChatOnServer($"Area mask: {RoundManager.Instance.navHit.mask}");
@@ -3639,16 +3639,14 @@ namespace LethalBots.Managers
                         // NOTE: We do this here as other clients will have a spawn miscount if we don't!
                         // HACKHACK: We raise the connected players amount and number of living players so enemies consider them!
                         // This also makes it so if all human players die, the bots can continue without them!
-                        newPlayerCount += 1;
-                        newLivingPlayerCount += 1;
+                        newPlayerCount++;
+                        newLivingPlayerCount++;
                         nbSpawnedBots++;
                     }
                     else if (botSpawned.Value == EnumBotSpawnState.NotSpawned)
                     {
                         Plugin.LogError("Failed to spawn bot on the host!");
                     }
-                    // NEEDTOVALIDATE: Should this be faster!
-                    //yield return new WaitForSeconds(0.3f);
                 }
             }
             Plugin.LogDebug("Finished spawning bots!");
@@ -5376,7 +5374,7 @@ namespace LethalBots.Managers
             if (AreWeInOrbit())
             {
                 EnsureShipNavMeshBuilt();
-                EnableShipNavMesh();
+                EnableShipNavMesh(reason: "Client joining ship in orbit!");
             }
 
             // We use a coroutine to guarantee the bot objects had time to be created over the network

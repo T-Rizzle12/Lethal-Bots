@@ -71,6 +71,7 @@ namespace LethalBots.Configs
 
         // Debug
         public ConfigEntry<bool> EnableDebugLog;
+        [SyncedEntryField] public SyncedEntry<bool> UseOldChatRecevier;
 
         // Mod Related Settings
         [SyncedEntryField] public SyncedEntry<bool> AllowRandomCalling;
@@ -284,6 +285,11 @@ namespace LethalBots.Configs
                                       "EnableDebugLog  (Client only)",
                                       defaultValue: true,
                                       "Enable the debug logs used for this mod.");
+
+            UseOldChatRecevier = cfg.BindSyncedEntry(ConfigConst.ConfigSectionDebug,
+                                      "Use Old Chat Recevier",
+                                      defaultVal: false,
+                                      "Should the old chat recevier be used instead of the new one! YOU SHOULD ONLY ENABLE THIS IF CHAT COMMANDS ARE NOT WORKING!");
 
             // Mod Related Settings
             AllowRandomCalling = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMods, 

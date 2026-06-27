@@ -214,7 +214,7 @@ namespace LethalBots.Patches.GameEnginePatches
         {
             Plugin.LogDebug("Creating and Enabling ship NavMeshSurface object");
             LethalBotManager.Instance.EnsureShipNavMeshBuilt();
-            LethalBotManager.Instance.EnableShipNavMesh("Now in orbit!");
+            LethalBotManager.Instance.EnableShipNavMesh(reason: "Now in orbit!");
         }
 
         [HarmonyPatch("SuckLocalPlayerOutOfShipDoor")]
@@ -351,20 +351,6 @@ namespace LethalBots.Patches.GameEnginePatches
             }
         }
 
-        // Something to think about. Currently, OnShipLandedMiscEvents is called a few seconds after the ship has landed.
-        // This causes the bots to spawn a few seconds after the ship has landed.
-        // This is not a problem, but it would be better to spawn them at the same time as the ship starts its landing.
-        // openingDoorsSequence is the coroutine that is called when the ship is landing.
-        // It is called in the RoundManager class, in the FinishLevelGeneration method.
-        // openingDoorsSequence sets shipDoorsEnabled to true after a few seconds.
-        // This may be the best time to spawn the bots.
-        /*[HarmonyPatch("OnShipLandedMiscEvents")]
-        [HarmonyPostfix]
-        static void OnShipLandedMiscEvents_PostFix()
-        {
-            LethalBotManager.Instance.SpawnLethalBotsAtShip();
-        }*/
-
 
         #region Transpilers
 
@@ -405,129 +391,6 @@ namespace LethalBots.Patches.GameEnginePatches
 
             return codes.AsEnumerable();
         }
-
-        /// <summary>
-        /// Patch for only try to revive irl players not bots
-        /// </summary>
-        /// <param name="instructions"></param>
-        /// <param name="generator"></param>
-        /// <returns></returns>
-        /// TODO: Change this since we want the game to revive the bots!
-        //[HarmonyPatch("ReviveDeadPlayers")]
-        //[HarmonyTranspiler]
-        //public static IEnumerable<CodeInstruction> ReviveDeadPlayers_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
-        //{
-        //    var startIndex = -1;
-        //    var codes = new List<CodeInstruction>(instructions);
-
-        //    // ----------------------------------------------------------------------
-        //    for (var i = 0; i < codes.Count - 2; i++)
-        //    {
-        //        if (codes[i].ToString().StartsWith("ldarg.0 NULL") //410
-        //            && codes[i + 1].ToString() == "ldfld GameNetcodeStuff.PlayerControllerB[] StartOfRound::allPlayerScripts"
-        //            && codes[i + 2].ToString() == "ldlen NULL")
-        //        {
-        //            startIndex = i;
-        //            break;
-        //        }
-        //    }
-        //    if (startIndex > -1)
-        //    {
-        //        codes[startIndex].opcode = OpCodes.Nop;
-        //        codes[startIndex].operand = null;
-        //        codes[startIndex + 1].opcode = OpCodes.Nop;
-        //        codes[startIndex + 1].operand = null;
-        //        codes[startIndex + 2].opcode = OpCodes.Call;
-        //        codes[startIndex + 2].operand = PatchesUtil.IndexBeginOfInternsMethod;
-        //        startIndex = -1;
-        //    }
-        //    else
-        //    {
-        //        Plugin.LogError($"LethalBot.Patches.GameEnginePatches.StartOfRoundPatch.ReviveDeadPlayers_Transpiler could not use irl number of player in list.");
-        //    }
-
-        //    return codes.AsEnumerable();
-        //}
-
-        //[HarmonyPatch("SyncShipUnlockablesServerRpc")]
-        //[HarmonyTranspiler]
-        //public static IEnumerable<CodeInstruction> SyncShipUnlockablesServerRpc_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
-        //{
-        //    var startIndex = -1;
-        //    var codes = new List<CodeInstruction>(instructions);
-
-        //    // ----------------------------------------------------------------------
-        //    for (var i = 0; i < codes.Count - 23; i++)
-        //    {
-        //        if (codes[i].ToString().StartsWith("ldarg.0 NULL") // 277
-        //            && codes[i + 1].ToString() == "ldfld GameNetcodeStuff.PlayerControllerB[] StartOfRound::allPlayerScripts"
-        //            && codes[i + 2].ToString() == "ldlen NULL"
-        //            && codes[i + 23].ToString().StartsWith("call void StartOfRound::SyncShipUnlockablesClientRpc")) // 300
-        //        {
-        //            startIndex = i;
-        //            break;
-        //        }
-        //    }
-        //    if (startIndex > -1)
-        //    {
-        //        codes[startIndex].opcode = OpCodes.Nop;
-        //        codes[startIndex].operand = null;
-        //        codes[startIndex + 1].opcode = OpCodes.Nop;
-        //        codes[startIndex + 1].operand = null;
-        //        codes[startIndex + 2].opcode = OpCodes.Call;
-        //        codes[startIndex + 2].operand = PatchesUtil.IndexBeginOfInternsMethod;
-        //        startIndex = -1;
-        //    }
-        //    else
-        //    {
-        //        Plugin.LogError($"LethalBot.Patches.GameEnginePatches.StartOfRoundPatch.SyncShipUnlockablesServerRpc_Transpiler could not use irl number of player in list.");
-        //    }
-
-        //    return codes.AsEnumerable();
-        //}
-
-
-        /// <summary>
-        /// Patch for sync the ship unlockable only for irl players not bots
-        /// </summary>
-        /// <param name="instructions"></param>
-        /// <param name="generator"></param>
-        /// <returns></returns>
-        //[HarmonyPatch("SyncShipUnlockablesClientRpc")]
-        //[HarmonyTranspiler]
-        //public static IEnumerable<CodeInstruction> SyncShipUnlockablesClientRpc_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
-        //{
-        //    var startIndex = -1;
-        //    var codes = new List<CodeInstruction>(instructions);
-
-        //    // ----------------------------------------------------------------------
-        //    for (var i = 0; i < codes.Count - 2; i++)
-        //    {
-        //        if (codes[i].ToString().StartsWith("ldarg.0 NULL") // 343
-        //            && codes[i + 1].ToString() == "ldfld GameNetcodeStuff.PlayerControllerB[] StartOfRound::allPlayerScripts"
-        //            && codes[i + 2].ToString() == "ldlen NULL")
-        //        {
-        //            startIndex = i;
-        //            break;
-        //        }
-        //    }
-        //    if (startIndex > -1)
-        //    {
-        //        codes[startIndex].opcode = OpCodes.Nop;
-        //        codes[startIndex].operand = null;
-        //        codes[startIndex + 1].opcode = OpCodes.Nop;
-        //        codes[startIndex + 1].operand = null;
-        //        codes[startIndex + 2].opcode = OpCodes.Call;
-        //        codes[startIndex + 2].operand = PatchesUtil.IndexBeginOfInternsMethod;
-        //        startIndex = -1;
-        //    }
-        //    else
-        //    {
-        //        Plugin.LogError($"LethalBot.Patches.GameEnginePatches.StartOfRoundPatch.SyncShipUnlockablesClientRpc_Transpiler could not use irl number of player in list.");
-        //    }
-
-        //    return codes.AsEnumerable();
-        //}
 
         /// <summary>
         /// Patch for bypassing the annoying debug logs.
@@ -717,111 +580,6 @@ namespace LethalBots.Patches.GameEnginePatches
 
             return codes.AsEnumerable();
         }
-
-        /// <summary>
-        /// Check only real players not bots
-        /// </summary>
-        /// <param name="__instance"></param>
-        /// <param name="clientId"></param>
-        /// <param name="instructions"></param>
-        /// <param name="generator"></param>
-        /// <returns></returns>
-        //[HarmonyPatch("ResetShipFurniture")]
-        //[HarmonyTranspiler]
-        //public static IEnumerable<CodeInstruction> ResetShipFurniture_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
-        //{
-        //    var startIndex = -1;
-        //    List<CodeInstruction> codes = new List<CodeInstruction>(instructions);
-
-        //    // ----------------------------------------------------------------------
-        //    for (var i = 0; i < codes.Count - 3; i++)
-        //    {
-        //        if (codes[i].ToString().StartsWith("ldarg.0 NULL") //176
-        //            && codes[i + 1].ToString() == "ldfld GameNetcodeStuff.PlayerControllerB[] StartOfRound::allPlayerScripts"
-        //            && codes[i + 2].ToString() == "ldlen NULL")
-        //        {
-        //            startIndex = i;
-        //            break;
-        //        }
-        //    }
-        //    if (startIndex > -1)
-        //    {
-        //        codes[startIndex].opcode = OpCodes.Nop;
-        //        codes[startIndex].operand = null;
-        //        codes[startIndex + 1].opcode = OpCodes.Nop;
-        //        codes[startIndex + 1].operand = null;
-        //        codes[startIndex + 2].opcode = OpCodes.Call;
-        //        codes[startIndex + 2].operand = PatchesUtil.IndexBeginOfInternsMethod;
-        //        startIndex = -1;
-        //    }
-        //    else
-        //    {
-        //        Plugin.LogError($"LethalBot.Patches.NpcPatches.PlayerControllerBPatch.ResetShipFurniture_Transpiler could not use irl number of player in list.");
-        //    }
-
-        //    return codes.AsEnumerable();
-        //}
-
-        //[HarmonyPatch("OnClientConnect")]
-        //[HarmonyTranspiler]
-        //public static IEnumerable<CodeInstruction> OnClientConnect_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
-        //{
-        //    var startIndex = -1;
-        //    var codes = new List<CodeInstruction>(instructions);
-
-        //    if (DebugConst.TEST_MORE_THAN_X_PLAYER_BYPASS)
-        //    {
-        //        // ----------------------------------------------------------------------
-        //        for (var i = 0; i < codes.Count - 11; i++)
-        //        {
-        //            if (codes[i].ToString().StartsWith("ldc.i4.1 NULL") // 24
-        //                && codes[i + 5].ToString().StartsWith("callvirt virtual bool System.Collections.Generic.List<int>::Contains") // 29
-        //                && codes[i + 11].ToString() == "ldc.i4.1 NULL")// 35
-        //            {
-        //                startIndex = i;
-        //                break;
-        //            }
-        //        }
-        //        if (startIndex > -1)
-        //        {
-        //            codes[startIndex].opcode = OpCodes.Ldc_I4_3;
-        //            codes[startIndex].operand = null;
-        //            startIndex = -1;
-        //        }
-        //        else
-        //        {
-        //            Plugin.LogError($"LethalBot.Patches.GameEnginePatches.StartOfRoundPatch.OnClientConnect_Transpiler could not test with making the 2nd player the nth");
-        //        }
-        //    }
-
-        //    // ----------------------------------------------------------------------
-        //    for (var i = 0; i < codes.Count - 2; i++)
-        //    {
-        //        if (codes[i].ToString() == "ldarg.0 NULL"
-        //            && codes[i + 1].ToString() == "ldfld UnityEngine.GameObject[] StartOfRound::allPlayerObjects"
-        //            && codes[i + 2].ToString() == "ldlen NULL")
-        //        {
-        //            startIndex = i;
-        //            break;
-        //        }
-        //    }
-        //    if (startIndex > -1)
-        //    {
-        //        codes[startIndex].opcode = OpCodes.Nop;
-        //        codes[startIndex].operand = null;
-        //        codes[startIndex + 1].opcode = OpCodes.Nop;
-        //        codes[startIndex + 1].operand = null;
-        //        codes[startIndex + 2].opcode = OpCodes.Call;
-        //        codes[startIndex + 2].operand = PatchesUtil.IndexBeginOfInternsMethod;
-        //        startIndex = -1;
-        //    }
-        //    else
-        //    {
-        //        Plugin.LogError($"LethalBot.Patches.GameEnginePatches.StartOfRoundPatch.OnClientConnect_Transpiler could not limit init of list2");
-        //    }
-
-        //    return codes.AsEnumerable();
-        //}
 
         #endregion
 

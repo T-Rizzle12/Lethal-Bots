@@ -9,6 +9,7 @@ using Steamworks.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading.Tasks;
 using TMPro;
@@ -79,12 +80,96 @@ namespace LethalBots.Patches.GameEnginePatches
         [HarmonyPatch("AddPlayerChatMessageClientRpc")]
         [HarmonyPostfix]
         [HarmonyPriority(Priority.Last)]
+        [Obsolete]
         public static void AddPlayerChatMessageClientRpc_Postfix(HUDManager __instance, string chatMessage, int playerId)
         {
             // Grandpa, why don't we use AddTextToChatOnServer or AddChatMessage?
             // Well you see Timmy, AddTextToChatOnServer is too early and is called for all types of messages
             // and AddChatMessage would only let us hear messages if the local player could hear them!
-            LethalBotManager.Instance.LethalBotsRespondToChatMessage(chatMessage, playerId);
+            if (Plugin.Config.UseOldChatRecevier)
+            {
+                LethalBotManager.Instance.LethalBotsRespondToChatMessage(chatMessage, playerId);
+            }
+        }
+
+        [HarmonyPatch("AddPlayerChatMessageClientRpc")]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> AddPlayerChatMessageClientRpc_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // Target property: GameNetworkManager.Instance.localPlayerController
+            FieldInfo allPlayerScriptsField = AccessTools.Field(typeof(StartOfRound), "allPlayerScripts");
+            FieldInfo playersManagerField = AccessTools.Field(typeof(HUDManager), "playersManager");
+            MethodInfo getGameNetworkManagerInstance = AccessTools.PropertyGetter(typeof(GameNetworkManager), "Instance");
+            FieldInfo localPlayerControllerField = AccessTools.Field(typeof(GameNetworkManager), "localPlayerController");
+            FieldInfo isPlayerDeadField = AccessTools.Field(typeof(PlayerControllerB), "isPlayerDead");
+
+            // Unity Object Equality Method
+            MethodInfo opEqualityMethod = AccessTools.Method(typeof(UnityEngine.Object), "op_Equality");
+
+            // ------------------------------------------------
+            for (var i = 0; i < codes.Count - 8; i++)
+            {
+                // if (playersManager.allPlayerScripts[playerId].isPlayerDead == GameNetworkManager.Instance.localPlayerController.isPlayerDead)
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].LoadsField(playersManagerField)
+                    && codes[i + 2].LoadsField(allPlayerScriptsField)
+                    && codes[i + 3].IsLdarg(2)
+                    && codes[i + 4].opcode == OpCodes.Ldelem_Ref
+                    && codes[i + 5].LoadsField(isPlayerDeadField)
+                    && codes[i + 6].Calls(getGameNetworkManagerInstance)
+                    && codes[i + 7].LoadsField(localPlayerControllerField)
+                    && codes[i + 8].LoadsField(isPlayerDeadField))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Add in our chat command handler to the mix
+                // We make sure to have it run before the base game runs its code
+                List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+                {
+                    new CodeInstruction(OpCodes.Ldarg_1),
+                    new CodeInstruction(OpCodes.Ldarg_2),
+                    new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(HUDManagerPatch), nameof(ChatMessageHandler)))
+                };
+                codes.InsertRange(startIndex, codesToAdd);
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBots.Patches.GameEnginePatches.AddPlayerChatMessageClientRpc_Transpiler failed to introduce chat command handler!");
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        /// <summary>
+        /// Helper function for use in <see cref="AddPlayerChatMessageClientRpc_Transpiler(IEnumerable{CodeInstruction}, ILGenerator)"/>
+        /// </summary>
+        /// <param name="chatMessage"></param>
+        /// <param name="playerId"></param>
+        private static void ChatMessageHandler(string chatMessage, int playerId)
+        {
+            if (Plugin.Config.UseOldChatRecevier) return;
+
+            // Try-catch here, just in case this errors out so the base game logic still gets to run!
+            try
+            {
+                // Grandpa, why don't we use AddTextToChatOnServer or AddChatMessage?
+                // Well you see Timmy, AddTextToChatOnServer is too early and is called for all types of messages
+                // and AddChatMessage would only let us hear messages if the local player could hear them!
+                //Plugin.LogInfo($"Sending Chat Message {chatMessage} send by player with ID {playerId} to all bots!");
+                LethalBotManager.Instance.LethalBotsRespondToChatMessage(chatMessage, playerId);
+            }
+            catch (Exception e)
+            {
+                Plugin.LogError($"An Error Occurred when trying to relay chat message, {chatMessage}, to bots. Error: {e}");
+            }
         }
 
         /// <summary>
