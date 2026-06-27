@@ -9,6 +9,7 @@ Change Log:
 - Improved handling of external forces on bots
 - Changed chat command handling to use a Harmony transpiler rather than a postfix. This fixes the bots sometimes sending messages twice.
 - Added `UseOldChatRecevier` config for chat command fallback
+- Actually fixed bots being able to look around when their look input is disabled
 
 ## 10.0.0 2026-6-24
 Welp, this took longer than planned. It didn't help that I kept getting sidetracked in the process. Anyhow, I finally took the time to improve the follow state as requested in #68. Its completely configurable and client sided, this means that each player gets to decide how bots should follow them. I also made a TON of backend changes and bug fixes, so lets get onto it!
