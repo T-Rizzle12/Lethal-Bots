@@ -78,7 +78,6 @@ namespace LethalBots.AI
         private float exhaustionEffectLerp;
         private bool disabledJetpackControlsThisFrame;
 
-        private bool wasUnderwaterLastFrame;
         public float DrowningTimer { set; get; } = 1f;
         private bool setFaceUnderwater;
         private float syncUnderwaterInterval;
@@ -1157,11 +1156,13 @@ namespace LethalBots.AI
             {
                 lethalBotController.sinkingValue = Mathf.Clamp(lethalBotController.sinkingValue - Time.deltaTime * 0.75f, 0f, 1f);
             }
-            if (lethalBotController.sinkingValue > 0.73f || lethalBotController.isUnderwater)
+            if (lethalBotController.sinkingValue > 0.73f
+                || (lethalBotController.IsOwner && lethalBotController.isFaceUnderwaterOnServer)
+                || (!lethalBotController.IsOwner && lethalBotController.isUnderwater))
             {
-                if (!this.wasUnderwaterLastFrame)
+                if (!lethalBotController.wasUnderwaterLastFrame)
                 {
-                    this.wasUnderwaterLastFrame = true;
+                    lethalBotController.wasUnderwaterLastFrame = true;
                     lethalBotController.waterBubblesAudio.Play();
                 }
                 lethalBotController.voiceMuffledByEnemy = true;
@@ -1170,10 +1171,11 @@ namespace LethalBots.AI
                 OccludeAudioComponent.lowPassOverride = 600f;
                 lethalBotController.waterBubblesAudio.volume = Mathf.Clamp(LethalBotAIController.LethalBotIdentity.Voice.GetVoiceAmplitude() * 120f, 0f, 1f);
             }
-            else if (this.wasUnderwaterLastFrame)
+            else if (lethalBotController.wasUnderwaterLastFrame)
             {
                 lethalBotController.waterBubblesAudio.Stop();
-                this.wasUnderwaterLastFrame = false;
+                lethalBotController.wasUnderwaterLastFrame = false;
+                OccludeAudioComponent.overridingLowPass = false;
                 lethalBotController.voiceMuffledByEnemy = false;
             }
             else
