@@ -1,5 +1,18 @@
 # Changelog
 
+## 10.2.0 2026-6-30
+Just some more bug fixes and some new features as well.<br/>
+Change Log:
+- Added support for Usual Scrap modded weapons (Crowbar, Sizable Scissors) via new UsualScrapWeaponsPatch.
+- Gave ItemsManager a registration hook for modders to use.
+- Added LethalBotsNavMeshProject as a required dependency. Had too many people ask me about it.....
+- Fixed bot dead bodies sometimes being sent to the void
+- Changed more of the quicksand code to be how the base game does it.
+- Updated how bots use the Zap Gun.
+- Changed underwater checks for owners vs. non-owners.
+- Update quicksand patch to set underwater state and trigger splash effects only for owners.
+- Made some more optimizations
+
 ## 10.1.0 2026-6-27
 Hey everyone, just have some minor bug fixes. Anyhow, lets get on with em.<br/>
 Change Log:
