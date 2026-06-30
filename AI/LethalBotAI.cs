@@ -648,8 +648,9 @@ namespace LethalBots.AI
                 //agent.acceleration = 1f * vector2.magnitude; // Is this a good idea?
 
                 // Look where we are going!
-                if (NpcController.LookAtTarget.IsLookingForward() 
-                    || NpcController.LookAtTarget.CanSwapAimState(lookAtMustExpire: true))
+                if (!lethalBotController.isClimbingLadder
+                    && (NpcController.LookAtTarget.IsLookingForward() 
+                        || NpcController.LookAtTarget.CanSwapAimState(lookAtMustExpire: true)))
                 {
                     NpcController.OrderToLookForward();
                     NpcController.SetTurnBodyTowardsDirectionWithPosition(this.transform.position);
@@ -8118,17 +8119,20 @@ namespace LethalBots.AI
             lethalBotController.slimeOnFaceDecals[1].gameObject.SetActive(value: false);
             if (spawnBody && !lethalBotController.overrideDontSpawnBody)
             {
+                //lethalBotController.thisPlayerBody.position = lethalBotController.transform.position;
+                //lethalBotController.thisPlayerBody.rotation = lethalBotController.transform.rotation;
                 lethalBotController.SpawnDeadBody((int)lethalBotController.playerClientId, bodyVelocity, (int)causeOfDeath, lethalBotController, deathAnimation, null, null, positionOffset: positionOffset);
 
                 // Sigh, if the death animation is set to 9 the body has a chance to be null!
                 if (lethalBotController.deadBody != null)
                 {
-                    // Replace body position or else disappear with shotgun or knife (don't know why)
-                    //lethalBotController.deadBody.transform.position = lethalBotController.transform.position + Vector3.up + positionOffset;
+                    // HACKHACK: Slightly change body position or else the body gets teleported out of bounds with shotgun or knife (don't know why)
+                    //lethalBotController.deadBody.transform.position = lethalBotController.thisPlayerBody.position + Vector3.up * num + positionOffset;
+                    lethalBotController.deadBody.transform.position += Vector3.up * 0.001f;
                     this.LethalBotIdentity.DeadBody = lethalBotController.deadBody;
 
                     // Lets make sure the bots don't attempt to grab dead bodies as soon as a player is killed!
-                    GrabbableObject? deadBody = lethalBotController.deadBody?.grabBodyObject;
+                    GrabbableObject? deadBody = lethalBotController.deadBody.grabBodyObject;
                     if (deadBody != null)
                     {
                         DictJustDroppedItems[deadBody] = Time.realtimeSinceStartup;

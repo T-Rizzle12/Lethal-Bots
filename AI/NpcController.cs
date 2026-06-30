@@ -346,7 +346,7 @@ namespace LethalBots.AI
                     lethalBotController.thisPlayerModelArms.enabled = false;
                     lethalBotController.mapRadarDirectionIndicator.enabled = false;
                     UpdateRuntimeAnimatorController(isOwner);
-                    lethalBotController.thisController.enabled = false;
+                    lethalBotController.thisController.enabled = true;
                     if (lethalBotController.gameObject.GetComponent<Rigidbody>())
                     {
                         lethalBotController.gameObject.GetComponent<Rigidbody>().interpolation = RigidbodyInterpolation.None;
@@ -1651,19 +1651,19 @@ namespace LethalBots.AI
             PlayerControllerB lethalBotController = Npc;
             if (lethalBotController.transform.parent != newParent)
             {
-                foreach (NetworkObject networkObject in lethalBotController.GetComponentsInChildren<NetworkObject>())
-                {
-                    networkObject.AutoObjectParentSync = false;
-                }
+                //foreach (NetworkObject networkObject in lethalBotController.GetComponentsInChildren<NetworkObject>())
+                //{
+                //    networkObject.AutoObjectParentSync = false;
+                //}
 
                 Plugin.LogDebug($"{lethalBotController.playerUsername} ReParent parent before {lethalBotController.transform.parent}");
-                lethalBotController.transform.parent = newParent;
+                lethalBotController.transform.SetParent(newParent);
                 Plugin.LogDebug($"{lethalBotController.playerUsername} ReParent parent after {lethalBotController.transform.parent}");
 
-                foreach (NetworkObject networkObject in lethalBotController.GetComponentsInChildren<NetworkObject>())
-                {
-                    networkObject.AutoObjectParentSync = true;
-                }
+                //foreach (NetworkObject networkObject in lethalBotController.GetComponentsInChildren<NetworkObject>())
+                //{
+                //    networkObject.AutoObjectParentSync = true;
+                //}
             }
         }
 
@@ -1758,7 +1758,7 @@ namespace LethalBots.AI
             if (!lethalBotController.performingEmote && lethalBotController.CheckConditionsForEmote())
             {
                 // 50% chance to use the TooManyEmotes mod if it is loaded
-                if (allowTooManyEmotes && Plugin.IsModTooManyEmotesLoaded && Random.Range(1, 100) <= 50)
+                if (allowTooManyEmotes && Plugin.IsModTooManyEmotesLoaded && Random.Range(1, 101) <= 50)
                 {
                     // Pick a random emote the player has unlocked
                     PlayerControllerB? ourOwner = null;
@@ -2428,11 +2428,11 @@ namespace LethalBots.AI
                 {
                     component.OnExit(lethalBotController.gameObject.GetComponent<Collider>());
                     lethalBotController.isUnderwater = false;
-                    setFaceUnderwater = false;
                 }
             }
 
-            if (lethalBotController.underwaterCollider != null
+            if (lethalBotController.isUnderwater
+                && lethalBotController.underwaterCollider != null
                 && lethalBotController.underwaterCollider.bounds.Contains(lethalBotController.gameplayCamera.transform.position))
             {
                 setFaceUnderwater = true;
@@ -2452,22 +2452,18 @@ namespace LethalBots.AI
                 this.DrowningTimer = Mathf.Clamp(this.DrowningTimer + Time.deltaTime, 0.1f, 1f);
             }
 
-            this.syncUnderwaterInterval -= Time.deltaTime;
-            if (this.syncUnderwaterInterval <= 0f)
+            if (setFaceUnderwater)
             {
-                this.syncUnderwaterInterval = 0.5f;
-                if (setFaceUnderwater && !lethalBotController.isUnderwater)
+                if (!lethalBotController.isFaceUnderwaterOnServer)
                 {
-                    lethalBotController.isUnderwater = true;
+                    lethalBotController.isFaceUnderwaterOnServer = true;
                     lethalBotController.SetFaceUnderwaterServerRpc();
-                    return;
                 }
-                else if (!setFaceUnderwater && lethalBotController.isUnderwater)
-                {
-                    lethalBotController.isUnderwater = false;
-                    lethalBotController.SetFaceOutOfWaterServerRpc();
-                    return;
-                }
+            }
+            else if (lethalBotController.isFaceUnderwaterOnServer)
+            {
+                lethalBotController.isFaceUnderwaterOnServer = false;
+                lethalBotController.SetFaceOutOfWaterServerRpc();
             }
         }
 

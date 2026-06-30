@@ -69,7 +69,7 @@ namespace LethalBots.Patches.MapHazardsPatches
             if (__instance.isWater && !lethalBotController.isUnderwater)
             {
                 lethalBotController.underwaterCollider = __instance.gameObject.GetComponent<Collider>();
-                //lethalBotController.isUnderwater = true; // I wish I knew why Zeekerss did this.........Removing this fixed an issue where bots would act like they were underwater when they were not.
+                lethalBotController.isUnderwater = true;
                 if (!__instance.isInsideWater && lethalBotController.IsOwner && (lethalBotController.isFallingFromJump || lethalBotController.isFallingNoJump) && lethalBotController.fallValue < -4f)
                 {
                     TimeOfDay.Instance.WaterSplashEffect(lethalBotController.transform.position, lethalBotController.fallValue > -17f, syncToServer: true);

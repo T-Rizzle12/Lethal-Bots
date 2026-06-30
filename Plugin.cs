@@ -449,6 +449,7 @@ namespace LethalBots
             if (IsModUsualScrapLoaded)
             {
                 _harmony.PatchAll(typeof(DefibrillatorScriptPatch));
+                ItemsManager.RegisterWeapons.AddListener(UsualScrapWeaponsPatch.RegisterWeaponsForBots);
             }
             if (IsModAutoReviveLoaded)
             {

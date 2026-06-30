@@ -29,12 +29,11 @@ namespace LethalBots.AI.AIStates
         }
 
         private Transform? targetShipTransform; // The transform on the ship we want to go to
-        private Vector3? targetShipPos; // The point of the transform on the ship we want to go to
+        private CachedValue<Vector3?> targetShipPos = new CachedValue<Vector3?>(updateInterval: Const.TIMER_CHECK_EXPOSED); // The point of the transform on the ship we want to go to
         private Vector3 targetEntrancePos; // The position we want to path to reach the entrance!
         private bool attemptedToUseTZP = false;
         private EnumReturnToShipType returnToShipType;
         private float findEntranceTimer;
-        private float shipPositionUpdateTimer;
 
         public ReturnToShipState(AIState oldState, EnumReturnToShipType returnToShipType = EnumReturnToShipType.StandardReturn, AIState? changeToOnEnd = null) : base(oldState, changeToOnEnd)
         {
@@ -43,7 +42,6 @@ namespace LethalBots.AI.AIStates
 
             // Lets pick a random node on the ship to go to
             targetShipTransform = GetRandomInsideShipTransform(allowFallback: false);
-            targetShipPos = null;
         }
 
         public ReturnToShipState(LethalBotAI ai, EnumReturnToShipType returnToShipType = EnumReturnToShipType.StandardReturn, AIState? changeToOnEnd = null) : base(ai, changeToOnEnd)
@@ -53,7 +51,6 @@ namespace LethalBots.AI.AIStates
 
             // Lets pick a random node on the ship to go to
             targetShipTransform = GetRandomInsideShipTransform(allowFallback: false);
-            targetShipPos = null;
         }
 
         public override void OnEnterState()
@@ -593,14 +590,13 @@ namespace LethalBots.AI.AIStates
             }
 
             // Update the ship position every so often in case the ship moved!
-            if ((Time.timeSinceLevelLoad - shipPositionUpdateTimer) < Const.TIMER_CHECK_EXPOSED)
+            if (!this.targetShipPos.CanUpdate())
             {
                  return this.targetShipPos;
             }
 
             Vector3 shipPos = RoundManager.Instance.GetNavMeshPosition(this.targetShipTransform.position, default, 2.7f);
-            this.targetShipPos = shipPos;
-            shipPositionUpdateTimer = Time.timeSinceLevelLoad;
+            this.targetShipPos.Value = shipPos;
             return this.targetShipPos;
         }
 
