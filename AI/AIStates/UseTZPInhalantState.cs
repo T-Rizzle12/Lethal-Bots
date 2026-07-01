@@ -80,8 +80,8 @@ namespace LethalBots.AI.AIStates
             }
 
             // Make sure we actually have the TZP in our inventory!
-            int tzpSlot = tzpItem != null && !tzpItem.itemUsedUp ? lethalBotController.currentItemSlot : -1;
-            if (tzpSlot == -1)
+            int tzpSlot = tzpItem != null && !tzpItem.itemUsedUp ? lethalBotController.currentItemSlot : Const.INVALID_ITEM_SLOT;
+            if (tzpSlot == Const.INVALID_ITEM_SLOT)
             {
                 // We don't have any TZP in our inventory!
                 tzpItem = null;

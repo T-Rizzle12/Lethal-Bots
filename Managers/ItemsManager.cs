@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace LethalBots.Managers
 {
@@ -15,6 +16,11 @@ namespace LethalBots.Managers
     public class ItemsManager : MonoBehaviour
     {
         public static ItemsManager Instance { get; private set; } = null!;
+
+        /// <summary>
+        /// A hook that is called after <see cref="ItemsManager"/> registers the default weapons
+        /// </summary>
+        public static UnityEvent<ItemsManager> RegisterWeapons = new UnityEvent<ItemsManager>();
 
         /// <summary>
         /// This is the base type that all weapons inherit from
@@ -55,6 +61,9 @@ namespace LethalBots.Managers
             RegisterNewWeapon<KnifeItem>(new KnifeInfo());
             RegisterNewWeapon<ShotgunItem>(new ShotgunInfo());
             RegisterNewWeapon<PatcherTool>(new ZapGunInfo());
+
+            // Call hook
+            RegisterWeapons.Invoke(this);
         }
 
         #region Weapon Registration and Info

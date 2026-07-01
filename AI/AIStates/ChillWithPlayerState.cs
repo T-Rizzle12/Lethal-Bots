@@ -153,12 +153,13 @@ namespace LethalBots.AI.AIStates
                     && !LethalBotManager.Instance.LootTransferPlayers.Contains(ai.targetPlayer))
                 {
                     bool areWeNearbyEntrance = false;
+                    Vector3 ourPos = lethalBotController.transform.position;
                     foreach (EntranceTeleport entrance in LethalBotAI.EntrancesTeleportArray)
                     {
                         if (entrance == null) continue;
 
                         if (entrance.isEntranceToBuilding
-                            && (entrance.entrancePoint.position - lethalBotController.transform.position).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE)
+                            && (entrance.entrancePoint.position - ourPos).sqrMagnitude < Const.DISTANCE_NEARBY_ENTRANCE * Const.DISTANCE_NEARBY_ENTRANCE)
                         {
                             areWeNearbyEntrance = true;
                             break;
@@ -220,7 +221,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Target too far, get close to him
-            // note: not the same distance to compare in horizontal or vertical distance
+            // NOTE: not the same distance to compare in horizontal or vertical distance
             if (IsTooFarFromPlayer())
             {
                 npcController.OrderToLookForward();

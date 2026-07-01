@@ -8,6 +8,7 @@ using LethalBots.Managers;
 using LethalBots.Utils;
 using Mono.Cecil.Cil;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -1395,8 +1396,9 @@ namespace LethalBots.Patches.NpcPatches
             // Sigh, if the death animation is set to 9 the body has a chance to be null!
             if (__instance.deadBody != null)
             {
-                // Replace body position or else disappear with shotgun or knife (don't know why)
-                //__instance.deadBody.transform.position = __instance.transform.position + Vector3.up + positionOffset;
+                // HACKHACK: Slightly change body position or else the body gets teleported out of bounds with shotgun or knife (don't know why)
+                //lethalBotController.deadBody.transform.position = lethalBotController.thisPlayerBody.position + Vector3.up * num + positionOffset;
+                __instance.deadBody.transform.position += Vector3.up * 0.001f;
                 lethalBotAI.LethalBotIdentity.DeadBody = __instance.deadBody;
 
                 // Lets make sure the bots don't attempt to grab dead bodies as soon as a player is killed!

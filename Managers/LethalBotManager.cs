@@ -1496,7 +1496,7 @@ namespace LethalBots.Managers
             RegisterThreat(typeof(SandSpiderAI),
                 (in fq) => fq.GetThreat(out SandSpiderAI? spiderAI) && spiderAI.currentBehaviourStateIndex == 2 ? 20f : 5f, // Sigh, i may or may not of added this after a particular experience where bots got stuck in a loop of running away and coming back despite the spider not actually chasing them!
                 (in fq) => fq.GetThreat(out SandSpiderAI? spiderAI) && spiderAI.currentBehaviourStateIndex == 2 ? 10f : null,
-                (in fq) => fq.GetThreat(out SandSpiderAI? spiderAI) && spiderAI.currentBehaviourStateIndex == 2 ? 20f : 10f, // Based on what the spider is doing!
+                (in fq) => fq.GetThreat(out SandSpiderAI? spiderAI) && spiderAI.currentBehaviourStateIndex == 2 ? 20f : 5f, // Based on what the spider is doing!
                 (in aq) => aq.hasRangedWeapon || aq.isHumanPlayer || aq.IsEnemyStunned()
             );
 

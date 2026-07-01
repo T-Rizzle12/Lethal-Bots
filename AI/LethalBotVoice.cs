@@ -33,7 +33,9 @@ namespace LethalBots.AI
         public float averageVoiceAmplitude;
         public float voiceChatNoiseCooldown;
 
-        // This event is called when a bot talks, it provides the bot that talked and the detected amplitude of the voice chat audio.
+        /// <summary>
+        /// This event is called when a bot talks, it provides the bot that talked and the detected amplitude of the voice chat audio.
+        /// </summary>
         public static LethalBotTalkEvent lethalBotTalkEvent = new LethalBotTalkEvent();
 
         // Cooldown for talkativeness voice states

@@ -13,7 +13,7 @@ namespace LethalBots.Utils.Items.Weapons
     {
         public ZapGunInfo()
         {
-            enemyColliders ??= new RaycastHit[10];
+            enemyColliders ??= new RaycastHit[12];
         }
 
         public override bool IsRanged(GrabbableObject weapon)
