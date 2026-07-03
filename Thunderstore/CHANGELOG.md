@@ -1,5 +1,13 @@
 # Changelog
 
+## 10.3.0 2026-7-3
+Just some minor improvements and bug fixes.<br/>
+Change Log:
+- Add support for NavMeshInCompanyRedux
+- Updated dependencies to use Redux NavMeshInCompany version
+- Bots now grab their loadout before transferring loot
+- Minor backend changes and optimizations
+
 ## 10.2.0 2026-6-30
 Just some more bug fixes and some new features as well.<br/>
 Change Log:
