@@ -14,7 +14,7 @@ Evaisa-LethalLib = "1.2.0"
 Sigurd-CSync = "5.0.1"
 Rune580-LethalCompany_InputUtils = "0.7.13"
 JS03-SpeechRecognitionAPI = "1.0.0"
-Kittenji-NavMeshInCompany = "1.0.3"
+TRizzle-NavMeshInCompanyRedux = "1.0.0"
 TRizzle-LethalBotsNavMeshProject = "1.2.0"
 
 [build]

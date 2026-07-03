@@ -14,6 +14,7 @@ namespace LethalBots.AI.AIStates
     /// </summary>
     public class TransferLootState : AIState
     {
+        private bool grabbedLoadout;
         private float waitTimer;
         private HashSet<EntranceTeleport> checkedEntrances = new HashSet<EntranceTeleport>();
 
@@ -71,6 +72,14 @@ namespace LethalBots.AI.AIStates
                 && (LethalBotManager.IsTheShipLeaving(instanceSOR)
                     || LethalBotManager.IsTheShipLanding(instanceSOR)))
             {
+                return;
+            }
+
+            // Make sure to grab our loadout before we go to transfer loot!
+            if (!grabbedLoadout)
+            {
+                grabbedLoadout = true;
+                ai.State = new GrabLoadoutState(this);
                 return;
             }
 
