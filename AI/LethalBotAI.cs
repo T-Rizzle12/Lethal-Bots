@@ -8907,15 +8907,16 @@ namespace LethalBots.AI
 
         public void StopSinkingState()
         {
-            NpcController.Npc.isSinking = false;
-            NpcController.Npc.statusEffectAudio.Stop();
-            NpcController.Npc.voiceMuffledByEnemy = false;
-            NpcController.Npc.sourcesCausingSinking = 0;
-            NpcController.Npc.isMovementHindered = 0;
-            NpcController.Npc.hinderedMultiplier = 1f;
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            lethalBotController.isSinking = false;
+            lethalBotController.statusEffectAudio.Stop();
+            lethalBotController.voiceMuffledByEnemy = false;
+            lethalBotController.sourcesCausingSinking = 0;
+            lethalBotController.isMovementHindered = 0;
+            lethalBotController.hinderedMultiplier = 1f;
 
-            NpcController.Npc.isUnderwater = false;
-            NpcController.Npc.underwaterCollider = null;
+            lethalBotController.isUnderwater = false;
+            lethalBotController.underwaterCollider = null;
         }
 
         #endregion

@@ -1058,7 +1058,7 @@ namespace LethalBots.Managers
         {
             StartOfRound instanceSOR = StartOfRound.Instance;
             if (!isSpawningBots.Value && sendPlayerCountUpdate.Value
-                    && (IsServer || IsHost))
+                    && IsServer)
             {
                 // Check and update the amount of dead and living players
                 int livingPlayerCount = 0;
@@ -3213,7 +3213,8 @@ namespace LethalBots.Managers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool CanBotsSpawnAtCompanyBuilding()
         {
-            if (Plugin.IsModNavmeshInCompanyLoaded)
+            if (Plugin.IsModNavmeshInCompanyLoaded 
+                || Plugin.IsModNavmeshInCompanyReduxLoaded)
             {
                 return true;
             }

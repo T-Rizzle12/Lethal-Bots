@@ -35,6 +35,7 @@ namespace LethalBots.Constants
         public const string LETHALMIN_GUID = "NoteBoxz.LethalMin";
         public const string FACILITYMELTDOWN_GUID = "me.loaforc.facilitymeltdown";
         public const string NAVMESHINCOMPANY_GUID = "dev.kittenji.NavMeshInCompany";
+        public const string NAVMESHINCOMPANYREDUX_GUID = "T-Rizzle.NavMeshInCompanyRedux";
 
         public const string ADDITIONALNETWORKING_DLLFILENAME = "AdditionalNetworking_Preloader.dll";
 

@@ -77,6 +77,7 @@ namespace LethalBots
     [BepInDependency(DawnLib.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LCAutoRevive.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(Super_Eclipse.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(Const.NAVMESHINCOMPANYREDUX_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         // Please don't use the MyPluginInfo class for the GUID, my mod is
@@ -114,6 +115,7 @@ namespace LethalBots
         internal static bool IsModUsualScrapLoaded = false;
         internal static bool IsModAutoReviveLoaded = false;
         internal static bool IsModSuperEclipseLoaded = false;
+        internal static bool IsModNavmeshInCompanyReduxLoaded = false;
         private readonly Harmony _harmony = new(ModGUID);
 
         private void Awake()
@@ -314,6 +316,7 @@ namespace LethalBots
             IsModUsualScrapLoaded = IsModLoaded(UsualScrap.Plugin.PLUGIN_GUID);
             IsModAutoReviveLoaded = IsModLoaded(LCAutoRevive.MyPluginInfo.PLUGIN_GUID);
             IsModSuperEclipseLoaded = IsModLoaded(Super_Eclipse.MyPluginInfo.PLUGIN_GUID);
+            IsModNavmeshInCompanyReduxLoaded = IsModLoaded(Const.NAVMESHINCOMPANYREDUX_GUID);
 
             bool isModMoreEmotesLoaded = IsModLoaded(Const.MOREEMOTES_GUID);
             bool isModBetterEmotesLoaded = IsModLoaded(Const.BETTEREMOTES_GUID);
