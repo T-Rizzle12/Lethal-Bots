@@ -21,6 +21,7 @@ namespace LethalBots.Enums
         AttackingWithGun,
         AttackingWithMelee,
         OrderedToStay,
-        OrderedToFollow
+        OrderedToFollow,
+        Waiting
     }
 }

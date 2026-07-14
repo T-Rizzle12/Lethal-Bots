@@ -223,7 +223,7 @@ namespace LethalBots.Managers
                     // Force the bot off of the terminal
                     if (isUsingTerminal)
                     {
-                        lethalBot.LeaveTerminalRpc();
+                        lethalBot.LeaveTerminalRpc(forceEndUse: true);
                     }
 
                     // Audio

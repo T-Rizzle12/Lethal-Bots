@@ -6,7 +6,7 @@
     <AssemblyName>LethalBots</AssemblyName>
     <Product>LethalBots</Product>
     <!-- Change to whatever version you're currently on. This will be used by tcli when building our Thunderstore package. -->
-    <Version>10.3.0</Version>
+    <Version>11.0.0</Version>
   </PropertyGroup>
 
   <!-- Project Properties -->
@@ -98,6 +98,7 @@
     <PackageReference Include="Mono.pdb2mdb" Version="0.1.0.20130128" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Rune580.Mods.LethalCompany.InputUtils" Version="0.7.13" />
+    <PackageReference Include="Tomatobird-AutoRevive" Version="0.4.0" Publicize="true" />
     <PackageReference Include="UnityEngine.Modules" Version="6000.2.12" IncludeAssets="compile" />
   </ItemGroup>
 

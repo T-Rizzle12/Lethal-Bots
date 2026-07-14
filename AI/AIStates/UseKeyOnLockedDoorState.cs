@@ -318,7 +318,7 @@ namespace LethalBots.AI.AIStates
         public static new void RegisterSignalTranslatorCommands()
         {
             // We are unlocking a door, these messages should be queued!
-            ChatCommandsManager.RegisterCommandForState<UseKeyOnLockedDoorState>(new ChatCommand(Const.RETURN_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            SignalTranslatorCommandsManager.RegisterCommandForState<UseKeyOnLockedDoorState>(new SignalTranslatorCommand(Const.RETURN_COMMAND, (state, lethalBotAI, message) =>
             {
                 // Return to the ship when we finish!
                 UseKeyOnLockedDoorState panikState = (UseKeyOnLockedDoorState)state;

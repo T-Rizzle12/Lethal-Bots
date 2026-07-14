@@ -3,7 +3,6 @@ using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Utils.Helpers;
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -215,8 +214,8 @@ namespace LethalBots.AI.AIStates
 
                         // Find another entrance to check out
                         targetEntrance = FindClosestEntrance(entrancesToAvoid: checkedEntrances);
-                        if (targetEntrance != null 
-                            && !checkedEntrances.Contains(targetEntrance) 
+                        if (targetEntrance != null
+                            && !checkedEntrances.Contains(targetEntrance)
                             && previousEntrance != targetEntrance)
                         {
                             // Found another entrance to check out, head over there

@@ -2179,6 +2179,58 @@ namespace LethalBots.AI.AIStates
                 return true;
             }
             ));
+
+            // A player asked us to follow them
+            ChatCommandsManager.RegisterCommandForState<MissionControlState>(new ChatCommand(Const.FOLLOW_PLAYER_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            {
+                // Allow anyone to tell the bot to follow them, since someone may want the bot to follow them instead.
+                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController, isVoice: isVoice, allowNonOwner: true))
+                {
+                    // Yay, we found a vaild bot, have the bot follow the player who sent the message!
+                    EnumAIStates currentBotState = state.GetAIState();
+                    if (lethalBotAI.OwnerClientId != playerWhoSentMessage.actualClientId
+                        || !lethalBotAI.IsFollowingLocalPlayer())
+                    {
+                        // Can't tell a bot to follow if they are in a special animation.
+                        bool isUsingTerminal = lethalBotAI.IsUsingTerminal();
+                        if (!isUsingTerminal && lethalBotAI.IsInSpecialAnimation())
+                        {
+                            return true;
+                        }
+
+                        // Force the bot off of the terminal
+                        if (isUsingTerminal)
+                        {
+                            lethalBotAI.LeaveTerminalRpc(forceEndUse: true);
+                        }
+
+                        // Audio
+                        lethalBotAI.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
+                        {
+                            VoiceState = EnumVoicesState.OrderedToFollow,
+                            CanTalkIfOtherLethalBotTalk = true,
+                            WaitForCooldown = false,
+                            CutCurrentVoiceStateToTalk = true,
+                            CanRepeatVoiceState = false,
+
+                            ShouldSync = true,
+                            IsLethalBotInside = lethalBotController.isInsideFactory,
+                            AllowSwearing = Plugin.Config.AllowSwearing.Value
+                        });
+
+                        // We are following a human player, leave our current group or join theirs!
+                        GroupManager.Instance.CreateOrJoinGroupWithMembersAndSync(playerWhoSentMessage, new PlayerControllerB[] { lethalBotController });
+
+                        lethalBotAI.SyncAssignTargetAndSetMovingTo(playerWhoSentMessage);
+
+                        if (Plugin.Config.ChangeSuitAutoBehaviour.Value)
+                        {
+                            lethalBotAI.ChangeSuitLethalBotServerRpc(lethalBotController.playerClientId, playerWhoSentMessage.currentSuitID);
+                        }
+                    }
+                }
+                return true;
+            }));
         }
 
         /// <inheritdoc cref="AIState.RegisterSignalTranslatorCommands"/>

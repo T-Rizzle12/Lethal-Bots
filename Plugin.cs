@@ -457,18 +457,7 @@ namespace LethalBots
             if (IsModAutoReviveLoaded)
             {
                 _harmony.PatchAll(typeof(AutoRevivePlayerPatch));
-                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCAutoRevive.Patches.PlayerControllerBPatcher"), "KillPlayerPostfix"),
-                               new HarmonyMethod(typeof(LethalBotAutoReviveHelper), nameof(LethalBotAutoReviveHelper.KillPlayerPostfix_Prefix)));
-                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCAutoRevive.Patches.StartOfRoundPatcher"), "ReviveDeadPlayersPostfix"),
-                               null,
-                               new HarmonyMethod(typeof(LethalBotAutoReviveHelper), nameof(LethalBotAutoReviveHelper.ReviveDeadPlayersPostfix_Postfix)));
-                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCAutoRevive.Patches.StartOfRoundPatcher"), "ShipLeavePostfix"),
-                               null,
-                               new HarmonyMethod(typeof(LethalBotAutoReviveHelper), nameof(LethalBotAutoReviveHelper.ShipLeavePostfix_Postfix)));
-                _harmony.Patch(AccessTools.Method(AccessTools.TypeByName("LCAutoRevive.Network.NetworkHandler"), "CheckIfAllPlayersDead"),
-                               null,
-                               null,
-                               new HarmonyMethod(typeof(LethalBotAutoReviveHelper), nameof(LethalBotAutoReviveHelper.CheckIfAllPlayersDead_Transpiler)));
+                _harmony.PatchAll(typeof(LethalBotAutoReviveHelper));
             }
         }
 

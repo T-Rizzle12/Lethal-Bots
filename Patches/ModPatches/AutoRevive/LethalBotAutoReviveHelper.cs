@@ -60,7 +60,9 @@ namespace LethalBots.Patches.ModPatches.AutoRevive
         /// </summary>
         /// <param name="__0"></param>
         /// <returns></returns>
-        public static bool KillPlayerPostfix_Prefix(PlayerControllerB __0)
+        [HarmonyPatch(typeof(LCAutoRevive.Patches.PlayerControllerBPatcher), "KillPlayer_Postfix")]
+        [HarmonyPrefix]
+        public static bool KillPlayer_Postfix_Prefix(PlayerControllerB __0)
         {
             if (__0.IsOwner && __0.isPlayerDead && __0.AllowPlayerDeath())
             {
@@ -77,7 +79,9 @@ namespace LethalBots.Patches.ModPatches.AutoRevive
         /// <summary>
         /// Helper that resets the revive handlers for all bots at the end of the round.
         /// </summary>
-        public static void ReviveDeadPlayersPostfix_Postfix()
+        [HarmonyPatch(typeof(LCAutoRevive.Patches.StartOfRoundPatcher), "ReviveDeadPlayers_Postfix")]
+        [HarmonyPostfix]
+        public static void ReviveDeadPlayers_Postfix_Postfix()
         {
             // Stop all revive coroutines at the end of the round!
             foreach (var handler in autoReviveHandlers.Values)
@@ -105,7 +109,9 @@ namespace LethalBots.Patches.ModPatches.AutoRevive
         /// <summary>
         /// Helper that calls <see cref="AutoReviveHandler.ShipLeave"/> for all bots when the ship leaves.
         /// </summary>
-        public static void ShipLeavePostfix_Postfix(StartOfRound __0)
+        [HarmonyPatch(typeof(LCAutoRevive.Patches.StartOfRoundPatcher), "ShipLeave_Postfix")]
+        [HarmonyPostfix]
+        public static void ShipLeave_Postfix_Postfix(StartOfRound __0)
         {
             // Call the ShipLeave method for all handlers if the ship actually leaves.
             if (__0.shipIsLeaving)
@@ -123,6 +129,8 @@ namespace LethalBots.Patches.ModPatches.AutoRevive
         /// <param name="instructions"></param>
         /// <param name="generator"></param>
         /// <returns></returns>
+        [HarmonyPatch(typeof(LCAutoRevive.Network.NetworkHandler), "CheckIfAllPlayersDead")]
+        [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> CheckIfAllPlayersDead_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
         {
             var startIndex = -1;

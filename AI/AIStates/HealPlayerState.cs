@@ -15,6 +15,9 @@ using UsualScrap.Behaviors;
 
 namespace LethalBots.AI.AIStates
 {
+    /// <summary>
+    /// A state use by the bot when it is attempting to heal a player.
+    /// </summary>
     public class HealPlayerState : AIState
     {
         private PlayerControllerB healTarget;

@@ -5298,10 +5298,10 @@ namespace LethalBots.AI
                 && ragdollGrabbableObject.ragdoll != null)
             {
                 // Welp, are we desperate for cash?
-                int valueOfScrapInShip = LethalBotManager.GetValueOfAllScrapOnShip(this);
-                if (valueOfScrapInShip > 0)
+                if (LethalBotManager.GetValueOfAllScrapOnShip(this) > 0 
+                    || LethalBotManager.HaveWeFulfilledTheProfitQuota())
                 {
-                    return false;
+                    return false; // We have enough scrap on the ship, don't sell bodies!
                 }
             }
 
@@ -7251,14 +7251,18 @@ namespace LethalBots.AI
                 return;
             }
 
-            PlayerPhone? ourPhone = GetOurPlayerPhone();
+            // Grab our phone and the player's phone
+            SwitchboardPhone? switchboardPhone = PhoneNetworkHandler.Instance?.switchboard;
+            PlayerControllerB? switchboardOperator = switchboardPhone?.switchboardOperator;
+            PhoneBehavior? ourPhone = switchboardOperator != null && switchboardOperator == NpcController.Npc ? switchboardPhone : GetOurPlayerPhone();
             if (ourPhone == null)
             {
                 Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to call a player, but was unable to find their phone!");
                 return;
             }
 
-            PlayerPhone? playerPhone = player.transform?.Find("PhonePrefab(Clone)")?.GetComponent<PlayerPhone>();
+            // Make sure the player we are calling has a phone!
+            PhoneBehavior? playerPhone = switchboardOperator != null && switchboardOperator == player ? switchboardPhone : player.transform?.Find("PhonePrefab(Clone)")?.GetComponent<PlayerPhone>();
             if (playerPhone == null)
             {
                 Plugin.LogError($"Lethal Bot {NpcController.Npc.playerUsername} tried to call player {player.playerUsername}, but was unable to find their phone!");

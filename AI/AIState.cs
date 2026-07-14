@@ -7,6 +7,7 @@ using LethalBots.NetworkSerializers;
 using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using LethalLib.Modules;
 using Scoops.misc;
 using System;
 using System.Collections;
@@ -252,7 +253,7 @@ namespace LethalBots.AI
             // NOTE: playerWhoSentMessage should never be null here, but other modders could call this function directly with a null value!
             ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.MAN_THE_SHIP_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
-                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController))
+                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController, isVoice: isVoice))
                 {
                     // Yay, we found a vaild bot, make it the mission controller!
                     lethalBotAI.SendChatMessage("Alright, I'll head to the terminal and watch over the crew!");
@@ -265,7 +266,7 @@ namespace LethalBots.AI
             // One of us was asked to transfer loot!
             ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.TRANSFER_LOOT_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
-                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController))
+                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController, isVoice: isVoice))
                 {
                     // Yay, we found a vaild bot, make it transfer loot!
                     lethalBotAI.SendChatMessage("I'll start transferring loot to the ship right away!");
@@ -281,16 +282,129 @@ namespace LethalBots.AI
             // A player asked to join our group
             ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.JOIN_GROUP_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
             {
-                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController))
+                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController, isVoice: isVoice))
                 {
                     // Yay, we found a vaild bot, have the local player join their group!
                     int groupID = GroupManager.Instance.GetGroupId(lethalBotController);
-                    if (groupID != GroupManager.INVALID_GROUP_INDEX 
+                    if (groupID != GroupManager.INVALID_GROUP_INDEX
                     && !GroupManager.Instance.ArePlayersInSameGroup(lethalBotController, playerWhoSentMessage))
                     {
                         lethalBotAI.SendChatMessage("Yes, you may join our group!");
                         GroupManager.Instance.AddToGroupAndSync(groupID, playerWhoSentMessage);
                     }
+                }
+                return true;
+            }));
+
+            // A player asked us to follow them
+            ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.FOLLOW_PLAYER_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            {
+                // Allow anyone to tell the bot to follow them, since someone may want the bot to follow them instead.
+                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController, isVoice: isVoice, allowNonOwner: true))
+                {
+                    // Yay, we found a vaild bot, have the bot follow the player who sent the message!
+                    if (lethalBotAI.IsSpawningAnimationRunning())
+                    {
+                        return true;
+                    }
+
+                    EnumAIStates currentBotState = state.GetAIState();
+                    if (lethalBotAI.OwnerClientId != playerWhoSentMessage.actualClientId
+                        || !lethalBotAI.IsFollowingLocalPlayer())
+                    {
+                        // Can't tell a bot to follow if they are in a special animation.
+                        bool isUsingTerminal = lethalBotAI.IsUsingTerminal();
+                        if (!isUsingTerminal && lethalBotAI.IsInSpecialAnimation())
+                        {
+                            return true;
+                        }
+
+                        // Force the bot off of the terminal
+                        if (isUsingTerminal)
+                        {
+                            lethalBotAI.LeaveTerminalRpc(forceEndUse: true);
+                        }
+
+                        // Audio
+                        lethalBotAI.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
+                        {
+                            VoiceState = EnumVoicesState.OrderedToFollow,
+                            CanTalkIfOtherLethalBotTalk = true,
+                            WaitForCooldown = false,
+                            CutCurrentVoiceStateToTalk = true,
+                            CanRepeatVoiceState = false,
+
+                            ShouldSync = true,
+                            IsLethalBotInside = lethalBotController.isInsideFactory,
+                            AllowSwearing = Plugin.Config.AllowSwearing.Value
+                        });
+
+                        // We are following a human player, leave our current group or join theirs!
+                        GroupManager.Instance.CreateOrJoinGroupWithMembersAndSync(playerWhoSentMessage, new PlayerControllerB[] { lethalBotController });
+
+                        lethalBotAI.SyncAssignTargetAndSetMovingTo(playerWhoSentMessage);
+
+                        if (Plugin.Config.ChangeSuitAutoBehaviour.Value)
+                        {
+                            lethalBotAI.ChangeSuitLethalBotServerRpc(lethalBotController.playerClientId, playerWhoSentMessage.currentSuitID);
+                        }
+                    }
+                }
+                return true;
+            }));
+
+            // A player asked us to search for scrap
+            ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.LEAD_THE_WAY_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            {
+                // Yay, we found a vaild bot, have the bot follow the player who sent the message!
+                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController, isVoice: isVoice))
+                {
+                    EnumAIStates currentBotState = state.GetAIState();
+                    if (currentBotState != EnumAIStates.SearchingForScrap)
+                    {
+                        if (GroupManager.Instance.ArePlayersInSameGroup(lethalBotController, playerWhoSentMessage))
+                        {
+                            GroupManager.Instance.RemoveFromCurrentGroupAndSync(lethalBotController);
+                        }
+                        lethalBotAI.State = new SearchingForScrapState(lethalBotAI.State);
+                        lethalBotAI.targetPlayer = null; // Clear target player since we are not following them anymore
+                    }
+                }
+                return true;
+            }));
+
+            // A player asked us to change to their suit
+            ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.CHANGE_SUIT_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            {
+                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController, isVoice: isVoice))
+                {
+                    // Yay, we found a vaild bot, have the bot change to the suit of the player who sent the message!
+                    lethalBotAI.ChangeSuitLethalBotServerRpc(lethalBotController.playerClientId, playerWhoSentMessage.currentSuitID);
+                }
+                return true;
+            }));
+
+            // A player asked us to wait here
+            ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.WAIT_HERE_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            {
+                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController, isVoice: isVoice))
+                {
+                    // Yay, we found a vaild bot, have the bot wait here!
+                    // Audio
+                    lethalBotAI.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
+                    {
+                        VoiceState = EnumVoicesState.OrderedToStay,
+                        CanTalkIfOtherLethalBotTalk = true,
+                        WaitForCooldown = false,
+                        CutCurrentVoiceStateToTalk = true,
+                        CanRepeatVoiceState = false,
+
+                        ShouldSync = true,
+                        IsLethalBotInside = lethalBotController.isInsideFactory,
+                        AllowSwearing = Plugin.Config.AllowSwearing.Value
+                    });
+
+                    lethalBotAI.State = new HoldPositionState(state, lethalBotAI.NpcController.Npc.transform.position);
                 }
                 return true;
             }));
@@ -337,8 +451,10 @@ namespace LethalBots.AI
         /// </remarks>
         /// <param name="player">The player to check for bot interaction. Cannot be null.</param>
         /// <param name="lethalBotController"></param>
+        /// <param name="isVoice">Indicates if the command was sent via voice.</param>
+        /// <param name="allowNonOwner">If true, the bot will respond to any player, not just the owner. Default is false.</param>
         /// <returns>true if the player is addressing this bot and the bot is eligible to respond; otherwise, false.</returns>
-        public bool IsBotBeingAddressed(PlayerControllerB player, [NotNullWhen(true)] out PlayerControllerB? lethalBotController)
+        public bool IsBotBeingAddressed(PlayerControllerB player, [NotNullWhen(true)] out PlayerControllerB? lethalBotController, bool isVoice = false, bool allowNonOwner = false)
         {
             // Make sure the player is valid
             lethalBotController = null;
@@ -352,7 +468,8 @@ namespace LethalBots.AI
             // FIXMEUPDATE: Ok, using RaycastNonAlloc should help a bit with performance here, but its still not great!
             RaycastHit[] raycastHits = new RaycastHit[3];
             Ray interactRay = new Ray(player.gameplayCamera.transform.position, player.gameplayCamera.transform.forward);
-            int raycastResults = Physics.RaycastNonAlloc(interactRay, raycastHits, Const.MAX_CHAT_RANGE, StartOfRound.Instance.playersMask);
+            float maxDistance = isVoice ? Const.MAX_VOICE_CHAT_RANGE : Const.MAX_CHAT_RANGE;
+            int raycastResults = Physics.RaycastNonAlloc(interactRay, raycastHits, maxDistance, StartOfRound.Instance.playersMask);
             for (int i = 0; i < raycastResults; i++)
             {
                 // Check if we hit a player!
@@ -372,7 +489,7 @@ namespace LethalBots.AI
 
                 // Okay, we found a player, is it a bot and are they following us?
                 // We can only address bots that we have ownership of!
-                LethalBotAI? lethalBot = LethalBotManager.Instance.GetLethalBotAIIfLocalIsOwner(lethalBotController);
+                LethalBotAI? lethalBot = allowNonOwner ? LethalBotManager.Instance.GetLethalBotAI(lethalBotController) : LethalBotManager.Instance.GetLethalBotAIIfLocalIsOwner(lethalBotController);
                 if (lethalBot == null
                     || lethalBot != ai // Make sure its us!
                     || lethalBot.IsSpawningAnimationRunning())

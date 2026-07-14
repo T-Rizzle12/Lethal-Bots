@@ -35,6 +35,7 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Events;
 using static LethalBots.AI.LethalBotThreat;
 using Object = UnityEngine.Object;
 using Quaternion = UnityEngine.Quaternion;
@@ -212,7 +213,17 @@ namespace LethalBots.Managers
         /// <summary>
         /// A timer made if <see cref="Plugin.IsModSuperEclipseLoaded"/> is active and enabled
         /// </summary>
-        internal static IntervalTimer botAutoLeaveTimer = new IntervalTimer(); 
+        internal static IntervalTimer botAutoLeaveTimer = new IntervalTimer();
+
+        /// <summary>
+        /// Helper event that registers custom enemies that are added by mods!
+        /// </summary>
+        /// <remarks>
+        /// This exists for the sole purpose of allowing modders a hook to use that will guarantee two things:<br/>
+        /// 1. The ability to override the default enemies panik levels and/or functions as desired.<br/>
+        /// 2. A hook to safely register their modded enemies into the threat list.
+        /// </remarks>
+        public static UnityEvent RegisterModdedEnemies = new UnityEvent();
 
         public Dictionary<EnemyAI, INoiseListener> DictEnemyAINoiseListeners = new Dictionary<EnemyAI, INoiseListener>();
 
@@ -1046,7 +1057,10 @@ namespace LethalBots.Managers
             // Register default threats
             DictionaryLethalBotThreats.Clear();
             RegisterDefaultThreats();
+            #pragma warning disable CS0618 // Type or member is obsolete
             RegisterCustomThreats();
+            #pragma warning restore CS0618 // Type or member is obsolete
+            RegisterModdedEnemies.Invoke();
 
             // Register chat commands
             RegisterDefaultCommands();
@@ -1662,6 +1676,7 @@ namespace LethalBots.Managers
         /// 1. The ability to override the default enemies panik levels and/or functions as desired.<br/>
         /// 2. A hook to safely register their modded enemies into the threat list.
         /// </remarks>
+        [Obsolete("This function is no longer used. Use the hook RegisterModdedThreats instead.")]
         private static void RegisterCustomThreats()
         {
             // We do nothing here, by default.......
@@ -3310,7 +3325,8 @@ namespace LethalBots.Managers
                 // Get grabbable object infos
                 GrabbableObject? grabbableObject = grabbableObjectsInMap[i];
                 if (grabbableObject == null 
-                    || grabbableObject is RagdollGrabbableObject)
+                    || (grabbableObject is RagdollGrabbableObject ragdollGrabbableObject 
+                        && ragdollGrabbableObject.ragdoll != null))
                 {
                     continue;
                 }
@@ -5016,8 +5032,9 @@ namespace LethalBots.Managers
                 // As where it is located in the Unity Editor.
                 Plugin.LogWarning("Failed to find Environment!");
                 shipNavMeshInstance.transform.position = new Vector3(-17.43886f, 7.605381f, -16.4713f);
-                shipNavMeshInstance.transform.rotation = new Quaternion(0, 0, 0, 1);
+                shipNavMeshInstance.transform.rotation = Quaternion.identity;
             }
+            shipNavMeshInstance.transform.position += Vector3.up * 0.05f; // HACKHACK: The environment is slightly below the ship's floor, so we bump it slightly up!
 
             // Get our create out NavMeshSurface
             shipNavMeshSurface = shipNavMeshInstance.GetComponent<NavMeshSurface>();

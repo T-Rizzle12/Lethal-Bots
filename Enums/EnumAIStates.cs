@@ -29,6 +29,8 @@
         RescueAndRevive,
         GrabLoadout,
         CollectPurchasedItems,
-        HealPlayer
+        HealPlayer,
+        HoldPosition,
+        CustomAIState // This is a custom AI state that can be used for any purpose. This exists to allow modders to add their own AI states.
     }
 }

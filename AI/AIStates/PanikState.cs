@@ -455,7 +455,7 @@ namespace LethalBots.AI.AIStates
         public static new void RegisterSignalTranslatorCommands()
         {
             // We are fleeing right now, these messages should be queued!
-            ChatCommandsManager.RegisterCommandForState<PanikState>(new ChatCommand(Const.RETURN_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            SignalTranslatorCommandsManager.RegisterCommandForState<PanikState>(new SignalTranslatorCommand(Const.RETURN_COMMAND, (state, lethalBotAI, message) =>
             {
                 // Return to the ship when we finish running away!
                 PanikState panikState = (PanikState)state;
@@ -463,7 +463,7 @@ namespace LethalBots.AI.AIStates
                 return true;
             }));
 
-            ChatCommandsManager.RegisterCommandForState<PanikState>(new ChatCommand(Const.JESTER_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            SignalTranslatorCommandsManager.RegisterCommandForState<PanikState>(new SignalTranslatorCommand(Const.JESTER_COMMAND, (state, lethalBotAI, message) =>
             {
                 // Jester is a special case, we should not panic if we are already panicking!
                 PanikState panikState = (PanikState)state;
