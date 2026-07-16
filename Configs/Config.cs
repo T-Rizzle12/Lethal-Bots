@@ -24,7 +24,8 @@ namespace LethalBots.Configs
     public class Config : SyncedConfig2<Config>
     {
         // Bot settings
-        [SyncedEntryField] public SyncedEntry<int> MaxBotsAllowedToSpawn;
+        [SyncedEntryField] public SyncedEntry<int> PlayerQuota;
+        [SyncedEntryField] public SyncedEntry<bool> BotsAutoJoin;
         [SyncedEntryField] public SyncedEntry<bool> AllowBotsInOrbit;
         [SyncedEntryField] public SyncedEntry<bool> ShowBillboardStateIndicator;
 
@@ -86,11 +87,16 @@ namespace LethalBots.Configs
             cfg.SaveOnConfigSet = false;
 
             // Bots
-            MaxBotsAllowedToSpawn = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMain,
-                                           "Max amount of bots that can spawn",
+            PlayerQuota = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMain,
+                                           "Player Quota",
                                            defaultValue: ConfigConst.DEFAULT_MAX_BOTS_AVAILABLE,
-                                           new ConfigDescription("Be aware of possible performance problems when more than ~16 bots spawned",
+                                           new ConfigDescription("How many players should Lethal Bots try to keep in the lobby? \n If there are less players than the set value, bots will automatically join. \n If there are more players than the set value, bots will automatically be kicked. \n This respects max lobby size. \n Be aware of possible performance problems when more than ~16 bots spawned",
                                                                  new AcceptableValueRange<int>(ConfigConst.MIN_BOTS_AVAILABLE, ConfigConst.MAX_BOTS_AVAILABLE)));
+
+            BotsAutoJoin = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMain,
+                                            "Bots Auto Join",
+                                            defaultVal: true,
+                                            "Do bots automatically join and leave to keep the desired player quota? (Bots must be allowed in orbit!)");
 
             AllowBotsInOrbit = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMain,
                                             "Allow bots in orbit (YOU MUST HAVE NavmeshInCompany!)",
@@ -199,7 +205,7 @@ namespace LethalBots.Configs
             GrabItemsNearEntrances = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                                "Grab items near entrances",
                                                defaultVal: true,
-                                               "Should the bot grab the items near main entrance and fire exits?");
+                                               "Should the bot grab the items near main entrance and fire exits? (NOTE: This doesn't affect bots who are set to transfer loot)");
 
             GrabBeesNest = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                     "Grab bees nests",
@@ -238,8 +244,9 @@ namespace LethalBots.Configs
 
             ChillAtShipTime = cfg.BindSyncedEntry(ConfigConst.ConfigSectionBehavior,
                                       "Chill at ship time",
-                                      defaultVal: Const.TIMER_CHILL_AT_SHIP,
-                                      "How long should a bot chill at the ship before they go to loot on their own.");
+                                      defaultValue: Const.TIMER_CHILL_AT_SHIP,
+                                      new ConfigDescription("How long should a bot chill at the ship before they go to loot on their own.",
+                                                       new AcceptableValueRange<float>(0, 240)));
 
             // Voice Recognition
             AllowVoiceRecognition = cfg.Bind(ConfigConst.ConfigSectionVoiceRecognition,
@@ -295,7 +302,7 @@ namespace LethalBots.Configs
             AllowRandomCalling = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMods, 
                                                     "Allow Random Calling", 
                                                     defaultVal: true, 
-                                                    "Are bots allowed to use their phones to randomly call players while they are searching for scrap?");
+                                                    "[Lethal Phones] Are bots allowed to use their phones to randomly call players while they are searching for scrap?");
 
             ClearUnusedEntries(cfg);
             cfg.SaveOnConfigSet = true;

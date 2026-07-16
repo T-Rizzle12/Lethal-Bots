@@ -241,6 +241,7 @@ namespace LethalBots.AI.AIStates
                 if (player != null
                     && !LethalBotManager.Instance.IsPlayerLethalBot(player)
                     && player != LethalBotManager.Instance.MissionControlPlayer
+                    && !LethalBotManager.Instance.LootTransferPlayers.Contains(npcController.Npc)
                     && !GroupManager.Instance.IsPlayerGroupLeader(npcController.Npc, out _)) // new target
                 {
                     // Don't compromise the ship by being loud!

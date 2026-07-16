@@ -100,6 +100,7 @@
     <PackageReference Include="Rune580.Mods.LethalCompany.InputUtils" Version="0.7.13" />
     <PackageReference Include="Tomatobird-AutoRevive" Version="0.4.0" Publicize="true" />
     <PackageReference Include="UnityEngine.Modules" Version="6000.2.12" IncludeAssets="compile" />
+    <PackageReference Include="Zigzag-SelfSortingStorage" Version="1.5.1" Publicize="true" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
@@ -196,16 +197,16 @@
 	<Reference Include="ReservedItemSlotCore">
 	  <HintPath>lib\mods\ReservedItemSlotCore.dll</HintPath>
 	</Reference>
-	<Reference Include="DawnLib">
+	<Reference Include="DawnLib" Publicize="true">
 		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.dll</HintPath>
 	</Reference>
-	<Reference Include="DawnLib-Dusk">
+	<Reference Include="DawnLib-Dusk" Publicize="true">
 		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.dusk.dll</HintPath>
 	</Reference>
-	<Reference Include="DawnLib-Interfaces">
+	<Reference Include="DawnLib-Interfaces" Publicize="true">
 		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.interfaces.dll</HintPath>
 	</Reference>
-	<Reference Include="DawnLib-Compatability">
+	<Reference Include="DawnLib-Compatability" Publicize="true">
 		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.compatibility.dll</HintPath>
 	</Reference>
 	<Reference Include="UsualScrap">

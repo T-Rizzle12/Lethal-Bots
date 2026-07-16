@@ -4,6 +4,7 @@ using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Patches.ModPatches.LethalPhones;
+using LethalBots.Patches.ModPatches.SelfSortingStorage;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
@@ -11,6 +12,7 @@ using LethalLib.Modules;
 using Scoops.gameobjects;
 using Scoops.misc;
 using Scoops.service;
+using SelfSortingStorage.Cupboard;
 using Steamworks;
 using Steamworks.Ugc;
 using System;
@@ -1211,6 +1213,55 @@ namespace LethalBots.AI.AIStates
                     numOwned++;
                 }
             }
+
+            // Mod support
+            if (Plugin.IsModSelfSortingStorageLoaded)
+            {
+                numOwned += GetNumberOfItemAlreadyOwnedInSelfSortingStorage(item);
+            }
+
+            return numOwned;
+        }
+
+        /// <summary>
+        /// Support for items stored in the <see cref="SmartCupboard"/> aka Self Sorting Storage.
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int GetNumberOfItemAlreadyOwnedInSelfSortingStorage(Item item)
+        {
+           return GetNumberOfItemAlreadyOwnedInSelfSortingStorage(item.itemName);
+        }
+
+        /// <summary>
+        /// Support for items stored in the <see cref="SmartCupboard"/> aka Self Sorting Storage.
+        /// </summary>
+        /// <param name="targetName"></param>
+        /// <returns></returns>
+        private int GetNumberOfItemAlreadyOwnedInSelfSortingStorage(string targetName)
+        {
+            SmartCupboard? cupboard = SelfSortingStoragePatch.SelfSortingStorage.Instance as SmartCupboard;
+            if (cupboard == null)
+            {
+                return 0;
+            }
+
+            int numOwned = 0;
+            SmartMemory smartMemory = cupboard.memory;
+            foreach (var placedItem in cupboard.placedItems)
+            {
+                GrabbableObject? grabbableObject = placedItem.Value;
+                if (grabbableObject == null || grabbableObject.itemProperties.itemName != targetName) continue;
+
+                int itemSlot = placedItem.Key;
+                SmartMemory.Data? data = smartMemory.RetrieveData(itemSlot, updateQuantity: false);
+                if (data != null)
+                {
+                    numOwned += Mathf.Max(data.Quantity - 1, 0); // Don't include the already spawned object!
+                }
+            }
+
             return numOwned;
         }
 
@@ -1233,6 +1284,13 @@ namespace LethalBots.AI.AIStates
                     numFound++;
                 }
             }
+
+            // Mod support
+            if (Plugin.IsModSelfSortingStorageLoaded)
+            {
+                numFound += GetNumberOfItemAlreadyOwnedInSelfSortingStorage(name);
+            }
+
             return numFound > 0;
         }
 

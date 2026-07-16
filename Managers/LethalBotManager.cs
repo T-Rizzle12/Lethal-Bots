@@ -11,6 +11,7 @@ using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.AutoRevive;
 using LethalBots.Patches.ModPatches.LethalPhones;
+using LethalBots.Patches.ModPatches.SelfSortingStorage;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
@@ -21,6 +22,7 @@ using Scoops.gameobjects;
 using Scoops.misc;
 using Scoops.patch;
 using Scoops.service;
+using SelfSortingStorage.Cupboard;
 using SpeechRecognitionAPI;
 using System;
 using System.Collections;
@@ -80,7 +82,7 @@ namespace LethalBots.Managers
         /// <remarks>
         /// This is the number of human players on the server
         /// </remarks>
-        public int AllRealPlayersCount { private set; get; }
+        public int AllRealPlayersCount { private set; get; } = 1; // Assume host player
 
         /// <summary>
         /// Integer corresponding to the first player controller associated with an <see cref="LethalInternship.AI.InternAI"/> in StartOfRound.Instance.allPlayerScripts
@@ -273,6 +275,14 @@ namespace LethalBots.Managers
         private static float timerUpdateHoardingBugItems;
         internal static Dictionary<GrabbableObject, HoarderBugItem> DictHoardingBugItems = new Dictionary<GrabbableObject, HoarderBugItem>();
 
+        private static float timerUpdateSelfSortingStorageItems;
+        public static HashSet<GrabbableObject> ItemsInSelfSortingStorage = new HashSet<GrabbableObject>();
+
+        internal CountdownTimer maintainQuotaTimer = new CountdownTimer();
+
+        private HashSet<ulong> _pendingHumanJoins = new HashSet<ulong>();
+        public bool IsHumanJoinPending => _pendingHumanJoins.Count > 0;
+
         private float timerUpdateOwnershipOfBot;
         private static bool registeredVoiceCommands = false;
 
@@ -330,7 +340,7 @@ namespace LethalBots.Managers
 
             Instance = this;
             Plugin.Config.InitialSyncCompleted += Config_InitialSyncCompleted;
-            Plugin.LogDebug($"Client {NetworkManager.LocalClientId}, MaxBotsAllowedToSpawn before CSync {Plugin.Config.MaxBotsAllowedToSpawn.Value}");
+            Plugin.LogDebug($"Client {NetworkManager.LocalClientId}, MaxBotsAllowedToSpawn before CSync {Plugin.Config.PlayerQuota.Value}");
             Plugin.LogDebug($"Saved instance: {Instance}, This object: {this}");
         }
 
@@ -378,7 +388,7 @@ namespace LethalBots.Managers
                 return;
             }
 
-            Plugin.LogDebug($"Client {NetworkManager.LocalClientId}, ManagePoolOfBots after CSync, MaxBotsAllowedToSpawn {Plugin.Config.MaxBotsAllowedToSpawn.Value}");
+            Plugin.LogDebug($"Client {NetworkManager.LocalClientId}, ManagePoolOfBots after CSync, MaxBotsAllowedToSpawn {Plugin.Config.PlayerQuota.Value}");
             ManagePoolOfBots();
         }
 
@@ -395,6 +405,11 @@ namespace LethalBots.Managers
             }
 
             UpdateHoardingBugsItems(Time.fixedDeltaTime);
+
+            if (Plugin.IsModSelfSortingStorageLoaded)
+            {
+                UpdateItemsInSelfSortingStorage(Time.fixedDeltaTime);
+            }
         }
 
         private void RegisterAINoiseListener(float deltaTime)
@@ -460,6 +475,36 @@ namespace LethalBots.Managers
                     && item.itemGrabbableObject != null)
                 {
                     DictHoardingBugItems[item.itemGrabbableObject] = item;
+                }
+            }
+        }
+
+        private static void UpdateItemsInSelfSortingStorage(float deltaTime)
+        {
+            timerUpdateSelfSortingStorageItems += deltaTime;
+            if (timerUpdateSelfSortingStorageItems < 1f)
+            {
+                return;
+            }
+
+            // Only update this list every second
+            timerUpdateSelfSortingStorageItems = 0f;
+            ItemsInSelfSortingStorage.Clear();
+
+            // Make sure the self sorting storage exists
+            if (!SelfSortingStoragePatch.SelfSortingStorage.TryGet(out var instance) 
+                || instance is not SmartCupboard cupboard)
+            {
+                return; // Storage doesn't exist, do nothing more
+            }
+
+            // Go through each item and add them to the HashSet
+            var storedItems = cupboard.placedItems.Values;
+            foreach (var item in storedItems)
+            {
+                if (item != null)
+                {
+                    ItemsInSelfSortingStorage.Add(item);
                 }
             }
         }
@@ -1070,20 +1115,89 @@ namespace LethalBots.Managers
 
         private void Update()
         {
+            // Only run some of this on the server
             StartOfRound instanceSOR = StartOfRound.Instance;
-            if (!isSpawningBots.Value && sendPlayerCountUpdate.Value
-                    && IsServer)
+            if (IsServer && !isSpawningBots.Value)
             {
-                // Check and update the amount of dead and living players
-                int livingPlayerCount = 0;
-                foreach (PlayerControllerB playerControllerB in instanceSOR.allPlayerScripts)
+                if (sendPlayerCountUpdate.Value)
                 {
-                    if (playerControllerB.isPlayerControlled && !playerControllerB.isPlayerDead)
+                    // Check and update the amount of dead and living players
+                    int livingPlayerCount = 0;
+                    foreach (PlayerControllerB playerControllerB in instanceSOR.allPlayerScripts)
                     {
-                        livingPlayerCount++;
+                        if (playerControllerB.isPlayerControlled && !playerControllerB.isPlayerDead)
+                        {
+                            livingPlayerCount++;
+                        }
+                    }
+                    SendNewPlayerCountServerRpc(instanceSOR.connectedPlayersAmount, livingPlayerCount, GameNetworkManager.Instance.connectedPlayers);
+                }
+                // If we are in orbit, mantain the bot quota.
+                // NOTE: This only works if bots are allowed in orbit
+                else if (AreWeInOrbit(instanceSOR, checkLoadingNewLevel: true) 
+                    && instanceSOR.hasHostSpawned
+                    && Plugin.Config.AllowBotsInOrbit.Value 
+                    && Plugin.Config.BotsAutoJoin.Value
+                    && !IsHumanJoinPending)
+                {
+                    // Don't check this every frame
+                    if (!maintainQuotaTimer.HasStarted() || maintainQuotaTimer.Elapsed())
+                    {
+                        maintainQuotaTimer.Start(1.0f); // Check every second
+                        int connectedPlayersAmount = instanceSOR.connectedPlayersAmount + 1; // Include host player in this count
+                        int connectedBotAmount = connectedPlayersAmount - AllRealPlayersCount; // Number of bots on the server
+                        int desiredQuotaAmount = Mathf.Min(Plugin.Config.PlayerQuota.Value, instanceSOR.allPlayerScripts.Length); // Number of players to keep on the server
+
+                        // Check if there are too MANY players
+                        if (connectedPlayersAmount > desiredQuotaAmount && connectedBotAmount > 0)
+                        {
+                            // Go through every spawned bot
+                            for (int i = 0; i < AllLethalBotAIs.Length; i++) 
+                            {
+                                // Check if this slot is taken by a bot
+                                LethalBotAI? lethalBotAI = AllLethalBotAIs[i];
+                                if (lethalBotAI != null)
+                                {
+                                    // Make sure this bot is properly spawned
+                                    PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
+                                    if (lethalBotController != null)
+                                    {
+                                        // Kick the bot from the server
+                                        // NEEDTOVALIDATE: Should I just have the bot, "disconnect," instead?
+                                        Plugin.LogDebug($"[LethalBotManager] Kicking bot {lethalBotController.playerUsername}. Player quota exceeded!");
+                                        StartOfRound.Instance.KickPlayer((int)lethalBotController.playerClientId);
+                                        break; // Only kick one bot per quota update
+                                    }
+                                }
+                            }
+                        }
+                        // Check if there are too FEW players
+                        else if (connectedPlayersAmount < desiredQuotaAmount)
+                        {
+                            // Make sure the NavMesh is built
+                            EnsureShipNavMeshBuilt();
+                            EnableShipNavMesh(reason: "[LethalBotManager] Adding bot in orbit!");
+
+                            int nextPlayerIndex = GetNextAvailablePlayerObject();
+                            if (nextPlayerIndex >= 0)
+                            {
+                                SpawnLethalBotServerRpc(new SpawnLethalBotParamsNetworkSerializable()
+                                {
+                                    enumSpawnAnimation = EnumSpawnAnimation.OnlyPlayerSpawnAnimationIfDead,
+                                    SpawnPosition = null, // Let the default spawn position
+                                    YRot = 0,
+                                    IsOutside = true,
+                                    MarkBotAsLoaded = true,
+                                    UpdatePlayerCount = true
+                                });
+                            }
+                            else
+                            {
+                                Plugin.LogWarning("No available player objects to spawn any more lethal bots!");
+                            }
+                        }
                     }
                 }
-                SendNewPlayerCountServerRpc(instanceSOR.connectedPlayersAmount, livingPlayerCount, GameNetworkManager.Instance.connectedPlayers);
             }
 
             // Start checking for trapped player once the ship has landed
@@ -1157,41 +1271,6 @@ namespace LethalBots.Managers
             IdentityManager.Instance.InitIdentities(Plugin.Config.ConfigIdentities.configIdentities);
             SyncLoadedJsonIdentitiesToAllClientsServerRpc(); // Send the new json to all clients so they can update the identities of the bots on their end as well!
         }
-
-        // TODO: Do we even need this since the bots use the player slots?
-        /*private void UpdateSoundManagerWithInterns(int irlPlayersAndInternsCount)
-        {
-            SoundManager instanceSM = SoundManager.Instance;
-
-            Array.Resize(ref instanceSM.playerVoicePitchLerpSpeed, irlPlayersAndInternsCount);
-            Array.Resize(ref instanceSM.playerVoicePitchTargets, irlPlayersAndInternsCount);
-            Array.Resize(ref instanceSM.playerVoicePitches, irlPlayersAndInternsCount);
-            Array.Resize(ref instanceSM.playerVoiceVolumes, irlPlayersAndInternsCount);
-
-            // From moreCompany
-            for (int i = IndexBeginOfInterns; i < irlPlayersAndInternsCount; i++)
-            {
-                instanceSM.playerVoicePitchLerpSpeed[i] = 3f;
-                instanceSM.playerVoicePitchTargets[i] = 1f;
-                instanceSM.playerVoicePitches[i] = 1f;
-                instanceSM.playerVoiceVolumes[i] = 0.5f;
-            }
-
-            ResizePlayerVoiceMixers(irlPlayersAndInternsCount);
-        }
-
-        // TODO: Do we even need this!?
-        public void ResizePlayerVoiceMixers(int irlPlayersAndInternsCount)
-        {
-            // From moreCompany
-            SoundManager instanceSM = SoundManager.Instance;
-            Array.Resize<AudioMixerGroup>(ref instanceSM.playerVoiceMixers, irlPlayersAndInternsCount);
-            AudioMixerGroup audioMixerGroup = Resources.FindObjectsOfTypeAll<AudioMixerGroup>().FirstOrDefault((AudioMixerGroup x) => x.name.StartsWith("VoicePlayer"));
-            for (int i = IndexBeginOfInterns; i < irlPlayersAndInternsCount; i++)
-            {
-                instanceSM.playerVoiceMixers[i] = audioMixerGroup;
-            }
-        }*/
 
         private void RemovePlayerModelReplacement(PlayerControllerB lethalBotController)
         {
@@ -1861,6 +1940,13 @@ namespace LethalBots.Managers
                 IdentityManager.Instance.ExpandWithNewDefaultIdentities(numberToAdd: 1);
             }
 
+            if (AreWeInOrbit(checkLoadingNewLevel: true))
+            {
+                // Make sure the NavMesh is built
+                EnsureShipNavMeshBuilt();
+                EnableShipNavMesh(reason: "[LethalBotManager] Adding bot in orbit!");
+            }
+
             InitLethalBotSpawning(lethalBotAI,
                                spawnParamsNetworkSerializable);
         }
@@ -2126,7 +2212,18 @@ namespace LethalBots.Managers
                 }
                 else
                 {
+                    // Update player count if this was a bot, "joining" the game
+                    if (spawnParamsNetworkSerializable.UpdatePlayerCount)
+                    {
+                        StartOfRound.Instance.connectedPlayersAmount++;
+                    }
                     sendPlayerCountUpdate.Value = true;
+                }
+
+                // Mark the bot as loaded
+                if (spawnParamsNetworkSerializable.MarkBotAsLoaded)
+                {
+                    StartOfRound.Instance.PlayerLoadedServerRpc(lethalBotController.actualClientId);
                 }
             }
 
@@ -2324,7 +2421,16 @@ namespace LethalBots.Managers
                 Plugin.LogError($"Fatal error : client #{NetworkManager.LocalClientId} lethal bot AI not found in AllLethalBotAIs array ! Please check for previous errors in the console");
                 return;
             }
-            LethalBotKickedServerRpc(indexLethalBotAI);
+
+            // Do this first so the clients get the vaild object
+            if (lethalBotAI != null)
+            {
+                // Notify other clients
+                LethalBotKickedClientRpc(indexLethalBotAI);
+
+                // Do the logic on the server
+                HandleLethalBotKicked(lethalBotAI);
+            }
         }
 
         /// <summary>
@@ -2507,33 +2613,6 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
-        /// Simple server rpc to notify all clients that a lethal bot was kicked
-        /// </summary>
-        /// <param name="indexLethalBotAI">Index of the bot being kicked</param>
-        /// <param name="rpcParams"></param>
-        [ServerRpc(RequireOwnership = false)]
-        private void LethalBotKickedServerRpc(int indexLethalBotAI, ServerRpcParams rpcParams = default)
-        {
-            // Allow only the host to update these values
-            if (rpcParams.Receive.SenderClientId != NetworkManager.ServerClientId)
-            {
-                Plugin.LogWarning($"Unauthorized client {rpcParams.Receive.SenderClientId} attempted to kick bot!");
-                return;
-            }
-
-            if (AllLethalBotAIs == null || AllLethalBotAIs.Length == 0)
-            {
-                Plugin.LogError($"Fatal error : client #{NetworkManager.LocalClientId} no bots initialized ! Please check for previous errors in the console");
-                return;
-            }
-            LethalBotAI lethalBotAI = AllLethalBotAIs[indexLethalBotAI];
-            if (lethalBotAI != null)
-            {
-                LethalBotKickedClientRpc(indexLethalBotAI);
-            }
-        }
-
-        /// <summary>
         /// Simple client rpc to notify all clients that a lethal bot was kicked
         /// </summary>
         /// <param name="indexLethalBotAI">Index of the bot being kicked</param>
@@ -2545,12 +2624,20 @@ namespace LethalBots.Managers
                 Plugin.LogError($"Fatal error : client #{NetworkManager.LocalClientId} no bots initialized ! Please check for previous errors in the console");
                 return;
             }
+
+            // We already did this on the server!
+            if (IsServer)
+            {
+                return;
+            }
+
             LethalBotAI lethalBotAI = AllLethalBotAIs[indexLethalBotAI];
             if (lethalBotAI != null)
             {
                 HandleLethalBotKicked(lethalBotAI);
             }
         }
+
 
         private void CleanLegsFromMoreEmotesMod(PlayerControllerB lethalBotController)
         {
@@ -2559,6 +2646,32 @@ namespace LethalBots.Managers
             {
                 Plugin.LogDebug($"{lethalBotController.playerUsername}: Cleaning legs from more emotes");
                 UnityEngine.Object.Destroy(gameObject);
+            }
+        }
+
+        #endregion
+
+        #region Quota Manager
+
+        /// <summary>
+        /// Helper function that lets the quota manager know that a human player is connecting
+        /// </summary>
+        public void BeginHumanJoin(ulong clientId)
+        {
+            if (_pendingHumanJoins.Add(clientId))
+            {
+                Plugin.LogInfo($"Human player join started. Pending joins: {_pendingHumanJoins.Count}");
+            }
+        }
+
+        /// <summary>
+        /// Helper function that lets the quota manager know that a human player has finished connecting
+        /// </summary>
+        public void EndHumanJoin(ulong clientId)
+        {
+            if (_pendingHumanJoins.Remove(clientId))
+            {
+                Plugin.LogInfo($"Human player join finished. Pending joins: {_pendingHumanJoins.Count}");
             }
         }
 
@@ -3354,6 +3467,12 @@ namespace LethalBots.Managers
                     }
                 }
 
+                // Object in the self sorting storage?
+                if (LethalBotAI.IsGrabbaleObjectInSelfSortingStorage(grabbableObject))
+                {
+                    continue;
+                }
+
                 // Is a pickmin (LethalMin mod) holding the object ?
                 if (Plugin.IsModLethalMinLoaded)
                 {
@@ -3402,7 +3521,7 @@ namespace LethalBots.Managers
 
             // Check if the fulfilled quota is greater than or equal to the profit quota
             int fulfilledQuota = timeOfDay.quotaFulfilled + GetValueOfItemsOnDesk();
-            Plugin.LogDebug($"HaveWeFulfilledTheProfitQuota: Quota fulfilled: {fulfilledQuota}, Profit quota: {timeOfDay.profitQuota}");
+            //Plugin.LogDebug($"HaveWeFulfilledTheProfitQuota: Quota fulfilled: {fulfilledQuota}, Profit quota: {timeOfDay.profitQuota}");
             return fulfilledQuota >= timeOfDay.profitQuota;
         }
 
@@ -3606,7 +3725,7 @@ namespace LethalBots.Managers
         {
             yield return null;
             int nbSpawnedBots = 0;
-            int nbBotsToSpawn = Plugin.Config.MaxBotsAllowedToSpawn;
+            int nbBotsToSpawn = Plugin.Config.PlayerQuota - AllRealPlayersCount; // Don't include real players. 
             StartOfRound instanceSOR = StartOfRound.Instance;
             int newPlayerCount = instanceSOR.connectedPlayersAmount;
             int newLivingPlayerCount = instanceSOR.livingPlayers;
@@ -5389,7 +5508,7 @@ namespace LethalBots.Managers
             }
 
             // Makes sure bots can pathfind for late joining players!
-            if (AreWeInOrbit())
+            if (AreWeInOrbit(checkLoadingNewLevel: true))
             {
                 EnsureShipNavMeshBuilt();
                 EnableShipNavMesh(reason: "Client joining ship in orbit!");

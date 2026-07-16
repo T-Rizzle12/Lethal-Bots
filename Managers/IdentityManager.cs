@@ -247,7 +247,7 @@ namespace LethalBots.Managers
 
         public int GetNbIdentitiesAvailable()
         {
-            return Plugin.Config.MaxBotsAllowedToSpawn - LethalBotIdentities.FilterToDropOrSpawned().Count();
+            return Plugin.Config.PlayerQuota - LethalBotIdentities.FilterToDropOrSpawned().Count();
         }
 
         public int GetNbIdentitiesToDrop()

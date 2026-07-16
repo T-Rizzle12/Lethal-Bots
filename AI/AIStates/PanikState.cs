@@ -937,19 +937,24 @@ namespace LethalBots.AI.AIStates
 
                 // Check if our path goes anywhere near the enemy we are fleeing from
                 Vector3[] corners = ai.path1.corners;
-                float minDist = float.MaxValue;
+                float minDist = ourDistanceFromEnemy;
                 for (int j = 1; j < corners.Length; j++)
                 {
                     // Use the same stuff safe path uses.
                     Vector3 toPos = corners[j];
                     Vector3 fromPos = corners[j - 1];
                     Vector3 closestPoint = LethalBotAI.GetClosestPointOnLineSegment(fromPos, toPos, enemyPos);
-                    if (closestPoint == ourPos)
+                    float distSqr = (closestPoint - enemyPos).sqrMagnitude;
+                    if (distSqr < minDist)
                     {
-                        continue; // Don't consider where we are currently standing as the path moving closer to the enemy in question!
-                    }
+                        minDist = distSqr; // Update minPathDistanceToEnemy
 
-                    minDist = Mathf.Min(minDist, (closestPoint - enemyPos).sqrMagnitude);
+                        // Already worse than where we started.
+                        if (minDist < Const.DISTANCE_FLEEING_PATH_AVOIDANCE * Const.DISTANCE_FLEEING_PATH_AVOIDANCE)
+                        {
+                            break;
+                        }
+                    }
                 }
 
                 // Update the closest part of the path to the enemy we are fleeing from

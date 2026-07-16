@@ -593,11 +593,13 @@ namespace LethalBots.Patches.GameEnginePatches
         static void OnPlayerConnectedClientRpc_PostFix(StartOfRound __instance, ulong clientId)
         {
             // Sync save file
-            if (!__instance.IsServer 
-                && !__instance.IsHost
-                && __instance.NetworkManager.LocalClientId == clientId)
+            LethalBotManager lethalBotManager = LethalBotManager.Instance;
+            if (__instance.IsServer)
             {
-                LethalBotManager lethalBotManager = LethalBotManager.Instance;
+                lethalBotManager.EndHumanJoin(clientId);
+            }
+            else if (__instance.NetworkManager.LocalClientId == clientId)
+            {
                 lethalBotManager.SyncLoadedJsonLoadoutsServerRpc(clientId);
                 lethalBotManager.SyncLoadedJsonIdentitiesServerRpc(clientId);
                 lethalBotManager.SyncLoadedJsonStockRequirementsServerRpc(clientId);
