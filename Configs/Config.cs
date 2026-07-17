@@ -341,11 +341,11 @@ namespace LethalBots.Configs
         {
             try
             {
-                string directoryPath = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID);
+                string directoryPath = Path.Combine(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID);
                 Directory.CreateDirectory(directoryPath);
 
                 string json = ReadJsonResource("LethalBots.Configs.ConfigIdentities.json");
-                using (StreamWriter outputFile = new StreamWriter(Utility.CombinePaths(directoryPath, ConfigConst.FILE_NAME_CONFIG_IDENTITIES)))
+                using (StreamWriter outputFile = new StreamWriter(Path.Combine(directoryPath, ConfigConst.FILE_NAME_CONFIG_IDENTITIES)))
                 {
                     outputFile.WriteLine(json);
                 }
@@ -360,11 +360,11 @@ namespace LethalBots.Configs
         {
             try
             {
-                string directoryPath = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID);
+                string directoryPath = Path.Combine(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID);
                 Directory.CreateDirectory(directoryPath);
 
                 string json = ReadJsonResource("LethalBots.Configs.ConfigLoadouts.json");
-                using (StreamWriter outputFile = new StreamWriter(Utility.CombinePaths(directoryPath, ConfigConst.FILE_NAME_CONFIG_LOADOUTS)))
+                using (StreamWriter outputFile = new StreamWriter(Path.Combine(directoryPath, ConfigConst.FILE_NAME_CONFIG_LOADOUTS)))
                 {
                     outputFile.WriteLine(json);
                 }
@@ -379,11 +379,11 @@ namespace LethalBots.Configs
         {
             try
             {
-                string directoryPath = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID);
+                string directoryPath = Path.Combine(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID);
                 Directory.CreateDirectory(directoryPath);
 
                 string json = ReadJsonResource("LethalBots.Configs.ConfigStockRequirements.json");
-                using (StreamWriter outputFile = new StreamWriter(Utility.CombinePaths(directoryPath, ConfigConst.FILE_NAME_CONFIG_STOCK_REQUIREMENTS)))
+                using (StreamWriter outputFile = new StreamWriter(Path.Combine(directoryPath, ConfigConst.FILE_NAME_CONFIG_STOCK_REQUIREMENTS)))
                 {
                     outputFile.WriteLine(json);
                 }
@@ -414,7 +414,7 @@ namespace LethalBots.Configs
 
             try
             {
-                path = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID, ConfigConst.FILE_NAME_CONFIG_IDENTITIES);
+                path = Path.Combine(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID, ConfigConst.FILE_NAME_CONFIG_IDENTITIES);
                 // Try to read user config file
                 if (File.Exists(path))
                 {
@@ -467,7 +467,7 @@ namespace LethalBots.Configs
 
             try
             {
-                path = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID, ConfigConst.FILE_NAME_CONFIG_LOADOUTS);
+                path = Path.Combine(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID, ConfigConst.FILE_NAME_CONFIG_LOADOUTS);
                 // Try to read user config file
                 if (File.Exists(path))
                 {
@@ -524,7 +524,7 @@ namespace LethalBots.Configs
 
             try
             {
-                path = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID, ConfigConst.FILE_NAME_CONFIG_STOCK_REQUIREMENTS);
+                path = Path.Combine(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID, ConfigConst.FILE_NAME_CONFIG_STOCK_REQUIREMENTS);
                 // Try to read user config file
                 if (File.Exists(path))
                 {

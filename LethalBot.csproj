@@ -117,6 +117,7 @@
   <ItemGroup>
     <Folder Include="lib\mods\" />
     <Folder Include="lib\LCv64\" />
+    <Folder Include="Example Voicepack\" />
   </ItemGroup>
   <ItemGroup>
 	<!-- 

@@ -1058,10 +1058,10 @@ namespace LethalBots.Managers
             RestockManager.Instance.InitStockRequirements(Plugin.Config.ConfigStockRequirements.configStockRequirements);
 
             // List out item information about equipment and unlockables since they are used in the restock and identity file system
-            string directoryPath = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID);
+            string directoryPath = Path.Combine(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID);
             Directory.CreateDirectory(directoryPath);
             Plugin.LogInfo("Listing all items in the game!");
-            using (StreamWriter outputFile = new StreamWriter(Utility.CombinePaths(directoryPath, ConfigConst.FILE_NAME_GAME_ITEMS)))
+            using (StreamWriter outputFile = new StreamWriter(Path.Combine(directoryPath, ConfigConst.FILE_NAME_GAME_ITEMS)))
             {
                 // DEBUG: List all available items and their ids
                 outputFile.WriteLine("Listing all items in the game!");

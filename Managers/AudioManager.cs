@@ -19,6 +19,8 @@ namespace LethalBots.Managers
 
         public Dictionary<string, AudioClip?> DictAudioClipsByPath = new Dictionary<string, AudioClip?>();
 
+        private const string lethalBotsPath = "LethalBots\\";
+
         private const string voicesPath = "Audio\\Voices\\";
 
         // Supported audio extentions
@@ -53,20 +55,35 @@ namespace LethalBots.Managers
 
         private void LoadAllVoiceLanguageAudioAssets()
         {
-            // Try to load user custom voices
-            string folderPath = Utility.CombinePaths(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID, voicesPath);
-            if (Directory.Exists(folderPath))
+            // Try to load user custom pluginVoices
+            // WARNING: This is an outdated way to do this.
+            string legacyVoices = Path.Combine(Paths.ConfigPath, MyPluginInfo.PLUGIN_GUID, voicesPath);
+            if (Directory.Exists(legacyVoices))
             {
                 // Load all paths
-                LoadAllPaths(folderPath);
-                return;
+                Plugin.LogInfo($"Loading legacy voice pack: {legacyVoices}");
+                Plugin.LogWarning("Legacy voice folder detected. Please move custom voices to BepInEx/plugins/<ModName>/LethalBots/Audio/Voices.");
+                LoadAllPaths(legacyVoices);
             }
 
-            // Try to load decompress default voices
-            folderPath = Path.Combine(Plugin.DirectoryName, voicesPath);
-            if (!Directory.Exists(folderPath))
+            // Check using the new way to add custom pluginVoices
+            foreach (string pluginDir in Directory.GetDirectories(Paths.PluginPath))
             {
-                Directory.CreateDirectory(folderPath);
+                // Find the pluginVoices folder
+                string pluginVoices = Path.Combine(pluginDir, lethalBotsPath, voicesPath);
+                if (Directory.Exists(pluginVoices))
+                {
+                    // Load all paths
+                    Plugin.LogInfo($"Loading voice pack: {pluginVoices}");
+                    LoadAllPaths(pluginVoices);
+                }
+            }
+
+            // Try to load decompress default pluginVoices
+            string defaultVoices = Path.Combine(Plugin.DirectoryName, voicesPath);
+            if (!Directory.Exists(defaultVoices))
+            {
+                Directory.CreateDirectory(defaultVoices);
 
                 // Load zip and extract it
                 Assembly assembly = Assembly.GetExecutingAssembly();
@@ -75,13 +92,14 @@ namespace LethalBots.Managers
                     using (ZipArchive archive = new ZipArchive(resource, ZipArchiveMode.Read))
                     {
                         // Works if using 7zip to re-zip archive from dropbox (extract and rezip), why ?
-                        archive.ExtractToDirectory(folderPath);
+                        archive.ExtractToDirectory(defaultVoices);
                     }
                 }
             }
 
             // Load all paths
-            LoadAllPaths(folderPath);
+            Plugin.LogInfo($"Loading default voice pack: {defaultVoices}");
+            LoadAllPaths(defaultVoices);
         }
 
         /// <summary>
@@ -90,10 +108,10 @@ namespace LethalBots.Managers
         /// <param name="folderPath"></param>
         private void LoadAllPaths(string folderPath)
         {
-            foreach (string fileType in SupportedExtentions)
+            for (int i = 0; i < SupportedExtentions.Length; i++)
             {
-                string[] files = Directory.GetFiles(folderPath, "*" + fileType, SearchOption.AllDirectories);
-                foreach (string file in files)
+                string fileType = SupportedExtentions[i];
+                foreach (string file in Directory.EnumerateFiles(folderPath, "*" + fileType, SearchOption.AllDirectories))
                 {
                     //Plugin.LogInfo(new Uri(file).AbsoluteUri);
                     AddPath(file);
@@ -103,10 +121,7 @@ namespace LethalBots.Managers
 
         private void AddPath(string path)
         {
-            if (DictAudioClipsByPath == null)
-            {
-                DictAudioClipsByPath = new Dictionary<string, AudioClip?>();
-            }
+            DictAudioClipsByPath ??= new Dictionary<string, AudioClip?>();
 
             if (DictAudioClipsByPath.ContainsKey(path))
             {
@@ -114,7 +129,6 @@ namespace LethalBots.Managers
             }
             else
             {
-
                 DictAudioClipsByPath.Add(path, null);
             }
         }
