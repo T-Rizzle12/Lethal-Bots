@@ -47,8 +47,7 @@ namespace LethalBots.Patches.ModPatches.DawnLib
             // So you may ask, why not just directly call the function.
             // I need to make sure I don't spam PlayerSetBundleStateRpc calls, since that could break stuff.
             DawnMoonNetworker dawnMoonInstance = (DawnMoonNetworker)dawnMoonNetworker;
-            FieldInfo _playerStatesField = AccessTools.Field(typeof(DawnMoonNetworker), "_playerStates"); // This field is private, makes sense, wish there was a way to query information from it though.
-            Dictionary<PlayerControllerB, DawnMoonNetworker.BundleState> playerStates = (Dictionary<PlayerControllerB, DawnMoonNetworker.BundleState>)_playerStatesField.GetValue(dawnMoonInstance); // Cast reflected object into dictionary
+            Dictionary<PlayerControllerB, DawnMoonNetworker.BundleState> playerStates = dawnMoonInstance._playerStates;
 
             // Tell DawnLib that our bots are READY TO RUMBLE!
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotAIs();

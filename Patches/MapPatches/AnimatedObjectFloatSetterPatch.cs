@@ -31,8 +31,9 @@ namespace LethalBots.Patches.MapPatches
 
             // Make this affect bots as well!
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-            foreach (var lethalBotAI in lethalBotAIs)
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
                 if (lethalBotController != null && !lethalBotController.isPlayerDead)
                 {

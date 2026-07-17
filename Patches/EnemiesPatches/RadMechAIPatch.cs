@@ -26,8 +26,9 @@ namespace LethalBots.Patches.EnemiesPatches
         private static void Stomp_Postfix(RadMechAI __instance, Transform stompTransform, ParticleSystem particle, ParticleSystem particle2, float radius)
         {
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-            foreach(LethalBotAI lethalBotAI in lethalBotAIs)
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI lethalBotAI = lethalBotAIs[i];
                 PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
                 if (lethalBotController != null)
                 {
@@ -83,8 +84,9 @@ namespace LethalBots.Patches.EnemiesPatches
                 }
 
                 LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-                foreach (LethalBotAI lethalBotAI in lethalBotAIs)
+                for (int i = 0; i < lethalBotAIs.Length; i++)
                 {
+                    LethalBotAI lethalBotAI = lethalBotAIs[i];
                     PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
                     if (lethalBotController != null)
                     {
@@ -166,22 +168,24 @@ namespace LethalBots.Patches.EnemiesPatches
 
         private static bool IsLocalPlayerOrLethalBotCloseToPos(Vector3 explosionPosition, Vector3 forwardRotation)
         {
+            const float missileFlingRange = 8f;
             Vector3 endPosition = explosionPosition - forwardRotation * 0.1f;
-            if ((GameNetworkManager.Instance.localPlayerController.transform.position - endPosition).sqrMagnitude < 8f * 8f)
+            if ((GameNetworkManager.Instance.localPlayerController.transform.position - endPosition).sqrMagnitude < missileFlingRange * missileFlingRange)
             {
                 return true;
             }
 
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-            foreach (LethalBotAI? lethalBotAI in lethalBotAIs)
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 if (lethalBotAI != null)
                 {
                     PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
                     if (lethalBotController != null 
                         && !lethalBotController.isPlayerDead)
                     {
-                        if ((lethalBotController.transform.position - endPosition).sqrMagnitude < 8f * 8f)
+                        if ((lethalBotController.transform.position - endPosition).sqrMagnitude < missileFlingRange * missileFlingRange)
                         {
                             return true;
                         }

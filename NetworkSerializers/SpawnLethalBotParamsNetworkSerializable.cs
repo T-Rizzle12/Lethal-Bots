@@ -9,6 +9,7 @@ namespace LethalBots.NetworkSerializers
     public struct SpawnLethalBotParamsNetworkSerializable : INetworkSerializable
     {
         public NetworkObjectReference? LethalBotReference;
+        public bool UpdatePlayerCount;
         public int IndexNextLethalBot;
         public int? IndexNextPlayerObject = null;
         public int LethalBotIdentityID;
@@ -20,7 +21,8 @@ namespace LethalBots.NetworkSerializers
         public float YRot;
         public bool IsOutside;
         public bool ShouldDestroyDeadBody;
-        public bool ResetBodyBlood = false;
+        public bool ResetBodyBlood;
+        public bool MarkBotAsLoaded;
 
         public SpawnLethalBotParamsNetworkSerializable()
         {
@@ -30,6 +32,7 @@ namespace LethalBots.NetworkSerializers
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
             LethalBotNetworkSerializer.SerializeNullable(serializer, ref LethalBotReference);
+            serializer.SerializeValue(ref UpdatePlayerCount);
             serializer.SerializeValue(ref IndexNextLethalBot);
             LethalBotNetworkSerializer.SerializeNullable(serializer, ref IndexNextPlayerObject);
             serializer.SerializeValue(ref LethalBotIdentityID);
@@ -42,6 +45,7 @@ namespace LethalBots.NetworkSerializers
             serializer.SerializeValue(ref IsOutside);
             serializer.SerializeValue(ref ShouldDestroyDeadBody);
             serializer.SerializeValue(ref ResetBodyBlood);
+            serializer.SerializeValue(ref MarkBotAsLoaded);
         }
     }
 }

@@ -11,6 +11,7 @@ using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapHazardsPatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.LethalPhones;
+using LethalBots.Patches.ModPatches.SelfSortingStorage;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
@@ -21,6 +22,7 @@ using ReservedItemSlotCore.Patches;
 using Scoops.gameobjects;
 using Scoops.misc;
 using Scoops.service;
+using SelfSortingStorage.Cupboard;
 using Steamworks.Ugc;
 using System;
 using System.Collections;
@@ -4726,6 +4728,12 @@ namespace LethalBots.AI
                     }
                 }
 
+                // Object in the self sorting storage?
+                if (IsGrabbaleObjectInSelfSortingStorage(grabbableObject))
+                {
+                    continue;
+                }
+
                 // Is a pickmin (LethalMin mod) holding the object ?
                 if (Plugin.IsModLethalMinLoaded)
                 {
@@ -4848,6 +4856,12 @@ namespace LethalBots.AI
                     {
                         continue;
                     }
+                }
+
+                // Object in the self sorting storage?
+                if (IsGrabbaleObjectInSelfSortingStorage(grabbableObject))
+                {
+                    continue;
                 }
 
                 // Is a pickmin (LethalMin mod) holding the object ?
@@ -5632,10 +5646,15 @@ namespace LethalBots.AI
             return false;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.NoInlining)]
         internal static bool IsGrabbableObjectInContainerMod(GrabbableObject grabbableObject)
         {
             return CustomItemBehaviourLibrary.AbstractItems.ContainerBehaviour.CheckIfItemInContainer(grabbableObject);
+        }
+
+        internal static bool IsGrabbaleObjectInSelfSortingStorage(GrabbableObject grabbableObject)
+        {
+            return Plugin.IsModSelfSortingStorageLoaded && LethalBotManager.ItemsInSelfSortingStorage.Contains(grabbableObject);
         }
 
         internal static bool IsGrabbableObjectHeldByPikminMod(GrabbableObject grabbableObject)
@@ -7777,10 +7796,11 @@ namespace LethalBots.AI
             Vector3 ourPos = NpcController.Npc.gameplayCamera.transform.position;
             float lightLevel = 0f;
             int numLightsConsidered = 0;
-            for (int i = 0; i < LethalBotManager.LightsOnMap.Count; i++)
+            IReadOnlyList<Light> lightsOnMap = LethalBotManager.LightsOnMap;
+            for (int i = 0; i < lightsOnMap.Count; i++)
             {
                 // Make sure we want to consider this light source
-                var light = LethalBotManager.LightsOnMap[i];
+                var light = lightsOnMap[i];
                 if (ShouldIgnoreLightSource(light))
                     continue;
 

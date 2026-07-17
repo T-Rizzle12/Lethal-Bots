@@ -133,7 +133,8 @@ namespace LethalBots.Patches.ModPatches.AutoRevive
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> CheckIfAllPlayersDead_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
         {
-            var startIndex = -1;
+            var patched = false;
+            var timesPatched = 0;
             var codes = new List<CodeInstruction>(instructions);
 
             MethodInfo getGameNetworkManagerInstance = AccessTools.PropertyGetter(typeof(GameNetworkManager), "Instance");
@@ -144,22 +145,26 @@ namespace LethalBots.Patches.ModPatches.AutoRevive
                 if (codes[i].Calls(getGameNetworkManagerInstance) 
                     && codes[i + 1].LoadsField(connectedPlayersField))
                 {
-                    startIndex = i;
-                    break;
+                    // We want to replace the call to GameNetworkManager.Instance.connectedPlayers with StartOfRound.Instance.connectedPlayersAmount.
+                    // This is because GameNetworkManager.Instance.connectedPlayers only contains human players
+                    Plugin.LogDebug($"Patching localPlayerController at index {i}...");
+                    Plugin.LogDebug($"Original Codes: 1: {codes[i]} and 2: {codes[i + 1]}");
+                    codes[i].opcode = OpCodes.Nop;
+                    codes[i].operand = null;
+                    codes[i + 1].opcode = OpCodes.Call;
+                    codes[i + 1].operand = AccessTools.Method(typeof(LethalBotAutoReviveHelper), nameof(GetNumberOfConnectedPlayers));
+                    patched = true;
+                    timesPatched++;
                 }
             }
-            if (startIndex > -1)
+
+            if (!patched)
             {
-                // We want to replace the call to GameNetworkManager.Instance.connectedPlayers with StartOfRound.Instance.connectedPlayersAmount.
-                // This is because GameNetworkManager.Instance.connectedPlayers only contains human players
-                codes[startIndex].opcode = OpCodes.Nop;
-                codes[startIndex].operand = null;
-                codes[startIndex + 1].opcode = OpCodes.Call;
-                codes[startIndex + 1].operand = AccessTools.Method(typeof(LethalBotAutoReviveHelper), nameof(GetNumberOfConnectedPlayers));
+                Plugin.LogError($"LethalBot.Patches.ModPatches.AutoRevive.LethalBotAutoReviveHelper.CheckIfAllPlayersDead_Transpiler could not locate the target instructions for replacement.");
             }
             else
             {
-                Plugin.LogError($"LethalBot.Patches.ModPatches.AutoRevive.LethalBotAutoReviveHelper.CheckIfAllPlayersDead_Transpiler could not locate the target instructions for replacement.");
+                Plugin.LogDebug($"Patched out connectedPlayers {timesPatched} times!");
             }
 
             return codes.AsEnumerable();

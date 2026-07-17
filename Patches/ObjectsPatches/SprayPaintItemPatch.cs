@@ -43,8 +43,9 @@ namespace LethalBots.Patches.ObjectsPatches
             Vector3 heldPos = playerHeldBy.transform.position;
 
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-            foreach (var lethalBotAI in lethalBotAIs)
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
                 if (lethalBotController != null && playerHeldBy != lethalBotController)
                 {

@@ -264,8 +264,9 @@ namespace LethalBots.Patches.ObjectsPatches
         {
             // NOTE: This is needed since the shotgun only checks for the local player!
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-            foreach (LethalBotAI? lethalBotAI in lethalBotAIs)
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
                 if (lethalBotController == null || lethalBotController.isPlayerDead || !lethalBotController.isPlayerControlled)
                 {
@@ -280,7 +281,7 @@ namespace LethalBots.Patches.ObjectsPatches
                 int damage = 0;
                 Vector3 lethalBotPos = lethalBotController.transform.position + new Vector3(0, 1f, 0);
                 float distanceTarget = Vector3.Distance(lethalBotPos, __instance.shotgunRayPoint.transform.position);
-                Vector3 contactPointTarget = lethalBotPos;
+                Vector3 contactPointTarget = lethalBotController.playerCollider.ClosestPoint(shotgunPosition);
                 if (Vector3.Angle(shotgunForward, contactPointTarget - shotgunPosition) < 30f
                     && !Physics.Linecast(shotgunPosition, contactPointTarget, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                 {

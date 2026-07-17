@@ -25,6 +25,7 @@ namespace LethalBots.AI.AIStates
         private bool allowRecharging;
         private HealMethod healMethod = HealMethod.None;
         private Coroutine? healCoroutine;
+        private GrabbableObject? droppedHeldItem;
 
         public HealPlayerState(AIState oldState, PlayerControllerB targetPlayer) : base(oldState)
         {
@@ -67,6 +68,12 @@ namespace LethalBots.AI.AIStates
             else if (Plugin.IsModUsualScrapLoaded && FindUsualScrapMedkit(heldItem))
             {
                 heldItem.UseItemOnClient(false);
+            }
+
+            // Don't forget about our dropped item
+            if (droppedHeldItem != null)
+            {
+                LethalBotAI.DictJustDroppedItems.Remove(droppedHeldItem); //HACKHACK: Since DropItem sets the just dropped item timer, we clear it here!
             }
             base.OnExitState(newState);
         }
@@ -381,6 +388,7 @@ namespace LethalBots.AI.AIStates
                 && (ai.HeldItem is not SprayPaintItem sprayPaintItem || !sprayPaintItem.isWeedKillerSprayBottle)
                 && ai.HeldItem.itemProperties.twoHanded)
             {
+                droppedHeldItem = ai.HeldItem;
                 npcController.Npc.DiscardHeldObject();
                 yield return null;
             }
@@ -494,6 +502,7 @@ namespace LethalBots.AI.AIStates
                 && !FindUsualScrapMedkit(ai.HeldItem)
                 && ai.HeldItem.itemProperties.twoHanded)
             {
+                droppedHeldItem = ai.HeldItem;
                 npcController.Npc.DiscardHeldObject();
                 yield return null;
             }
@@ -622,6 +631,7 @@ namespace LethalBots.AI.AIStates
             {
                 if (heldItem != null && heldItem.itemProperties.twoHanded)
                 {
+                    droppedHeldItem = heldItem;
                     npcController.Npc.DiscardHeldObject();
                     return;
                 }

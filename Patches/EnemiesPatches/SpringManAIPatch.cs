@@ -66,8 +66,9 @@ namespace LethalBots.Patches.EnemiesPatches
         public static void DoSpringAnimation_Postfix(SpringManAI __instance, bool springPopUp = false)
         {
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-            foreach (LethalBotAI? lethalBotAI in lethalBotAIs)
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
                 if (lethalBotController != null)
                 {

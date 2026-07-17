@@ -23,8 +23,9 @@ namespace LethalBots.Patches.EnemiesPatches
         public static void GiantSeePlayerEffect_Postfix(ForestGiantAI __instance, ref bool ___lostPlayerInChase)
         {
             LethalBotAI?[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-            foreach (LethalBotAI? lethalBotAI in lethalBotAIs)
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 PlayerControllerB? lethalBotController = lethalBotAI?.NpcController.Npc;
                 if (lethalBotController != null 
                     && !lethalBotController.isPlayerDead

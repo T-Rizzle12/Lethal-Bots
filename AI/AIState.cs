@@ -1863,8 +1863,9 @@ namespace LethalBots.AI
         protected EnemyAI? FindNearbyJester()
         {
             RoundManager instanceRM = RoundManager.Instance;
-            foreach (EnemyAI enemy in instanceRM.SpawnedEnemies)
+            for (int i = 0; i < instanceRM.SpawnedEnemies.Count; i++)
             {
+                EnemyAI enemy = instanceRM.SpawnedEnemies[i];
                 if (enemy == null || enemy.isEnemyDead)
                 {
                     continue;

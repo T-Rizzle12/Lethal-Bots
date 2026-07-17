@@ -47,8 +47,9 @@ namespace LethalBots.Patches.MapPatches
         {
             PlayerControllerB lethalBotController;
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-            foreach (LethalBotAI? lethalBotAI in lethalBotAIs)
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 lethalBotController = lethalBotAI.NpcController.Npc;
 
                 if (!__instance.localPlayerInPassengerSeat && !__instance.localPlayerInControl)

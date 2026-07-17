@@ -92,6 +92,7 @@
     <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" ExcludeAssets="runtime" />
     <PackageReference Include="BepInEx.Core" Version="5.*" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" PrivateAssets="all" />
+    <PackageReference Include="etherealemil-UsualScrap" Version="2.0.4" Publicize="true" />
     <PackageReference Include="Evaisa.LethalLib" Version="1.2.0" />
     <PackageReference Include="Lost.Compat.NullabilityAttributes" Version="0.0.4" PrivateAssets="all" />
     <PackageReference Include="MillieTheSilly-SuperEclipse" Version="0.1.0" />
@@ -100,6 +101,7 @@
     <PackageReference Include="Rune580.Mods.LethalCompany.InputUtils" Version="0.7.13" />
     <PackageReference Include="Tomatobird-AutoRevive" Version="0.4.0" Publicize="true" />
     <PackageReference Include="UnityEngine.Modules" Version="6000.2.12" IncludeAssets="compile" />
+    <PackageReference Include="Zigzag-SelfSortingStorage" Version="1.5.1" Publicize="true" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
@@ -115,6 +117,7 @@
   <ItemGroup>
     <Folder Include="lib\mods\" />
     <Folder Include="lib\LCv64\" />
+    <Folder Include="Example Voicepack\" />
   </ItemGroup>
   <ItemGroup>
 	<!-- 
@@ -196,20 +199,17 @@
 	<Reference Include="ReservedItemSlotCore">
 	  <HintPath>lib\mods\ReservedItemSlotCore.dll</HintPath>
 	</Reference>
-	<Reference Include="DawnLib">
+	<Reference Include="DawnLib" Publicize="true">
 		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.dll</HintPath>
 	</Reference>
-	<Reference Include="DawnLib-Dusk">
+	<Reference Include="DawnLib-Dusk" Publicize="true">
 		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.dusk.dll</HintPath>
 	</Reference>
-	<Reference Include="DawnLib-Interfaces">
+	<Reference Include="DawnLib-Interfaces" Publicize="true">
 		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.interfaces.dll</HintPath>
 	</Reference>
-	<Reference Include="DawnLib-Compatability">
+	<Reference Include="DawnLib-Compatability" Publicize="true">
 		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.compatibility.dll</HintPath>
-	</Reference>
-	<Reference Include="UsualScrap">
-		<HintPath>lib\mods\UsualScrap.dll</HintPath>
 	</Reference>
 	<Reference Include="Tomatobird.AutoRevive">
 		<HintPath>lib\mods\Tomatobird.AutoRevive.dll</HintPath>

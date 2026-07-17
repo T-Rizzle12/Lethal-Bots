@@ -25,6 +25,7 @@ using LethalBots.Patches.ModPatches.ModelRplcmntAPI;
 using LethalBots.Patches.ModPatches.MoreEmotes;
 using LethalBots.Patches.ModPatches.Peepers;
 using LethalBots.Patches.ModPatches.ReviveCompany;
+using LethalBots.Patches.ModPatches.SelfSortingStorage;
 using LethalBots.Patches.ModPatches.ShowCapacity;
 using LethalBots.Patches.ModPatches.TooManyEmotes;
 using LethalBots.Patches.ModPatches.UsualScrap;
@@ -78,6 +79,7 @@ namespace LethalBots
     [BepInDependency(LCAutoRevive.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(Super_Eclipse.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(Const.NAVMESHINCOMPANYREDUX_GUID, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(SelfSortingStorage.Plugin.GUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         // Please don't use the MyPluginInfo class for the GUID, my mod is
@@ -116,6 +118,7 @@ namespace LethalBots
         internal static bool IsModAutoReviveLoaded = false;
         internal static bool IsModSuperEclipseLoaded = false;
         internal static bool IsModNavmeshInCompanyReduxLoaded = false;
+        internal static bool IsModSelfSortingStorageLoaded = false;
         private readonly Harmony _harmony = new(ModGUID);
 
         private void Awake()
@@ -317,6 +320,7 @@ namespace LethalBots
             IsModAutoReviveLoaded = IsModLoaded(LCAutoRevive.MyPluginInfo.PLUGIN_GUID);
             IsModSuperEclipseLoaded = IsModLoaded(Super_Eclipse.MyPluginInfo.PLUGIN_GUID);
             IsModNavmeshInCompanyReduxLoaded = IsModLoaded(Const.NAVMESHINCOMPANYREDUX_GUID);
+            IsModSelfSortingStorageLoaded = IsModLoaded(SelfSortingStorage.Plugin.GUID);
 
             bool isModMoreEmotesLoaded = IsModLoaded(Const.MOREEMOTES_GUID);
             bool isModBetterEmotesLoaded = IsModLoaded(Const.BETTEREMOTES_GUID);
@@ -458,6 +462,10 @@ namespace LethalBots
             {
                 _harmony.PatchAll(typeof(AutoRevivePlayerPatch));
                 _harmony.PatchAll(typeof(LethalBotAutoReviveHelper));
+            }
+            if (IsModSelfSortingStorageLoaded)
+            {
+                SelfSortingStoragePatch.InitSingleton();
             }
         }
 

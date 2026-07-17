@@ -62,8 +62,9 @@ namespace LethalBots.Patches.EnemiesPatches
                     {
                         // Minor optimization, only create array if we are actually going to use it!
                         LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-                        foreach (var lethalBotAI in lethalBotAIs) 
+                        for (int i = 0; i < lethalBotAIs.Length; i++) 
                         {
+                            LethalBotAI? lethalBotAI = lethalBotAIs[i];
                             PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
                             if (IsPlayerMoving(lethalBotController) && CheckLineOfSightForPlayer(__instance, lethalBotController, 70f, 60, 1))
                             {
@@ -104,8 +105,9 @@ namespace LethalBots.Patches.EnemiesPatches
 
                     // Got to make sure bots are considered as valid targets as well!
                     LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-                    foreach (var lethalBotAI in lethalBotAIs) 
+                    for (int i = 0; i < lethalBotAIs.Length; i++) 
                     {
+                        LethalBotAI? lethalBotAI = lethalBotAIs[i];
                         PlayerControllerB? lethalBotController = lethalBotAI?.NpcController?.Npc;
                         if (IsPlayerMoving(lethalBotController) && CheckLineOfSightForPlayer(__instance, lethalBotController, 70f, 25, 1))
                         {
