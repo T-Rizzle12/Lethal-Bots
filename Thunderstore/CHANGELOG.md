@@ -1,5 +1,64 @@
 # Changelog
 
+## 11.0.0 2026-7-17
+Hey everyone, I decided to take the time to add some quality of life features that were requested.
+
+WARNING: Some config options were renamed and may be reset back to default.
+
+# Bot Quota System and Late Join Improvements
+This was something I had wanted to do for a while.<br/>
+The current bot spawning system need you to use a chat command or land the ship.<br/>
+The new quota system will try to keep the set number of players in the server. <br/>
+This means as players leave your lobby, more bots will join once you return to orbit. This closes #103 
+
+As for late join improvements, if a player attempts to join the game and there are no open player slots, a bot will automatically leave the game to open a slot for them.
+- Replaced MaxBotsAllowedToSpawn with Player Quota system.
+- Bots auto-join/leave to maintain player quota if enabled
+- Improved bot spawn/kick logic
+- Bots will automatically be kicked for joining human players when the lobby is full
+
+# Chat Command Improvements
+Before, you could only get bots to follow you, search for scrap, and change their suit using the key binds. This was pretty bad for controller and VR players, so they have also been made as chat commands.
+- Added some new chat and voice commands for bots to make them follow, search for scrap, and change their suit.
+
+## Hold Position Command
+This was a heavily requested feature and I'm glad to finally add it. There were already voice lines for it, so I implemented them as well.
+- Added Hold Position command, bots can now be ordered to stay in place where they are at. Bots holding position will automatically return to the ship if it gets late out.
+
+# Better Custom Voicepack Support
+This is another long requested improvement. You will no longer have to guide your friends on how to install your custom voicepack. You can create your own voicepack and have Lethal Bots recognize it automatically. A template has been added to the Lethal Bot's GitHub repository to make is easy to create one.
+- Change AudioManager to support new custom voicepack folder structure and added logging for legacy folder detection. Closes #115
+- Added an Example Voicepack template with README, Thunderstore manifest, and icon.
+- Minor directory/file handling improvements throughout.
+
+# Partial Self Sorting Storage Support
+This request has been open for a while now and I finally found a good way to implement it. Closes #37 <br/>
+WARNING: Items placed in the self sorting storage will LOSE their blacklisted status. This is a limitation on my part and there isn't much I can do to fix it on my end. <br/>
+NOTE: To compensate, bots will never sell items stored in the Self Sorting Storage <br/>
+- Add partial support for Self Sorting Storage mod. Bots will pickup and use, but not sell stored items
+
+# Bug Fixes
+As always, there are more bugs to fix, so let get on with em.
+- Fixed the bots being slightly in the floor in the ship
+- Fixed a few edge cases for player/bot counts failing to network
+- Fixed a logic error in the PanikState that caused bots to sometimes fail to find a safe path to flee to
+- Fixed a logic error that caused bots transferring loot to auto decide to follow a human player while dropping loot off at the ship. Fixes #132 
+- Fixed voice commands not using the max voice range
+- Fixed some signal translator commands being registered as chat commands on accident
+- Hopefully fixed bots entering an infinite loop at the company building when there is a dead body. Hopefully fixed #131 
+
+# Misc Changes
+Just some changes that don't really fit anywhere else.
+- Added a proper hook to allow other modders register modded enemies
+- Updated AutoReviveSupport to the newest version
+- Minor improvements to bot item handling logic
+- Refactored a bunch of LethalBotAI array foreach loops to for loops for performance
+- Switched UsualScrap integration to NuGet package and removed direct DLL reference.
+- Added UsualScrap Candy Dispenser weapon support for bots. Yeah......I forgot to add it earlier..........
+- Updated some outdated config descriptions.
+- Removed redundant code
+- Made some more optimizations
+
 ## 10.3.0 2026-7-3
 Just some minor improvements and bug fixes.<br/>
 Change Log:
