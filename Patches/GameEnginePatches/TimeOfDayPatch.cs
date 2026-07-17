@@ -19,9 +19,10 @@ namespace LethalBots.Patches.GameEnginePatches
 
             // Grab all of the bots owned by the local client!
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-            foreach (var lethalBotAI in lethalBotAIs)
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
                 // Make sure the bot is vaild
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 if (lethalBotAI == null)
                 {
                     continue;

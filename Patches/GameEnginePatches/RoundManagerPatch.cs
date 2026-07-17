@@ -379,8 +379,10 @@ namespace LethalBots.Patches.GameEnginePatches
 
             // Update the dungeon for the newly added level!
             Dungeon dungeon = Object.FindObjectOfType<Dungeon>();
-            foreach (var lethalBotAI in LethalBotManager.Instance.GetLethalBotAIs())
+            LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotAIs();
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
                 if (lethalBotController != null 
                     && (lethalBotController.isPlayerControlled

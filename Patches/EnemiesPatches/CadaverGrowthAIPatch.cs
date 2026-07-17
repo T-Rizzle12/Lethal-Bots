@@ -202,8 +202,9 @@ namespace LethalBots.Patches.EnemiesPatches
         {
             // Mimic the local player logic for bots as well.
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
-            foreach (var lethalBotAI in lethalBotAIs)
+            for (int botIndex = 0; botIndex < lethalBotAIs.Length; botIndex++)
             {
+                LethalBotAI? lethalBotAI = lethalBotAIs[botIndex];
                 if (lethalBotAI == null) continue;
 
                 PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;

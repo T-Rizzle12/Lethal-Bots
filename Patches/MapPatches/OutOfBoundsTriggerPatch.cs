@@ -71,8 +71,10 @@ namespace LethalBots.Patches.MapPatches
                     component.thisController.enabled = true;
 
                     // Make sure we move our inventory to the ship as well!
-                    foreach (var item in component.ItemSlots)
+                    GrabbableObject[] itemSlots = component.ItemSlots;
+                    for (int i = 0; i < itemSlots.Length; i++)
                     {
+                        GrabbableObject? item = itemSlots[i];
                         Transform? parentObject = item?.parentObject;
                         if (item != null && parentObject != null)
                         {

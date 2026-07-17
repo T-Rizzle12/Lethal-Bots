@@ -99,7 +99,7 @@ namespace LethalBots.Configs
                                             "Do bots automatically join and leave to keep the desired player quota? (Bots must be allowed in orbit!)");
 
             AllowBotsInOrbit = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMain,
-                                            "Allow bots in orbit (YOU MUST HAVE NavmeshInCompany!)",
+                                            "Allow bots in orbit (YOU MUST HAVE NavmeshInCompanyRedux!)",
                                             defaultVal: true,
                                             "Are bots allowed to stay on the ship while its in orbit? If false, bots will automatically leave and rejoin between rounds.");
 

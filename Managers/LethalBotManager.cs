@@ -4119,8 +4119,9 @@ namespace LethalBots.Managers
             bool isOutside = isPlayerBot != null ? isPlayerBot.isOutside : !player.isInsideFactory;
             int areaMask = isPlayerBot != null ? isPlayerBot.agent.areaMask : NavMesh.AllAreas;
             NavMeshPath path = new NavMeshPath();
-            foreach (var entrance in LethalBotAI.EntrancesTeleportArray)
+            for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
             {
+                EntranceTeleport? entrance = LethalBotAI.EntrancesTeleportArray[i];
                 if (entrance == null) continue;
 
                 if (((isOutside && entrance.isEntranceToBuilding)
@@ -4614,7 +4615,7 @@ namespace LethalBots.Managers
         public void UpdateOwnershipOfBotServer(float deltaTime)
         {
             timerUpdateOwnershipOfBot += deltaTime;
-            if (timerUpdateOwnershipOfBot < 0.5 || !base.IsServer)
+            if (timerUpdateOwnershipOfBot < 0.5f || !base.IsServer)
             {
                 return;
             }
@@ -4868,8 +4869,9 @@ namespace LethalBots.Managers
             AllBotEndOfGameStats.Clear();
 
             // FIXME: Is there a better way of doing this, but this works for now!
-            foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
+            for (int i = 0; i < AllLethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = AllLethalBotAIs[i];
                 if (lethalBotAI == null
                     || lethalBotAI.NpcController == null)
                 {
@@ -4922,8 +4924,10 @@ namespace LethalBots.Managers
                                 lethalBotController.thisController.enabled = true;
 
                                 // Make sure we move our inventory to the ship as well!
-                                foreach (var item in lethalBotController.ItemSlots)
+                                GrabbableObject[] itemSlots = lethalBotController.ItemSlots;
+                                for (int j = 0; j < itemSlots.Length; j++)
                                 {
+                                    GrabbableObject? item = itemSlots[j];
                                     Transform? parentObject = item?.parentObject;
                                     if (item != null && parentObject != null)
                                     {

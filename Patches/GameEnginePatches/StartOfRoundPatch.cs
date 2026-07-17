@@ -221,8 +221,10 @@ namespace LethalBots.Patches.GameEnginePatches
         [HarmonyPostfix]
         static void SuckLocalPlayerOutOfShipDoor_PostFix(StartOfRound __instance)
         {
-            foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal())
+            LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI lethalBotAI = lethalBotAIs[i];
                 PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
                 if (lethalBotController != null)
                 {
@@ -273,8 +275,10 @@ namespace LethalBots.Patches.GameEnginePatches
         static void DetectVoiceChatAmplitude_Postfix(StartOfRound __instance)
         {
             // Just like the base game, we need to broadcast the bot's voice amplitude!
-            foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal())
+            LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI lethalBotAI = lethalBotAIs[i];
                 PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
                 if (lethalBotController != null)
                 {

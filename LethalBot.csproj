@@ -92,6 +92,7 @@
     <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" ExcludeAssets="runtime" />
     <PackageReference Include="BepInEx.Core" Version="5.*" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" PrivateAssets="all" />
+    <PackageReference Include="etherealemil-UsualScrap" Version="2.0.4" Publicize="true" />
     <PackageReference Include="Evaisa.LethalLib" Version="1.2.0" />
     <PackageReference Include="Lost.Compat.NullabilityAttributes" Version="0.0.4" PrivateAssets="all" />
     <PackageReference Include="MillieTheSilly-SuperEclipse" Version="0.1.0" />
@@ -208,9 +209,6 @@
 	</Reference>
 	<Reference Include="DawnLib-Compatability" Publicize="true">
 		<HintPath>lib\mods\com.github.teamxiaolan.dawnlib.compatibility.dll</HintPath>
-	</Reference>
-	<Reference Include="UsualScrap">
-		<HintPath>lib\mods\UsualScrap.dll</HintPath>
 	</Reference>
 	<Reference Include="Tomatobird.AutoRevive">
 		<HintPath>lib\mods\Tomatobird.AutoRevive.dll</HintPath>
