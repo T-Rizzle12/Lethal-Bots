@@ -162,6 +162,7 @@ namespace LethalBots.Constants
         public static readonly string[] LEAD_THE_WAY_COMMANDS = { "lead the way", "search for scrap" };
         public static readonly string[] CHANGE_SUIT_COMMANDS = { "change suit", "change your suit", "change your outfit" };
         public static readonly string[] WAIT_HERE_COMMANDS = { "wait here", "stay here" };
+        public static readonly string[] DROP_HELD_ITEM_COMMANDS = { "drop your held item", "drop it" };
 
         // Mission Control State Consts
         public const string ROUTE_MOON_COMMAND = "route"; // keeps "route" as the only trigger word to avoid accidental triggering

@@ -20,6 +20,7 @@ using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.InputSystem.HID;
 using UsualScrap.Behaviors;
+using UsualScrap.Patches;
 
 namespace LethalBots.AI.AIStates
 {
@@ -441,15 +442,59 @@ namespace LethalBots.AI.AIStates
         {
             if (defibUnit is DefibrillatorScript defibrillator)
             {
-                FieldInfo permaDeathRuleField = AccessTools.Field(typeof(DefibrillatorScript), "PermaDeathRule");
-                if ((bool)permaDeathRuleField.GetValue(defibrillator) == false)
+                // Do we need to do the PermaDeath checks
+                if (!defibrillator.PermaDeathRule)
                 {
                     return true;
                 }
+
+                // Welp, let go through the list
                 DeadBodyInfo deadBodyInfo = playerToRevive.deadBody;
                 if (deadBodyInfo != null)
                 {
-                    return deadBodyInfo.causeOfDeath != CauseOfDeath.Snipping && !deadBodyInfo.detachedHead;
+                    // Kinda hard to defib a player with no head
+                    if (deadBodyInfo.detachedHead || deadBodyInfo.detachedHeadObject != null)
+                    {
+                        Plugin.LogDebug("US - This corpse has no head!");
+                        return false;
+                    }
+
+                    // Make sure its not an invalid death type!
+                    if (Deathtracker.DeathAnimations.TryGetValue(deadBodyInfo.playerObjectId, out var value))
+                    {
+                        bool flag;
+                        switch (value)
+                        {
+                            case -1:
+                            case 1:
+                            case 2:
+                            case 6:
+                            case 7:
+                            case 8:
+                            case 9:
+                                flag = true;
+                                break;
+                            default:
+                                flag = false;
+                                break;
+                        }
+
+                        if (flag)
+                        {
+                            Plugin.LogDebug("US - This corpse can't be saved. What a mess.");
+                            return false;
+                        }
+                    }
+
+                    // Check for contaminated dead bodies
+                    if (Deathtracker.BurstCorpses.Contains(deadBodyInfo.playerObjectId) 
+                        || Deathtracker.SpiderWebbedBodies.Contains(deadBodyInfo.playerObjectId))
+                    {
+                        Plugin.LogDebug("US - This corpse is infected. Nasty.");
+                        return false;
+                    }
+
+                    return true;
                 }
             }
             return false;

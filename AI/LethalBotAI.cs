@@ -4911,7 +4911,7 @@ namespace LethalBots.AI
                 // Get grabbable object infos
                 // NOTE: This also functions as a null check!
                 GrabbableObject? grabbableObject = LethalBotManager.grabbableObjectsInMap[i];
-                if (grabbableObject is not RagdollGrabbableObject deadBody)
+                if (grabbableObject == null || grabbableObject is not RagdollGrabbableObject deadBody)
                 {
                     //Plugin.LogInfo("Body is null!");
                     continue;

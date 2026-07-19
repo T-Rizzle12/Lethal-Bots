@@ -385,15 +385,9 @@ namespace LethalBots.AI.AIStates
 
                 // Check if we are still close enough!
                 Vector3 targetPos = EnemyCollider != null ? EnemyCollider.bounds.center : this.CurrentEnemy.eye.position;
-                if (!CanHitEnemyWithHeldItem(heldItem, targetPos))
-                {
-                    canHitTarget = false;
-                    yield return null;
-                    continue;
-                }
+                canHitTarget = CanHitEnemyWithHeldItem(heldItem, targetPos);
 
-                // We have a shot!
-                canHitTarget = true;
+                // Respect attack cooldown!
                 if (attackCooldownTimer.HasStarted() && !attackCooldownTimer.Elapsed())
                 {
                     yield return null;
@@ -402,7 +396,7 @@ namespace LethalBots.AI.AIStates
 
                 // ATTACK!
                 bool skipCooldown = false;
-                yield return weaponInfo.AttackWithWeapon(npcController.Npc, heldItem, CurrentEnemy, EnemyCollider, r => skipCooldown = r);
+                yield return weaponInfo.AttackWithWeapon(npcController.Npc, heldItem, CurrentEnemy, EnemyCollider, canHitTarget, r => skipCooldown = r);
 
                 // Did the weapon do its own cooldown, skip the default one then
                 if (skipCooldown) continue;

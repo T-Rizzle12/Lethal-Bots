@@ -142,10 +142,10 @@ namespace LethalBots.Utils.Helpers
             FootstepSurface[] footstepSurfaces = StartOfRound.Instance.footstepSurfaces;
             RaycastHit[] raycastHits = Physics.SphereCastAll(ray, radius, maxRange, hitMask, QueryTriggerInteraction.Collide);
             List<RaycastHit> orderdHitList = raycastHits.OrderBy((RaycastHit x) => x.distance).ToList();
-            for (int i = 0; i < raycastHits.Length; i++)
+            for (int i = 0; i < orderdHitList.Count; i++)
             {
                 // Check if we hit a wall!
-                var hitInfo = raycastHits[i];
+                var hitInfo = orderdHitList[i];
                 if (hitInfo.transform.gameObject.layer == 8 || hitInfo.transform.gameObject.layer == 11)
                 {
                     if (hitInfo.collider.isTrigger)
@@ -199,10 +199,18 @@ namespace LethalBots.Utils.Helpers
         /// <param name="weapon">The weapon the bot is using</param>
         /// <param name="currentEnemy">The enemy the bot is attempting to hit</param>
         /// <param name="enemyCollider">The collider of the enemy the bot is attepting to hit</param>
+        /// <param name="canHitTarget">Does the bot believe it can hit <paramref name="currentEnemy"/></param>
         /// <param name="setSkipCooldown">This is a delegate function passed in by <see cref="FightEnemyState.weaponAttackCoroutine"/> to allow you to skip setting the attack cooldown.<br/> This is for cases where you want to use your own cooldown.</param>
         /// <returns></returns>
-        public virtual IEnumerator AttackWithWeapon(PlayerControllerB lethalBotController, GrabbableObject weapon, EnemyAI currentEnemy, Collider? enemyCollider, Action<bool> setSkipCooldown)
+        public virtual IEnumerator AttackWithWeapon(PlayerControllerB lethalBotController, GrabbableObject weapon, EnemyAI currentEnemy, Collider? enemyCollider, bool canHitTarget, Action<bool> setSkipCooldown)
         {
+            // Will we hit our target?
+            if (!canHitTarget)
+            {
+                yield return null;
+                yield break;
+            }
+
             weapon.UseItemOnClient(true);
             yield return null;
             // holdButtonUse is true for the shovel!

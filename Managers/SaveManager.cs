@@ -86,6 +86,16 @@ namespace LethalBots.Managers
                             identitySaveFile.Status = (int)EnumStatusIdentity.Available; // Ensure status is set to Available, as it might be saved as ToSpawn
                         }
                     }
+                    else
+                    {
+                        foreach (IdentitySaveFile identitySaveFile in Save.IdentitiesSaveFiles)
+                        {
+                            if (identitySaveFile.Status == (int)EnumStatusIdentity.Spawned)
+                            {
+                                identitySaveFile.Status = (int)EnumStatusIdentity.ToSpawn; // Ensure status is set to ToSpawn, as it might be saved as Spawned
+                            }
+                        }
+                    }
                 }
                 else
                 {

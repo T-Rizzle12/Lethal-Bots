@@ -103,6 +103,7 @@ Also, the bot only checks for the keywords anywhere in the message, for example,
 </br>**follow me** - The bot will move to follow you
 </br>**lead the way** - The bot will go to search for scrap on its own
 </br>**change suit** - The bot will change its suit to the suit you are wearing
+</br>**drop your held item** - The bot will drop its held item. If the bot is not holding anything, it will swap to the next item in its inventory.
 </br>Please note that you must be in chat range for the bot to hear you. If you are too far away, the bot will not respond to your command.
 If both you and the bot have a walkie-talkie, you can use the command in the chat and the bot will respond to it.
 </br>Please note that these are also voice commands, but they require you to only say the word unlike how they work as said in the chat.

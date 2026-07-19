@@ -1117,20 +1117,31 @@ namespace LethalBots.Managers
         {
             // Only run some of this on the server
             StartOfRound instanceSOR = StartOfRound.Instance;
-            if (IsServer && !isSpawningBots.Value)
+            if (IsServer 
+                && !isSpawningBots.Value 
+                && !NetworkManager.ShutdownInProgress)
             {
                 if (sendPlayerCountUpdate.Value)
                 {
                     // Check and update the amount of dead and living players
+                    int connectedPlayerCount = 0;
                     int livingPlayerCount = 0;
-                    foreach (PlayerControllerB playerControllerB in instanceSOR.allPlayerScripts)
+                    for (int i = 0; i < instanceSOR.allPlayerScripts.Length; i++)
                     {
-                        if (playerControllerB.isPlayerControlled && !playerControllerB.isPlayerDead)
+                        PlayerControllerB playerControllerB = instanceSOR.allPlayerScripts[i];
+                        if (playerControllerB.isPlayerControlled || playerControllerB.isPlayerDead)
                         {
-                            livingPlayerCount++;
+                            connectedPlayerCount++;
+                            if (!playerControllerB.isPlayerDead)
+                            {
+                                livingPlayerCount++;
+                            }
                         }
                     }
-                    SendNewPlayerCountServerRpc(instanceSOR.connectedPlayersAmount, livingPlayerCount, GameNetworkManager.Instance.connectedPlayers);
+
+                    // Send new player count.
+                    // NOTE: We subtract one from the connectedPlayerCount as connectedPlayersAmount is not supposed to incude the host player
+                    SendNewPlayerCountServerRpc(Mathf.Max(connectedPlayerCount - 1, 0), livingPlayerCount, GameNetworkManager.Instance.connectedPlayers);
                 }
                 // If we are in orbit, mantain the bot quota.
                 // NOTE: This only works if bots are allowed in orbit
@@ -1149,7 +1160,7 @@ namespace LethalBots.Managers
                         int desiredQuotaAmount = Mathf.Min(Plugin.Config.PlayerQuota.Value, instanceSOR.allPlayerScripts.Length); // Number of players to keep on the server
 
                         // Check if there are too MANY players
-                        if (connectedPlayersAmount > desiredQuotaAmount && connectedBotAmount > 0)
+                        if (AreTooManyBots(connectedPlayersAmount, connectedBotAmount, desiredQuotaAmount) && connectedBotAmount > 0)
                         {
                             // Go through every spawned bot
                             for (int i = 0; i < AllLethalBotAIs.Length; i++) 
@@ -1172,7 +1183,7 @@ namespace LethalBots.Managers
                             }
                         }
                         // Check if there are too FEW players
-                        else if (connectedPlayersAmount < desiredQuotaAmount)
+                        else if (AreTooFewBots(connectedPlayersAmount, connectedBotAmount, desiredQuotaAmount))
                         {
                             // Make sure the NavMesh is built
                             EnsureShipNavMeshBuilt();
@@ -1197,6 +1208,11 @@ namespace LethalBots.Managers
                             }
                         }
                     }
+                }
+                // If we are not in orbit, keep reseting the quota timer
+                else
+                {
+                    maintainQuotaTimer.Start(1.0f); // Check every second
                 }
             }
 
@@ -2202,7 +2218,7 @@ namespace LethalBots.Managers
             StartOfRound.Instance.ClientPlayerList[lethalBotController.actualClientId] = (int)lethalBotController.playerClientId;
 
             // Send player count update
-            if (IsServer || IsHost)
+            if (IsServer)
             {
                 // Make sure we sync the bot's level
                 HUDManager.Instance.SyncPlayerLevelServerRpc((int)lethalBotController.playerClientId, lethalBotAI.LethalBotIdentity.Level, true);
@@ -2675,6 +2691,38 @@ namespace LethalBots.Managers
             }
         }
 
+        /// <summary>
+        /// Checks if the given number of <paramref name="connectedPlayersAmount"/> and <paramref name="connectedBotAmount"/> are greater than the given <paramref name="desiredQuotaAmount"/>
+        /// </summary>
+        /// <returns></returns>
+        private bool AreTooFewBots(int connectedPlayersAmount, int connectedBotAmount, int desiredQuotaAmount)
+        {
+            switch (Plugin.Config.QuotaType.Value)
+            {
+                case EnumQuotaType.Fill:
+                    return connectedBotAmount < desiredQuotaAmount;
+                case EnumQuotaType.Normal:
+                default:
+                    return connectedPlayersAmount < desiredQuotaAmount;
+            }
+        }
+
+        /// <summary>
+        /// Checks if the given number of <paramref name="connectedPlayersAmount"/> and <paramref name="connectedBotAmount"/> are less than the given <paramref name="desiredQuotaAmount"/>
+        /// </summary>
+        /// <returns></returns>
+        private bool AreTooManyBots(int connectedPlayersAmount, int connectedBotAmount, int desiredQuotaAmount)
+        {
+            switch (Plugin.Config.QuotaType.Value)
+            {
+                case EnumQuotaType.Fill:
+                    return connectedBotAmount > desiredQuotaAmount;
+                case EnumQuotaType.Normal:
+                default:
+                    return connectedPlayersAmount > desiredQuotaAmount;
+            }
+        }
+
         #endregion
 
         #region Signal Translator, Chat Messages, and Voice Chat Handling
@@ -2688,8 +2736,9 @@ namespace LethalBots.Managers
             // Make the message case insensitive!
             message = message.Trim().ToLower();
 
-            foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
+            for (int i = 0; i < AllLethalBotAIs.Length; i++)
             {
+                LethalBotAI lethalBotAI = AllLethalBotAIs[i];
                 if (lethalBotAI == null
                     || !lethalBotAI.NpcController.Npc.isPlayerControlled
                     || lethalBotAI.State == null)
@@ -2971,8 +3020,9 @@ namespace LethalBots.Managers
                 }
             }
 
-            foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
+            for (int i = 0; i < AllLethalBotAIs.Length; i++)
             {
+                LethalBotAI lethalBotAI = AllLethalBotAIs[i];
                 PlayerControllerB? botController = lethalBotAI?.NpcController?.Npc;
                 if (lethalBotAI == null
                     || botController == null
@@ -3024,8 +3074,9 @@ namespace LethalBots.Managers
             // Make the message case insensitive!
             message = message.Trim().ToLower();
 
-            foreach (LethalBotAI lethalBotAI in AllLethalBotAIs)
+            for (int i = 0; i < AllLethalBotAIs.Length; i++)
             {
+                LethalBotAI lethalBotAI = AllLethalBotAIs[i];
                 PlayerControllerB? botController = lethalBotAI?.NpcController?.Npc;
                 if (lethalBotAI == null 
                     || botController == null
@@ -3836,6 +3887,13 @@ namespace LethalBots.Managers
                 return;
             }
 
+            // Don't do this if the lobby is closing
+            if (NetworkManager.ShutdownInProgress)
+            {
+                Plugin.LogInfo($"Skipping player count update. Server is shutting down.");
+                return;
+            }
+
             StartOfRound instanceSOR = StartOfRound.Instance;
             int oldPlayerCount = instanceSOR.connectedPlayersAmount;
             int oldLivingPlayerCount = instanceSOR.livingPlayers;
@@ -3850,8 +3908,10 @@ namespace LethalBots.Managers
             Plugin.LogInfo($"[Server] Old Num of Living Players {oldLivingPlayerCount} -> {instanceSOR.livingPlayers}");
             Plugin.LogInfo($"[Server] Real Players Count: {AllRealPlayersCount}");
 
+            // Reset Quota Timer
+            maintainQuotaTimer.Start(1.0f); // Check every second
+
             // Send the updated values to all clients
-            sendPlayerCountUpdate.Value = false;
             SendNewPlayerCountClientRpc(numConnectedPlayers, numLivingPlayers, numRealPlayers);
         }
 
@@ -3866,8 +3926,18 @@ namespace LethalBots.Managers
         private void SendNewPlayerCountClientRpc(int numConnectedPlayers, int numLivingPlayers, int numRealPlayers)
         {
             // The host already updated these values, no need to do it again
-            if (IsServer || IsHost)
+            if (IsServer)
             {
+                // Reset Quota Timer
+                maintainQuotaTimer.Start(1.0f); // Check every second
+                sendPlayerCountUpdate.Value = false; // Mark it updated for other clients
+                return;
+            }
+
+            // Don't do this if the lobby is closing
+            if (NetworkManager.ShutdownInProgress)
+            {
+                Plugin.LogInfo($"Skipping player count update. Server is shutting down.");
                 return;
             }
 
@@ -5138,7 +5208,10 @@ namespace LethalBots.Managers
 
             // Setup our navmesh prefab
             GameObject? enviormentObject = GameObject.Find("Environment");
-            shipNavMeshInstance ??= Object.Instantiate(GetShipNavPrefab());
+            if (shipNavMeshInstance == null)
+            {
+                shipNavMeshInstance = Object.Instantiate(GetShipNavPrefab());
+            }
             shipNavMeshInstance.SetActive(true);
             shipNavMeshInstance.transform.SetParent(StartOfRound.Instance.elevatorTransform, true);
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 12.0.0 2026-7-18
+Back again with a not so minor update. I made some requested changes to the Quota system. I also updated the bot's Usual Scrap support as well! Oh and fixed some bugs, as always.
+- Added QuotaType config to allow users to change how the bot quota system decides how many bots to keep in the lobby
+- Introduced "drop held item" chat command for bots
+- Added support for Sledgehammer and Blowtorch from Usual Scrap
+- Updated Usual Scrap revive logic to be up to date with its new changes
+- Fixed some issues with the player count being desynced. (This also happend if you disconnected and opened another save file.
+- Fixed some potentially null ref errors
+- Improved the Bot Weapon API. THIS INCLUDES BREAKING CHANGES. WeaponInfo.AttackWithWeapon has a new parameter and will always be called, even if the bot doesn't believe it can hit its target.
+
 ## 11.0.0 2026-7-17
 Hey everyone, I decided to take the time to add some quality of life features that were requested.
 
