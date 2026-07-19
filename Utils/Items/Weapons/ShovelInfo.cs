@@ -16,11 +16,7 @@ namespace LethalBots.Utils.Items.Weapons
 
         public override float GetWeaponAttackInterval(GrabbableObject weapon)
         {
-            if (weapon is Shovel)
-            {
-                return 0.78f; // Speed for shovels
-            }
-            return base.GetWeaponAttackInterval(weapon);
+            return 0.78f; // Speed for shovels
         }
 
         public override void GetWeaponAttackInfo(GrabbableObject weapon, PlayerControllerB lethalBotController, out Ray ray, out float maxFOV, out float radius, out float maxRange, out LayerMask hitMask)

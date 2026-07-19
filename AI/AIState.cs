@@ -303,11 +303,6 @@ namespace LethalBots.AI
                 if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController, isVoice: isVoice, allowNonOwner: true))
                 {
                     // Yay, we found a vaild bot, have the bot follow the player who sent the message!
-                    if (lethalBotAI.IsSpawningAnimationRunning())
-                    {
-                        return true;
-                    }
-
                     EnumAIStates currentBotState = state.GetAIState();
                     if (lethalBotAI.OwnerClientId != playerWhoSentMessage.actualClientId
                         || !lethalBotAI.IsFollowingLocalPlayer())
@@ -405,6 +400,39 @@ namespace LethalBots.AI
                     });
 
                     lethalBotAI.State = new HoldPositionState(state, lethalBotAI.NpcController.Npc.transform.position);
+                }
+                return true;
+            }));
+
+            // A player asked us to drop our held item
+            ChatCommandsManager.RegisterGlobalCommand(new ChatCommand(Const.DROP_HELD_ITEM_COMMANDS, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            {
+                if (state.IsBotBeingAddressed(playerWhoSentMessage, out var lethalBotController, isVoice: isVoice, allowNonOwner: true))
+                {
+                    // Yay, we found a vaild bot, have the bot drop its currently held item.
+                    if (!lethalBotAI.AreHandsFree())
+                    {
+                        // Bot drop item
+                        lethalBotController.DiscardHeldObject();
+                    }
+                    // If we still have stuff in our inventory,
+                    // we should swap to it in case the player wants us to drop it!
+                    else if (lethalBotAI.HasSomethingInInventory())
+                    {
+                        GrabbableObject? itemOnlySlot = lethalBotController.ItemOnlySlot;
+                        if (itemOnlySlot != null)
+                        {
+                            lethalBotAI.SwitchItemSlotsAndSync(Const.RESERVED_EQUIPMENT_SLOT);
+                        }
+                        GrabbableObject?[] itemSlots = lethalBotController.ItemSlots;
+                        for (int i = 0; i < itemSlots.Length; i++)
+                        {
+                            if (itemSlots[i] != null)
+                            {
+                                lethalBotAI.SwitchItemSlotsAndSync(i);
+                            }
+                        }
+                    }
                 }
                 return true;
             }));

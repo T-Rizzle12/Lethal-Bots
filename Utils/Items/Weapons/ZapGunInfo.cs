@@ -81,8 +81,15 @@ namespace LethalBots.Utils.Items.Weapons
             return false;
         }
 
-        public override IEnumerator AttackWithWeapon(PlayerControllerB lethalBotController, GrabbableObject weapon, EnemyAI currentEnemy, Collider? enemyCollider, Action<bool> setSkipCooldown)
+        public override IEnumerator AttackWithWeapon(PlayerControllerB lethalBotController, GrabbableObject weapon, EnemyAI currentEnemy, Collider? enemyCollider, bool canHitTarget, Action<bool> setSkipCooldown)
         {
+            // Will we hit our target?
+            if (!canHitTarget)
+            {
+                yield return null;
+                yield break;
+            }
+
             if (weapon is PatcherTool patcherTool)
             {
                 Transform shockingTarget = lethalBotController.shockingTarget;

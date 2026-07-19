@@ -25,6 +25,7 @@ namespace LethalBots.Configs
     {
         // Bot settings
         [SyncedEntryField] public SyncedEntry<int> PlayerQuota;
+        [SyncedEntryField] public SyncedEntry<EnumQuotaType> QuotaType;
         [SyncedEntryField] public SyncedEntry<bool> BotsAutoJoin;
         [SyncedEntryField] public SyncedEntry<bool> AllowBotsInOrbit;
         [SyncedEntryField] public SyncedEntry<bool> ShowBillboardStateIndicator;
@@ -90,8 +91,13 @@ namespace LethalBots.Configs
             PlayerQuota = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMain,
                                            "Player Quota",
                                            defaultValue: ConfigConst.DEFAULT_MAX_BOTS_AVAILABLE,
-                                           new ConfigDescription("How many players should Lethal Bots try to keep in the lobby? \n If there are less players than the set value, bots will automatically join. \n If there are more players than the set value, bots will automatically be kicked. \n This respects max lobby size. \n Be aware of possible performance problems when more than ~16 bots spawned",
+                                           new ConfigDescription("How many players should Lethal Bots try to keep in the lobby? \n This respects max lobby size. \n Be aware of possible performance problems when more than ~16 bots spawned",
                                                                  new AcceptableValueRange<int>(ConfigConst.MIN_BOTS_AVAILABLE, ConfigConst.MAX_BOTS_AVAILABLE)));
+
+            QuotaType = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMain,
+                                            "Quota Type",
+                                            defaultVal: EnumQuotaType.Normal,
+                                            "How should the Player Quota be used? \n NORMAL: Maintains the total number of players (humans + bots) at the configured quota. \n FILL: Maintains exactly the configured number of bots, regardless of how many human players are connected.");
 
             BotsAutoJoin = cfg.BindSyncedEntry(ConfigConst.ConfigSectionMain,
                                             "Bots Auto Join",
