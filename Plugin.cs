@@ -42,6 +42,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.AI;
 using Object = UnityEngine.Object;
 
 namespace LethalBots
@@ -233,6 +234,7 @@ namespace LethalBots
             _harmony.PatchAll(typeof(RoundManagerPatch));
             _harmony.PatchAll(typeof(SoundManagerPatch));
             _harmony.PatchAll(typeof(StartOfRoundPatch));
+            _harmony.PatchAll(typeof(NavMeshPatch));
 
             // Npc
             _harmony.PatchAll(typeof(EnemyAIPatch));

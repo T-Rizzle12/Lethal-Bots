@@ -19,6 +19,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.AI;
 using static UnityEngine.InputSystem.InputRemoting;
 using Random = UnityEngine.Random;
 
@@ -551,6 +552,39 @@ namespace LethalBots.AI
                 return true;
             }
             return null;
+        }
+
+        /// <summary>
+        /// This helper applies the preset area costs for the bots<br/>
+        /// This is called by <see cref="LethalBotAI.SetAgent(bool)"/> and <see cref="LethalBotAI.DoAIInterval"/> by default.
+        /// </summary>
+        /// <remarks>
+        /// This can be overriden by other AI states who want different path costs for certain area types
+        /// </remarks>
+        public virtual void SetAreaCostsForBot()
+        {
+            // Make sure the agent is enabled before setting area costs
+            NavMeshAgent agent = ai.agent;
+            if (agent.enabled && agent.isOnNavMesh)
+            {
+                // 10 times the pathing cost for water!
+                int waterArea = NavMesh.GetAreaFromName("Water");
+                agent.SetAreaCost(waterArea, 10f);
+
+                // High path cost for enemy only area
+                // NOTE: I can't tell the bots to not path here, or they could break on some custom moons!
+                int enemyOnlyArea = NavMesh.GetAreaFromName("EnemiesOnly");
+                agent.SetAreaCost(enemyOnlyArea, 100f);
+
+                // 5 times the pathing cost for landmines!
+                agent.SetAreaCost(Const.LETHAL_BOT_LANDMINE_NAVAREA, 5f);
+
+                // High path cost for quicksand
+                agent.SetAreaCost(Const.LETHAL_BOT_QUICKSAND_NAVAREA, 100f);
+
+                // TODO: Make bridge cost dynamic for bots
+                agent.SetAreaCost(Const.LETHAL_BOT_BRIDGE_NAVAREA, 5f);
+            }
         }
 
         /// <summary>

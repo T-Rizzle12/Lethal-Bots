@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.Serialization;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -60,31 +61,31 @@ namespace LethalBots.Patches.GameEnginePatches
             objectManager.AddComponent<ItemsManager>();
 
             // NetworkBehaviours
-            objectManager = Object.Instantiate(PluginManager.Instance.TerminalManagerPrefab);
-            if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
-            {
-                objectManager.GetComponent<NetworkObject>().Spawn();
-            }
-
-            objectManager = Object.Instantiate(PluginManager.Instance.SaveManagerPrefab);
-            if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
-            {
-                objectManager.GetComponent<NetworkObject>().Spawn();
-            }
-
-            objectManager = Object.Instantiate(PluginManager.Instance.GroupManagerPrefab);
-            if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
-            {
-                objectManager.GetComponent<NetworkObject>().Spawn();
-            }
-
-            objectManager = Object.Instantiate(PluginManager.Instance.LethalBotManagerPrefab);
-            if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
-            {
-                objectManager.GetComponent<NetworkObject>().Spawn();
-            }
+            Scene scene = __instance.gameObject.scene;
+            SpawnNetworkPrefab(PluginManager.Instance.TerminalManagerPrefab, scene);
+            SpawnNetworkPrefab(PluginManager.Instance.SaveManagerPrefab, scene);
+            SpawnNetworkPrefab(PluginManager.Instance.GroupManagerPrefab, scene);
+            SpawnNetworkPrefab(PluginManager.Instance.LethalBotManagerPrefab, scene);
 
             Plugin.LogDebug("... Managers started");
+        }
+
+        /// <summary>
+        /// Helper function that creates and spawns the given network prefab
+        /// </summary>
+        /// <param name="prefab"></param>
+        /// <param name="scene"></param>
+        private static void SpawnNetworkPrefab(GameObject prefab, Scene scene)
+        {
+            // Make sure the prefab is valid
+            if (prefab == null) return;
+
+            // Create and spawn our prefab
+            GameObject objectManager = (GameObject)Object.Instantiate(prefab, scene);
+            if (NetworkManager.Singleton.IsServer)
+            {
+                objectManager.GetComponent<NetworkObject>().Spawn(destroyWithScene: true);
+            }
         }
 
         /// <summary>

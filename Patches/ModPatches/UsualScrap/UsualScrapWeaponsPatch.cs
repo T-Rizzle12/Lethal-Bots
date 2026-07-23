@@ -24,6 +24,11 @@ namespace LethalBots.Patches.ModPatches.UsualScrap
 
         private class CrowbarInfo : WeaponInfo
         {
+            public override float GetWeaponAttackInterval(GrabbableObject weapon)
+            {
+                return 0.78f; // As found in the source code
+            }
+
             public override float GetAttackRangeForWeapon(GrabbableObject weapon)
             {
                 return 2f; // Same as the shovel
@@ -51,6 +56,11 @@ namespace LethalBots.Patches.ModPatches.UsualScrap
 
         private class SizableScissorsInfo : WeaponInfo
         {
+            public override float GetWeaponAttackInterval(GrabbableObject weapon)
+            {
+                return 0.78f; // As found in the source code
+            }
+
             public override float GetAttackRangeForWeapon(GrabbableObject weapon)
             {
                 return 2f; // Same as the shovel
@@ -78,6 +88,11 @@ namespace LethalBots.Patches.ModPatches.UsualScrap
 
         private class CandyDispenserInfo : WeaponInfo
         {
+            public override float GetWeaponAttackInterval(GrabbableObject weapon)
+            {
+                return 0.78f; // As found in the source code
+            }
+
             public override float GetAttackRangeForWeapon(GrabbableObject weapon)
             {
                 return 2f; // Same as the shovel
@@ -105,6 +120,11 @@ namespace LethalBots.Patches.ModPatches.UsualScrap
 
         private class SledgehammerInfo : WeaponInfo
         {
+            public override float GetWeaponAttackInterval(GrabbableObject weapon)
+            {
+                return 0.78f; // As found in the source code
+            }
+
             public override float GetAttackRangeForWeapon(GrabbableObject weapon)
             {
                 return 2f; // Same as the shovel

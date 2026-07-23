@@ -42,14 +42,7 @@ namespace LethalBots.Managers
             // Prevent multiple instances of the GroupManager
             if (Instance != null && Instance != this)
             {
-                if (Instance.IsSpawned && Instance.IsServer)
-                {
-                    Instance.NetworkObject.Despawn(destroy: true);
-                }
-                else
-                {
-                    Destroy(Instance.gameObject);
-                }
+                Destroy(Instance.gameObject); // Ok, for some reason this works.......I'm just not going to question it.......
             }
 
             Instance = this;

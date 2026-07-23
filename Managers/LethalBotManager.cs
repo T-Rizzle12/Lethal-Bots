@@ -295,14 +295,7 @@ namespace LethalBots.Managers
             // Prevent multiple instances of the main bot manager
             if (Instance != null && Instance != this)
             {
-                if (Instance.IsSpawned && Instance.IsServer)
-                {
-                    Instance.NetworkObject.Despawn(destroy: true);
-                }
-                else
-                {
-                    Destroy(Instance.gameObject);
-                }
+                Destroy(Instance.gameObject); // Ok, for some reason this works.......I'm just not going to question it.......
             }
 
             // Super useful code for checking if players have the same hashes!
@@ -347,7 +340,6 @@ namespace LethalBots.Managers
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-
             blacklistedNetworkList.OnListChanged += OnBlacklistChanged;
             LootTransferPlayersNetworkList.OnListChanged += OnLootTransferPlayersChanged;
             missionControlPlayerNetworkVar.OnValueChanged += OnMissionControllerChanged;
@@ -369,12 +361,22 @@ namespace LethalBots.Managers
             blacklistedNetworkList.OnListChanged -= OnBlacklistChanged;
             LootTransferPlayersNetworkList.OnListChanged -= OnLootTransferPlayersChanged;
             missionControlPlayerNetworkVar.OnValueChanged -= OnMissionControllerChanged;
+
+            // Destory the ShipNavMesh as well!
+            if (shipNavMeshInstance != null)
+            {
+                Object.Destroy(shipNavMeshInstance);
+            }
         }
 
         // If we get destroyed for some reason destory the NavMesh object we created as well!
         public override void OnDestroy()
         {
+            Plugin.LogDebug("OnDestroy called for LethalBotManager.");
             base.OnDestroy();
+            Plugin.Config.InitialSyncCompleted -= Config_InitialSyncCompleted;
+
+            // Destory the ShipNavMesh as well!
             if (shipNavMeshInstance != null)
             {
                 Object.Destroy(shipNavMeshInstance);
@@ -463,14 +465,16 @@ namespace LethalBots.Managers
             // Instead we now use a dictionary for its fast lookups.
             timerUpdateHoardingBugItems = 0f;
             DictHoardingBugItems.Clear();
-            if (HoarderBugAI.HoarderBugItems.Count == 0)
+            List<HoarderBugItem> hoarderBugItems = HoarderBugAI.HoarderBugItems;
+            if (hoarderBugItems.Count == 0)
             {
                 return; // We are done here, no items to update!
             }
 
             // Loop through all hoarding bug items and add them to the dictionary for fast lookups by the bots!
-            foreach (var item in HoarderBugAI.HoarderBugItems)
+            for (int i = 0; i < hoarderBugItems.Count; i++)
             {
+                HoarderBugItem? item = hoarderBugItems[i];
                 if (item != null
                     && item.itemGrabbableObject != null)
                 {
@@ -5671,8 +5675,9 @@ namespace LethalBots.Managers
         {
             LethalBotAI lethalBotTryingToTalk = AllLethalBotAIs[idLethalBotTryingToTalk];
 
-            foreach (var lethalBotAI in AllLethalBotAIs)
+            for (int i = 0; i < AllLethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = AllLethalBotAIs[i];
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
                     || lethalBotAI.NpcController == null
@@ -5984,8 +5989,9 @@ namespace LethalBots.Managers
         {
             orderedLethalBotDistanceList.Clear();
 
-            foreach (LethalBotAI? lethalBotAI in lethalBotAIs)
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 if (lethalBotAI == null
                     || lethalBotAI.isEnemyDead
                     || lethalBotAI.NpcController == null

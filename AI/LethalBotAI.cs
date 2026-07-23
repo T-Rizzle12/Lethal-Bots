@@ -469,7 +469,7 @@ namespace LethalBots.AI
                 {
                     NpcController.Npc.currentFootstepSurfaceIndex = LethalBotManager.Instance.DictTagSurfaceIndex[groundRaycastHit.collider.tag];
                 }*/
-                lethalBotController.GetCurrentMaterialStandingOn();
+                //lethalBotController.GetCurrentMaterialStandingOn();
                 lethalBotController.CalculateGroundNormal();
             }
         }
@@ -816,7 +816,7 @@ namespace LethalBots.AI
             }
 
             // Update area costs for bots
-            SetAreaCostsForBot();
+            State.SetAreaCostsForBot();
 
             // Do the AI calculation behaviour for the current state
             State.DoAI();
@@ -827,7 +827,6 @@ namespace LethalBots.AI
             OpenDoorIfNeeded();
 
             // Ladders
-            // FIXME: This causes TOO many issues to be used right now!
             UseLadderIfNeeded();
 
             // Copy movement
@@ -2264,7 +2263,7 @@ namespace LethalBots.AI
         /// Enables or disables the bot's <see cref="EnemyAI.agent"/>
         /// </summary>
         /// <remarks>
-        /// This calls <see cref="SetAreaCostsForBot"/> internally
+        /// This calls <see cref="AIState.SetAreaCostsForBot"/> internally
         /// </remarks>
         /// <param name="enabled"></param>
         public void SetAgent(bool enabled)
@@ -2274,7 +2273,7 @@ namespace LethalBots.AI
                 agent.enabled = enabled;
                 if (enabled)
                 {
-                    SetAreaCostsForBot();
+                    State?.SetAreaCostsForBot();
                 }
             }
         }
@@ -2282,26 +2281,10 @@ namespace LethalBots.AI
         /// <summary>
         /// This helper applies the preset area costs for the bots
         /// </summary>
+        [Obsolete("This has been moved to AIState. Call this using the bot's current AIState instead.")]
         public void SetAreaCostsForBot()
         {
-            // Make sure the agent is enabled before setting area costs
-            if (agent.enabled && agent.isOnNavMesh)
-            {
-                // 10 times the pathing cost for water!
-                int waterArea = NavMesh.GetAreaFromName("Water");
-                agent.SetAreaCost(waterArea, 10f);
-
-                // High path cost for enemy only area
-                // NOTE: I can't tell the bots to not path here, or they could break on some custom moons!
-                int enemyOnlyArea = NavMesh.GetAreaFromName("EnemiesOnly");
-                agent.SetAreaCost(enemyOnlyArea, 100f);
-
-                // 5 times the pathing cost for landmines!
-                agent.SetAreaCost(Const.LETHAL_BOT_LANDMINE_NAVAREA, 5f);
-
-                // High path cost for quicksand
-                agent.SetAreaCost(Const.LETHAL_BOT_QUICKSAND_NAVAREA, 100f);
-            }
+            State?.SetAreaCostsForBot();
         }
 
         /// <summary>
@@ -3790,7 +3773,7 @@ namespace LethalBots.AI
                 yield return null;
             }
             agent.CompleteOffMeshLink();
-            TeleportAgentAIAndBody(endPos);
+            TeleportAgentAIAndBody(endPos, skipNavMeshCheck: true); // We should already be on the NavMesh......
             Plugin.LogDebug($"Completed off mesh link without interruption, position: {base.transform.position}");
             offMeshLinkCoroutine = null;
         }
@@ -3811,13 +3794,13 @@ namespace LethalBots.AI
                     {
                         Plugin.LogDebug($"Warping agent to start position at {currentOffMeshLinkData.startPos}");
                         if (warpToEnd)
-                            TeleportAgentAIAndBody(currentOffMeshLinkData.startPos);
+                            TeleportAgentAIAndBody(currentOffMeshLinkData.startPos, skipNavMeshCheck: true);
                     }
                     else
                     {
                         Plugin.LogDebug($"Warping agent to end position at {currentOffMeshLinkData.endPos}");
                         if (warpToEnd)
-                            TeleportAgentAIAndBody(currentOffMeshLinkData.endPos);
+                            TeleportAgentAIAndBody(currentOffMeshLinkData.endPos, skipNavMeshCheck: true);
                     }
                 }
                 else
@@ -4100,48 +4083,6 @@ namespace LethalBots.AI
         }
 
         /// <summary>
-        /// Check if the lethalBot has the given object of the entered type in its inventory.
-        /// </summary>
-        /// <remarks>
-        /// WARNING: Its not recommened to use this function, you are better off using <see cref="HasGrabbableObjectInInventory(GrabbableObject?, out int)"/>
-        /// </remarks>
-        /// <param name="typeOfObject">The type of the object in the inventory!</param>
-        /// <param name="objectSlot">The slot of where the object was found at! Is set to <see cref="Const.INVALID_ITEM_SLOT"/> if item was not found!</param>
-        /// <returns>true: the bot has the object in its inventory, false: the bot doesn't have the given object in its inventory</returns>
-        [Obsolete("Its not recommended to use this function as it has been superseded by HasGrabbableObjectInInventory(Func<GrabbableObject, bool>, out int). Use that instead!", error: true)]
-        public bool HasGrabbableObjectInInventory(Type typeOfObject, out int objectSlot)
-        {
-            // Check if the lethalBot is holding the object
-            objectSlot = Const.INVALID_ITEM_SLOT;
-            if (typeOfObject.IsInstanceOfType(HeldItem))
-            {
-                objectSlot = NpcController.Npc.currentItemSlot;
-                return true;
-            }
-
-            // Check if the lethalBot has the object in its item only slot
-            GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
-            if (itemOnlySlot != null && typeOfObject.IsInstanceOfType(itemOnlySlot))
-            {
-                objectSlot = Const.RESERVED_EQUIPMENT_SLOT;
-                return true;
-            }
-
-            // Check if the lethalBot has the object in its inventory
-            int index = 0;
-            foreach (var item in NpcController.Npc.ItemSlots)
-            {
-                if (typeOfObject.IsInstanceOfType(item))
-                {
-                    objectSlot = index;
-                    return true;
-                }
-                index++;
-            }
-            return false;
-        }
-
-        /// <summary>
         /// Check if the lethalBot has an object that fulfills the given function in its inventory.
         /// </summary>
         /// <remarks>
@@ -4163,7 +4104,7 @@ namespace LethalBots.AI
 
             // Check if the lethalBot has the object in its item only slot
             GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
-            if (itemOnlySlot != null && objectPredicate(itemOnlySlot))
+            if (itemOnlySlot != null && itemOnlySlot != heldItem && objectPredicate(itemOnlySlot))
             {
                 objectSlot = Const.RESERVED_EQUIPMENT_SLOT;
                 return true;
@@ -4174,7 +4115,7 @@ namespace LethalBots.AI
             for (int index = 0; index < itemSlots.Length; index++)
             {
                 var item = itemSlots[index];
-                if (item != null && objectPredicate(item))
+                if (item != null && heldItem != item && objectPredicate(item))
                 {
                     objectSlot = index;
                     return true;
@@ -4395,10 +4336,11 @@ namespace LethalBots.AI
             // Make sure this is in our inventory!
             if (HasGrabbableObjectInInventory(grabbableObject, out int itemSlot))
             {
+                string itemName = grabbableObject.itemProperties.itemName;
                 GrabbableObject? itemOnlySlot = NpcController.Npc.ItemOnlySlot;
                 if (itemOnlySlot != null
                     && itemSlot != Const.RESERVED_EQUIPMENT_SLOT
-                    && itemOnlySlot.itemProperties.itemName == grabbableObject.itemProperties.itemName)
+                    && itemOnlySlot.itemProperties.itemName == itemName)
                 {
                     objectSlot = Const.RESERVED_EQUIPMENT_SLOT;
                     return true;
@@ -4412,7 +4354,7 @@ namespace LethalBots.AI
 
                     // Lets see if they are the same!
                     GrabbableObject item = itemSlots[i];
-                    if (item != null && item.itemProperties.itemName == grabbableObject.itemProperties.itemName)
+                    if (item != null && item.itemProperties.itemName == itemName)
                     {
                         objectSlot = i;
                         return true;
