@@ -583,7 +583,9 @@ namespace LethalBots.AI
                 agent.SetAreaCost(Const.LETHAL_BOT_QUICKSAND_NAVAREA, 100f);
 
                 // TODO: Make bridge cost dynamic for bots
-                agent.SetAreaCost(Const.LETHAL_BOT_BRIDGE_NAVAREA, 5f);
+                // TODO: Improve this to actually assess the bridge's state and change our cost using that information.
+                float bridgeCost = ShouldReturnToShip() ? 1f : 5f;
+                agent.SetAreaCost(Const.LETHAL_BOT_BRIDGE_NAVAREA, bridgeCost);
             }
         }
 

@@ -333,6 +333,12 @@ namespace LethalBots.AI.AIStates
             // this is due to Zaprillator being marked as Internal! 
             if (Plugin.IsModZaprillatorLoaded)
             {
+                // Let us teleport the body back to the ship
+                if (isMissionController)
+                {
+                    return false;
+                }
+
                 // Do we have the zap gun in our inventory
                 if (lethalBotAI.HasGrabbableObjectInInventory(FindZapGun, out _))
                 {
@@ -411,6 +417,12 @@ namespace LethalBots.AI.AIStates
             // Check if the player can be revived using Usual Scrap defibrillator
             if (Plugin.IsModUsualScrapLoaded)
             {
+                // Let us teleport the body back to the ship
+                if (isMissionController)
+                {
+                    return false;
+                }
+
                 // Do we have the defibrillator in our inventory
                 if (lethalBotAI.HasGrabbableObjectInInventory(FindDefibUnit, out int defibSlot))
                 {
@@ -460,35 +472,20 @@ namespace LethalBots.AI.AIStates
                     }
 
                     // Make sure its not an invalid death type!
-                    if (Deathtracker.DeathAnimations.TryGetValue(deadBodyInfo.playerObjectId, out var value))
+                    if (Deathtracker.DeathAnimations.TryGetValue(deadBodyInfo.playerObjectId, out var value) && (((uint)(value - 1) <= 1u || (uint)(value - 6) <= 3u) ? true : false))
                     {
-                        bool flag;
-                        switch (value)
-                        {
-                            case -1:
-                            case 1:
-                            case 2:
-                            case 6:
-                            case 7:
-                            case 8:
-                            case 9:
-                                flag = true;
-                                break;
-                            default:
-                                flag = false;
-                                break;
-                        }
+                        Plugin.LogDebug("US - This corpse can't be saved. What a mess.");
+                        return false;
+                    }
 
-                        if (flag)
-                        {
-                            Plugin.LogDebug("US - This corpse can't be saved. What a mess.");
-                            return false;
-                        }
+                    // Make sure the cause of death isn't blacklisted
+                    if (Deathtracker.CausesOfDeath.TryGetValue(deadBodyInfo.playerObjectId, out var value2) && value2 == CauseOfDeath.Burning)
+                    {
+                        return false;
                     }
 
                     // Check for contaminated dead bodies
-                    if (Deathtracker.BurstCorpses.Contains(deadBodyInfo.playerObjectId) 
-                        || Deathtracker.SpiderWebbedBodies.Contains(deadBodyInfo.playerObjectId))
+                    if (Deathtracker.BurstCorpses.Contains(deadBodyInfo.playerObjectId) || Deathtracker.SpiderWebbedBodies.Contains(deadBodyInfo.playerObjectId))
                     {
                         Plugin.LogDebug("US - This corpse is infected. Nasty.");
                         return false;

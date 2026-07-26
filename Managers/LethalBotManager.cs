@@ -5674,7 +5674,7 @@ namespace LethalBots.Managers
         public bool DidAnLethalBotJustTalkedClose(int idLethalBotTryingToTalk)
         {
             LethalBotAI lethalBotTryingToTalk = AllLethalBotAIs[idLethalBotTryingToTalk];
-
+            Vector3 talkingBotPos = lethalBotTryingToTalk.NpcController.Npc.transform.position;
             for (int i = 0; i < AllLethalBotAIs.Length; i++)
             {
                 LethalBotAI? lethalBotAI = AllLethalBotAIs[i];
@@ -5693,7 +5693,7 @@ namespace LethalBots.Managers
                 }
 
                 if (lethalBotAI.LethalBotIdentity.Voice.IsTalking()
-                    && (lethalBotAI.NpcController.Npc.transform.position - lethalBotTryingToTalk.NpcController.Npc.transform.position).sqrMagnitude < VoicesConst.DISTANCE_HEAR_OTHER_BOTS * VoicesConst.DISTANCE_HEAR_OTHER_BOTS)
+                    && (lethalBotAI.NpcController.Npc.transform.position - talkingBotPos).sqrMagnitude < VoicesConst.DISTANCE_HEAR_OTHER_BOTS * VoicesConst.DISTANCE_HEAR_OTHER_BOTS)
                 {
                     return true;
                 }
