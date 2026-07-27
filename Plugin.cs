@@ -553,5 +553,11 @@ namespace LethalBots
         {
             Logger.LogError(errorLog);
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void LogFatal(string fatalLog)
+        {
+            Logger.LogFatal(fatalLog);
+        }
     }
 }

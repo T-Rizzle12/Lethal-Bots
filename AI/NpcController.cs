@@ -80,7 +80,6 @@ namespace LethalBots.AI
 
         public float DrowningTimer { set; get; } = 1f;
         private bool setFaceUnderwater;
-        private float syncUnderwaterInterval;
 
         private LookAtTarget oldLookAtTarget = new LookAtTarget();
         public LookAtTarget LookAtTarget { private set; get; } = new LookAtTarget();

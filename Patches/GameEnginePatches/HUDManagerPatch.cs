@@ -173,6 +173,40 @@ namespace LethalBots.Patches.GameEnginePatches
         }
 
         /// <summary>
+        /// A finalizer that is called to check if a human player has finished joining
+        /// </summary>
+        [HarmonyPatch("SyncAllPlayerLevelsClientRpc", new Type[] { typeof(int[]), typeof(bool[]) })]
+        [HarmonyFinalizer]
+        public static Exception SyncAllPlayerLevelsClientRpc_Finalizer(HUDManager __instance, Exception __exception)
+        {
+            // We can't see who finished connecting, but ClientHasFinishedJoiningServerRpc
+            // will check if the player who sent this message was actually joining
+            Plugin.LogInfo($"SyncAllPlayerLevelsClientRpc called by client with ID: {__instance.NetworkManager.LocalClientId}");
+            if (!__instance.IsServer)
+            {
+                LethalBotManager.Instance.ClientHasFinishedJoiningServerRpc(__instance.NetworkManager.LocalClientId);
+            }
+            return __exception;
+        }
+
+        /// <summary>
+        /// A finalizer that is called to check if a human player has finished joining
+        /// </summary>
+        [HarmonyPatch("SyncAllPlayerLevelsClientRpc", new Type[] { typeof(int[]), typeof(int) })]
+        [HarmonyFinalizer]
+        public static Exception SyncAllPlayerLevelsClientRpc2_Finalizer(HUDManager __instance, Exception __exception)
+        {
+            // We can't see who finished connecting, but ClientHasFinishedJoiningServerRpc
+            // will check if the player who sent this message was actually joining
+            Plugin.LogInfo($"SyncAllPlayerLevelsClientRpc2 called by client with ID: {__instance.NetworkManager.LocalClientId}");
+            if (!__instance.IsServer)
+            {
+                LethalBotManager.Instance.ClientHasFinishedJoiningServerRpc(__instance.NetworkManager.LocalClientId);
+            }
+            return __exception;
+        }
+
+        /// <summary>
         /// A prefix made to fix errors caused when <see cref="HUDManager.FillImageWithSteamProfile"/> is called for bots.
         /// </summary>
         /// <remarks>

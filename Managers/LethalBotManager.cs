@@ -2696,6 +2696,16 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
+        /// Helper rpc that is called by clients when they finish joining
+        /// </summary>
+        /// <param name="clientId"></param>
+        [ServerRpc(RequireOwnership = false)]
+        public void ClientHasFinishedJoiningServerRpc(ulong clientId)
+        {
+            EndHumanJoin(clientId);
+        }
+
+        /// <summary>
         /// Checks if the given number of <paramref name="connectedPlayersAmount"/> and <paramref name="connectedBotAmount"/> are greater than the given <paramref name="desiredQuotaAmount"/>
         /// </summary>
         /// <returns></returns>
