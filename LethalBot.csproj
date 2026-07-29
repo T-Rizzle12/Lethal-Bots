@@ -101,6 +101,7 @@
     <PackageReference Include="Rune580.Mods.LethalCompany.InputUtils" Version="0.7.13" />
     <PackageReference Include="Tomatobird-AutoRevive" Version="0.4.0" Publicize="true" />
     <PackageReference Include="UnityEngine.Modules" Version="6000.2.12" IncludeAssets="compile" />
+    <PackageReference Include="Zaggy1024-PathfindingLib" Version="2.4.1" Publicize="true" />
     <PackageReference Include="Zigzag-SelfSortingStorage" Version="1.5.1" Publicize="true" />
   </ItemGroup>
 

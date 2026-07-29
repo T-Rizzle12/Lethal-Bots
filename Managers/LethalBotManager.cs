@@ -11,6 +11,7 @@ using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.AutoRevive;
 using LethalBots.Patches.ModPatches.LethalPhones;
+using LethalBots.Patches.ModPatches.PathfindingLib;
 using LethalBots.Patches.ModPatches.SelfSortingStorage;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
@@ -5221,6 +5222,10 @@ namespace LethalBots.Managers
             //Plugin.LogDebug($"Before NavMesh vertices: {triangulation.vertices.Length}");
 
             // Setup our navmesh prefab
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.BeginNavMeshWrite();
+            }
             GameObject? enviormentObject = GameObject.Find("Environment");
             if (shipNavMeshInstance == null)
             {
@@ -5284,6 +5289,10 @@ namespace LethalBots.Managers
 
             // Mark mesh as active since BuildNavMesh calls AddData internally
             shipNavMeshActive = true;
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.EndNavMeshWrite();
+            }
         }
 
         /// <summary>
@@ -5304,9 +5313,12 @@ namespace LethalBots.Managers
             if (!shipNavMeshBuilt || shipNavMeshActive) return;
 
             Plugin.LogDebug($"Enabling ship NavMeshSurface object. Reason: {reason}");
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.BeginNavMeshWrite();
+            }
             shipNavMeshInstance?.SetActive(true);
             shipNavMeshSurface.enabled = true;
-            shipNavMeshSurface.AddData();
 
             // No need to do this anymore!
             if (disableNavMeshCoroutine != null)
@@ -5319,6 +5331,10 @@ namespace LethalBots.Managers
             landingShipNavObstacle?.height = Const.EPSILON;
             landingShipNavObstacle?.radius = Const.EPSILON;
             shipNavMeshActive = true;
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.EndNavMeshWrite();
+            }
         }
 
         public void DisableShipNavMesh(string reason = "Unknown")
@@ -5326,7 +5342,10 @@ namespace LethalBots.Managers
             if (!shipNavMeshBuilt || !shipNavMeshActive) return;
 
             Plugin.LogDebug($"Disabling ship NavMeshSurface object. Reason: {reason}");
-            shipNavMeshSurface.RemoveData();
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.BeginNavMeshWrite();
+            }
             shipNavMeshInstance?.SetActive(false);
             shipNavMeshSurface.enabled = false;
             
@@ -5364,6 +5383,11 @@ namespace LethalBots.Managers
                 }
             }
             #pragma warning restore CS0618 // Type or member is obsolete
+
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.EndNavMeshWrite();
+            }
         }
 
         private IEnumerator ReenableNavMeshBlockerDelayed()

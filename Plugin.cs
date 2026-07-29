@@ -23,6 +23,7 @@ using LethalBots.Patches.ModPatches.LethalPhones;
 using LethalBots.Patches.ModPatches.LethalProgression;
 using LethalBots.Patches.ModPatches.ModelRplcmntAPI;
 using LethalBots.Patches.ModPatches.MoreEmotes;
+using LethalBots.Patches.ModPatches.PathfindingLib;
 using LethalBots.Patches.ModPatches.Peepers;
 using LethalBots.Patches.ModPatches.ReviveCompany;
 using LethalBots.Patches.ModPatches.SelfSortingStorage;
@@ -81,6 +82,7 @@ namespace LethalBots
     [BepInDependency(Super_Eclipse.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(Const.NAVMESHINCOMPANYREDUX_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(SelfSortingStorage.Plugin.GUID, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(PathfindingLib.PathfindingLibPlugin.PluginGUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         // Please don't use the MyPluginInfo class for the GUID, my mod is
@@ -120,6 +122,7 @@ namespace LethalBots
         internal static bool IsModSuperEclipseLoaded = false;
         internal static bool IsModNavmeshInCompanyReduxLoaded = false;
         internal static bool IsModSelfSortingStorageLoaded = false;
+        internal static bool IsModPathfindingLibLoaded = false;
         private readonly Harmony _harmony = new(ModGUID);
 
         private void Awake()
@@ -323,6 +326,7 @@ namespace LethalBots
             IsModSuperEclipseLoaded = IsModLoaded(Super_Eclipse.MyPluginInfo.PLUGIN_GUID);
             IsModNavmeshInCompanyReduxLoaded = IsModLoaded(Const.NAVMESHINCOMPANYREDUX_GUID);
             IsModSelfSortingStorageLoaded = IsModLoaded(SelfSortingStorage.Plugin.GUID);
+            IsModPathfindingLibLoaded = IsModLoaded(PathfindingLib.PathfindingLibPlugin.PluginGUID);
 
             bool isModMoreEmotesLoaded = IsModLoaded(Const.MOREEMOTES_GUID);
             bool isModBetterEmotesLoaded = IsModLoaded(Const.BETTEREMOTES_GUID);
@@ -468,6 +472,11 @@ namespace LethalBots
             if (IsModSelfSortingStorageLoaded)
             {
                 SelfSortingStoragePatch.InitSingleton();
+            }
+            if (IsModPathfindingLibLoaded)
+            {
+                _harmony.PatchAll(typeof(PathfindingLibPatch));
+                PathfindingLibPatch.AddCustomAreaMasks();
             }
         }
 
