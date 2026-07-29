@@ -1,6 +1,7 @@
 ﻿using LethalBots.Enums;
 using LethalBots.NetworkSerializers;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace LethalBots.Constants
 {
@@ -287,6 +288,15 @@ namespace LethalBots.Constants
         public const int LETHAL_BOT_QUICKSAND_NAVAREA = 27;
         public const int LETHAL_BOT_BRIDGE_NAVAREA = 28;
         public const int LETHAL_BOT_ONLY_NAVAREA = 29; // This can be used to mark a navarea that only Lethal Bots are allowed to use!
+
+        // Cruiser NavMesh Related
+        // Say Hello to my little friend. Its an entirely custom NavSettings, just for the crusier!
+        // HACKHACK: Lets just say.....there is a major issue with NavMesh.CreateSettings()..........it returns a struct...
+        // This means I can't edit it at runtime........easily.....thankfully I have BepInEx.....so I can use some
+        // patches to bypass this. There was supposed to be an UpdateSettings binding, but it was commented out for some reason.
+        // The other option I have....well...is to do unsafe code and call the direct C++ binding instead......
+        // DEVNOTE: Looking at this again, my safest option would to add a Postfix to GetBuildSettings and modifying the struct!
+        public static readonly int LETHAL_BOT_CRUISER_NAV_SETTINGS_ID = NavMesh.CreateSettings().agentTypeID; // The rest of the settings are useless. Just grab the agent ID!
 
         // Mod specific
         public const short LETHAL_PHONES_NO_CALLER_ID = -1; // Lethal Phones uses this to indicate that there is no caller.

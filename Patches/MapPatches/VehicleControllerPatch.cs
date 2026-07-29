@@ -28,13 +28,13 @@ namespace LethalBots.Patches.MapPatches
             return __exception; // Let the original exception propagate!
         }
 
-        [HarmonyPatch("Start")]
-        [HarmonyPostfix]
-        static void Start_PostFix()
-        {
-            // Run our code
-            LethalBotManager.Instance.VehicleHasLanded();
-        }
+        //[HarmonyPatch("Start")]
+        //[HarmonyPostfix]
+        //static void Start_PostFix()
+        //{
+        //    // Run our code
+        //    LethalBotManager.Instance.VehicleHasLanded();
+        //}
 
         /// <summary>
         /// Patch for damaging the bots owned by client in vehicle

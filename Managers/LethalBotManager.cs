@@ -11,6 +11,7 @@ using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.AutoRevive;
 using LethalBots.Patches.ModPatches.LethalPhones;
+using LethalBots.Patches.ModPatches.PathfindingLib;
 using LethalBots.Patches.ModPatches.SelfSortingStorage;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
@@ -295,14 +296,7 @@ namespace LethalBots.Managers
             // Prevent multiple instances of the main bot manager
             if (Instance != null && Instance != this)
             {
-                if (Instance.IsSpawned && Instance.IsServer)
-                {
-                    Instance.NetworkObject.Despawn(destroy: true);
-                }
-                else
-                {
-                    Destroy(Instance.gameObject);
-                }
+                Destroy(Instance.gameObject); // Ok, for some reason this works.......I'm just not going to question it.......
             }
 
             // Super useful code for checking if players have the same hashes!
@@ -347,7 +341,6 @@ namespace LethalBots.Managers
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-
             blacklistedNetworkList.OnListChanged += OnBlacklistChanged;
             LootTransferPlayersNetworkList.OnListChanged += OnLootTransferPlayersChanged;
             missionControlPlayerNetworkVar.OnValueChanged += OnMissionControllerChanged;
@@ -369,12 +362,22 @@ namespace LethalBots.Managers
             blacklistedNetworkList.OnListChanged -= OnBlacklistChanged;
             LootTransferPlayersNetworkList.OnListChanged -= OnLootTransferPlayersChanged;
             missionControlPlayerNetworkVar.OnValueChanged -= OnMissionControllerChanged;
+
+            // Destory the ShipNavMesh as well!
+            if (shipNavMeshInstance != null)
+            {
+                Object.Destroy(shipNavMeshInstance);
+            }
         }
 
         // If we get destroyed for some reason destory the NavMesh object we created as well!
         public override void OnDestroy()
         {
+            Plugin.LogDebug("OnDestroy called for LethalBotManager.");
             base.OnDestroy();
+            Plugin.Config.InitialSyncCompleted -= Config_InitialSyncCompleted;
+
+            // Destory the ShipNavMesh as well!
             if (shipNavMeshInstance != null)
             {
                 Object.Destroy(shipNavMeshInstance);
@@ -463,14 +466,16 @@ namespace LethalBots.Managers
             // Instead we now use a dictionary for its fast lookups.
             timerUpdateHoardingBugItems = 0f;
             DictHoardingBugItems.Clear();
-            if (HoarderBugAI.HoarderBugItems.Count == 0)
+            List<HoarderBugItem> hoarderBugItems = HoarderBugAI.HoarderBugItems;
+            if (hoarderBugItems.Count == 0)
             {
                 return; // We are done here, no items to update!
             }
 
             // Loop through all hoarding bug items and add them to the dictionary for fast lookups by the bots!
-            foreach (var item in HoarderBugAI.HoarderBugItems)
+            for (int i = 0; i < hoarderBugItems.Count; i++)
             {
+                HoarderBugItem? item = hoarderBugItems[i];
                 if (item != null
                     && item.itemGrabbableObject != null)
                 {
@@ -2689,6 +2694,16 @@ namespace LethalBots.Managers
             {
                 Plugin.LogInfo($"Human player join finished. Pending joins: {_pendingHumanJoins.Count}");
             }
+        }
+
+        /// <summary>
+        /// Helper rpc that is called by clients when they finish joining
+        /// </summary>
+        /// <param name="clientId"></param>
+        [ServerRpc(RequireOwnership = false)]
+        public void ClientHasFinishedJoiningServerRpc(ulong clientId)
+        {
+            EndHumanJoin(clientId);
         }
 
         /// <summary>
@@ -5207,6 +5222,10 @@ namespace LethalBots.Managers
             //Plugin.LogDebug($"Before NavMesh vertices: {triangulation.vertices.Length}");
 
             // Setup our navmesh prefab
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.BeginNavMeshWrite();
+            }
             GameObject? enviormentObject = GameObject.Find("Environment");
             if (shipNavMeshInstance == null)
             {
@@ -5270,6 +5289,10 @@ namespace LethalBots.Managers
 
             // Mark mesh as active since BuildNavMesh calls AddData internally
             shipNavMeshActive = true;
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.EndNavMeshWrite();
+            }
         }
 
         /// <summary>
@@ -5290,9 +5313,12 @@ namespace LethalBots.Managers
             if (!shipNavMeshBuilt || shipNavMeshActive) return;
 
             Plugin.LogDebug($"Enabling ship NavMeshSurface object. Reason: {reason}");
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.BeginNavMeshWrite();
+            }
             shipNavMeshInstance?.SetActive(true);
             shipNavMeshSurface.enabled = true;
-            shipNavMeshSurface.AddData();
 
             // No need to do this anymore!
             if (disableNavMeshCoroutine != null)
@@ -5305,6 +5331,10 @@ namespace LethalBots.Managers
             landingShipNavObstacle?.height = Const.EPSILON;
             landingShipNavObstacle?.radius = Const.EPSILON;
             shipNavMeshActive = true;
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.EndNavMeshWrite();
+            }
         }
 
         public void DisableShipNavMesh(string reason = "Unknown")
@@ -5312,7 +5342,10 @@ namespace LethalBots.Managers
             if (!shipNavMeshBuilt || !shipNavMeshActive) return;
 
             Plugin.LogDebug($"Disabling ship NavMeshSurface object. Reason: {reason}");
-            shipNavMeshSurface.RemoveData();
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.BeginNavMeshWrite();
+            }
             shipNavMeshInstance?.SetActive(false);
             shipNavMeshSurface.enabled = false;
             
@@ -5350,6 +5383,11 @@ namespace LethalBots.Managers
                 }
             }
             #pragma warning restore CS0618 // Type or member is obsolete
+
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.EndNavMeshWrite();
+            }
         }
 
         private IEnumerator ReenableNavMeshBlockerDelayed()
@@ -5670,9 +5708,10 @@ namespace LethalBots.Managers
         public bool DidAnLethalBotJustTalkedClose(int idLethalBotTryingToTalk)
         {
             LethalBotAI lethalBotTryingToTalk = AllLethalBotAIs[idLethalBotTryingToTalk];
-
-            foreach (var lethalBotAI in AllLethalBotAIs)
+            Vector3 talkingBotPos = lethalBotTryingToTalk.NpcController.Npc.transform.position;
+            for (int i = 0; i < AllLethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = AllLethalBotAIs[i];
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
                     || lethalBotAI.NpcController == null
@@ -5688,7 +5727,7 @@ namespace LethalBots.Managers
                 }
 
                 if (lethalBotAI.LethalBotIdentity.Voice.IsTalking()
-                    && (lethalBotAI.NpcController.Npc.transform.position - lethalBotTryingToTalk.NpcController.Npc.transform.position).sqrMagnitude < VoicesConst.DISTANCE_HEAR_OTHER_BOTS * VoicesConst.DISTANCE_HEAR_OTHER_BOTS)
+                    && (lethalBotAI.NpcController.Npc.transform.position - talkingBotPos).sqrMagnitude < VoicesConst.DISTANCE_HEAR_OTHER_BOTS * VoicesConst.DISTANCE_HEAR_OTHER_BOTS)
                 {
                     return true;
                 }
@@ -5984,8 +6023,9 @@ namespace LethalBots.Managers
         {
             orderedLethalBotDistanceList.Clear();
 
-            foreach (LethalBotAI? lethalBotAI in lethalBotAIs)
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 if (lethalBotAI == null
                     || lethalBotAI.isEnemyDead
                     || lethalBotAI.NpcController == null

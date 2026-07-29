@@ -322,7 +322,7 @@ namespace LethalBots.Patches.MapPatches
                 {
                     lethalBotAI.agent.CompleteOffMeshLink();
                 }
-                lethalBotAI.TeleportLethalBot(ladderPosition, lethalBotAI.isOutside, allowInteractTrigger: true);
+                lethalBotAI.TeleportLethalBot(ladderPosition, lethalBotAI.isOutside, allowInteractTrigger: true, skipNavMeshCheck: true);
                 lethalBotAI.useLadderCoroutine = null;
             }
             //ladder.currentCooldownValue = ladder.cooldownTime;

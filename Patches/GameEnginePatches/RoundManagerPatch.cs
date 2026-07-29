@@ -4,6 +4,7 @@ using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Managers;
+using LethalBots.Patches.ModPatches.PathfindingLib;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using System.Collections;
@@ -30,37 +31,95 @@ namespace LethalBots.Patches.GameEnginePatches
         static void SpawnOutsideHazards_Postfix(RoundManager __instance)
         {
             // Filter out the water quicksand triggers since those are handled by safe path.
-            QuicksandTrigger[] quicksandArray = Object.FindObjectsByType<QuicksandTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            quicksandArray = quicksandArray.Where(quicksand => quicksand != null && !quicksand.isWater).ToArray();
-            if (quicksandArray.Length == 0)
-            {
-                return;
-            }
-
-            // Log what we are about to do!
-            Plugin.LogInfo("Adding NavMeshModifierVolume to the quicksand objects to override its path cost for bots!");
-
             bool shouldUpdateNavmesh = false;
             Vector3 colliderBuffer = new Vector3(0.8f, 0.2f, 0.8f); // Add a slight buffer to keep the bots from walking too close!
-            //List<NavMeshModifierVolume> modifiers = new List<NavMeshModifierVolume>();
-            foreach (var quicksand in quicksandArray)
+            QuicksandTrigger[] quicksandArray = Object.FindObjectsByType<QuicksandTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            quicksandArray = quicksandArray.Where(quicksand => quicksand != null && !quicksand.isWater).ToArray();
+            if (quicksandArray.Length > 0)
+            {
+                // Log what we are about to do!
+                Plugin.LogInfo("Adding NavMeshModifierVolume to the quicksand objects to override its path cost for bots!");
+
+                //List<NavMeshModifierVolume> modifiers = new List<NavMeshModifierVolume>();
+                foreach (var quicksand in quicksandArray)
+                {
+                    // Make sure its valid
+                    if (quicksand == null || quicksand.isWater) continue;
+
+                    // Change the bounds to contain where the quicksand is.
+                    Collider[] colliders = quicksand.gameObject.GetComponentsInChildren<Collider>();
+                    for (int i = 0; i < colliders.Length; i++)
+                    {
+                        Collider collider = colliders[i];
+                        if (collider != null)
+                        {
+                            // Add our proxy gameobject
+                            shouldUpdateNavmesh = true;
+                            GameObject navMeshModifierGameObject = new GameObject($"NavMeshModifier{i}");
+                            navMeshModifierGameObject.transform.SetParent(collider.transform, worldPositionStays: true);
+                            navMeshModifierGameObject.transform.localPosition = Vector3.zero;
+                            navMeshModifierGameObject.transform.localRotation = Quaternion.identity;
+                            navMeshModifierGameObject.transform.localScale = collider.transform.localScale;
+                            navMeshModifierGameObject.layer = LayerMask.NameToLayer("NavigationSurface");
+
+                            // Get the collider info
+                            Vector3 center, size;
+                            if (collider is BoxCollider boxCollider)
+                            {
+                                center = boxCollider.center;
+                                size = boxCollider.size;
+                            }
+                            else
+                            {
+                                Bounds colliderBounds = collider.bounds;
+                                center = colliderBounds.center;
+                                size = colliderBounds.size;
+                            }
+
+                            // Add the NavMeshVolume
+                            NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();
+                            navMeshModifier.area = Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+                            navMeshModifier.center = center;
+                            navMeshModifier.size = size + colliderBuffer;
+                            Plugin.LogInfo($"Added NavMeshModifierVolume to quicksand with center {navMeshModifier.center} and size {navMeshModifier.size}.");
+                            //Plugin.LogInfo($"Game Object Proxy Pos: {quicksand.transform.position}");
+                            //Plugin.LogInfo($"Game Object Proxy Rotation: {quicksand.transform.rotation}");
+                            //Plugin.LogInfo($"Quicksand Pos: {quicksand.transform.position}");
+                            //Plugin.LogInfo($"Quicksand Rotation: {quicksand.transform.rotation}");
+                            //Plugin.LogInfo($"Collider Pos: {boxCollider.transform.position}");
+                            //Plugin.LogInfo($"Collider Rotation: {boxCollider.transform.rotation}");
+                            //Plugin.LogInfo($"Modifier Pos: {navMeshModifier.transform.position}");
+                            //Plugin.LogInfo($"Modifier Rotation: {navMeshModifier.transform.rotation}");
+                            //Plugin.LogInfo($"isEnabled {navMeshModifier.isActiveAndEnabled}");
+                            //modifiers.Add(navMeshModifier);
+                        }
+                    }
+                }
+
+            }
+
+            // Go through all spawned bridges and mark them as such on the NavMesh
+            BridgeTrigger[] bridgeTriggers = Object.FindObjectsByType<BridgeTrigger>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            for (int i = 0; i < bridgeTriggers.Length; i++)
             {
                 // Make sure its valid
-                if (quicksand == null || quicksand.isWater) continue;
+                BridgeTrigger? bridgeTrigger = bridgeTriggers[i];
+                if (bridgeTrigger == null) continue;
 
                 // Change the bounds to contain where the quicksand is.
-                Collider[] colliders = quicksand.gameObject.GetComponentsInChildren<Collider>();
-                for (int i = 0; i < colliders.Length; i++)
+                Collider[] colliders = bridgeTrigger.gameObject.GetComponents<Collider>();
+                for (int j = 0; j < colliders.Length; j++)
                 {
-                    Collider collider = colliders[i];
+                    Collider collider = colliders[j];
                     if (collider != null)
                     {
                         // Add our proxy gameobject
                         shouldUpdateNavmesh = true;
-                        GameObject navMeshModifierGameObject = new GameObject($"NavMeshModifier{i}");
+                        GameObject navMeshModifierGameObject = new GameObject($"NavMeshModifier{j}");
                         navMeshModifierGameObject.transform.SetParent(collider.transform, worldPositionStays: true);
                         navMeshModifierGameObject.transform.localPosition = Vector3.zero;
                         navMeshModifierGameObject.transform.localRotation = Quaternion.identity;
+                        navMeshModifierGameObject.transform.localScale = collider.transform.localScale;
                         navMeshModifierGameObject.layer = LayerMask.NameToLayer("NavigationSurface");
 
                         // Get the collider info
@@ -79,16 +138,16 @@ namespace LethalBots.Patches.GameEnginePatches
 
                         // Add the NavMeshVolume
                         NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();
-                        navMeshModifier.area = Const.LETHAL_BOT_QUICKSAND_NAVAREA;
+                        navMeshModifier.area = Const.LETHAL_BOT_BRIDGE_NAVAREA;
                         navMeshModifier.center = center;
                         navMeshModifier.size = size + colliderBuffer;
-                        Plugin.LogInfo($"Added NavMeshModifierVolume to quicksand with center {navMeshModifier.center} and size {navMeshModifier.size}.");
-                        //Plugin.LogInfo($"Game Object Proxy Pos: {quicksand.transform.position}");
-                        //Plugin.LogInfo($"Game Object Proxy Rotation: {quicksand.transform.rotation}");
-                        //Plugin.LogInfo($"Quicksand Pos: {quicksand.transform.position}");
-                        //Plugin.LogInfo($"Quicksand Rotation: {quicksand.transform.rotation}");
-                        //Plugin.LogInfo($"Collider Pos: {boxCollider.transform.position}");
-                        //Plugin.LogInfo($"Collider Rotation: {boxCollider.transform.rotation}");
+                        Plugin.LogInfo($"Added NavMeshModifierVolume to bridge trigger with center {navMeshModifier.center} and size {navMeshModifier.size}.");
+                        //Plugin.LogInfo($"Game Object Proxy Pos: {bridgeTrigger.transform.position}");
+                        //Plugin.LogInfo($"Game Object Proxy Rotation: {bridgeTrigger.transform.rotation}");
+                        //Plugin.LogInfo($"Quicksand Pos: {bridgeTrigger.transform.position}");
+                        //Plugin.LogInfo($"Quicksand Rotation: {bridgeTrigger.transform.rotation}");
+                        //Plugin.LogInfo($"Collider Pos: {collider.transform.position}");
+                        //Plugin.LogInfo($"Collider Rotation: {collider.transform.rotation}");
                         //Plugin.LogInfo($"Modifier Pos: {navMeshModifier.transform.position}");
                         //Plugin.LogInfo($"Modifier Rotation: {navMeshModifier.transform.rotation}");
                         //Plugin.LogInfo($"isEnabled {navMeshModifier.isActiveAndEnabled}");
@@ -135,6 +194,10 @@ namespace LethalBots.Patches.GameEnginePatches
             yield return null;
 
             // Build our new mesh!
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.BeginNavMeshWrite();
+            }
             AsyncOperation asyncOperation = navMeshSurface.UpdateNavMesh(navMeshSurface.navMeshData);
             while (asyncOperation != null && !asyncOperation.isDone)
             {
@@ -147,6 +210,11 @@ namespace LethalBots.Patches.GameEnginePatches
             Plugin.LogDebug("Removed existing data.");
             navMeshSurface.AddData();
             Plugin.LogDebug("Added updated data.");
+
+            if (Plugin.IsModPathfindingLibLoaded)
+            {
+                PathfindingLibPatch.EndNavMeshWrite();
+            }
 
             // Let the user know what we did
             Plugin.LogDebug("Updated outside NavMesh.");
@@ -246,6 +314,10 @@ namespace LethalBots.Patches.GameEnginePatches
                     yield return new WaitForEndOfFrame(); // Just in case.....
 
                     // Build our new mesh!
+                    if (Plugin.IsModPathfindingLibLoaded)
+                    {
+                        PathfindingLibPatch.BeginNavMeshWrite();
+                    }
                     AsyncOperation asyncOperation = navMeshSurface.UpdateNavMesh(navMeshSurface.navMeshData);
                     while (asyncOperation != null && !asyncOperation.isDone)
                     {
@@ -258,6 +330,11 @@ namespace LethalBots.Patches.GameEnginePatches
                     Plugin.LogDebug("Removed existing data.");
                     navMeshSurface.AddData();
                     Plugin.LogDebug("Added updated data.");
+
+                    if (Plugin.IsModPathfindingLibLoaded)
+                    {
+                        PathfindingLibPatch.EndNavMeshWrite();
+                    }
                 }
             }
 
@@ -362,6 +439,82 @@ namespace LethalBots.Patches.GameEnginePatches
             // Disable the NavMesh before BakeDunGenNavMesh is called!
             LethalBotManager.Instance?.DisableShipNavMesh("Landing on a moon.");
         }
+
+        //[HarmonyPatch("BakeDunGenNavMesh")]
+        //[HarmonyTranspiler]
+        //static IEnumerable<CodeInstruction> BakeDunGenNavMesh_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        //{
+        //    var startIndex = -1;
+        //    var codes = new List<CodeInstruction>(instructions);
+
+        //    // Target property: array[i].thisNetworkObject.Despawn()
+        //    MethodInfo despawnMethod = AccessTools.Method(typeof(NetworkObject), "Despawn");
+        //    FieldInfo thisNetworkObjectField = AccessTools.Field(typeof(EnemyAI), "thisNetworkObject");
+
+        //    // Target function
+        //    MethodInfo shouldDespawnMethod = AccessTools.Method(typeof(RoundManagerPatch), "ShouldDespawn");
+
+        //    // ----------------------------------------------------------------------
+        //    for (var i = 0; i < codes.Count - 5; i++)
+        //    {
+        //        if (codes[i].opcode == OpCodes.Ldloc_0
+        //            && codes[i + 1].opcode == OpCodes.Ldloc_3
+        //            && codes[i + 2].opcode == OpCodes.Ldelem_Ref
+        //            && codes[i + 3].LoadsField(thisNetworkObjectField)
+        //            && codes[i + 4].opcode == OpCodes.Ldc_I4_1
+        //            && codes[i + 5].Calls(despawnMethod))
+        //        {
+        //            startIndex = i;
+        //            break;
+        //        }
+        //    }
+        //    if (startIndex > -1)
+        //    {
+        //        // Insert a conditional branch (if not ShouldDespawn then skip calling NetworkObject.Despawn)
+        //        //int endIndex = -1;
+        //        //for (int j = startIndex; j < codes.Count; j++)
+        //        //{
+        //        //    if (codes[j].Calls(despawnMethod))
+        //        //    {
+        //        //        endIndex = j;
+        //        //        break;
+        //        //    }
+        //        //}
+
+        //        //// Fall back to constant endIndex
+        //        //if (endIndex == -1)
+        //        //{
+        //        //    Plugin.LogError("Could not find despawn call!");
+        //        //    endIndex = startIndex + 5;
+        //        //}
+
+        //        // Create the label to skip to!
+        //        Label skipLabel = generator.DefineLabel();
+        //        codes[startIndex + 6].labels.Add(skipLabel);
+        //        //var nop = new CodeInstruction(OpCodes.Nop);
+        //        //nop.labels.Add(skipLabel);
+        //        //codes.Insert(endIndex + 1, nop);
+
+        //        // Insert new method call to our ShouldDespawn method
+        //        List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+        //        {
+        //            new CodeInstruction(OpCodes.Ldloc_0), // Load array
+        //            new CodeInstruction(OpCodes.Ldloc_3), // Load current loop index
+        //            new CodeInstruction(OpCodes.Ldelem_Ref), // Load the EnemyAI reference
+        //            new CodeInstruction(OpCodes.Call, shouldDespawnMethod), // Call method
+        //            new CodeInstruction(OpCodes.Brfalse, skipLabel)
+        //        };
+        //        codes.InsertRange(startIndex, codesToAdd);
+
+        //        startIndex = -1;
+        //    }
+        //    else
+        //    {
+        //        Plugin.LogWarning($"LethalBot.Patches.GameEnginePatches.BakeDunGenNavMesh_Transpiler could not skip interior NavMesh generation for Lethal Bot Crusier NavMesh!");
+        //    }
+
+        //    return codes.AsEnumerable();
+        //}
 
         /// <summary>
         /// Mark bots as finished loading the level as well

@@ -1578,8 +1578,7 @@ namespace LethalBots.AI.AIStates
                 && !deadBodyInfo.grabBodyObject.isHeld
                 && !ai.CheckProximityForEyelessDogs()
                 && !StartOfRound.Instance.shipInnerRoomBounds.bounds.Contains(deadBodyInfo.transform.position)
-                && (!RescueAndReviveState.IsAnyReviveModInstalled() || !IsBodyNearbyLivingPlayers(deadBodyInfo, 17f))
-                && !RescueAndReviveState.CanRevivePlayer(ai, player, true))
+                && (!RescueAndReviveState.IsAnyReviveModInstalled() || (!IsBodyNearbyLivingPlayers(deadBodyInfo, 17f) && !RescueAndReviveState.CanRevivePlayer(ai, player, true))))
             {
                 return true;
             }

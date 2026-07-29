@@ -495,6 +495,25 @@ namespace LethalBots.AI.AIStates
             return false;
         }
 
+        public override void SetAreaCostsForBot()
+        {
+            // Make sure the agent is enabled before setting area costs
+            NavMeshAgent agent = ai.agent;
+            if (agent.enabled && agent.isOnNavMesh)
+            {
+                // Set the default costs
+                base.SetAreaCostsForBot();
+
+                // 5 times the pathing cost for landmines!
+                // TODO: Maybe make bots not consider landmines when paniking?
+                //agent.SetAreaCost(Const.LETHAL_BOT_LANDMINE_NAVAREA, 5f);
+
+                // Change bridge cost back to default, we are running from something,
+                // we need all the distance we can get
+                agent.SetAreaCost(Const.LETHAL_BOT_BRIDGE_NAVAREA, 1f);
+            }
+        }
+
         public override void UseHeldItem()
         {
             GrabbableObject? heldItem = ai.HeldItem;

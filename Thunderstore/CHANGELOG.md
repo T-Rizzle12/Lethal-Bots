@@ -1,5 +1,26 @@
 # Changelog
 
+## 12.1.0 2026-7-28
+Hey everyone, just some more improvements for the bots. I'm releasing this a bit early since it contains two MAJOR bug fixes. More cruiser prep has been done including a custom NavMesh just for it. Do be warned that maps will take slightly longer to load since the game now has to make a NavMesh for the cruiser as well.
+
+Change Log:
+- Moved SetAreaCostsForBot to AIState to make it easier to override per state
+- Dynamically add NavMeshModifierVolumes for breakable bridges to control path costs on said bridges
+- Made bridge area cost dynamic. Bots will avoid bridges unless its the end of the day. NOTE: This will be changed later on.
+- Added NavMeshPatch to inject custom NavMeshBuildSettings for bot cruiser agent type. NOTE: This causes the game to generate 2 NavMeshes for the interior. This will be fixed later.
+- Improved dead body interaction checks for usual scrap revive logic.
+- Fixed an issue where duplicate singleton managers could exist at the same time
+- Added attack interval overrides for UsualScrap weapons 
+- Fixed mission controller bots not teleporting dead bodies to the ship if a defib was in the crews possession.
+- Fixed the bot quota system not waiting until a player was fully connected. The system used to wait until the server recognized their connection, but it would result in a race conditon where bots would take slots of joining players.
+- Fixed a base game logic error which caused bots to be added to the connected client list with the same ID as a human player. This caused the imfamous bug of clients getting kicked since two players CANNOT have the same id. Fixes #145
+- Introduced another IsValidPathToTarget overload
+- Potentially fixed #121 by wrapping all calls with BeginNavMeshWrite and EndNavMeshWrite
+- Added some sanity checks for bot collision methods
+- Optimized some inventory checks to avoid redundant checks
+- Made more optimizations
+- Removed more obsolete code
+
 ## 12.0.0 2026-7-18
 Back again with a not so minor update. I made some requested changes to the Quota system. I also updated the bot's Usual Scrap support as well! Oh and fixed some bugs, as always.
 - Added QuotaType config to allow users to change how the bot quota system decides how many bots to keep in the lobby

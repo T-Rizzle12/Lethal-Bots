@@ -459,34 +459,6 @@ namespace LethalBots.Patches.NpcPatches
             return true;
         }
 
-        [HarmonyPatch("PlayFootstepServer")]
-        [HarmonyPrefix]
-        static bool PlayFootstepServer_PreFix(PlayerControllerB __instance)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                lethalBotAI.NpcController.PlayFootstep(isServer: true);
-                return false;
-            }
-
-            return true;
-        }
-
-        [HarmonyPatch("PlayFootstepLocal")]
-        [HarmonyPrefix]
-        static bool PlayFootstepLocal_PreFix(PlayerControllerB __instance)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                lethalBotAI.NpcController.PlayFootstep(isServer: false);
-                return false;
-            }
-
-            return true;
-        }
-
         #endregion
 
         #region Transpilers

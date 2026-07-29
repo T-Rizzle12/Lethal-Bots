@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.Serialization;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -60,31 +61,31 @@ namespace LethalBots.Patches.GameEnginePatches
             objectManager.AddComponent<ItemsManager>();
 
             // NetworkBehaviours
-            objectManager = Object.Instantiate(PluginManager.Instance.TerminalManagerPrefab);
-            if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
-            {
-                objectManager.GetComponent<NetworkObject>().Spawn();
-            }
-
-            objectManager = Object.Instantiate(PluginManager.Instance.SaveManagerPrefab);
-            if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
-            {
-                objectManager.GetComponent<NetworkObject>().Spawn();
-            }
-
-            objectManager = Object.Instantiate(PluginManager.Instance.GroupManagerPrefab);
-            if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
-            {
-                objectManager.GetComponent<NetworkObject>().Spawn();
-            }
-
-            objectManager = Object.Instantiate(PluginManager.Instance.LethalBotManagerPrefab);
-            if (__instance.NetworkManager.IsHost || __instance.NetworkManager.IsServer)
-            {
-                objectManager.GetComponent<NetworkObject>().Spawn();
-            }
+            Scene scene = __instance.gameObject.scene;
+            SpawnNetworkPrefab(PluginManager.Instance.TerminalManagerPrefab, scene);
+            SpawnNetworkPrefab(PluginManager.Instance.SaveManagerPrefab, scene);
+            SpawnNetworkPrefab(PluginManager.Instance.GroupManagerPrefab, scene);
+            SpawnNetworkPrefab(PluginManager.Instance.LethalBotManagerPrefab, scene);
 
             Plugin.LogDebug("... Managers started");
+        }
+
+        /// <summary>
+        /// Helper function that creates and spawns the given network prefab
+        /// </summary>
+        /// <param name="prefab"></param>
+        /// <param name="scene"></param>
+        private static void SpawnNetworkPrefab(GameObject prefab, Scene scene)
+        {
+            // Make sure the prefab is valid
+            if (prefab == null) return;
+
+            // Create and spawn our prefab
+            GameObject objectManager = (GameObject)Object.Instantiate(prefab, scene);
+            if (NetworkManager.Singleton.IsServer)
+            {
+                objectManager.GetComponent<NetworkObject>().Spawn(destroyWithScene: true);
+            }
         }
 
         /// <summary>
@@ -585,6 +586,65 @@ namespace LethalBots.Patches.GameEnginePatches
             return codes.AsEnumerable();
         }
 
+        [HarmonyPatch("OnClientConnect")]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> OnClientConnect_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // Target property: NetworkObject.OwnerClientId
+            MethodInfo getOwnerClientId = AccessTools.PropertyGetter(typeof(NetworkObject), "OwnerClientId");
+            MethodInfo listAddMethod = AccessTools.Method(typeof(List<ulong>), "Add");
+
+            // ----------------------------------------------------------------------
+            for (var i = 0; i < codes.Count - 3; i++)
+            {
+                if (codes[i].opcode == OpCodes.Ldloc_2
+                    && codes[i + 1].opcode == OpCodes.Ldloc_3
+                    && codes[i + 2].Calls(getOwnerClientId)
+                    && codes[i + 3].Calls(listAddMethod))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Replace the NetworkObject.OwnerClientId call with out own custom method
+                codes[startIndex + 2] = new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(StartOfRoundPatch), nameof(GetOwnerClientIdForJoin))).WithLabels(codes[startIndex + 2].labels); // Call our replacement method
+                startIndex = -1;
+            }
+            else
+            {
+                // Fatal error since this can literally crash clients when they join the lobby if this fails
+                Plugin.LogFatal($"LethalBot.Patches.GameEnginePatches.StartOfRoundPatch.OnClientConnect_Transpiler could not change loop to only real players");
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        /// <summary>
+        /// Helper function that grabs the id to send to the joining client
+        /// </summary>
+        /// <param name="networkObject"></param>
+        /// <returns></returns>
+        private static ulong GetOwnerClientIdForJoin(NetworkObject networkObject)
+        {
+            Plugin.LogDebug("GetOwnerClientIdForJoin grabbing the network id for the given player.");
+            PlayerControllerB player = networkObject.GetComponent<PlayerControllerB>();
+            if (LethalBotManager.Instance.IsPlayerLethalBot(player))
+            {
+                // Slot is taken by a bot.
+                // Bots automatically add themself to the connected player list later down the line.
+                Plugin.LogDebug($"Player Object: {player} with OwnerClientId {networkObject.OwnerClientId} was a bot.");
+                return 999ul;
+            }
+
+            Plugin.LogDebug($"Player Object: {player} with OwnerClientId {networkObject.OwnerClientId} was a human player.");
+            return networkObject.OwnerClientId; // Prior logic
+        }
+
         #endregion
 
         /// <summary>
@@ -597,13 +657,9 @@ namespace LethalBots.Patches.GameEnginePatches
         static void OnPlayerConnectedClientRpc_PostFix(StartOfRound __instance, ulong clientId)
         {
             // Sync save file
-            LethalBotManager lethalBotManager = LethalBotManager.Instance;
-            if (__instance.IsServer)
+            if (!__instance.IsServer && __instance.NetworkManager.LocalClientId == clientId)
             {
-                lethalBotManager.EndHumanJoin(clientId);
-            }
-            else if (__instance.NetworkManager.LocalClientId == clientId)
-            {
+                LethalBotManager lethalBotManager = LethalBotManager.Instance;
                 lethalBotManager.SyncLoadedJsonLoadoutsServerRpc(clientId);
                 lethalBotManager.SyncLoadedJsonIdentitiesServerRpc(clientId);
                 lethalBotManager.SyncLoadedJsonStockRequirementsServerRpc(clientId);
