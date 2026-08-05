@@ -1,5 +1,13 @@
 # Changelog
 
+## 12.1.1 2026-7-30
+Just a minor bug fix along with some code cleanup!
+
+Change Log:
+- Disabled Inlining for PathfindingLib calls to prevent potential type load execptions.
+- Cleaned up some code
+
+
 ## 12.1.0 2026-7-28
 Hey everyone, just some more improvements for the bots. I'm releasing this a bit early since it contains two MAJOR bug fixes. More cruiser prep has been done including a custom NavMesh just for it. Do be warned that maps will take slightly longer to load since the game now has to make a NavMesh for the cruiser as well.
 

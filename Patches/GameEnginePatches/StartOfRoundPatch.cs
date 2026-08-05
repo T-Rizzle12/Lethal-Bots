@@ -631,6 +631,7 @@ namespace LethalBots.Patches.GameEnginePatches
         /// <returns></returns>
         private static ulong GetOwnerClientIdForJoin(NetworkObject networkObject)
         {
+            const ulong INVALID_CLIENT_ID = 999ul;
             Plugin.LogDebug("GetOwnerClientIdForJoin grabbing the network id for the given player.");
             PlayerControllerB player = networkObject.GetComponent<PlayerControllerB>();
             if (LethalBotManager.Instance.IsPlayerLethalBot(player))
@@ -638,7 +639,7 @@ namespace LethalBots.Patches.GameEnginePatches
                 // Slot is taken by a bot.
                 // Bots automatically add themself to the connected player list later down the line.
                 Plugin.LogDebug($"Player Object: {player} with OwnerClientId {networkObject.OwnerClientId} was a bot.");
-                return 999ul;
+                return INVALID_CLIENT_ID;
             }
 
             Plugin.LogDebug($"Player Object: {player} with OwnerClientId {networkObject.OwnerClientId} was a human player.");

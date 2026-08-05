@@ -6,6 +6,7 @@ using LethalBots.Constants;
 using PathfindingLib.API;
 using HarmonyLib;
 using PathfindingLib.Patches;
+using System.Runtime.CompilerServices;
 
 namespace LethalBots.Patches.ModPatches.PathfindingLib
 {
@@ -23,11 +24,13 @@ namespace LethalBots.Patches.ModPatches.PathfindingLib
             NativeHelpers.SetAreaName(Const.LETHAL_BOT_ONLY_NAVAREA, "LethalBotOnly");
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         internal static void BeginNavMeshWrite()
         {
             NavMeshLock.BeginWrite();
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         internal static void EndNavMeshWrite()
         {
             NavMeshLock.EndWrite();
