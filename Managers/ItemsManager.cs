@@ -20,7 +20,7 @@ namespace LethalBots.Managers
         /// <summary>
         /// A hook that is called after <see cref="ItemsManager"/> registers the default weapons
         /// </summary>
-        public static UnityEvent<ItemsManager> RegisterWeapons = new UnityEvent<ItemsManager>();
+        public static readonly UnityEvent<ItemsManager> RegisterWeapons = new UnityEvent<ItemsManager>();
 
         /// <summary>
         /// This is the base type that all weapons inherit from

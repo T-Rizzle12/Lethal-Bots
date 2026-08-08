@@ -191,7 +191,7 @@ namespace LethalBots.Managers
                 }
                 else
                 {
-                    Plugin.LogInfo($"Loaded audio file at {uri} \n SanitizedUri: {sanitizedUri}");
+                    Plugin.LogDebug($"Loaded audio file at {uri} \n SanitizedUri: {sanitizedUri}");
                     AudioClip audioClip = DownloadHandlerAudioClip.GetContent(www);
                     AddAudioClip(uri, audioClip);
 
@@ -229,10 +229,7 @@ namespace LethalBots.Managers
 
         private void AddAudioClip(string path, AudioClip audioClip)
         {
-            if (DictAudioClipsByPath == null)
-            {
-                DictAudioClipsByPath = new Dictionary<string, AudioClip?>();
-            }
+            DictAudioClipsByPath ??= new Dictionary<string, AudioClip?>();
 
             if (DictAudioClipsByPath.ContainsKey(path))
             {

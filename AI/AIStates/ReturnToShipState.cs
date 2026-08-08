@@ -298,10 +298,10 @@ namespace LethalBots.AI.AIStates
                         if (entranceTeleportPos.HasValue)
                         {
                             ai.StopMoving();
-                            if (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)
+                            if (!ai.IsLethalBotInteracting())
                             {
                                 InteractTrigger interactTrigger = entrance!.triggerScript;
-                                LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
+                                ai.LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
                                 {
                                     Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
                                     lethalBotAI.SyncTeleportLethalBot(entranceTeleportPos.Value, !entrance?.isEntranceToBuilding ?? !lethalBotAI.isOutside, entrance);

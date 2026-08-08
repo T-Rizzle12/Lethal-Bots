@@ -2,6 +2,7 @@
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using LethalBots.Utils.Helpers.VehicleHelpers;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -9,7 +10,9 @@ namespace LethalBots.AI.AIStates
 {
     public class PlayerInCruiserState : AIState
     {
-        private VehicleController? vehicleController;
+        private VehicleController vehicleController;
+        private InteractTrigger? chosenSeat;
+        private Vector3? chosenSpot;
 
         public PlayerInCruiserState(AIState state, VehicleController vehicleController) : base(state)
         {
@@ -18,7 +21,7 @@ namespace LethalBots.AI.AIStates
             this.vehicleController = vehicleController;
         }
 
-        public PlayerInCruiserState(LethalBotAI ai, VehicleController? vehicleController) : base(ai)
+        public PlayerInCruiserState(LethalBotAI ai, VehicleController vehicleController) : base(ai)
         {
             CurrentState = EnumAIStates.PlayerInCruiser;
 
@@ -39,15 +42,14 @@ namespace LethalBots.AI.AIStates
             }
 
             // TODO: Implement a way for bots to sit in the passenger seat!
-            Vector3 entryPointLethalBotCruiser = vehicleController.transform.position + vehicleController.transform.rotation * GetNextRandomEntryPosCruiser();
-
-            if (npcController.IsControllerInCruiser)
+            //Vector3 entryPointLethalBotCruiser = vehicleController.transform.position + vehicleController.transform.rotation * GetNextRandomEntryPosCruiser();
+            if (vehicleController.physicsRegion.physicsTransform == lethalBotController.physicsParent)
             {
                 if (ai.GetVehicleCruiserTargetPlayerIsIn() == null)
                 {
                     // Exit vehicle cruiser
-                    ai.SyncTeleportLethalBotVehicle(entryPointLethalBotCruiser, enteringVehicle: false, vehicleController);
-                    vehicleController.SetVehicleCollisionForPlayer(true, lethalBotController);
+                    //ai.SyncTeleportLethalBotVehicle(entryPointLethalBotCruiser, enteringVehicle: false, vehicleController);
+                    //vehicleController.SetVehicleCollisionForPlayer(true, lethalBotController);
 
                     ai.State = new GetCloseToPlayerState(this);
                     return;
@@ -78,8 +80,8 @@ namespace LethalBots.AI.AIStates
 
             // Teleport to cruiser and enter vehicle
             // Place bot in random spot
-            Vector3 lethalBotPassengerPos = vehicleController.transform.position + vehicleController.transform.rotation * GetNextRandomInCruiserPos();
-            ai.SyncTeleportLethalBotVehicle(lethalBotPassengerPos, enteringVehicle: true, vehicleController);
+            chosenSpot ??= vehicleController.transform.position + vehicleController.transform.rotation * GetNextRandomInCruiserPos();
+            ai.SyncTeleportLethalBotVehicle(chosenSpot.Value, enteringVehicle: true, vehicleController);
 
             // random rotation
             float angleRandom = Random.Range(-180f, 180f);
@@ -123,6 +125,33 @@ namespace LethalBots.AI.AIStates
         {
             // We are following a player, these messages mean nothing to us!
             SignalTranslatorCommandsManager.RegisterIgnoreDefaultForState<PlayerInCruiserState>();
+        }
+
+        private void SelectPassengerSeat()
+        {
+            // Grab the information about our current vehicle
+            IVehicleAdapter? vehicleInfo = VehicleManager.Instance.GetVehicleInfo(vehicleController);
+            if (vehicleInfo != null)
+            {
+                // Check if the driver seat is open
+                InteractTrigger? potentialSeat = vehicleInfo.GetDriverSeat(vehicleController, ai);
+                if (potentialSeat != null && potentialSeat.playerScriptInSpecialAnimation == null)
+                {
+                    chosenSeat = potentialSeat;
+                    return;
+                }
+
+                // Find an open passenger seat
+                potentialSeat = vehicleInfo.FindOpenPassengerSeat(vehicleController, ai);
+                if (potentialSeat != null && potentialSeat.playerScriptInSpecialAnimation == null)
+                {
+                    chosenSeat = potentialSeat;
+                    return;
+                }
+
+                // Just find a spot in the trunk
+                chosenSpot = vehicleInfo.FindOpenTrunkPosition(vehicleController, ai);
+            }
         }
 
         private Vector3 GetNextRandomInCruiserPos()

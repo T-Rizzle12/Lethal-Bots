@@ -107,11 +107,13 @@ namespace LethalBots.AI
                 value.OnEnterState(); // Call the OnEnterState method of the new state
             }
         }
+
         /// <summary>
         /// Pilot class of the body <c>PlayerControllerB</c> of the lethalBot.
         /// </summary>
         public NpcController NpcController = null!;
         public LethalBotIdentity LethalBotIdentity = null!;
+        public LethalBotInteraction? LethalBotInteraction = null;
         public AudioSource LethalBotVoice = null!;
         public DunGenTileTracker DunGenTileTracker
         {
@@ -125,6 +127,7 @@ namespace LethalBots.AI
                 return field;
             }
         }
+
         /// <summary>
         /// Currently held item by lethalBot
         /// </summary>
@@ -780,7 +783,7 @@ namespace LethalBots.AI
             }
 
             // Update bot interaction
-            State?.LethalBotInteraction?.Update(this, Time.deltaTime);
+            LethalBotInteraction?.Update(this, Time.deltaTime);
 
             // Update interval timer for AI calculation
             if (updateDestinationIntervalLethalBotAI >= 0f)
@@ -858,12 +861,7 @@ namespace LethalBots.AI
 
         public void UpdateController()
         {
-           if (NpcController.IsControllerInCruiser)
-           {
-                return;
-           }
-
-            NpcController.Update();
+            NpcController?.Update();
         }
 
         private void LateUpdate()
@@ -1123,6 +1121,34 @@ namespace LethalBots.AI
             // NOTE: We don't need to call this anymore as the CharacterController manages this now!
             //collidedEnemy.OnCollideWithPlayer(LethalBotBodyCollider);
         }
+
+        #region Lethal Bot Interaction Helpers
+
+        /// <summary>
+        /// Stops the current lethal bot interaction if one is active.
+        /// </summary>
+        public void StopLethalBotInteraction()
+        {
+            if (this.LethalBotInteraction != null)
+            {
+                if (!LethalBotInteraction.IsCompleted)
+                {
+                    LethalBotInteraction.StopHoldInteractionOnTrigger();
+                }
+                LethalBotInteraction = null;
+            }
+        }
+
+        /// <summary>
+        /// Checks if the lethal bot is currently interacting with a trigger.
+        /// </summary>
+        /// <returns><see langword="true"/> if the bot is interacting; otherwise, <see langword="false"/>.</returns>
+        public bool IsLethalBotInteracting()
+        {
+            return LethalBotInteraction != null && !LethalBotInteraction.IsCompleted;
+        }
+
+        #endregion
 
         // TODO: Change this so the bots get quiet when they hear noises made by enemies
         // NOTE: This could be replaced with another mod that allows me to grab voice chat itself!
@@ -3821,6 +3847,7 @@ namespace LethalBots.AI
                 this.transform.position = newPos;
                 agent.transform.position = newPos;
                 NpcController.Npc.transform.position = newPos;
+                NpcController.SetTurnBodyTowardsDirectionWithPosition(endPos);
                 normalizedTime += Time.deltaTime / duration;
                 yield return null;
             }
@@ -6014,7 +6041,7 @@ namespace LethalBots.AI
             if (!allowInteractTrigger && lethalBotController.currentTriggerInAnimationWith != null)
             {
                 lethalBotController.CancelSpecialTriggerAnimations();
-                this.State?.LethalBotInteraction?.StopHoldInteractionOnTrigger();
+                LethalBotInteraction?.StopHoldInteractionOnTrigger();
                 if (useInteractTriggerCoroutine != null)
                 {
                     StopCoroutine(useInteractTriggerCoroutine);
@@ -6313,7 +6340,7 @@ namespace LethalBots.AI
 
             if (NpcController.IsControllerInCruiser)
             {
-                this.State = new PlayerInCruiserState(this, this.GetVehicleCruiserTargetPlayerIsIn());
+                this.State = new PlayerInCruiserState(this, this.GetVehicleCruiserTargetPlayerIsIn()!);
             }
             else if (this.State == null
                 || this.State.GetAIState() != EnumAIStates.GetCloseToPlayer
@@ -8169,7 +8196,7 @@ namespace LethalBots.AI
             lethalBotController.CancelSpecialTriggerAnimations();
             SoundManager.Instance.playerVoicePitchTargets[lethalBotController.playerClientId] = 1f;
             SoundManager.Instance.playerVoicePitchLerpSpeed[lethalBotController.playerClientId] = 3f;
-            this.State?.LethalBotInteraction?.StopHoldInteractionOnTrigger();
+            LethalBotInteraction?.StopHoldInteractionOnTrigger();
             lethalBotController.KillPlayerServerRpc((int)lethalBotController.playerClientId, spawnBody, bodyVelocity, (int)causeOfDeath, deathAnimation, positionOffset, setOverrideDropItems);
             Plugin.LogInfo($"Override drop items : {lethalBotController.overrideDropItems}; overridedontspawnbody: {lethalBotController.overrideDontSpawnBody}");
             if (lethalBotController.overrideDropItems)

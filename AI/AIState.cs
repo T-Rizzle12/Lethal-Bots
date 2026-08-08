@@ -68,7 +68,21 @@ namespace LethalBots.AI
         protected Coroutine? panikCoroutine;
         protected Coroutine? safePathCoroutine;
         protected Coroutine? lookingAroundCoroutine;
-        public LethalBotInteraction? LethalBotInteraction { protected set; get; }
+
+        [Obsolete("This has been moved to LethalBotAI. Use LethalBotAI.LethalBotInteraction instead.")]
+        public LethalBotInteraction? LethalBotInteraction
+        {
+            set
+            {
+                ai.LethalBotInteraction = value;
+            }
+            get
+            {
+                return ai.LethalBotInteraction;
+            }
+        }
+
+
         protected Vector3 safePathPos; // The closest point to targetShipPos that is safe
         protected CancellationTokenSource? pathfindCancellationToken = null; // For use in the async danger pathfinder
         protected EntranceTeleport? targetEntrance = null;
@@ -1449,7 +1463,7 @@ namespace LethalBots.AI
             }
             StopSafePathCoroutine();
             StopLookingAroundCoroutine();
-            StopLethalBotInteraction();
+            ai.StopLethalBotInteraction();
         }
 
         /// <summary>
@@ -1851,18 +1865,6 @@ namespace LethalBots.AI
             {
                 ai.StopCoroutine(this.lookingAroundCoroutine);
                 this.lookingAroundCoroutine = null;
-            }
-        }
-
-        public void StopLethalBotInteraction()
-        {
-            if (this.LethalBotInteraction != null)
-            {
-                if (!LethalBotInteraction.IsCompleted)
-                {
-                    LethalBotInteraction.StopHoldInteractionOnTrigger();
-                }
-                LethalBotInteraction = null;
             }
         }
 

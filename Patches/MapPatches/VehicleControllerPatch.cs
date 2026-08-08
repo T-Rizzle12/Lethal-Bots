@@ -2,7 +2,14 @@
 using HarmonyLib;
 using LethalBots.AI;
 using LethalBots.Managers;
+using LethalBots.Utils;
+using LethalBots.Utils.Helpers.VehicleHelpers;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace LethalBots.Patches.MapPatches
@@ -28,13 +35,159 @@ namespace LethalBots.Patches.MapPatches
             return __exception; // Let the original exception propagate!
         }
 
-        //[HarmonyPatch("Start")]
-        //[HarmonyPostfix]
-        //static void Start_PostFix()
-        //{
-        //    // Run our code
-        //    LethalBotManager.Instance.VehicleHasLanded();
-        //}
+        [HarmonyPatch("Start")]
+        [HarmonyPostfix]
+        static void Start_PostFix()
+        {
+            // Run our code
+            LethalBotManager.Instance.VehicleHasLanded();
+        }
+
+        [HarmonyPatch("Update")]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> Update_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // Target property: localPlayerInControl
+            FieldInfo localPlayerInControlField = AccessTools.Field(typeof(VehicleController), "localPlayerInControl");
+            MethodInfo isOwnerGetter = AccessTools.PropertyGetter(typeof(NetworkBehaviour), "IsOwner");
+            MethodInfo setCarEffectsMethod = AccessTools.Method(typeof(VehicleController), "SetCarEffects");
+            FieldInfo steeringAnimValueField = AccessTools.Field(typeof(VehicleController), "steeringAnimValue");
+
+            // ------------------------------------------------
+            for (var i = 0; i < codes.Count - 9; i++)
+            {
+                // NOTE: We cannot access the fields of the coroutine class, we must manually find them instead!
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].LoadsField(localPlayerInControlField)
+                    && (codes[i + 2].opcode == OpCodes.Brfalse || codes[i + 2].opcode == OpCodes.Brfalse_S)
+                    && codes[i + 3].IsLdarg(0)
+                    && codes[i + 4].Calls(isOwnerGetter)
+                    && (codes[i + 5].opcode == OpCodes.Brtrue || codes[i + 5].opcode == OpCodes.Brtrue_S)
+                    && codes[i + 6].IsLdarg(0)
+                    && codes[i + 7].IsLdarg(0)
+                    && codes[i + 8].LoadsField(steeringAnimValueField)
+                    && codes[i + 9].Calls(setCarEffectsMethod))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Replace the localPlayerInControl check with our own method that checks if the player is the local player or a lethal bot driver
+                codes[startIndex + 1].opcode = OpCodes.Call;
+                codes[startIndex + 1].operand = AccessTools.Method(typeof(VehicleControllerPatch), nameof(IsLocalPlayerOrLethalBotDriver));
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.MapPatches.VehicleControllerPatch.Update_Transpiler could not allow bots to control the vehicle");
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        private static bool IsLocalPlayerOrLethalBotDriver(VehicleController vehicleController)
+        {
+            return vehicleController.localPlayerInControl || LethalBotManager.Instance.IsPlayerLethalBotOwnerLocal(vehicleController.currentDriver);
+        }
+
+        [HarmonyPatch("TryIgnition", MethodType.Enumerator)]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> TryIgnition_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var patched = false;
+            var timesPatched = 0;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // Find Interator Type
+            Type iteratorType = AccessTools.EnumeratorMoveNext(AccessTools.Method(typeof(VehicleController), "TryIgnition")).DeclaringType;
+
+            // Find the "this" field of the iterator class, which is a reference to the VehicleController instance
+            FieldInfo cachedThisField = AccessTools.GetDeclaredFields(iteratorType).FirstOrDefault(f => f.FieldType == typeof(VehicleController) && f.Name.Contains("this"));
+
+            // Target property: GameNetworkManager.Instance.localPlayerController
+            MethodInfo getGameNetworkManagerInstance = AccessTools.PropertyGetter(typeof(GameNetworkManager), "Instance");
+            FieldInfo localPlayerControllerField = AccessTools.Field(typeof(GameNetworkManager), "localPlayerController");
+
+            // Target method: VehicleControllerPatch.GetDriverPlayer
+            MethodInfo getDriverPlayer = AccessTools.Method(typeof(VehicleControllerPatch), nameof(GetDriverPlayer));
+
+            // ------------------------------------------------
+            for (var i = 0; i < codes.Count - 1; i++)
+            {
+                // NOTE: We cannot access the fields of the coroutine class, we must manually find them instead!
+                if (codes[i].Calls(getGameNetworkManagerInstance)
+                    && codes[i + 1].LoadsField(localPlayerControllerField))
+                {
+                    codes[i].opcode = OpCodes.Ldarg_0; // Load the iterator class instance
+                    codes[i].operand = null; // Clear the operand since we are no longer calling GameNetworkManager.Instance
+                    codes[i + 1].opcode = OpCodes.Ldfld; // Load the VehicleController instance from the iterator class
+                    codes[i + 1].operand = cachedThisField;
+                    codes.Insert(i + 2, new CodeInstruction(OpCodes.Call, getDriverPlayer)); // Call our method to get the driver player
+                    i += 2; // Skip the next two instructions since we replaced them
+                    patched = true;
+                    timesPatched++;
+                }
+            }
+
+            if (!patched)
+            {
+                Plugin.LogError($"LethalBot.Patches.MapPatches.VehicleControllerPatch.TryIgnition_Transpiler could not replace local player calls with driver calls");
+            }
+            else
+            {
+                Plugin.LogDebug($"Replaced local player calls with driver {timesPatched} times!");
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        private static PlayerControllerB GetDriverPlayer(VehicleController vehicle)
+        {
+            if (vehicle.currentDriver != null &&
+                LethalBotManager.Instance.IsPlayerLethalBotOwnerLocal(vehicle.currentDriver))
+            {
+                return vehicle.currentDriver;
+            }
+
+            return GameNetworkManager.Instance.localPlayerController;
+        }
+
+        [HarmonyPatch("GetVehicleInput")]
+        [HarmonyPrefix]
+        static bool GetVehicleInput_Prefix(VehicleController __instance)
+        {
+            if (__instance.localPlayerInControl)
+            {
+                return true; // Run original method
+            }
+            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAIIfLocalIsOwner(__instance.currentDriver);
+            if (lethalBotAI != null)
+            {
+                VehicleInputHelper vehicleInput = lethalBotAI.NpcController.vehicleInput;
+                float pedalInput = vehicleInput.Brake > 0.1f ? -vehicleInput.Brake : vehicleInput.ThrottleMagnitude;
+                __instance.moveInputVector = new Vector2(vehicleInput.Steering, pedalInput);
+                float num = __instance.steeringWheelTurnSpeed;
+                __instance.steeringInput = Mathf.Clamp(__instance.steeringInput + __instance.moveInputVector.x * num * Time.deltaTime, -3f, 3f);
+                if (Mathf.Abs(__instance.moveInputVector.x) > 0.1f)
+                {
+                    __instance.steeringWheelAudio.volume = Mathf.Lerp(__instance.steeringWheelAudio.volume, Mathf.Abs(__instance.moveInputVector.x), 5f * Time.deltaTime);
+                }
+                else
+                {
+                    __instance.steeringWheelAudio.volume = Mathf.Lerp(__instance.steeringWheelAudio.volume, 0f, 5f * Time.deltaTime);
+                }
+                __instance.steeringAnimValue = __instance.moveInputVector.x;
+                __instance.drivePedalPressed = pedalInput > 0.1f;
+                __instance.brakePedalPressed = pedalInput < -0.1f;
+                return false; // Skip original method
+            }
+            return true; // Run original method
+        }
 
         /// <summary>
         /// Patch for damaging the bots owned by client in vehicle
@@ -45,6 +198,7 @@ namespace LethalBots.Patches.MapPatches
                                                   Vector3 vel,
                                                   float magnitude)
         {
+            PlayerControllerB currentDriver = GetDriverPlayer(__instance);
             PlayerControllerB lethalBotController;
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
             for (int i = 0; i < lethalBotAIs.Length; i++)
@@ -52,7 +206,7 @@ namespace LethalBots.Patches.MapPatches
                 LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 lethalBotController = lethalBotAI.NpcController.Npc;
 
-                if (!__instance.localPlayerInPassengerSeat && !__instance.localPlayerInControl)
+                if (currentDriver != lethalBotController)
                 {
                     if (__instance.physicsRegion.physicsTransform == lethalBotController.physicsParent
                         && lethalBotController.overridePhysicsParent == null)

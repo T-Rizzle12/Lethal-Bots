@@ -139,30 +139,13 @@ namespace LethalBots.Utils.Helpers
         public virtual bool CanHitWithWeapon(PlayerControllerB lethalBotController, EnemyAI currentEnemy, Collider? enemyCollider, Ray ray, float radius, float maxRange, LayerMask hitMask)
         {
             // Check if we hit the target based on the weapon's hitmask!
-            FootstepSurface[] footstepSurfaces = StartOfRound.Instance.footstepSurfaces;
             RaycastHit[] raycastHits = Physics.SphereCastAll(ray, radius, maxRange, hitMask, QueryTriggerInteraction.Collide);
             List<RaycastHit> orderdHitList = raycastHits.OrderBy((RaycastHit x) => x.distance).ToList();
             for (int i = 0; i < orderdHitList.Count; i++)
             {
                 // Check if we hit a wall!
                 var hitInfo = orderdHitList[i];
-                if (hitInfo.transform.gameObject.layer == 8 || hitInfo.transform.gameObject.layer == 11)
-                {
-                    if (hitInfo.collider.isTrigger)
-                    {
-                        continue;
-                    }
-                    string text = hitInfo.collider.gameObject.tag;
-                    for (int j = 0; j < footstepSurfaces.Length; j++)
-                    {
-                        var surface = footstepSurfaces[j];
-                        if (surface != null && surface.surfaceTag == text)
-                        {
-                            break;
-                        }
-                    }
-                }
-                else
+                if (hitInfo.transform.gameObject.layer != 8 && hitInfo.transform.gameObject.layer != 11)
                 {
                     // Check if we hit a valid target
                     if (!hitInfo.transform.TryGetComponent<IHittable>(out var component) || (hitInfo.point != Vector3.zero && Physics.Linecast(lethalBotController.gameplayCamera.transform.position, hitInfo.point, out _, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)))

@@ -309,7 +309,6 @@ namespace LethalBots.AI
 
             PlayRandomVoiceAudio(parameters.VoiceState, parameters);
             LastVoiceState = parameters.VoiceState;
-            LethalBotManager.Instance.PlayAudibleNoiseForLethalBot(this.BotID, CurrentAudioSource.transform.position, 16f, 0.9f, 5);
         }
 
         public void PlayRandomVoiceAudio(EnumVoicesState enumVoicesState, PlayVoiceParameters parameters)

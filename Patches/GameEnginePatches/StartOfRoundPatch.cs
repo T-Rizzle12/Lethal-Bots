@@ -60,6 +60,9 @@ namespace LethalBots.Patches.GameEnginePatches
             objectManager = new GameObject("ItemsManager");
             objectManager.AddComponent<ItemsManager>();
 
+            objectManager = new GameObject("VehicleManager");
+            objectManager.AddComponent<VehicleManager>();
+
             // NetworkBehaviours
             Scene scene = __instance.gameObject.scene;
             SpawnNetworkPrefab(PluginManager.Instance.TerminalManagerPrefab, scene);

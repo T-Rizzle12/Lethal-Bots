@@ -7,6 +7,7 @@ using LethalBots.NetworkSerializers;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using LethalBots.Utils.Helpers.VehicleHelpers;
 using LethalInternship.AI;
 using ModelReplacement;
 using System;
@@ -84,6 +85,7 @@ namespace LethalBots.AI
         private LookAtTarget oldLookAtTarget = new LookAtTarget();
         public LookAtTarget LookAtTarget { private set; get; } = new LookAtTarget();
 
+        public VehicleInputHelper vehicleInput = new VehicleInputHelper();
         public Vector2 lastMoveVector;
         private float floatSprint;
         internal bool goDownLadder;

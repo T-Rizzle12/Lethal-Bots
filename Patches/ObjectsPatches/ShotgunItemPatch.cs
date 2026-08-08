@@ -227,7 +227,7 @@ namespace LethalBots.Patches.ObjectsPatches
 
             if (!patched)
             {
-                Plugin.LogError($"LethalBot.Patches.ObjectsPatches.ShotgunItem.ItemInteractLeftRight_Transpiler could not check if player local for Crouch");
+                Plugin.LogError($"LethalBot.Patches.ObjectsPatches.ShotgunItem.ItemInteractLeftRight_Transpiler could not check if player local for safety control tips");
             }
             else
             {

@@ -313,7 +313,7 @@ namespace LethalBots.AI.AIStates
                 // If we don't have an entrance selected we should pick one now!
                 if (targetEntrance == null
                     || waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH
-                    || (entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS && (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)))
+                    || (entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS && !ai.IsLethalBotInteracting()))
                 {
                     EntranceTeleport? entranceToAvoid = (waitForSafePathTimer > Const.WAIT_TIME_FOR_SAFE_PATH || entranceAttempts > Const.MAX_ENTRANCE_ATTEMPTS) ? this.targetEntrance : null;
                     targetEntrance = PickRandomEntrance(entranceToAvoid: entranceToAvoid);
@@ -363,10 +363,10 @@ namespace LethalBots.AI.AIStates
                             waitForSafePathTimer += ai.AIIntervalTime;
                             return; // We should not use the entrance if the entrance is not safe!
                         }
-                        if (LethalBotInteraction == null || LethalBotInteraction.IsCompleted)
+                        if (!ai.IsLethalBotInteracting())
                         {
                             InteractTrigger interactTrigger = entrance!.triggerScript;
-                            LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
+                            ai.LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
                             {
                                 Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
                                 lethalBotAI.SyncTeleportLethalBot(entranceTeleportPos.Value, !entrance?.isEntranceToBuilding ?? !lethalBotAI.isOutside, entrance);
