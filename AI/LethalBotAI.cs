@@ -38,6 +38,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.SceneManagement;
+using static LethalBots.Utils.Helpers.LethalBotInteraction;
 using Object = UnityEngine.Object;
 using Quaternion = UnityEngine.Quaternion;
 using Vector2 = UnityEngine.Vector2;
@@ -1121,34 +1122,6 @@ namespace LethalBots.AI
             // NOTE: We don't need to call this anymore as the CharacterController manages this now!
             //collidedEnemy.OnCollideWithPlayer(LethalBotBodyCollider);
         }
-
-        #region Lethal Bot Interaction Helpers
-
-        /// <summary>
-        /// Stops the current lethal bot interaction if one is active.
-        /// </summary>
-        public void StopLethalBotInteraction()
-        {
-            if (this.LethalBotInteraction != null)
-            {
-                if (!LethalBotInteraction.IsCompleted)
-                {
-                    LethalBotInteraction.StopHoldInteractionOnTrigger();
-                }
-                LethalBotInteraction = null;
-            }
-        }
-
-        /// <summary>
-        /// Checks if the lethal bot is currently interacting with a trigger.
-        /// </summary>
-        /// <returns><see langword="true"/> if the bot is interacting; otherwise, <see langword="false"/>.</returns>
-        public bool IsLethalBotInteracting()
-        {
-            return LethalBotInteraction != null && !LethalBotInteraction.IsCompleted;
-        }
-
-        #endregion
 
         // TODO: Change this so the bots get quiet when they hear noises made by enemies
         // NOTE: This could be replaced with another mod that allows me to grab voice chat itself!
@@ -7756,22 +7729,22 @@ namespace LethalBots.AI
             }
 
             InteractTrigger terminalTrigger = ourTerminal.gameObject.GetComponent<InteractTrigger>();
-            terminalTrigger.StopUsingServerRpc((int)localPlayerController.playerClientId);
-            //ourTerminal.terminalInUse = false;
+            terminalTrigger.StopSpecialAnimation();
+            ourTerminal.terminalInUse = false;
             ourTerminal.StartCoroutine(waitUntilFrameEndToSetActive(active: false, ourTerminal));
-            localPlayerController.inSpecialInteractAnimation = false;
-            localPlayerController.currentTriggerInAnimationWith = null;
+            //localPlayerController.inSpecialInteractAnimation = false;
+            //localPlayerController.currentTriggerInAnimationWith = null;
             localPlayerController.inTerminalMenu = false;
-            localPlayerController.playerBodyAnimator.ResetTrigger(terminalTrigger.animationString);
-            if (terminalTrigger.stopAnimationManually)
-            {
-                localPlayerController.playerBodyAnimator.SetTrigger(terminalTrigger.stopAnimationString);
-            }
-            localPlayerController.UpdateSpecialAnimationValue(specialAnimation: false, 0);
-            if ((bool)terminalTrigger.overridePlayerParent && localPlayerController.overridePhysicsParent == terminalTrigger.overridePlayerParent)
-            {
-                localPlayerController.overridePhysicsParent = null;
-            }
+            //localPlayerController.playerBodyAnimator.ResetTrigger(terminalTrigger.animationString);
+            //if (terminalTrigger.stopAnimationManually)
+            //{
+            //    localPlayerController.playerBodyAnimator.SetTrigger(terminalTrigger.stopAnimationString);
+            //}
+            //localPlayerController.UpdateSpecialAnimationValue(specialAnimation: false, 0);
+            //if ((bool)terminalTrigger.overridePlayerParent && localPlayerController.overridePhysicsParent == terminalTrigger.overridePlayerParent)
+            //{
+            //    localPlayerController.overridePhysicsParent = null;
+            //}
             ourTerminal.timeSinceTerminalInUse = 0f;
             terminalTrigger.interactable = true; // Let other player use the terminal!
             Plugin.LogDebug($"Quit terminal; inTerminalMenu true?: {localPlayerController.inTerminalMenu}");
@@ -7799,6 +7772,131 @@ namespace LethalBots.AI
         {
             yield return new WaitForEndOfFrame();
             ourTerminal?.terminalUIScreen.gameObject.SetActive(active);
+        }
+
+        #endregion
+
+        #region Interact Trigger Helpers
+
+        /// <summary>
+        /// Helper function for making the bot use the given <paramref name="interactTrigger"/>
+        /// </summary>
+        /// <param name="interactTrigger">The trigger to call interaction stuff on</param>
+        /// <param name="ignoreInteractablility">Should the bot ignore the <see cref="InteractTrigger.interactable"/> flag?</param>
+        /// <param name="ignoreHandLimit">Should the bot ignore the held item limiations</param>
+        /// <param name="forceInteraction">Should the bot start using the given even if they were already using something else?</param>
+        /// <returns></returns>
+        public bool StartInteraction(InteractTrigger interactTrigger, bool ignoreInteractablility = false, bool ignoreHandLimit = false, bool forceInteraction = false)
+        {
+            if (!forceInteraction && IsLethalBotInteracting())
+            {
+                return false;
+            }
+
+            // Stop previous interaction attempt
+            StopLethalBotInteraction();
+
+            // Check if we can use this now
+            if (!interactTrigger.holdInteraction)
+            {
+                // Call the original function
+                try
+                {
+                    interactTrigger.Interact(NpcController.Npc.thisPlayerBody);
+                }
+                catch (Exception e)
+                {
+                    Plugin.LogError($"StartInteraction had an error when calling interactTrigger.Interact on {interactTrigger}. Error: {e}");
+                }
+
+                // No need to go any further
+                return true;
+            }
+
+            // Start new interaction attempt
+            LethalBotInteraction = new LethalBotInteraction(interactTrigger, ignoreInteractablility, ignoreHandLimit);
+            return true;
+        }
+
+        /// <summary>
+        /// Helper function for making the bot use the given <paramref name="interactTrigger"/>
+        /// </summary>
+        /// <param name="interactTrigger">The trigger to call interaction stuff on</param>
+        /// <param name="postInteractFunc">The function to call after the interaction is completed</param>
+        /// <param name="ignoreInteractablility">Should the bot ignore the <see cref="InteractTrigger.interactable"/> flag?</param>
+        /// <param name="skipOriginalInteract">Should the original <see cref="InteractTrigger.Interact"/> be skipped. This is good if you want <paramref name="postInteractFunc"/> to do its own logic instead!</param>
+        /// <param name="ignoreHandLimit">Should the bot ignore the held item limiations</param>
+        /// <param name="forceInteraction">Should the bot start using the given even if they were already using something else?</param>
+        /// <returns></returns>
+        public bool StartInteraction(InteractTrigger interactTrigger, PostInteractFunction? postInteractFunc, bool ignoreInteractablility = false, bool skipOriginalInteract = false, bool ignoreHandLimit = false, bool forceInteraction = false)
+        {
+            if (!forceInteraction && IsLethalBotInteracting())
+            {
+                return false;
+            }
+
+            // Stop previous interaction attempt
+            StopLethalBotInteraction();
+
+            // Check if we can use this now
+            if (!interactTrigger.holdInteraction)
+            {
+                // Call the original function as needed
+                PlayerControllerB lethalBotController = NpcController.Npc;
+                try
+                {
+                    // Do we call the original interact function?
+                    if (!skipOriginalInteract)
+                    {
+                        interactTrigger.Interact(lethalBotController.thisPlayerBody);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Plugin.LogError($"StartInteraction had an error when calling interactTrigger.Interact on {interactTrigger}. Error: {e}");
+                }
+
+                // If this fails, it fails
+                try
+                {
+                    postInteractFunc?.Invoke(this, lethalBotController, interactTrigger);
+                }
+                catch (Exception e)
+                {
+                    Plugin.LogError($"StartInteraction had an error when calling postInteractFunc. Error: {e}");
+                }
+
+                // No need to go any further
+                return true;
+            }
+
+            // Start new interaction attempt
+            LethalBotInteraction = new LethalBotInteraction(interactTrigger, postInteractFunc, ignoreInteractablility, skipOriginalInteract, ignoreHandLimit);
+            return true;
+        }
+
+        /// <summary>
+        /// Stops the current lethal bot interaction if one is active.
+        /// </summary>
+        public void StopLethalBotInteraction()
+        {
+            if (this.LethalBotInteraction != null)
+            {
+                if (!LethalBotInteraction.IsCompleted)
+                {
+                    LethalBotInteraction.StopHoldInteractionOnTrigger();
+                }
+                LethalBotInteraction = null;
+            }
+        }
+
+        /// <summary>
+        /// Checks if the lethal bot is currently interacting with a trigger.
+        /// </summary>
+        /// <returns><see langword="true"/> if the bot is interacting; otherwise, <see langword="false"/>.</returns>
+        public bool IsLethalBotInteracting()
+        {
+            return LethalBotInteraction != null && !LethalBotInteraction.IsCompleted;
         }
 
         #endregion
@@ -9098,42 +9196,13 @@ namespace LethalBots.AI
         [ClientRpc]
         private void StartPerformingEmoteLethalBotClientRpc(int emoteID)
         {
-            NpcController.Npc.performingEmote = true;
-            NpcController.Npc.playerBodyAnimator.SetInteger("emoteNumber", emoteID);
+            NpcController?.Npc.performingEmote = true;
+            NpcController?.Npc.playerBodyAnimator.SetInteger("emoteNumber", emoteID);
         }
 
         #endregion
 
         #region TooManyEmotes
-
-        /// <summary>
-        /// Makes the bot play or sync the entered emote and player
-        /// </summary>
-        /// <param name="tooManyEmoteID">The emote to play</param>
-        /// <param name="playerToSync">The player to sync the emote with</param>
-        public void PerformTooManyEmoteLethalBotAndSync(int tooManyEmoteID, int playerToSync = -1)
-        {
-            if (base.IsServer)
-            {
-                PerformTooManyLethalBotClientRpc(tooManyEmoteID, playerToSync);
-            }
-            else
-            {
-                PerformTooManyEmoteLethalBotServerRpc(tooManyEmoteID, playerToSync);
-            }
-        }
-
-        [ServerRpc(RequireOwnership = false)]
-        private void PerformTooManyEmoteLethalBotServerRpc(int tooManyEmoteID, int playerToSync = -1)
-        {
-            PerformTooManyLethalBotClientRpc(tooManyEmoteID, playerToSync);
-        }
-
-        [ClientRpc]
-        private void PerformTooManyLethalBotClientRpc(int tooManyEmoteID, int playerToSync = -1)
-        {
-            NpcController.PerformTooManyEmote(tooManyEmoteID, playerToSync);
-        }
 
         /// <summary>
         /// Makes the current bot stop preforming its too many emote

@@ -1115,7 +1115,12 @@ namespace LethalBots.Managers
             // Register chat commands
             RegisterDefaultCommands();
             RegisterCustomCommands();
-            RegisterVoiceCommands();
+
+            // Don't run this is Speech Recognition mod isn't loaded
+            if (Plugin.IsModSpeechRecognitionAPILoaded)
+            {
+                RegisterVoiceCommands();
+            }
         }
 
         private void Update()

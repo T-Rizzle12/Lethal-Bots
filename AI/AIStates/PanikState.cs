@@ -309,7 +309,7 @@ namespace LethalBots.AI.AIStates
                             {
                                 EntranceTeleport entrance = targetEntrance;
                                 InteractTrigger interactTrigger = entrance!.triggerScript;
-                                ai.LethalBotInteraction = new LethalBotInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
+                                ai.StartInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
                                 {
                                     Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
                                     lethalBotAI.SyncTeleportLethalBot(entranceTeleportPos.Value, !entrance?.isEntranceToBuilding ?? !lethalBotAI.isOutside, entrance);

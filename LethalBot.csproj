@@ -94,6 +94,7 @@
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" PrivateAssets="all" />
     <PackageReference Include="etherealemil-UsualScrap" Version="2.0.7" Publicize="true" />
     <PackageReference Include="Evaisa.LethalLib" Version="1.2.0" />
+    <PackageReference Include="FlipMods-TooManyEmotes" Version="2.3.17" />
     <PackageReference Include="Lost.Compat.NullabilityAttributes" Version="0.0.4" PrivateAssets="all" />
     <PackageReference Include="MillieTheSilly-SuperEclipse" Version="0.1.0" />
     <PackageReference Include="Mono.pdb2mdb" Version="0.1.0.20130128" />
@@ -175,9 +176,6 @@
     </Reference>
     <Reference Include="Peepers">
       <HintPath>lib\mods\Peepers.dll</HintPath>
-    </Reference>
-    <Reference Include="TooManyEmotes">
-      <HintPath>lib\mods\TooManyEmotes.dll</HintPath>
     </Reference>
 	<Reference Include="FacilityMeltdown">
 	  <HintPath>lib\mods\FacilityMeltdown.dll</HintPath>

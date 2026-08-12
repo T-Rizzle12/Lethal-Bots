@@ -286,7 +286,7 @@ namespace LethalBots.Patches.NpcPatches
             // Since the base game has a different check if the player is in the terminal, it only works for the local player.
             // We need to do our custom logic instead!
             // Don't allow default logic to run as it bugs out sometimes and kicks the local player off the terminal!
-            if (__instance.inTerminalMenu)
+            if (__instance.inTerminalMenu || lethalBotAI.IsUsingTerminal())
             {
                 lethalBotAI.LeaveTerminal();
             }

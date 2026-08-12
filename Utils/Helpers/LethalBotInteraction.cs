@@ -13,13 +13,21 @@ namespace LethalBots.Utils.Helpers
     public class LethalBotInteraction
     {
         private InteractTrigger interactTrigger;
-        private Action<LethalBotAI, PlayerControllerB, InteractTrigger>? postInteractFunc;
+        private PostInteractFunction? postInteractFunc;
         private bool skipOriginalInteract;
         private bool ignoreHandLimit;
         private bool ignoreInteractablility;
         public bool isBeingHeldByPlayer = false;
         private float holdFillAmount = 0f;
         public bool IsCompleted { get; private set; } = false;
+
+        /// <summary>
+        /// Helper delegate for custom post interaction functions
+        /// </summary>
+        /// <param name="lethalBotAI">The bot who this action is associated  with</param>
+        /// <param name="lethalBotController">The bot's <see cref="PlayerControllerB"/></param>
+        /// <param name="interactTrigger">The <see cref="InteractTrigger"/> the bot just finished using</param>
+        public delegate void PostInteractFunction(LethalBotAI lethalBotAI, PlayerControllerB lethalBotController, InteractTrigger interactTrigger);
 
         /// <summary>
         /// Creates a new LethalBotInteraction for the given <paramref name="interactTrigger"/>
@@ -43,7 +51,7 @@ namespace LethalBots.Utils.Helpers
         /// <param name="ignoreInteractablility">Should the bot ignore the <see cref="InteractTrigger.interactable"/> flag?</param>
         /// <param name="skipOriginalInteract">Should the original <see cref="InteractTrigger.Interact"/> be skipped. This is good if you want <paramref name="postInteractFunc"/> to do its own logic instead!</param>
         /// <param name="ignoreHandLimit">Should the bot ignore the held item limiations</param>
-        public LethalBotInteraction(InteractTrigger interactTrigger, Action<LethalBotAI, PlayerControllerB, InteractTrigger> postInteractFunc, bool ignoreInteractablility = false, bool skipOriginalInteract = false, bool ignoreHandLimit = false) 
+        public LethalBotInteraction(InteractTrigger interactTrigger, PostInteractFunction? postInteractFunc, bool ignoreInteractablility = false, bool skipOriginalInteract = false, bool ignoreHandLimit = false) 
             : this(interactTrigger, ignoreInteractablility, ignoreHandLimit)
         {
             this.postInteractFunc = postInteractFunc;
@@ -138,7 +146,7 @@ namespace LethalBots.Utils.Helpers
             {
                 if (!interactTrigger.isBeingHeldByPlayer && !isBeingHeldByPlayer)
                 {
-                    interactTrigger.onInteractEarly.Invoke(null);
+                    interactTrigger.onInteractEarly?.Invoke(null);
                 }
 
                 isBeingHeldByPlayer = true;
@@ -159,7 +167,7 @@ namespace LethalBots.Utils.Helpers
                 if (isBeingHeldByPlayer && interactTrigger.currentCooldownValue <= 0f)
                 {
                     isBeingHeldByPlayer = false;
-                    interactTrigger.onStopInteract.Invoke(null);
+                    interactTrigger.onStopInteract?.Invoke(null);
                 }
             }
         }

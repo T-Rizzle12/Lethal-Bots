@@ -115,7 +115,7 @@ namespace LethalBots.Constants
 
         public const string PLAYER_ANIMATION_TRIGGER_THROW = "Throw";
         public const string PLAYER_ANIMATION_TRIGGER_DAMAGE = "Damage";
-        public const string PLAYER_ANINATION_TRIGGER_TERMINAL = "Terminal";
+        public const string PLAYER_ANINATION_TRIGGER_TERMINAL = "SA_Typing";
         public const string PLAYER_ANIMATION_TRIGGER_SHORTFALLLANDING = "ShortFallLanding";
         public const string PLAYER_ANIMATION_TRIGGER_ENTERLADDER = "EnterLadder";
 

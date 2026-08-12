@@ -1827,7 +1827,7 @@ namespace LethalBots.AI
                 allUnlockableEmotes = SessionManager.unlockedEmotes;
             }
             int randomEmoteID = Random.Range(0, allUnlockableEmotes.Count);
-            LethalBotAIController.PerformTooManyEmoteLethalBotAndSync(allUnlockableEmotes[randomEmoteID].emoteId);
+            PerformTooManyEmote(allUnlockableEmotes[randomEmoteID].emoteId);
         }
 
         /// <summary>
@@ -1935,7 +1935,7 @@ namespace LethalBots.AI
             }
 
             // PerformEmote TooMany emote
-            LethalBotAIController.PerformTooManyEmoteLethalBotAndSync(emoteControllerPlayerOfplayerToMimic.performingEmote.emoteId, (int)playerToMimic.playerClientId);
+            PerformTooManyEmote(emoteControllerPlayerOfplayerToMimic.performingEmote.emoteId, (int)playerToMimic.playerClientId);
         }
 
         /// <summary>
@@ -2012,11 +2012,11 @@ namespace LethalBots.AI
                     // Can't do this, as it assumes the local player if this is the server.
                     // We just recreate the logic intead!
                     //SyncPerformingEmoteManager.SendSyncEmoteUpdateToServer(emoteControllerLethalBot, overrideEmoteId);
-                    Plugin.LogInfo("Sending sync emote update to server. Sync with emote controller id: " + emoteControllerLethalBot);
-                    FastBufferWriter messageStream = new FastBufferWriter(4, Allocator.Temp);
-                    messageStream.WriteValue<ushort>((ushort)emoteControllerLethalBot.emoteControllerId, default(FastBufferWriter.ForPrimitives));
+                    Plugin.LogInfo("Sending sync emote update to server. Sync with emote controller id: " + emoteControllerLethalBot.emoteControllerId);
+                    FastBufferWriter messageStream = new FastBufferWriter(6, Allocator.Temp);
+                    messageStream.WriteValue<uint>((uint)emoteControllerLethalBot.emoteControllerId, default(FastBufferWriter.ForPrimitives));
                     messageStream.WriteValue<short>((short)overrideEmoteId, default(FastBufferWriter.ForPrimitives));
-                    NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("TooManyEmotes.SyncEmoteServerRpc", 0uL, messageStream);
+                    NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("TooManyEmotes.SyncEmoteServerRpc", NetworkManager.ServerClientId, messageStream);
                     emoteControllerLethalBot.timeSinceStartingEmote = 0f;
                     Npc.performingEmote = true;
                     Plugin.LogDebug($"Lethal Bot {Npc.playerUsername} successfuly synced emote with {playerToSyncWith.playerUsername}!");
