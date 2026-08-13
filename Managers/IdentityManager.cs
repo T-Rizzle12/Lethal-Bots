@@ -3,6 +3,7 @@ using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.NetworkSerializers;
+using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,6 +17,11 @@ namespace LethalBots.Managers
     /// </summary>
     public class IdentityManager : MonoBehaviour
     {
+        /// <summary>
+        /// This is the same starting STEAMID64 value Valve uses for their bots in Source Engine games.<br/>
+        /// This doesn't point to a real Steam Account
+        /// </summary>
+        public const ulong FIRST_BOT_STEAM_ID_64 = 90071996842377216ul;
         public static IdentityManager Instance { get; private set; } = null!;
 
         public LethalBotIdentity[] LethalBotIdentities = null!;
@@ -146,7 +152,33 @@ namespace LethalBots.Managers
             }
 
             // LethalBotIdentity
-            return new LethalBotIdentity(idIdentity, name, suitID, voice, loadout, moreCompanyCosmetics, internalGroupID.Value, defaultAIState);
+            return new LethalBotIdentity(idIdentity, CreateSteamIDForBot((ulong)idIdentity), name, suitID, voice, loadout, moreCompanyCosmetics, internalGroupID.Value, defaultAIState);
+        }
+
+        /// <summary>
+        /// Creates a bot SteamId with the given AccountId <paramref name="idOffset"/>
+        /// </summary>
+        /// <param name="idOffset">The account ID to give the bot</param>
+        /// <returns>The fake steamID for a bot to use</returns>
+        private SteamId CreateSteamIDForBot(ulong idOffset = 0ul)
+        {
+            return new SteamId() { Value = FIRST_BOT_STEAM_ID_64 + idOffset };
+        }
+
+        /// <inheritdoc cref="GetIdentityWithSteamID(SteamId)"/>
+        public LethalBotIdentity? GetIdentityWithSteamID(ulong steamID)
+        {
+            return GetIdentityWithSteamID((SteamId)steamID);
+        }
+
+        /// <summary>
+        /// Returns a <see cref="LethalBotIdentity"/> with the given <paramref name="steamID"/>
+        /// </summary>
+        /// <param name="steamID">A bot steam id</param>
+        /// <returns>The <see cref="LethalBotIdentity"/> associated with the given <paramref name="steamID"/></returns>
+        public LethalBotIdentity? GetIdentityWithSteamID(SteamId steamID)
+        {
+            return LethalBotIdentities.FirstOrDefault(x => x.BotSteamID == steamID);
         }
 
         public string[] GetIdentitiesNamesLowerCaseWithoutSpace()

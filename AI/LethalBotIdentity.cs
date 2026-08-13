@@ -1,4 +1,5 @@
 ﻿using LethalBots.Enums;
+using Steamworks;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -17,6 +18,7 @@ namespace LethalBots.AI
     public class LethalBotIdentity
     {
         public int IdIdentity { get; }
+        public SteamId BotSteamID { get; }
         public string Name { get; set; }
         public int? SuitID { get; set; }
         public LethalBotVoice Voice { get; set; }
@@ -57,9 +59,10 @@ namespace LethalBots.AI
             }
         }
 
-        public LethalBotIdentity(int idIdentity, string name, int? suitID, LethalBotVoice voice, LethalBotLoadout loadout, string moreCompanyCosmetics, int groupID, EnumDefaultAIState defaultAIState = EnumDefaultAIState.FollowPlayer, int? Xp = null)
+        public LethalBotIdentity(int idIdentity, SteamId steamId, string name, int? suitID, LethalBotVoice voice, LethalBotLoadout loadout, string moreCompanyCosmetics, int groupID, EnumDefaultAIState defaultAIState = EnumDefaultAIState.FollowPlayer, int? Xp = null)
         {
             IdIdentity = idIdentity;
+            BotSteamID = steamId;
             Name = name;
             SuitID = suitID;
             Voice = voice;
@@ -86,7 +89,7 @@ namespace LethalBots.AI
 
         public override string ToString()
         {
-            return $"IdIdentity: {IdIdentity}, name: {Name}, suit {Suit}, Hp {Hp}/{HpMax}, XP {XP}, Level {Level}, More Company Cosmetics {MoreCompanyCosmetics}, Internal Group ID {GroupID}, Status {(int)Status} '{Status}', Voice : {{{Voice.ToString()}}}, Loadout : {{{Loadout.ToString()}}}";
+            return $"IdIdentity: {IdIdentity}, SteamID: {BotSteamID}, name: {Name}, suit {Suit}, Hp {Hp}/{HpMax}, XP {XP}, Level {Level}, More Company Cosmetics {MoreCompanyCosmetics}, Internal Group ID {GroupID}, Status {(int)Status} '{Status}', Voice : {{{Voice.ToString()}}}, Loadout : {{{Loadout.ToString()}}}";
         }
 
         public int GetRandomSuitID()

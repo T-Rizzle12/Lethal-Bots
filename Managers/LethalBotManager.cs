@@ -25,6 +25,7 @@ using Scoops.patch;
 using Scoops.service;
 using SelfSortingStorage.Cupboard;
 using SpeechRecognitionAPI;
+using Steamworks;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -2008,7 +2009,7 @@ namespace LethalBots.Managers
             lethalBotController.disconnectedMidGame = false;
             lethalBotController.isPlayerControlled = true;
             lethalBotController.transform.localScale = Vector3.one;
-            lethalBotController.playerSteamId = 0ul; // Set SteamId to 0 since the game code considers that invalid
+            lethalBotController.playerSteamId = lethalBotIdentity.BotSteamID; // Set SteamId to the fake id assigned to the bot
             lethalBotController.playerClientId = (ulong)spawnParamsNetworkSerializable.IndexNextPlayerObject;
             lethalBotController.actualClientId = lethalBotController.playerClientId + Const.LETHAL_BOT_ACTUAL_ID_OFFSET;
             lethalBotController.isInElevator = true;
@@ -4490,6 +4491,19 @@ namespace LethalBots.Managers
         {
             LethalBotAI? lethalBotAI = GetLethalBotAI(id);
             return lethalBotAI != null;
+        }
+
+        /// <summary>
+        /// Is the given <paramref name="steamId"/> belong to a bot
+        /// </summary>
+        /// <remarks>
+        /// If you need the <see cref="LethalBotIdentity"/> associated with a bot, use <see cref="IdentityManager.GetIdentityWithSteamID(SteamId)"/>
+        /// </remarks>
+        /// <param name="steamId">A steam id</param>
+        /// <returns>If the given <paramref name="steamId"/> belongs to a bot</returns>
+        public bool IsSteamIdBot(SteamId steamId)
+        {
+            return IdentityManager.Instance.GetIdentityWithSteamID(steamId) != null;
         }
 
         /// <summary>

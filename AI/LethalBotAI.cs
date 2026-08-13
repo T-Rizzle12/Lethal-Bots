@@ -23,6 +23,7 @@ using Scoops.gameobjects;
 using Scoops.misc;
 using Scoops.service;
 using SelfSortingStorage.Cupboard;
+using Steamworks;
 using Steamworks.Ugc;
 using System;
 using System.Collections;
@@ -108,6 +109,14 @@ namespace LethalBots.AI
                 value.OnEnterState(); // Call the OnEnterState method of the new state
             }
         }
+
+        /// <summary>
+        /// Returns the bot's <see cref="SteamId"/> in its <see cref="LethalBotIdentity.BotSteamID"/>
+        /// </summary>
+        /// <remarks>
+        /// Returns an invaild <see cref="SteamId"/> if <see cref="LethalBotIdentity"/> is null
+        /// </remarks>
+        public SteamId BotSteamID => LethalBotIdentity?.BotSteamID ?? default;
 
         /// <summary>
         /// Pilot class of the body <c>PlayerControllerB</c> of the lethalBot.
@@ -196,7 +205,8 @@ namespace LethalBots.AI
         internal Coroutine? useInteractTriggerCoroutine = null;
         private Coroutine? lethalPhonesCoroutine = null;
 
-        // Networked Variables
+        #region Bot Network Variables
+
         /// <summary>
         /// The fear level of the lethalBot.
         /// Synced from the owning client (which varies depending on which player the bot is following),
@@ -221,6 +231,8 @@ namespace LethalBots.AI
         /// This is only synced to keep the level consistent between clients
         /// </remarks>
         public NetworkVariable<float> HealInfectionLevel = new NetworkVariable<float>(writePerm: NetworkVariableWritePermission.Owner);
+
+        #endregion
 
         private string stateIndicatorServer = string.Empty;
         private Vector3 previousWantedDestination;

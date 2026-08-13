@@ -221,7 +221,8 @@ namespace LethalBots.Patches.GameEnginePatches
         [HarmonyPrefix]
         public static bool FillImageWithSteamProfile_Prefix(HUDManager __instance, ref RawImage image, ref SteamId steamId, ref bool large)
         {
-            if (!steamId.IsValid)
+            // TODO: Custom PFPs for bots
+            if (!steamId.IsValid || LethalBotManager.Instance.IsSteamIdBot(steamId))
             {
                 Plugin.LogWarning($"FillImageWithSteamProfile: Invaild steam id {steamId} or steam id is a bot. Aboring FillImageWithSteamProfile to prevent errors.");
                 return false;
