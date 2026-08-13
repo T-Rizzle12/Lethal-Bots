@@ -40,6 +40,13 @@ namespace LethalBots.Constants
 
         public const string ADDITIONALNETWORKING_DLLFILENAME = "AdditionalNetworking_Preloader.dll";
 
+        // Named Network Message Strings
+        public const string LETHAL_BOTS_PROFILE_PICTURE_NET_MESSAGE = "LethalBots.SendBotPFP";
+
+        // Important File Paths
+        public const string LETHAL_BOTS_PATH = "LethalBots\\";
+        public const string LETHAL_BOTS_PFP_PATH = "Profile-Pictures\\";
+
         public const float EPSILON = 0.01f; // NOTE: This is different from float.Epsilon!
         public const bool DISABLE_ORIGINAL_GAME_DEBUG_LOGS = false;
         public const ulong LETHAL_BOT_ACTUAL_ID_OFFSET = 200000ul; // Was 100000ul, but changed to not conflict with LethalInternship

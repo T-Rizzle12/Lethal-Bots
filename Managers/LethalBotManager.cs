@@ -34,6 +34,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Unity.AI.Navigation;
 using Unity.Collections;
 using Unity.Netcode;
@@ -227,9 +228,26 @@ namespace LethalBots.Managers
         /// 1. The ability to override the default enemies panik levels and/or functions as desired.<br/>
         /// 2. A hook to safely register their modded enemies into the threat list.
         /// </remarks>
-        public static UnityEvent RegisterModdedEnemies = new UnityEvent();
+        public static readonly UnityEvent RegisterModdedEnemies = new UnityEvent();
 
         public Dictionary<EnemyAI, INoiseListener> DictEnemyAINoiseListeners = new Dictionary<EnemyAI, INoiseListener>();
+
+        /// <summary>
+        /// Helper event that allows you to get the sent PFP for a bot<br/>
+        /// This is called right after a bot PFP is sent to the client.<br/>
+        /// WARNING: This will not be called if the client disables bot PFPs on their side
+        /// </summary>
+        /// <remarks>
+        /// The <see cref="SteamId"/> should belong to a bot.<br/>
+        /// The given <see cref="byte"/> array is the raw image data.<br/>
+        /// An already made <see cref="Texture2D"/> has been provided as well.<br/>
+        /// </remarks>
+        public readonly UnityEvent<SteamId, byte[], Texture2D> OnBotPFPRecevied = new UnityEvent<SteamId, byte[], Texture2D>();
+
+        /// <summary>
+        /// Helper event that is called when the manager is being despawned
+        /// </summary>
+        public readonly UnityEvent OnBotPFPManagerDestroyed = new UnityEvent();
 
         private LethalBotAI[] AllLethalBotAIs = null!; // new LethalBotAI[50] So far the largest size a modded lobby I have seen is 50, this will resize as needed to not waste memory!
         private List<int> AllBotPlayerIndexs = new List<int>();
@@ -341,11 +359,16 @@ namespace LethalBots.Managers
 
         public override void OnNetworkSpawn()
         {
+            // Add our OnChanged hooks
             base.OnNetworkSpawn();
             blacklistedNetworkList.OnListChanged += OnBlacklistChanged;
             LootTransferPlayersNetworkList.OnListChanged += OnLootTransferPlayersChanged;
             missionControlPlayerNetworkVar.OnValueChanged += OnMissionControllerChanged;
 
+            // Register Custom Message RPC
+            NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(Const.LETHAL_BOTS_PROFILE_PICTURE_NET_MESSAGE, OnBotPFPReceived);
+
+            // Destory Duplicate Instances
             if (!base.NetworkManager.IsServer)
             {
                 if (Instance != null && Instance != this)
@@ -357,12 +380,150 @@ namespace LethalBots.Managers
             }
         }
 
+        #region Bot Profile Picture Helpers
+
+        /// <summary>
+        /// Helper function for use in our custom named message
+        /// </summary>
+        /// <param name="senderClientId"></param>
+        /// <param name="reader"></param>
+        private void OnBotPFPReceived(ulong senderClientId, FastBufferReader reader)
+        {
+            // Only the server can send Profile Pictures
+            if (senderClientId != NetworkManager.ServerClientId)
+            {
+                Plugin.LogWarning($"ALERT! Unauthorized user attempted to send FPF for a bot. Sender Client Id: {senderClientId}");
+                return;
+            }
+
+            // The client doesn't want bot PFPs
+            if (!Plugin.Config.AllowBotProfilePictures.Value)
+            {
+                return;
+            }
+
+            // Read PFP data
+            reader.ReadValueSafe(out ulong botSteamID);
+            reader.ReadValueSafe(out byte[] pfpData);
+            if (pfpData == null || pfpData.Length == 0)
+            {
+                Plugin.LogWarning($"Received empty PFP data for bot {botSteamID}.");
+                return;
+            }
+
+            // Create the texture
+            Texture2D texture = new Texture2D(2, 2);
+            if (!texture.LoadImage(pfpData))
+            {
+                Plugin.LogWarning($"Failed to decode PFP image for bot {botSteamID}.");
+                Object.Destroy(texture);
+                return;
+            }
+
+            // Force Unity to upload it to the GPU immediately.
+            texture.Apply();
+
+            // Call our OnBotPFPRecevied hook
+            OnBotPFPRecevied.Invoke(botSteamID, pfpData, texture);
+        }
+
+        /// <summary>
+        /// Requests a bot's profile picture using the given <paramref name="botSteamID"/>
+        /// </summary>
+        /// <param name="botSteamID"></param>
+        /// <param name="serverRpcParams"></param>
+        [ServerRpc(RequireOwnership = false)]
+        public void RequestBotProfilePictureServerRpc(ulong botSteamID, ServerRpcParams serverRpcParams = default)
+        {
+            // Find and send the bot's PFP back down to the client who requested it
+            LethalBotIdentity? lethalBotIdentity = IdentityManager.Instance.GetIdentityWithSteamID(botSteamID);
+            if (lethalBotIdentity != null)
+            {
+                // Find and send our custom image
+                SendBotProfilePictureAsync(serverRpcParams.Receive.SenderClientId, lethalBotIdentity);
+            }
+            else
+            {
+                Plugin.LogWarning($"Client {serverRpcParams.Receive.SenderClientId} asked for PFP for bot with SteamID: {botSteamID}, but given SteamID didn't belong to a bot.");
+            }
+        }
+
+        /// <summary>
+        /// Finds and sends a bot's FPF to the given <paramref name="targetClientId"/>
+        /// </summary>
+        /// <param name="targetClientId"></param>
+        /// <param name="identity"></param>
+        /// <returns></returns>
+        private async void SendBotProfilePictureAsync(ulong targetClientId, LethalBotIdentity identity)
+        {
+            // Read file asynchronously here.
+            byte[]? pfpData = null;
+
+            // Cache the Profile Picture file path, since LethalBotIdentity is NOT Thread Safe
+            string botProfilePicture = identity.PFPFilePath;
+            if (!string.IsNullOrWhiteSpace(botProfilePicture) && !botProfilePicture.Equals("None", StringComparison.OrdinalIgnoreCase))
+            {
+                // Move to a worker thread
+                await Task.Run(async () =>
+                {
+                    // Include custom added profile pictures from other mods
+                    foreach (string pluginDir in Directory.GetDirectories(Paths.PluginPath))
+                    {
+                        // Find the Profile Pictures folder
+                        string pluginPFPs = Path.Combine(pluginDir, Const.LETHAL_BOTS_PATH, Const.LETHAL_BOTS_PFP_PATH);
+                        if (Directory.Exists(pluginPFPs))
+                        {
+                            // Load all paths
+                            Plugin.LogInfo($"Searching for bot PFP in: {pluginPFPs}");
+                            string? file = Directory.EnumerateFiles(pluginPFPs, botProfilePicture, SearchOption.AllDirectories).FirstOrDefault();
+                            if (!string.IsNullOrWhiteSpace(file))
+                            {
+                                pfpData = await File.ReadAllBytesAsync(file); // Get the data
+                                break;
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Then send pfpData to client.
+            if (pfpData != null)
+            {
+                // The size varies based on the image being send, so we calculate the size here
+                int bufferSize = FastBufferWriter.GetWriteSize(identity.BotSteamID) + FastBufferWriter.GetWriteSize(pfpData);
+                FastBufferWriter writer = new FastBufferWriter(bufferSize, Allocator.Temp);
+                using (writer)
+                {
+                    // Write the data to be sent
+                    writer.WriteValueSafe((ulong)identity.BotSteamID);
+                    writer.WriteValueSafe(pfpData);
+
+                    // Send our custom message
+                    // NOTE: We send this fragmented since the size of some images may be larger than maximum RPC size
+                    NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(Const.LETHAL_BOTS_PROFILE_PICTURE_NET_MESSAGE, targetClientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
+                }
+            }
+            else
+            {
+                Plugin.LogWarning($"Failed to find bot profile picture with name {identity.PFPFilePath}");
+            }
+        }
+
+        #endregion
+
         public override void OnNetworkDespawn()
         {
+            // Remove our OnChanged hooks
             base.OnNetworkDespawn();
             blacklistedNetworkList.OnListChanged -= OnBlacklistChanged;
             LootTransferPlayersNetworkList.OnListChanged -= OnLootTransferPlayersChanged;
             missionControlPlayerNetworkVar.OnValueChanged -= OnMissionControllerChanged;
+
+            // Remove Custom Message RPC
+            NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(Const.LETHAL_BOTS_PROFILE_PICTURE_NET_MESSAGE);
+
+            // Call OnBotPFPManagerDestroyed hook, so other hooks know to deregister themselves
+            OnBotPFPManagerDestroyed.Invoke();
 
             // Destory the ShipNavMesh as well!
             if (shipNavMeshInstance != null)
@@ -2156,22 +2317,13 @@ namespace LethalBots.Managers
             // NOTE: Funnily enough, this doesn't actually add an entry to the list, but rather just updated the slot for that player index!
             // This means we don't have to worry about duplicates or anything!
             // Bots will automatically "disconnect" when they are despawned since the player slot is freed up!
-            lethalBotController.quickMenuManager.AddUserToPlayerList(0ul, lethalBotController.playerUsername, (int)lethalBotController.playerClientId);
+            lethalBotController.quickMenuManager.AddUserToPlayerList(lethalBotIdentity.BotSteamID, lethalBotController.playerUsername, (int)lethalBotController.playerClientId);
 
             // Change voice volume to what is set in the identiy file!
             // HACKHACK: MoreCompany for some reason sets the voicevolume to whatever the default is which is 1f, making the bots WAY too loud!
             lethalBotController.quickMenuManager.playerListSlots[lethalBotController.playerClientId].volumeSlider.normalizedValue = lethalBotAI.LethalBotIdentity.Voice.Volume;
 
-            // Radar name update
-            //foreach (var radarTarget in instance.mapScreen.radarTargets)
-            //{
-            //    if (radarTarget != null
-            //        && radarTarget.transform == lethalBotController.transform)
-            //    {
-            //        radarTarget.name = lethalBotController.playerUsername;
-            //        break;
-            //    }
-            //}
+            // Mod Support
             if (Plugin.IsModGeneralImprovementsLoaded)
             {
                 // Update scan nodes now that we have the Steam names
@@ -2193,7 +2345,20 @@ namespace LethalBots.Managers
 
             // Direct access to avoid looping
             // Exactly how the game does it in PlayerControllerB.SendNewPlayerValuesClientRpc!
-            instance.mapScreen.radarTargets[(int)lethalBotController.playerClientId].name = lethalBotController.playerUsername;
+            //instance.mapScreen.radarTargets[(int)lethalBotController.playerClientId].name = lethalBotController.playerUsername;
+
+            // Radar name update
+            List<TransformAndName> radarTargets = instance.mapScreen.radarTargets;
+            for (int i = 0; i < radarTargets.Count; i++)
+            {
+                TransformAndName? radarTarget = radarTargets[i];
+                if (radarTarget != null
+                    && radarTarget.transform == lethalBotController.transform)
+                {
+                    radarTarget.name = lethalBotController.playerUsername;
+                    break;
+                }
+            }
 
             // If the bot was revived, we need to update the spectator boxes to reflect this!
             if (GameNetworkManager.Instance.localPlayerController.isPlayerDead)

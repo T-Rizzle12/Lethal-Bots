@@ -1,5 +1,6 @@
 ﻿using BepInEx;
 using LethalBots.AI;
+using LethalBots.Constants;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -18,8 +19,6 @@ namespace LethalBots.Managers
         public static AudioManager Instance { get; private set; } = null!;
 
         public Dictionary<string, AudioClip?> DictAudioClipsByPath = new Dictionary<string, AudioClip?>();
-
-        private const string lethalBotsPath = "LethalBots\\";
 
         private const string voicesPath = "Audio\\Voices\\";
 
@@ -70,7 +69,7 @@ namespace LethalBots.Managers
             foreach (string pluginDir in Directory.GetDirectories(Paths.PluginPath))
             {
                 // Find the pluginVoices folder
-                string pluginVoices = Path.Combine(pluginDir, lethalBotsPath, voicesPath);
+                string pluginVoices = Path.Combine(pluginDir, Const.LETHAL_BOTS_PATH, voicesPath);
                 if (Directory.Exists(pluginVoices))
                 {
                     // Load all paths

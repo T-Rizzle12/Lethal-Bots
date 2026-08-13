@@ -151,8 +151,16 @@ namespace LethalBots.Managers
                 moreCompanyCosmetics = string.Empty;
             }
 
+            // Profile Picture Path
+            string pfpFilePath = configIdentity.pfpFilePath;
+            if (string.IsNullOrWhiteSpace(pfpFilePath))
+            {
+                // Make sure we have a valid string
+                pfpFilePath = "None";
+            }
+
             // LethalBotIdentity
-            return new LethalBotIdentity(idIdentity, CreateSteamIDForBot((ulong)idIdentity), name, suitID, voice, loadout, moreCompanyCosmetics, internalGroupID.Value, defaultAIState);
+            return new LethalBotIdentity(idIdentity, CreateSteamIDForBot((ulong)idIdentity), name, suitID, voice, loadout, moreCompanyCosmetics, internalGroupID.Value, pfpFilePath, defaultAIState);
         }
 
         /// <summary>

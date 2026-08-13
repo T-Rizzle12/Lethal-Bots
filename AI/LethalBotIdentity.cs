@@ -25,6 +25,7 @@ namespace LethalBots.AI
         public LethalBotLoadout Loadout { get; set; }
         public string MoreCompanyCosmetics { get; set; }
         public int GroupID { get; set; }
+        public string PFPFilePath { get; set; }
         public DeadBodyInfo? DeadBody { get; set; }
         public object? BodyReplacementBase { get; set; }
 
@@ -59,7 +60,7 @@ namespace LethalBots.AI
             }
         }
 
-        public LethalBotIdentity(int idIdentity, SteamId steamId, string name, int? suitID, LethalBotVoice voice, LethalBotLoadout loadout, string moreCompanyCosmetics, int groupID, EnumDefaultAIState defaultAIState = EnumDefaultAIState.FollowPlayer, int? Xp = null)
+        public LethalBotIdentity(int idIdentity, SteamId steamId, string name, int? suitID, LethalBotVoice voice, LethalBotLoadout loadout, string moreCompanyCosmetics, int groupID, string pfpFilePath, EnumDefaultAIState defaultAIState = EnumDefaultAIState.FollowPlayer, int? Xp = null)
         {
             IdIdentity = idIdentity;
             BotSteamID = steamId;
@@ -69,6 +70,7 @@ namespace LethalBots.AI
             Loadout = loadout;
             MoreCompanyCosmetics = moreCompanyCosmetics;
             GroupID = groupID;
+            PFPFilePath = pfpFilePath;
             HpMax = 100;
             Hp = HpMax;
             DiedLastRound = true;
@@ -89,7 +91,7 @@ namespace LethalBots.AI
 
         public override string ToString()
         {
-            return $"IdIdentity: {IdIdentity}, SteamID: {BotSteamID}, name: {Name}, suit {Suit}, Hp {Hp}/{HpMax}, XP {XP}, Level {Level}, More Company Cosmetics {MoreCompanyCosmetics}, Internal Group ID {GroupID}, Status {(int)Status} '{Status}', Voice : {{{Voice.ToString()}}}, Loadout : {{{Loadout.ToString()}}}";
+            return $"IdIdentity: {IdIdentity}, SteamID: {BotSteamID}, name: {Name}, suit {Suit}, Hp {Hp}/{HpMax}, XP {XP}, Level {Level}, More Company Cosmetics {MoreCompanyCosmetics}, Internal Group ID {GroupID}, Profile Picture Path {PFPFilePath}, Status {(int)Status} '{Status}', Voice : {{{Voice.ToString()}}}, Loadout : {{{Loadout.ToString()}}}";
         }
 
         public int GetRandomSuitID()

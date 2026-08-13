@@ -2014,9 +2014,12 @@ namespace LethalBots.AI
                     //SyncPerformingEmoteManager.SendSyncEmoteUpdateToServer(emoteControllerLethalBot, overrideEmoteId);
                     Plugin.LogInfo("Sending sync emote update to server. Sync with emote controller id: " + emoteControllerLethalBot.emoteControllerId);
                     FastBufferWriter messageStream = new FastBufferWriter(6, Allocator.Temp);
-                    messageStream.WriteValue<uint>((uint)emoteControllerLethalBot.emoteControllerId, default(FastBufferWriter.ForPrimitives));
-                    messageStream.WriteValue<short>((short)overrideEmoteId, default(FastBufferWriter.ForPrimitives));
-                    NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("TooManyEmotes.SyncEmoteServerRpc", NetworkManager.ServerClientId, messageStream);
+                    using (messageStream)
+                    {
+                        messageStream.WriteValue<uint>((uint)emoteControllerLethalBot.emoteControllerId, default(FastBufferWriter.ForPrimitives));
+                        messageStream.WriteValue<short>((short)overrideEmoteId, default(FastBufferWriter.ForPrimitives));
+                        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("TooManyEmotes.SyncEmoteServerRpc", NetworkManager.ServerClientId, messageStream);
+                    }
                     emoteControllerLethalBot.timeSinceStartingEmote = 0f;
                     Npc.performingEmote = true;
                     Plugin.LogDebug($"Lethal Bot {Npc.playerUsername} successfuly synced emote with {playerToSyncWith.playerUsername}!");

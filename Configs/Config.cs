@@ -32,6 +32,7 @@ namespace LethalBots.Configs
 
         // Identity  
         [SyncedEntryField] public SyncedEntry<bool> SpawnIdentitiesRandomly;
+        public ConfigEntry<bool> AllowBotProfilePictures;
         [SyncedEntryField] public SyncedEntry<bool> ResetIdentitiesWhenFired;
         public ConfigEntry<bool> ResetIdentities;
 
@@ -119,6 +120,11 @@ namespace LethalBots.Configs
                                               "Randomness of identities",
                                               defaultVal: false,
                                               "Spawn the bot with random identities from the file rather than in order?");
+
+            AllowBotProfilePictures = cfg.Bind(ConfigConst.ConfigSectionIdentities, 
+                                               "Allow Bot Profile Pictures (Client only)",
+                                               defaultValue: true,
+                                               "Is the server allowed to send you custom profile pictures for the bots?");
 
             ResetIdentitiesWhenFired = cfg.BindSyncedEntry(ConfigConst.ConfigSectionIdentities,
                                                 "Reset identities when fired",

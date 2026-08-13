@@ -458,6 +458,7 @@ namespace LethalBots
             if (IsModDawnLibLoaded)
             {
                 _harmony.PatchAll(typeof(DawnMoonNetworkerPatch));
+                _harmony.PatchAll(typeof(PlayerNameplateUIPatch));
             }
             if (IsModUsualScrapLoaded)
             {
