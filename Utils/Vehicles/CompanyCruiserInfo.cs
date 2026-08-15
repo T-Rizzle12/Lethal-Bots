@@ -184,7 +184,7 @@ namespace LethalBots.Utils.Vehicles
 
                 // Update the crusier's NavMeshAgent with the current speed and acceleration of the vehicle
                 vehicleAgent.speed = vehicleController.mainRigidbody.velocity.magnitude;
-                vehicleAgent.acceleration = vehicleController.carAcceleration;
+                vehicleAgent.acceleration = float.MaxValue;
 
                 // Drive the vehicle using the NavMeshAgent
                 ref VehicleInputHelper input = ref lethalBotAI.NpcController.vehicleInput;
@@ -192,12 +192,12 @@ namespace LethalBots.Utils.Vehicles
 
                 // Check what gear our vehicle is in and change it if necessary
                 CarGearShift currentGear = vehicleController.gear;
-                if (input.Throttle > 0f && currentGear != CarGearShift.Drive)
+                if (input.WantsForward && currentGear != CarGearShift.Drive)
                 {
                     input.Throttle = 0f; // Prevent the vehicle from moving forward while we are changing gears
                     yield return ChangeGear(vehicleController, new CompanyCruiserGearRequest { DesiredGear = CarGearShift.Drive }, lethalBotAI);
                 }
-                else if (input.Throttle < 0f && currentGear != CarGearShift.Reverse)
+                else if (input.WantsReverse && currentGear != CarGearShift.Reverse)
                 {
                     input.Throttle = 0f; // Prevent the vehicle from moving forward while we are changing gears
                     // Don't change to park if we are at high speed, we need to slow down first.
@@ -421,7 +421,7 @@ namespace LethalBots.Utils.Vehicles
                 // Just in case
                 vehicleController.passengerSeatTrigger.interactable = true;
                 vehicleController.currentPassenger = null;
-                vehicleController.SetVehicleCollisionForPlayer(setEnabled: true, vehicleController.currentPassenger);
+                vehicleController.SetVehicleCollisionForPlayer(setEnabled: true, lethalBotController);
 
                 // Wait a second to make sure the player is out of the vehicle before closing the door
                 yield return new WaitForSeconds(1f);

@@ -52,6 +52,16 @@ namespace LethalBots.Utils.Helpers
         /// </summary>
         protected virtual float SpeedTolerance => 0.5f;
 
+        /// <summary>
+        /// Acceptable steering error before attempting to  
+        /// </summary>
+        protected virtual float SteeringTolerance => 0.1f;
+
+        /// <summary>
+        /// The angle the max angle <typeparamref name="TVehicle"/> can turn
+        /// </summary>
+        protected virtual float SteeringAngle => 15f;
+
         #region Interface Helpers
 
         Type IVehicleAdapter.VehicleType => typeof(TVehicle);
@@ -168,6 +178,8 @@ namespace LethalBots.Utils.Helpers
         public virtual void SetupNavMeshAgent(NavMeshAgent agent, TVehicle vehicleController)
         {
             // Default settings for the NavMeshAgent
+            //agent.agentTypeID = NavMeshAgentTypeID;
+            agent.baseOffset = 2f;
             agent.radius = 2;
             agent.height = 4;
             agent.speed = MaxDrivingSpeed;
@@ -346,7 +358,10 @@ namespace LethalBots.Utils.Helpers
 
             // Keep the agent synced with the actual vehicle position.
             // The agent is only a navigation brain, not the actual mover.
-            agent.nextPosition = vehicle.transform.position;
+            //Vector3 vehiclePosition = RoundManager.Instance.GetNavMeshPosition(vehicle.transform.position, sampleRadius: 2.7f);
+            Vector3 vehiclePosition = vehicle.transform.position;
+            agent.nextPosition = vehicle.transform.position + Vector3.down * agent.baseOffset;
+            agent.gameObject.transform.position = vehiclePosition;
 
             // Make sure we have a path to follow, if not, we should brake to a stop.
             if (!agent.hasPath || agent.pathPending || agent.isStopped)
@@ -360,16 +375,33 @@ namespace LethalBots.Utils.Helpers
             float currentSpeed = vehicle.mainRigidbody.velocity.magnitude;
 
             // Get the target position from the agent.
-            Vector3 target = agent.steeringTarget;
+            // TODO: Improve Steering code as bots either use too much or too little
+            //Vector3 target = (vehicle.mainRigidbody.transform.position - agent.desiredVelocity); //agent.steeringTarget;
+            Vector3 target = (agent.steeringTarget - vehicle.mainRigidbody.transform.position);
 
-            // Convert into the vehicle's local space.
-            Vector3 localTarget = vehicle.transform.InverseTransformPoint(target);
+            // Convert to local space (relative to the cruiser forward direction)
+            Vector3 localTarget = vehicle.mainRigidbody.transform.InverseTransformDirection(target.normalized);
+
+            // Check the current steering direction
+            //Vector3 vehicleDirection = vehicle.transform.forward * SteeringAngle * vehicle.steeringInput;
 
             // Get the planar distance to the target (ignoring height).
             float planarDistance = Mathf.Max(new Vector2(localTarget.x, localTarget.z).magnitude, 0.1f);
 
             // Steering (-1 to 1)
-            float desiredSteering = Mathf.Clamp(localTarget.x / planarDistance, -1f, 1f);
+            float targetSteering = Mathf.Clamp(localTarget.x / planarDistance, -1f, 1f);
+            float vehicleSteeringInputNormalised = vehicle.steeringInput / 3f;
+            float desiredSteering;
+
+            // Check our set tolerance
+            if (Mathf.Abs(targetSteering - vehicleSteeringInputNormalised) < SteeringTolerance)
+            {
+                desiredSteering = vehicleSteeringInputNormalised; // Keep at it
+            }
+            else
+            {
+                desiredSteering = targetSteering; // Update our steering angle
+            }
 
             // Smooth steering.
             input.Steering = desiredSteering;

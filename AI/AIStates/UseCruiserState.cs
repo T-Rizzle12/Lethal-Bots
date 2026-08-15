@@ -120,7 +120,8 @@ namespace LethalBots.AI.AIStates
                         {
                             // DEBUG: Drive to the main entrance
                             NavMeshAgent crusierNavMeshAgent = VehicleManager.Instance.CruiserNavMeshAgent;
-                            crusierNavMeshAgent.SetDestination(RoundManager.FindMainEntrancePosition(getTeleportPosition: false, getOutsideEntrance: true));
+                            Vector3 mainEntrancePos = RoundManager.Instance.GetNavMeshPosition(RoundManager.FindMainEntrancePosition(getTeleportPosition: false, getOutsideEntrance: true), sampleRadius: 2.7f);
+                            crusierNavMeshAgent.SetDestination(mainEntrancePos);
                         }
                         else
                         {

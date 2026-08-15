@@ -237,8 +237,9 @@ namespace LethalBots.Patches.MapPatches
                 VehicleInputHelper vehicleInput = lethalBotAI.NpcController.vehicleInput;
                 float pedalInput = vehicleInput.Brake > 0.1f ? -vehicleInput.Brake : vehicleInput.ThrottleMagnitude;
                 __instance.moveInputVector = new Vector2(vehicleInput.GetActualSteering(), pedalInput);
-                float num = __instance.steeringWheelTurnSpeed;
-                __instance.steeringInput = Mathf.Clamp(__instance.steeringInput + __instance.moveInputVector.x * num * Time.deltaTime, -3f, 3f);
+                //float num = __instance.steeringWheelTurnSpeed;
+                //__instance.steeringInput = Mathf.Clamp(__instance.steeringInput + __instance.moveInputVector.x * num * Time.deltaTime, -3f, 3f);
+                __instance.steeringInput = Mathf.MoveTowards(__instance.steeringInput, __instance.moveInputVector.x * 3f, __instance.steeringWheelTurnSpeed * Time.deltaTime);
                 if (Mathf.Abs(__instance.moveInputVector.x) > 0.1f)
                 {
                     __instance.steeringWheelAudio.volume = Mathf.Lerp(__instance.steeringWheelAudio.volume, Mathf.Abs(__instance.moveInputVector.x), 5f * Time.deltaTime);
@@ -247,7 +248,8 @@ namespace LethalBots.Patches.MapPatches
                 {
                     __instance.steeringWheelAudio.volume = Mathf.Lerp(__instance.steeringWheelAudio.volume, 0f, 5f * Time.deltaTime);
                 }
-                __instance.steeringAnimValue = __instance.moveInputVector.x;
+                __instance.steeringAnimValue = 0f;
+                __instance.steeringWheelAnimFloat = Mathf.MoveTowards(__instance.steeringWheelAnimFloat, __instance.moveInputVector.x, __instance.steeringWheelTurnSpeed * Time.deltaTime / 6f);
                 __instance.drivePedalPressed = pedalInput > 0.1f;
                 __instance.brakePedalPressed = pedalInput < -0.1f;
                 return false; // Skip original method

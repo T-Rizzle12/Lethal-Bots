@@ -242,6 +242,10 @@ namespace LethalBots.AI
                     // Update movement when using ladder
                     UpdateMoveWhenClimbingLadder();
                 }
+                if (lethalBotController.inVehicleAnimation && (lethalBotController.externalForces + lethalBotController.externalForceAutoFade).sqrMagnitude > 50f * 50f)
+                {
+                    lethalBotController.CancelSpecialTriggerAnimations();
+                }
                 lethalBotController.teleportingThisFrame = false;
 
                 // Rotations
@@ -1250,6 +1254,22 @@ namespace LethalBots.AI
             {
                 lethalBotController.cameraLookRig1.weight = 0.45f;
                 lethalBotController.cameraLookRig2.weight = 1f;
+            }
+            if (lethalBotController.inVehicleAnimation)
+            {
+                lethalBotController.cameraLookRig1.weight = 0.33f;
+                lethalBotController.cameraLookRig2.weight = 1f;
+                lethalBotController.leftArmRigSecondary.weight = 1f;
+                lethalBotController.rightArmRigSecondary.weight = 1f;
+                lethalBotController.leftArmRig.weight = 0f;
+                lethalBotController.rightArmRig.weight = 0f;
+            }
+            else
+            {
+                lethalBotController.leftArmRigSecondary.weight = 0f;
+                lethalBotController.rightArmRigSecondary.weight = 0f;
+                lethalBotController.leftArmRig.weight = 1f;
+                lethalBotController.rightArmRig.weight = 1f;
             }
             if (lethalBotController.isExhausted)
             {

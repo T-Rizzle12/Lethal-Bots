@@ -10,8 +10,8 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
     /// </summary>
     public class VehicleInputHelper
     {
-        public bool WantsForward => Throttle > 0.1f;
-        public bool WantsReverse => Throttle < -0.1f;
+        public bool WantsForward => Throttle > 0.0f;
+        public bool WantsReverse => Throttle < -0.0f;
         public float ThrottleMagnitude => Mathf.Abs(Throttle);
 
         public float GetActualSteering() { return Throttle > 0f ? Steering : -Steering; }
