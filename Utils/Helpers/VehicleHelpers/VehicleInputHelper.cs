@@ -14,15 +14,19 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         public bool WantsReverse => Throttle < -0.1f;
         public float ThrottleMagnitude => Mathf.Abs(Throttle);
 
+        public float GetActualSteering() { return Throttle > 0f ? Steering : -Steering; }
+
         public float Steering;
         public float Throttle;
         public float Brake;
+        public bool IsStopping;
 
         public void Zero()
         {
             Steering = 0f;
             Throttle = 0f;
             Brake = 0f;
+            IsStopping = false;
         }
     }
 }

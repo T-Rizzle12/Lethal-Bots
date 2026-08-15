@@ -89,6 +89,7 @@ namespace LethalBots.AI
         public Vector2 lastMoveVector;
         private float floatSprint;
         internal bool goDownLadder;
+        internal Vector3? ladderEndpoint;
 
         private int[] animationHashLayers = null!;
         private List<int> currentAnimationStateHash = null!;
@@ -2329,9 +2330,11 @@ namespace LethalBots.AI
         /// Set the controller to go down or up on the ladder
         /// </summary>
         /// <param name="hasToGoDown"></param>
-        public void OrderToGoUpDownLadder(bool hasToGoDown)
+        /// <param name="ladderEnd"></param>
+        public void OrderToGoUpDownLadder(bool hasToGoDown, Vector3? ladderEnd = null)
         {
             this.goDownLadder = hasToGoDown;
+            this.ladderEndpoint = ladderEnd;
         }
 
         /// <summary>

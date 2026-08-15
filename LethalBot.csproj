@@ -117,6 +117,7 @@
     <PackageReference Include="LethalCompany.GameLibs.Steam" Version="*-*" Publicize="true" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Assets\Profile-Pictures\" />
     <Folder Include="lib\mods\" />
     <Folder Include="lib\LCv64\" />
     <Folder Include="Example Voicepack\" />

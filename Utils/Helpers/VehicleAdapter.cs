@@ -1,11 +1,15 @@
-﻿using GameNetcodeStuff;
+﻿using Dusk;
+using GameNetcodeStuff;
 using LethalBots.AI;
+using LethalBots.AI.AIStates;
 using LethalBots.Constants;
 using LethalBots.Utils.Helpers.VehicleHelpers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
+using Unity.AI.Navigation;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -130,6 +134,22 @@ namespace LethalBots.Utils.Helpers
         #endregion
 
         /// <summary>
+        /// This tells the given <paramref name="lethalBotAI"/> that your coroutine has finished.
+        /// </summary>
+        /// <remarks>
+        /// WARNING: YOU MUST CALL THIS WHEN ANY OF YOUR CORUTINES FINISH OR ELSE THE BOT WILL ENTER AN INFINTE LOOP
+        /// </remarks>
+        /// <param name="lethalBotAI"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void EndCoroutine(LethalBotAI lethalBotAI)
+        {
+            if (lethalBotAI.State is UseCruiserState useCruiserState)
+            {
+                useCruiserState.crusierInteractionCoroutine = null;
+            }
+        }
+
+        /// <summary>
         /// Allows you to check if the bot can drive the vehicle or not.
         /// </summary>
         /// <param name="vehicleController">The vehicle to check</param>
@@ -148,11 +168,32 @@ namespace LethalBots.Utils.Helpers
         public virtual void SetupNavMeshAgent(NavMeshAgent agent, TVehicle vehicleController)
         {
             // Default settings for the NavMeshAgent
+            agent.radius = 2;
+            agent.height = 4;
             agent.speed = MaxDrivingSpeed;
             agent.angularSpeed = 120f;
             agent.autoBraking = true;
             agent.updatePosition = false;
             agent.updateRotation = false;
+
+            agent.gameObject.transform.position = vehicleController.transform.position;
+            agent.Warp(vehicleController.transform.position);
+
+            foreach (var obstacle in vehicleController.GetComponentsInChildren<NavMeshObstacle>())
+            {
+                if (obstacle != null)
+                {
+                    obstacle.enabled = false;
+                }
+            }
+
+            foreach (var navMeshSurface in vehicleController.GetComponentsInChildren<NavMeshSurface>())
+            {
+                if (navMeshSurface != null)
+                {
+                    navMeshSurface.enabled = false;
+                }
+            }
         }
 
         /// <summary>
@@ -311,11 +352,12 @@ namespace LethalBots.Utils.Helpers
             if (!agent.hasPath || agent.pathPending || agent.isStopped)
             {
                 input.Brake = 1f; // We don't have a path, stop!
+                input.IsStopping = true;
                 return;
             }
 
             // Get the current speed of the vehicle.
-            float currentSpeed = vehicle.mainRigidbody.linearVelocity.magnitude;
+            float currentSpeed = vehicle.mainRigidbody.velocity.magnitude;
 
             // Get the target position from the agent.
             Vector3 target = agent.steeringTarget;
@@ -362,6 +404,7 @@ namespace LethalBots.Utils.Helpers
             {
                 input.Zero();
                 input.Brake = 1f;
+                input.IsStopping = true;
             }
         }
     }

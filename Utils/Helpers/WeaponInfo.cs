@@ -191,6 +191,7 @@ namespace LethalBots.Utils.Helpers
             if (!canHitTarget)
             {
                 yield return null;
+                setSkipCooldown.Invoke(true); // Try again next think
                 yield break;
             }
 

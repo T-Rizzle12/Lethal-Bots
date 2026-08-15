@@ -1,5 +1,6 @@
 ﻿using GameNetcodeStuff;
 using LethalBots.AI;
+using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Utils.Helpers;
@@ -23,6 +24,8 @@ namespace LethalBots.Utils.Vehicles
             // If the car is already started, we don't need to do anything
             if (IsIgnitionStarted(vehicleController))
             {
+                // Let the bot know we finished
+                EndCoroutine(lethalBotAI);
                 yield break;
             }
 
@@ -60,6 +63,9 @@ namespace LethalBots.Utils.Vehicles
                     yield return new WaitForSeconds(1f);
                 }
             }
+
+            // Let the bot know we finished
+            EndCoroutine(lethalBotAI);
         }
 
         public override IEnumerator ChangeGear(VehicleController vehicleController, CompanyCruiserGearRequest changeGearInfo, LethalBotAI lethalBotAI)
@@ -68,17 +74,23 @@ namespace LethalBots.Utils.Vehicles
             CarGearShift desiredGear = changeGearInfo.DesiredGear;
             if (desiredGear == vehicleController.gear)
             {
+                // Let the bot know we finished
+                EndCoroutine(lethalBotAI);
                 yield break;
             }
 
             // Look at the gear shift and change the gear
-            lethalBotAI.NpcController.OrderToLookAtPosition(vehicleController.gearStickAnimator.transform.position, EnumLookAtPriority.MAXIMUM_PRIORITY, maxBodyFOV: 20);
-            yield return new WaitUntil(() => lethalBotAI.NpcController.LookAtTarget.IsHeadAimingOnTarget() && lethalBotAI.NpcController.LookAtTarget.hasBeenSightedIn);
+            // FIXME: This causes bots to not properly change gears, its an internal issue with the bot's vision code.
+            //lethalBotAI.NpcController.OrderToLookAtPosition(vehicleController.gearStickAnimator.transform.position, EnumLookAtPriority.MAXIMUM_PRIORITY, maxBodyFOV: 20);
+            //yield return new WaitUntil(() => lethalBotAI.NpcController.LookAtTarget.IsHeadAimingOnTarget() && lethalBotAI.NpcController.LookAtTarget.hasBeenSightedIn);
 
             // Change the gear and sync it across the network
             // NOTE: This immediately changes the gear and syncs it across the network
             vehicleController.ShiftToGearAndSync((int)desiredGear);
             yield return null;
+
+            // Let the bot know we finished
+            EndCoroutine(lethalBotAI);
         }
 
         public override InteractTrigger? FindOpenPassengerSeat(VehicleController vehicleController, LethalBotAI lethalBotAI)
@@ -89,7 +101,12 @@ namespace LethalBots.Utils.Vehicles
 
         public override Vector3? FindOpenTrunkPosition(VehicleController vehicleController, LethalBotAI lethalBotAI)
         {
-            return null; // TODO: Implement trunk position finding logic for the Company Cruiser
+            // TODO: Implement proper trunk position finding logic for the Company Cruiser
+            float x = UnityEngine.Random.Range(Const.FIRST_CORNER_LETHALBOT_IN_CRUISER.x, Const.SECOND_CORNER_LETHALBOT_IN_CRUISER.x);
+            float y = UnityEngine.Random.Range(Const.FIRST_CORNER_LETHALBOT_IN_CRUISER.y, Const.SECOND_CORNER_LETHALBOT_IN_CRUISER.y);
+            float z = UnityEngine.Random.Range(Const.FIRST_CORNER_LETHALBOT_IN_CRUISER.z, Const.SECOND_CORNER_LETHALBOT_IN_CRUISER.z);
+
+            return new Vector3(x, y, z);
         }
 
         public override InteractTrigger? GetDriverSeat(VehicleController vehicleController, LethalBotAI lethalBotAI)
@@ -102,6 +119,8 @@ namespace LethalBots.Utils.Vehicles
             // Check if the trunk is already open, if so, we don't need to do anything
             if (IsTrunkOpen(vehicleController, lethalBotAI))
             {
+                // Let the bot know we finished
+                EndCoroutine(lethalBotAI);
                 yield break;
             }
 
@@ -114,6 +133,9 @@ namespace LethalBots.Utils.Vehicles
                 openTrigger.GetComponent<InteractTrigger>().Interact(lethalBotAI.NpcController.Npc.thisPlayerBody);
                 yield return new WaitUntil(() => IsTrunkOpen(vehicleController, lethalBotAI) || (Time.timeSinceLevelLoad - startTime) > 5f);
             }
+
+            // Let the bot know we finished
+            EndCoroutine(lethalBotAI);
         }
 
         public override IEnumerator CloseTrunk(VehicleController vehicleController, LethalBotAI lethalBotAI)
@@ -121,6 +143,8 @@ namespace LethalBots.Utils.Vehicles
             // Check if the trunk is already closed, if so, we don't need to do anything
             if (!IsTrunkOpen(vehicleController, lethalBotAI))
             {
+                // Let the bot know we finished
+                EndCoroutine(lethalBotAI);
                 yield break;
             }
 
@@ -133,6 +157,9 @@ namespace LethalBots.Utils.Vehicles
                 closedTrigger.GetComponent<InteractTrigger>().Interact(lethalBotAI.NpcController.Npc.thisPlayerBody);
                 yield return new WaitUntil(() => !IsTrunkOpen(vehicleController, lethalBotAI) || (Time.timeSinceLevelLoad - startTime) > 5f);
             }
+
+            // Let the bot know we finished
+            EndCoroutine(lethalBotAI);
         }
 
         public override IEnumerator DriveVehicle(VehicleController vehicleController, LethalBotAI lethalBotAI, NavMeshAgent vehicleAgent)
@@ -156,7 +183,7 @@ namespace LethalBots.Utils.Vehicles
                 }
 
                 // Update the crusier's NavMeshAgent with the current speed and acceleration of the vehicle
-                vehicleAgent.speed = vehicleController.mainRigidbody.linearVelocity.magnitude;
+                vehicleAgent.speed = vehicleController.mainRigidbody.velocity.magnitude;
                 vehicleAgent.acceleration = vehicleController.carAcceleration;
 
                 // Drive the vehicle using the NavMeshAgent
@@ -174,7 +201,7 @@ namespace LethalBots.Utils.Vehicles
                 {
                     input.Throttle = 0f; // Prevent the vehicle from moving forward while we are changing gears
                     // Don't change to park if we are at high speed, we need to slow down first.
-                    if (vehicleController.EngineRPM > 5000f)
+                    if (vehicleAgent.speed <= MinCornerSpeed)
                     {
                         yield return ChangeGear(vehicleController, new CompanyCruiserGearRequest { DesiredGear = CarGearShift.Reverse }, lethalBotAI);
                     }
@@ -186,7 +213,7 @@ namespace LethalBots.Utils.Vehicles
                 else if (input.Brake > 0f && currentGear != CarGearShift.Park)
                 {
                     // Don't change to park if we are at high speed, we need to slow down first.
-                    if (Mathf.Abs(vehicleController.EngineRPM) <= 3000f)
+                    if (input.IsStopping)
                     {
                         yield return ChangeGear(vehicleController, new CompanyCruiserGearRequest { DesiredGear = CarGearShift.Park }, lethalBotAI);
                     }
@@ -201,6 +228,7 @@ namespace LethalBots.Utils.Vehicles
             // Kinda hard to enter a vehicle if we don't have a seat to enter!
             if (seatTrigger == null)
             {
+                EndCoroutine(lethalBotAI);
                 yield break;
             }
 
@@ -209,6 +237,7 @@ namespace LethalBots.Utils.Vehicles
             if (driverSeat == null)
             {
                 Plugin.LogWarning($"[CompanyCruiserInfo] No driver seat found for vehicle {vehicleController.name}. Cannot enter vehicle.");
+                EndCoroutine(lethalBotAI);
                 yield break;
             }
 
@@ -220,6 +249,7 @@ namespace LethalBots.Utils.Vehicles
                 if (vehicleController.currentDriver != null)
                 {
                     Plugin.LogWarning($"[CompanyCruiserInfo] Driver seat is already occupied for vehicle {vehicleController.name}. Cannot enter vehicle.");
+                    EndCoroutine(lethalBotAI);
                     yield break;
                 }
 
@@ -229,6 +259,7 @@ namespace LethalBots.Utils.Vehicles
                     // Open the driver side door and wait until it is open or 5 seconds have passed
                     float startTime = Time.timeSinceLevelLoad;
                     vehicleController.driverSideDoorTrigger.Interact(lethalBotController.thisPlayerBody);
+                    yield return new WaitForSeconds(3f); // vehicleController.passengerSideDoor.boolValue can be set too early, so wait a hot second
                     yield return new WaitUntil(() => vehicleController.driverSideDoor.boolValue || (Time.timeSinceLevelLoad - startTime) > 5f);
                 }
 
@@ -237,6 +268,7 @@ namespace LethalBots.Utils.Vehicles
                 if (vehicleController.currentDriver != null)
                 {
                     Plugin.LogWarning($"[CompanyCruiserInfo] Driver seat is already occupied for vehicle {vehicleController.name}. Cannot enter vehicle.");
+                    EndCoroutine(lethalBotAI);
                     yield break;
                 }
 
@@ -269,6 +301,7 @@ namespace LethalBots.Utils.Vehicles
                 if (vehicleController.currentPassenger != null)
                 {
                     Plugin.LogWarning($"[CompanyCruiserInfo] Passenger seat is already occupied for vehicle {vehicleController.name}. Cannot enter vehicle.");
+                    EndCoroutine(lethalBotAI);
                     yield break;
                 }
 
@@ -278,6 +311,7 @@ namespace LethalBots.Utils.Vehicles
                     // Open the driver side door and wait until it is open or 5 seconds have passed
                     float startTime = Time.timeSinceLevelLoad;
                     vehicleController.passengerSideDoorTrigger.Interact(lethalBotController.thisPlayerBody);
+                    yield return new WaitForSeconds(3f); // vehicleController.passengerSideDoor.boolValue can be set too early, so wait a hot second
                     yield return new WaitUntil(() => vehicleController.passengerSideDoor.boolValue || (Time.timeSinceLevelLoad - startTime) > 5f);
                 }
 
@@ -286,12 +320,16 @@ namespace LethalBots.Utils.Vehicles
                 if (vehicleController.currentPassenger != null)
                 {
                     Plugin.LogWarning($"[CompanyCruiserInfo] Passenger seat is already occupied for vehicle {vehicleController.name}. Cannot enter vehicle.");
+                    EndCoroutine(lethalBotAI);
                     yield break;
                 }
 
                 // Base game, thanks to our patches, handles this just fine so no special logic is needed here.
                 seatTrigger.Interact(lethalBotController.thisPlayerBody);
             }
+
+            // Let the bot know we finished
+            EndCoroutine(lethalBotAI);
         }
 
         public override IEnumerator ExitVehicle(VehicleController vehicleController, LethalBotAI lethalBotAI)
@@ -301,6 +339,7 @@ namespace LethalBots.Utils.Vehicles
             if (driverSeat == null)
             {
                 Plugin.LogWarning($"[CompanyCruiserInfo] No driver seat found for vehicle {vehicleController.name}. Cannot leave vehicle.");
+                EndCoroutine(lethalBotAI);
                 yield break;
             }
 
@@ -335,6 +374,7 @@ namespace LethalBots.Utils.Vehicles
                 if (num != -1)
                 {
                     lethalBotController.TeleportPlayer(vehicleController.driverSideExitPoints[num].position);
+                    EndCoroutine(lethalBotAI);
                     yield break;
                 }
                 if (!vehicleController.driverSideDoor.boolValue)
@@ -363,6 +403,7 @@ namespace LethalBots.Utils.Vehicles
                     // Open the passenger side door and wait until it is open or 5 seconds have passed
                     float startTime = Time.timeSinceLevelLoad;
                     vehicleController.passengerSideDoorTrigger.Interact(lethalBotController.thisPlayerBody);
+                    yield return new WaitForSeconds(3f); // vehicleController.passengerSideDoor.boolValue can be set too early, so wait a hot second
                     yield return new WaitUntil(() => vehicleController.passengerSideDoor.boolValue || (Time.timeSinceLevelLoad - startTime) > 5f);
                 }
 
@@ -377,6 +418,11 @@ namespace LethalBots.Utils.Vehicles
                     lethalBotController.TeleportPlayer(vehicleController.passengerSideExitPoints[1].position);
                 }
 
+                // Just in case
+                vehicleController.passengerSeatTrigger.interactable = true;
+                vehicleController.currentPassenger = null;
+                vehicleController.SetVehicleCollisionForPlayer(setEnabled: true, vehicleController.currentPassenger);
+
                 // Wait a second to make sure the player is out of the vehicle before closing the door
                 yield return new WaitForSeconds(1f);
 
@@ -389,6 +435,9 @@ namespace LethalBots.Utils.Vehicles
                     yield return new WaitUntil(() => !vehicleController.passengerSideDoor.boolValue || (Time.timeSinceLevelLoad - startTime) > 5f);
                 }
             }
+
+            // Let the bot know we finished
+            EndCoroutine(lethalBotAI);
         }
     }
 }

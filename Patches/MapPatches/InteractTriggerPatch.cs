@@ -308,7 +308,8 @@ namespace LethalBots.Patches.MapPatches
             playerController.thisController.enabled = true; // NEEDTOVALIDATE: What happens if this is true for players that are not the local player?
             if (lethalBotAI != null)
             {
-                Vector3 endPos = ladderPosition;
+                Vector3 endPos = lethalBotAI.NpcController.ladderEndpoint ?? ladderPosition;
+                lethalBotAI.NpcController.ladderEndpoint = null; // Clear the endpoint
                 lethalBotAI.SetAgent(enabled: true);
                 if (lethalBotAI.agent.isOnOffMeshLink)
                 {
@@ -573,5 +574,33 @@ namespace LethalBots.Patches.MapPatches
 
             return false;
         }
+
+        /// <summary>
+        /// This fixes a logic error in the game where for some unknown reason playerScriptInSpecialAnimation
+        /// is NOT cleared for the local player............
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="playerUsing"></param>
+        [HarmonyPatch("StopUsingClientRpc")]
+        [HarmonyPostfix]
+        public static void StopUsingClientRpc_Postfix(InteractTrigger __instance, int playerUsing)
+        {
+            PlayerControllerB usingPlayer = StartOfRound.Instance.allPlayerScripts[playerUsing];
+            if (LethalBotManager.IsPlayerLocal(usingPlayer))
+            {
+                usingPlayer.inVehicleAnimation = false;
+                // Base game actually handles this
+                //if (__instance.lockedPlayer == usingPlayer.transform)
+                //{
+                //    __instance.lockedPlayer = null;
+                //}
+                if (__instance.playerScriptInSpecialAnimation == usingPlayer)
+                {
+                    __instance.playerScriptInSpecialAnimation = null;
+                }
+                __instance.SetInteractTriggerNotInAnimation(playerUsing);
+            }
+        }
+
     }
 }

@@ -461,47 +461,64 @@ namespace LethalBots.Managers
 
             // Cache the Profile Picture file path, since LethalBotIdentity is NOT Thread Safe
             string botProfilePicture = identity.PFPFilePath;
-            if (!string.IsNullOrWhiteSpace(botProfilePicture) && !botProfilePicture.Equals("None", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(botProfilePicture) || botProfilePicture.Equals("None", StringComparison.OrdinalIgnoreCase))
             {
-                // Move to a worker thread
-                await Task.Run(async () =>
+                Plugin.LogDebug("Skipping bot profile picture as its null or not set.");
+                return;
+            }
+
+            // Move to a worker thread
+            await Task.Run(async () =>
+            {
+                // Include custom added profile pictures from other mods
+                foreach (string pluginDir in Directory.GetDirectories(Paths.PluginPath))
                 {
-                    // Include custom added profile pictures from other mods
-                    foreach (string pluginDir in Directory.GetDirectories(Paths.PluginPath))
+                    // Find the Profile Pictures folder
+                    string pluginPFPs = Path.Combine(pluginDir, Const.LETHAL_BOTS_PATH, Const.LETHAL_BOTS_PFP_PATH);
+                    if (Directory.Exists(pluginPFPs))
                     {
-                        // Find the Profile Pictures folder
-                        string pluginPFPs = Path.Combine(pluginDir, Const.LETHAL_BOTS_PATH, Const.LETHAL_BOTS_PFP_PATH);
-                        if (Directory.Exists(pluginPFPs))
+                        // Load all paths
+                        Plugin.LogDebug($"Searching for bot PFP in: {pluginPFPs}");
+                        string? file = Directory.EnumerateFiles(pluginPFPs, botProfilePicture, SearchOption.AllDirectories).FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(file))
                         {
-                            // Load all paths
-                            Plugin.LogInfo($"Searching for bot PFP in: {pluginPFPs}");
-                            string? file = Directory.EnumerateFiles(pluginPFPs, botProfilePicture, SearchOption.AllDirectories).FirstOrDefault();
-                            if (!string.IsNullOrWhiteSpace(file))
-                            {
-                                pfpData = await File.ReadAllBytesAsync(file); // Get the data
-                                break;
-                            }
+                            pfpData = await File.ReadAllBytesAsync(file); // Get the data
+                            break;
                         }
                     }
-                });
-            }
+                }
+
+                // Check default profile pictures
+                if (pfpData == null)
+                {
+                    string defaultPFPs = Path.Combine(Plugin.DirectoryName, Const.LETHAL_BOTS_PFP_PATH);
+                    if (Directory.Exists(defaultPFPs))
+                    {
+                        // Load all paths
+                        Plugin.LogDebug($"Searching for bot PFP in: {defaultPFPs}");
+                        string? file = Directory.EnumerateFiles(defaultPFPs, botProfilePicture, SearchOption.AllDirectories).FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(file))
+                        {
+                            pfpData = await File.ReadAllBytesAsync(file); // Get the data
+                        }
+                    }
+                }
+            });
 
             // Then send pfpData to client.
             if (pfpData != null)
             {
                 // The size varies based on the image being send, so we calculate the size here
                 int bufferSize = FastBufferWriter.GetWriteSize(identity.BotSteamID) + FastBufferWriter.GetWriteSize(pfpData);
-                FastBufferWriter writer = new FastBufferWriter(bufferSize, Allocator.Temp);
-                using (writer)
-                {
-                    // Write the data to be sent
-                    writer.WriteValueSafe((ulong)identity.BotSteamID);
-                    writer.WriteValueSafe(pfpData);
+                using FastBufferWriter writer = new FastBufferWriter(bufferSize, Allocator.Temp);
 
-                    // Send our custom message
-                    // NOTE: We send this fragmented since the size of some images may be larger than maximum RPC size
-                    NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(Const.LETHAL_BOTS_PROFILE_PICTURE_NET_MESSAGE, targetClientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
-                }
+                // Write the data to be sent
+                writer.WriteValueSafe((ulong)identity.BotSteamID);
+                writer.WriteValueSafe(pfpData);
+
+                // Send our custom message
+                // NOTE: We send this fragmented since the size of some images may be larger than maximum RPC size
+                NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(Const.LETHAL_BOTS_PROFILE_PICTURE_NET_MESSAGE, targetClientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
             }
             else
             {
@@ -2773,6 +2790,10 @@ namespace LethalBots.Managers
                     RoundManager.Instance.playersFinishedGeneratingFloor.Remove(clientId);
                 }
 
+                // Reset voice pitch
+                SoundManager.Instance.playerVoicePitchTargets[lethalBotController.playerClientId] = 1f;
+                SoundManager.Instance.playerVoicePitchLerpSpeed[lethalBotController.playerClientId] = 3f;
+
                 // Set the name back to the default for LAN players
                 if (GameNetworkManager.Instance.disableSteam)
                 {
@@ -3447,7 +3468,7 @@ namespace LethalBots.Managers
             GetCloseToPlayerState.RegisterSignalTranslatorCommands();
 
             // Player in Cruiser state
-            PlayerInCruiserState.RegisterSignalTranslatorCommands();
+            UseCruiserState.RegisterSignalTranslatorCommands();
 
             // Just Lost Player state
             JustLostPlayerState.RegisterSignalTranslatorCommands();

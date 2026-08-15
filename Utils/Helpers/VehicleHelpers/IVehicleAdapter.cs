@@ -1,6 +1,7 @@
 ﻿using Dusk;
 using GameNetcodeStuff;
 using LethalBots.AI;
+using LethalBots.Constants;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -21,10 +22,12 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         public Type VehicleType { get; }
 
         /// <summary>
-        /// Custom Agent ID for the vehicle
+        /// Custom Agent ID for the vehicle <br/>
+        /// Lethal Bots defines a custom crusier NavSettings by default: <see cref="Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID"/>
         /// </summary>
         /// <remarks>
-        /// WARNING: YOU ARE RESPONSIBLE FOR CREATING CUSTOM AGENT TYPES FOR YOUR CRUISER
+        /// WARNING: IF YOU WANT CUSTOM NAVMESH SETTING FOR YOUR VEHICLE, YOU ARE RESPONSIBLE FOR CREATING CUSTOM AGENT TYPES FOR YOUR CRUISER <br/>
+        /// The default crusier NavSettings should work for MOST vehicles
         /// </remarks>
         public int NavMeshAgentTypeID { get; }
 

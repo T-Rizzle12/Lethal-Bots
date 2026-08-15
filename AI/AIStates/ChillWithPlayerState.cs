@@ -190,7 +190,7 @@ namespace LethalBots.AI.AIStates
             VehicleController? vehicleController = ai.GetVehicleCruiserTargetPlayerIsIn();
             if (vehicleController != null)
             {
-                ai.State = new PlayerInCruiserState(this, vehicleController);
+                ai.State = new UseCruiserState(this, vehicleController);
                 return;
             }
 

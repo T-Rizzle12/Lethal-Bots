@@ -312,8 +312,8 @@ namespace LethalBots.Constants
 
         // Tips
         public const string TOOLTIP_DROP_ITEM = "Drop your item : [{0}]";
-        public const string TOOLTIP_FOLLOW_ME = "Follow me: [{0}]";
-        public const string TOOLTIP_LEAD_THE_WAY = "Lead the way: [{0}]";
+        public const string TOOLTIP_FOLLOW_ME = "Follow me : [{0}]";
+        public const string TOOLTIP_LEAD_THE_WAY = "Lead the way : [{0}]";
         public const string TOOLTIP_CHANGE_SUIT_BOTS = "Change suit : [{0}]";
         public const string TOOLTIP_MAKE_BOT_LOOK = "Make bots look : [{0}]";
         public const string TOOLTIPS_ORDER_1 = "order 1 : [{0}]";

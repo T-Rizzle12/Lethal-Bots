@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.Events;
 
 namespace LethalBots.Managers
@@ -18,6 +19,20 @@ namespace LethalBots.Managers
     public class VehicleManager : MonoBehaviour
     {
         public static VehicleManager Instance { get; private set; } = null!;
+
+        private GameObject CruiserNavMeshAgentObject = null!;
+
+        public NavMeshAgent CruiserNavMeshAgent
+        {
+            get
+            {
+                if (field == null)
+                {
+                    field = CruiserNavMeshAgentObject.GetComponent<NavMeshAgent>();
+                }
+                return field;
+            }
+        }
 
         /// <summary>
         /// A hook that is called after <see cref="VehicleManager"/> registers the default vehicles
@@ -45,6 +60,19 @@ namespace LethalBots.Managers
 
             // Call hook
             RegisterVehicles.Invoke(this);
+
+            // Create the crusier NavMeshAgent
+            GameObject crusierAgent = new GameObject("CrusierNavMeshAgent");
+            crusierAgent.AddComponent<NavMeshAgent>();
+            CruiserNavMeshAgentObject = crusierAgent;
+        }
+
+        private void OnDestroy()
+        {
+            if (CruiserNavMeshAgentObject != null)
+            {
+                UnityEngine.Object.Destroy(CruiserNavMeshAgentObject);
+            }
         }
 
         /// <summary>

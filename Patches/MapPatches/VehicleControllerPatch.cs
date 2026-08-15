@@ -95,6 +95,69 @@ namespace LethalBots.Patches.MapPatches
             return vehicleController.localPlayerInControl || LethalBotManager.Instance.IsPlayerLethalBotOwnerLocal(vehicleController.currentDriver);
         }
 
+        [HarmonyPatch("OnPassengerExit")]
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> OnPassengerExit_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = 0;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // Create passenger local
+            var playerLocal = generator.DeclareLocal(typeof(PlayerControllerB));
+
+            // Target property: localPlayerInControl
+            // Target property: GameNetworkManager.Instance.localPlayerController
+            MethodInfo getGameNetworkManagerInstance = AccessTools.PropertyGetter(typeof(GameNetworkManager), "Instance");
+            FieldInfo localPlayerControllerField = AccessTools.Field(typeof(GameNetworkManager), "localPlayerController");
+            FieldInfo currentPassengerField = AccessTools.Field(typeof(VehicleController), "currentPassenger");
+            MethodInfo setVehicleCollisionForPlayerMethod = AccessTools.Method(typeof(VehicleController), "SetVehicleCollisionForPlayer");
+
+            // ----------------------------------------------------------------------
+            // Insert new field call so we can store the currentPassenger variable so we can use the passenger and not just the local player
+            // We do this since OnPassengerExit clears the currentPassenger attribute making it impossible to check who is leaving the vehicle at this point
+            List<CodeInstruction> codesToAdd = new List<CodeInstruction>
+            {
+                new CodeInstruction(OpCodes.Ldarg_0), // Load this
+                new CodeInstruction(OpCodes.Ldfld, currentPassengerField), // Load this.playerHeldBy
+                new CodeInstruction(OpCodes.Stloc, playerLocal) // Store in our local variable
+            };
+            codes.InsertRange(startIndex, codesToAdd);
+            startIndex = -1;
+
+            // ------------------------------------------------
+            for (var i = 0; i < codes.Count - 2; i++)
+            {
+                // Replace the SetVehicleCollisionForPlayer call with the current passenger
+                if (codes[i].Calls(getGameNetworkManagerInstance)
+                    && codes[i + 1].LoadsField(localPlayerControllerField)
+                    && codes[i + 2].Calls(setVehicleCollisionForPlayerMethod))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Replace the local player call to use the current passenger if its not null
+                codes[startIndex].opcode = OpCodes.Ldloc;
+                codes[startIndex].operand = playerLocal;
+                codes[startIndex + 1].opcode = OpCodes.Call;
+                codes[startIndex + 1].operand = AccessTools.Method(typeof(VehicleControllerPatch), nameof(GetCurrentPassenger));
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.MapPatches.VehicleControllerPatch.OnPassengerExit could not replace local player with current passenger");
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        private static PlayerControllerB GetCurrentPassenger(PlayerControllerB? currentPassenger)
+        {
+            return currentPassenger != null ? currentPassenger : GameNetworkManager.Instance.localPlayerController;
+        }
+
         [HarmonyPatch("TryIgnition", MethodType.Enumerator)]
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> TryIgnition_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
@@ -108,6 +171,7 @@ namespace LethalBots.Patches.MapPatches
 
             // Find the "this" field of the iterator class, which is a reference to the VehicleController instance
             FieldInfo cachedThisField = AccessTools.GetDeclaredFields(iteratorType).FirstOrDefault(f => f.FieldType == typeof(VehicleController) && f.Name.Contains("this"));
+            //Plugin.LogInfo($"Found this field: {cachedThisField} name {cachedThisField.Name}");
 
             // Target property: GameNetworkManager.Instance.localPlayerController
             MethodInfo getGameNetworkManagerInstance = AccessTools.PropertyGetter(typeof(GameNetworkManager), "Instance");
@@ -148,10 +212,12 @@ namespace LethalBots.Patches.MapPatches
 
         private static PlayerControllerB GetDriverPlayer(VehicleController vehicle)
         {
-            if (vehicle.currentDriver != null &&
-                LethalBotManager.Instance.IsPlayerLethalBotOwnerLocal(vehicle.currentDriver))
+            //Plugin.LogInfo($"Vehicle: {vehicle} with driver {vehicle.currentDriver}");
+            PlayerControllerB currentDriver = vehicle.currentDriver;
+            if (currentDriver != null &&
+                LethalBotManager.Instance.IsPlayerLethalBotOwnerLocal(currentDriver))
             {
-                return vehicle.currentDriver;
+                return currentDriver;
             }
 
             return GameNetworkManager.Instance.localPlayerController;
@@ -170,7 +236,7 @@ namespace LethalBots.Patches.MapPatches
             {
                 VehicleInputHelper vehicleInput = lethalBotAI.NpcController.vehicleInput;
                 float pedalInput = vehicleInput.Brake > 0.1f ? -vehicleInput.Brake : vehicleInput.ThrottleMagnitude;
-                __instance.moveInputVector = new Vector2(vehicleInput.Steering, pedalInput);
+                __instance.moveInputVector = new Vector2(vehicleInput.GetActualSteering(), pedalInput);
                 float num = __instance.steeringWheelTurnSpeed;
                 __instance.steeringInput = Mathf.Clamp(__instance.steeringInput + __instance.moveInputVector.x * num * Time.deltaTime, -3f, 3f);
                 if (Mathf.Abs(__instance.moveInputVector.x) > 0.1f)
@@ -187,6 +253,28 @@ namespace LethalBots.Patches.MapPatches
                 return false; // Skip original method
             }
             return true; // Run original method
+        }
+
+        [HarmonyPatch("LoseControlOfVehicle")]
+        [HarmonyPostfix]
+        static void LoseControlOfVehicle_Postfix(VehicleController __instance)
+        {
+            // Only do this for bots
+            if (LethalBotManager.Instance.IsPlayerLethalBotOwnerLocal(__instance.currentDriver))
+            {
+                // Make the bot lose control of the crusier
+                __instance.drivePedalPressed = false;
+                __instance.brakePedalPressed = false;
+                __instance.currentDriver = null;
+                __instance.steeringAnimValue = 0f;
+                __instance.keyIsInDriverHand = false;
+                __instance.CancelIgnitionAnimation();
+                __instance.chanceToStartIgnition = 20f;
+                if (!__instance.testingVehicleInEditor)
+                {
+                    __instance.RemovePlayerControlOfVehicleServerRpc((int)GameNetworkManager.Instance.localPlayerController.playerClientId, __instance.transform.position, __instance.transform.rotation, __instance.ignitionStarted);
+                }
+            }
         }
 
         /// <summary>

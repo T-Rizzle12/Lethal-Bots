@@ -10,7 +10,8 @@
       "__comment_voicePitch": "the pitch of the voice. Try to stay between 0.8 and 1.2, after that it's too much altered",
       "__comment_loadoutName": "the name of the loadout for the bot to use. Must be a valid loadout from ConfigLoadouts.json, else default of Empty is given",
       "__comment_moreCompanyCosmetics": "the string that represents the MoreCompany cosmetics to be worn by the bot. For Example: builtin.tophat,builtin.gunholster,builtin.watch would give the bot the built in tophat, gun holster, and wrist watch.",
-      "__comment_groupID": "the internal id of a group used by bots when deciding who to automatically group with. Set this to -1 to disable"
+      "__comment_groupID": "the internal id of a group used by bots when deciding who to automatically group with. Set this to -1 to disable",
+      "__comment_pfpFilePath": "the image file to use in pathToDllOfModInstalled/Profile-Pictures. For example: Mathew-Kelly-ID-pic.png"
     }
   ],
   "configIdentities": [
@@ -24,7 +25,8 @@
       "voicePitch": 1.0,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "Mathew-Kelly-ID-pic.png"
     },
     {
       "name": "Amy Stake",
@@ -36,7 +38,8 @@
       "voicePitch": 1.12,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath" : "None"
     },
     {
       "name": "Claire Annette",
@@ -48,7 +51,8 @@
       "voicePitch": 1.13,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Clare Voyant",
@@ -60,7 +64,8 @@
       "voicePitch": 1.14,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Ella Font",
@@ -72,7 +77,8 @@
       "voicePitch": 1.15,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Felix Cited",
@@ -84,7 +90,8 @@
       "voicePitch": 0.92,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Gerry Atrick",
@@ -96,7 +103,8 @@
       "voicePitch": 0.91,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Harry Legg",
@@ -108,7 +116,8 @@
       "voicePitch": 0.90,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Justin Case",
@@ -120,7 +129,8 @@
       "voicePitch": 0.89,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Lee King",
@@ -132,7 +142,8 @@
       "voicePitch": 0.88,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Luke Atmey",
@@ -144,7 +155,8 @@
       "voicePitch": 0.87,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Manuel Labour",
@@ -156,7 +168,8 @@
       "voicePitch": 0.86,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Mia Moore",
@@ -168,7 +181,8 @@
       "voicePitch": 1.16,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Ophelia Pane",
@@ -180,7 +194,8 @@
       "voicePitch": 1.17,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Paige Turner",
@@ -192,7 +207,8 @@
       "voicePitch": 1.18,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Paul Atishon",
@@ -204,7 +220,8 @@
       "voicePitch": 0.85,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Polly Esther",
@@ -216,7 +233,8 @@
       "voicePitch": 1.2,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Robyn Banks",
@@ -228,7 +246,8 @@
       "voicePitch": 1.19,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Terry Aki",
@@ -240,7 +259,8 @@
       "voicePitch": 0.84,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Tim Burr",
@@ -252,7 +272,8 @@
       "voicePitch": 0.83,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Toby Lerone",
@@ -264,7 +285,8 @@
       "voicePitch": 0.82,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Uriel Lucky",
@@ -276,7 +298,8 @@
       "voicePitch": 0.81,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     },
     {
       "name": "Zoltan Pepper",
@@ -288,7 +311,8 @@
       "voicePitch": 0.8,
       "loadoutName": "Empty",
       "moreCompanyCosmetics": "",
-      "groupID": -1
+      "groupID": -1,
+      "pfpFilePath": "None"
     }
   ]
 }

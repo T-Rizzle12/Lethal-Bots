@@ -537,7 +537,7 @@ namespace LethalBots.AI
                 }
 
                 // No AI calculation if in special animation if climbing ladder or inSpecialInteractAnimation
-                if (!lethalBotController.isClimbingLadder && !lethalBotController.inTerminalMenu
+                if (!lethalBotController.isClimbingLadder && !lethalBotController.inTerminalMenu && !lethalBotController.inVehicleAnimation
                     && (lethalBotController.inSpecialInteractAnimation || lethalBotController.enteringSpecialAnimation))
                 {
                     // If we are using a trigger, set our position and rotation to it!
@@ -604,7 +604,7 @@ namespace LethalBots.AI
             }
 
             // No AI calculation if in special animation if climbing ladder or inSpecialInteractAnimation
-            if (!lethalBotController.isClimbingLadder && !lethalBotController.inTerminalMenu
+            if (!lethalBotController.isClimbingLadder && !lethalBotController.inTerminalMenu && !lethalBotController.inVehicleAnimation
                 && (lethalBotController.inSpecialInteractAnimation || lethalBotController.enteringSpecialAnimation))
             {
                 // If we are using a trigger, set our position and rotation to it!
@@ -710,6 +710,18 @@ namespace LethalBots.AI
                     endPos.y = groundRaycastHit.point.y;
                 }
                 lethalBotController.transform.position = endPos;*/
+
+                // If we are using a trigger, set our position and rotation to it!
+                InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
+                if (ourTrigger != null && !ourTrigger.isLadder && !ourTrigger.setVehicleAnimation)
+                {
+                    lethalBotController.thisPlayerBody.localPosition = Vector3.Lerp(lethalBotController.thisPlayerBody.localPosition, lethalBotController.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
+                    lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
+                    NpcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
+                    this.transform.position = lethalBotController.transform.position;
+                    this.serverPosition = lethalBotController.transform.position;
+                }
+
                 // Just use the character controller as this fixes multiple issues the old addon had!
                 lethalBotController.thisController.Move(NpcController.MoveVector * Time.deltaTime);
             }
@@ -718,7 +730,7 @@ namespace LethalBots.AI
             {
                 // If we are using a trigger, set our position and rotation to it!
                 InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
-                if (ourTrigger != null && !ourTrigger.isLadder)
+                if (ourTrigger != null && !ourTrigger.isLadder && !ourTrigger.setVehicleAnimation)
                 {
                     lethalBotController.thisPlayerBody.localPosition = Vector3.Lerp(lethalBotController.thisPlayerBody.localPosition, lethalBotController.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
                     lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
@@ -749,15 +761,6 @@ namespace LethalBots.AI
                 TeleportAgentAIAndBody(IsTouchingGroundTimedCheck.GetGroundHit(lethalBotController.thisPlayerBody.position).point, onlyAgent: true);
                 //Plugin.LogDebug($"{lethalBotController.playerUsername} ============= lethalBotController.transform.position {lethalBotController.transform.position}");
             }
-
-            // No AI when falling
-            // NEEDTOVALIDATE: I wonder that since bots now properly set their moveInputVector, if this is no longer needed.
-            // Lethal Internship used to set it to Vector2(1.0, 0.0) I believe. I changed it to use the direction of the path the bot was following,
-            // which fixed the movement animations.
-            //if (StateControllerMovement == EnumStateControllerMovement.Free)
-            //{
-            //    return;
-            //}
 
             // Do stuck detection
             if (NpcController.HasToMove || (agent.isActiveAndEnabled && !agent.isOnNavMesh))
@@ -939,12 +942,14 @@ namespace LethalBots.AI
                 }
             }
 
+            // Check if the fire players cutscene is running
             if (StartOfRound.Instance.suckingPlayersOutOfShip)
             {
                 Plugin.LogDebug($"{lethalBotController.playerUsername} being sucked out of the ship!");
                 return true;
             }
 
+            // External forces
             Vector3 externalForces = lethalBotController.externalForces;
             Vector3 previousExternalForces = NpcController.PreviousExternalForces;
             if (externalForces.sqrMagnitude > 2f * 2f 
@@ -954,12 +959,18 @@ namespace LethalBots.AI
                 return true;
             }
 
+            // External forces part 2
             if (lethalBotController.externalForceAutoFade.sqrMagnitude > 2f * 2f)
             {
                 Plugin.LogDebug($"{lethalBotController.playerUsername} externalForceAutoFade {lethalBotController.externalForceAutoFade.sqrMagnitude}");
                 return true;
             }
 
+            // Animation with triggers
+            if (lethalBotController.currentTriggerInAnimationWith != null)
+            {
+                return true;
+            }
             return false;
         }
 
@@ -971,10 +982,6 @@ namespace LethalBots.AI
                 && !LethalBotManager.AreWeInOrbit(instanceSOR)
                 && (LethalBotManager.IsTheShipLeaving(instanceSOR)
                     || !LethalBotManager.IsTheShipLanded(instanceSOR)))
-            {
-                return true;
-            }
-            if (lethalBotController.currentTriggerInAnimationWith != null)
             {
                 return true;
             }
@@ -1028,7 +1035,7 @@ namespace LethalBots.AI
                 case EnumAIStates.GetCloseToPlayer:
                 case EnumAIStates.ChillWithPlayer:
                 case EnumAIStates.JustLostPlayer:
-                case EnumAIStates.PlayerInCruiser:
+                case EnumAIStates.UseCruiser:
                     return true;
                 case EnumAIStates.FetchingObject:
                     return targetPlayer != null 
@@ -1055,7 +1062,7 @@ namespace LethalBots.AI
                 case EnumAIStates.GetCloseToPlayer:
                 case EnumAIStates.ChillWithPlayer:
                 case EnumAIStates.JustLostPlayer:
-                case EnumAIStates.PlayerInCruiser:
+                case EnumAIStates.UseCruiser:
                 case EnumAIStates.FetchingObject:
                     return true;
                 default:
@@ -3240,14 +3247,17 @@ namespace LethalBots.AI
 
         /// <summary>
         /// Check every ladder to see if the body of lethalBot is close to either the bottom of the ladder (wants to go up) or the top of the ladder (wants to go down).
-        /// Orders the controller to set field <c>hasToGoDown</c>.
+        /// Orders the controller to set fields <see cref="NpcController.goDownLadder"/> and <see cref="NpcController.ladderEndpoint"/>.
         /// </summary>
         /// <remarks>
-        /// FIXME: This should use the bot's current path to determine when to climb or not!
+        /// A ladder is considered valid only when both endpoints of the
+        /// current <see cref="OffMeshLinkData"/> match the corresponding
+        /// top/bottom endpoints of the ladder.
         /// </remarks>
         /// <returns>The ladder to use, null if nothing close</returns>
         public InteractTrigger? GetLadderIfWantsToUseLadder()
         {
+            // Mark sure our target link is valid
             OffMeshLinkData offMeshLinkData = agent.currentOffMeshLinkData;
             if (!offMeshLinkData.valid 
                 || this.offMeshLinkCoroutine != null)
@@ -3255,54 +3265,73 @@ namespace LethalBots.AI
                 return null;
             }
 
-            Vector3 ourPos = NpcController.Npc.transform.position;
+            // Get the information about our link
             Vector3 linkStartPos = offMeshLinkData.startPos;
             Vector3 linkEndPos = offMeshLinkData.endPos;
-            Vector3 closestLinkPos;
-            if ((linkStartPos - ourPos).sqrMagnitude < (linkEndPos - ourPos).sqrMagnitude)
-            {
-                closestLinkPos = linkStartPos;
-            }
-            else
-            {
-                closestLinkPos = linkEndPos;
-            }
 
+            // Find the closest valid ladder
+            const float maxDistanceSqr = Const.DISTANCE_NPCBODY_FROM_LADDER * Const.DISTANCE_NPCBODY_FROM_LADDER;
             InteractTrigger? closestLadder = null;
-            float closestLadderDistSqr = Const.DISTANCE_NPCBODY_FROM_LADDER * Const.DISTANCE_NPCBODY_FROM_LADDER;
+            bool hasToGoDown = false;
+            float closestLadderDistSqr = maxDistanceSqr;
             for (int i = 0; i < laddersInteractTrigger.Length; i++)
             {
+                // Make sure its valid
                 InteractTrigger ladder = laddersInteractTrigger[i];
                 if (ladder == null || !ladder.interactable) continue;
 
                 // Setup important local variables
                 Vector3 ladderBottomPos = ladder.bottomOfLadderPosition.position;
                 Vector3 ladderTopPos = ladder.topOfLadderPosition.position;
-                float ladderDistSqrToBottom = (ladderBottomPos - closestLinkPos).sqrMagnitude;
-                float ladderDistSqrToTop = (ladderTopPos - closestLinkPos).sqrMagnitude;
 
-                // Find the closest part of the ladder to us!
-                float bestLadderDistSqr;
-                bool climbUp;
-                if (ladderDistSqrToBottom < ladderDistSqrToTop)
+                // OffMeshLink is going UP:
+                // start -> bottom
+                // end   -> top
+                bool matchesUp = (linkStartPos - ladderBottomPos).sqrMagnitude <= maxDistanceSqr
+                    && (linkEndPos - ladderTopPos).sqrMagnitude <= maxDistanceSqr;
+
+                // OffMeshLink is going DOWN:
+                // start -> top
+                // end   -> bottom
+                bool matchesDown = (linkStartPos - ladderTopPos).sqrMagnitude <= maxDistanceSqr
+                    && (linkEndPos - ladderBottomPos).sqrMagnitude <= maxDistanceSqr;
+                if (!matchesUp && !matchesDown)
                 {
-                    bestLadderDistSqr = ladderDistSqrToBottom;
-                    climbUp = true;
+                    continue;
+                }
+
+                // The bot is currently at the start of the OffMeshLink,
+                // so the ladder endpoint corresponding to the link start
+                // is the best distance to use for choosing between matches.
+                bool ladderGoesDown;
+                if (matchesUp && matchesDown)
+                {
+                    // If the ladder is short, pick which part of the ladder we are closest to
+                    float bottomDistance = (linkStartPos - ladderBottomPos).sqrMagnitude;
+                    float topDistance = (linkStartPos - ladderTopPos).sqrMagnitude;
+                    ladderGoesDown = topDistance < bottomDistance;
                 }
                 else
                 {
-                    bestLadderDistSqr = ladderDistSqrToTop;
-                    climbUp = false;
+                    ladderGoesDown = matchesDown;
                 }
 
-                // Check if this is the closest ladder
-                if (bestLadderDistSqr < closestLadderDistSqr)
+                Vector3 ladderStartPos = ladderGoesDown ? ladderTopPos : ladderBottomPos;
+                float ladderDistSqr = (ladderStartPos - linkStartPos).sqrMagnitude;
+                if (ladderDistSqr < closestLadderDistSqr)
                 {
-                    Plugin.LogDebug($"{NpcController.Npc.playerUsername} Path wants to climb {(climbUp ? "UP" : "DOWN")} ladder");
-                    NpcController.OrderToGoUpDownLadder(hasToGoDown: !climbUp);
-                    closestLadderDistSqr = bestLadderDistSqr;
                     closestLadder = ladder;
+                    closestLadderDistSqr = ladderDistSqr;
+                    hasToGoDown = ladderGoesDown;
+                    Plugin.LogDebug($"{NpcController.Npc.playerUsername} Path ladder canidate wants to climb " + $"{(hasToGoDown ? "DOWN" : "UP")} ladder");
                 }
+            }
+
+            // Check if we found a ladder to use
+            if (closestLadder != null)
+            {
+                Plugin.LogDebug($"{NpcController.Npc.playerUsername} Path wants to climb " + $"{(hasToGoDown ? "DOWN" : "UP")} ladder");
+                NpcController.OrderToGoUpDownLadder(hasToGoDown: hasToGoDown, linkEndPos);
             }
             return closestLadder;
         }
@@ -6114,7 +6143,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="pos">The position to teleport the bot to</param>
         /// <param name="skipNavMeshCheck">Should the navmesh check be skipped</param>
-        /// <param name="onlyAgent">Should on the <see cref="NavMeshAgent"/> and <see cref="LethalBotAI"/> be teleported</param>
+        /// <param name="onlyAgent">Should only the <see cref="NavMeshAgent"/> and <see cref="LethalBotAI"/> be teleported</param>
         private void TeleportAgentAIAndBody(Vector3 pos, bool skipNavMeshCheck = false, bool onlyAgent = false)
         {
             Vector3 navMeshPosition = skipNavMeshCheck ? pos : RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f);
@@ -6325,7 +6354,7 @@ namespace LethalBots.AI
 
             if (NpcController.IsControllerInCruiser)
             {
-                this.State = new PlayerInCruiserState(this, this.GetVehicleCruiserTargetPlayerIsIn()!);
+                this.State = new UseCruiserState(this, this.GetVehicleCruiserTargetPlayerIsIn()!);
             }
             else if (this.State == null
                 || this.State.GetAIState() != EnumAIStates.GetCloseToPlayer
