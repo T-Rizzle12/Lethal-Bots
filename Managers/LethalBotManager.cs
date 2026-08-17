@@ -3118,6 +3118,10 @@ namespace LethalBots.Managers
                     }
                     return;
                 }
+                else if (message.Contains("drive here"))
+                {
+                    UseCruiserState.targetCruiserPosition = playerWhoSentMessage.transform.position;
+                }
                 //else if (message.Contains("get navarea"))
                 //{
                 //    if (NavMesh.SamplePosition(playerWhoSentMessage.transform.position, out RoundManager.Instance.navHit, 30f, 1 << NavMesh.GetAreaFromName("EnemiesOnly")))

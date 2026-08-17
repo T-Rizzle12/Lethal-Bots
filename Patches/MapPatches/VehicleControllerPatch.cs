@@ -264,7 +264,7 @@ namespace LethalBots.Patches.MapPatches
             // Only do this for bots
             if (LethalBotManager.Instance.IsPlayerLethalBotOwnerLocal(__instance.currentDriver))
             {
-                // Make the bot lose control of the crusier
+                // Make the bot lose control of the Cruiser
                 __instance.drivePedalPressed = false;
                 __instance.brakePedalPressed = false;
                 __instance.currentDriver = null;
@@ -288,7 +288,6 @@ namespace LethalBots.Patches.MapPatches
                                                   Vector3 vel,
                                                   float magnitude)
         {
-            PlayerControllerB currentDriver = GetDriverPlayer(__instance);
             PlayerControllerB lethalBotController;
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
             for (int i = 0; i < lethalBotAIs.Length; i++)
@@ -296,10 +295,9 @@ namespace LethalBots.Patches.MapPatches
                 LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 lethalBotController = lethalBotAI.NpcController.Npc;
 
-                if (currentDriver != lethalBotController)
+                if (lethalBotController.overridePhysicsParent == null)
                 {
-                    if (__instance.physicsRegion.physicsTransform == lethalBotController.physicsParent
-                        && lethalBotController.overridePhysicsParent == null)
+                    if (__instance.physicsRegion.physicsTransform == lethalBotController.physicsParent)
                     {
                         lethalBotController.DamagePlayer(10, hasDamageSFX: true, callRPC: true, CauseOfDeath.Inertia, 0, false, vel);
                         lethalBotController.externalForceAutoFade += vel;
@@ -346,15 +344,21 @@ namespace LethalBots.Patches.MapPatches
         /// <summary>
         /// Patch for killing bot when car is destroyed
         /// </summary>
-        /*[HarmonyPatch("DestroyCar")]
+        [HarmonyPatch("DestroyCar")]
         [HarmonyPostfix]
-        static void DestroyCar_PostFix()
+        static void DestroyCar_PostFix(VehicleController __instance)
         {
-            foreach (LethalBotAI lethalBotAI in LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal())
+            PlayerControllerB lethalBotController;
+            LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
+            for (int i = 0; i < lethalBotAIs.Length; i++)
             {
-                Plugin.LogDebug($"DestroyCar Killing bot #{lethalBotAI.BotId}");
-                lethalBotAI.NpcController.Npc.KillPlayer(Vector3.up * 27f + 20f * Random.insideUnitSphere, spawnBody: true, CauseOfDeath.Blast, 6, Vector3.up * 1.5f);
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
+                lethalBotController = lethalBotAI.NpcController.Npc;
+                if (lethalBotController.overridePhysicsParent != null && lethalBotController.overridePhysicsParent == __instance.transform)
+                {
+                    lethalBotAI.NpcController.Npc.KillPlayer(Vector3.up * 27f + 20f * UnityEngine.Random.insideUnitSphere, spawnBody: true, CauseOfDeath.Blast, 6, Vector3.up * 1.5f);
+                }
             }
-        }*/
+        }
     }
 }

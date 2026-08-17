@@ -20,15 +20,21 @@ namespace LethalBots.Managers
     {
         public static VehicleManager Instance { get; private set; } = null!;
 
-        private GameObject CruiserNavMeshAgentObject = null!;
+        internal GameObject CruiserNavMeshAgentObject = null!;
 
         public NavMeshAgent CruiserNavMeshAgent
         {
             get
             {
+                if (CruiserNavMeshAgentObject == null)
+                {
+                    GameObject cruiserAgent = new GameObject("CrusierNavMeshAgent");
+                    field = cruiserAgent.AddComponent<NavMeshAgent>();
+                    CruiserNavMeshAgentObject = cruiserAgent;
+                }
                 if (field == null)
                 {
-                    field = CruiserNavMeshAgentObject.GetComponent<NavMeshAgent>();
+                    field = CruiserNavMeshAgentObject.GetComponent<NavMeshAgent>() ?? CruiserNavMeshAgentObject.AddComponent<NavMeshAgent>();
                 }
                 return field;
             }
@@ -60,11 +66,6 @@ namespace LethalBots.Managers
 
             // Call hook
             RegisterVehicles.Invoke(this);
-
-            // Create the crusier NavMeshAgent
-            GameObject crusierAgent = new GameObject("CrusierNavMeshAgent");
-            crusierAgent.AddComponent<NavMeshAgent>();
-            CruiserNavMeshAgentObject = crusierAgent;
         }
 
         private void OnDestroy()

@@ -243,7 +243,7 @@ namespace LethalBots.AI
         private CountdownTimer timerCheckDoor = new CountdownTimer();
         private CountdownTimer timerCheckLockedDoor = new CountdownTimer();
         private CachedValue<bool> areWeExposed = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
-        private CachedValue<bool> isEyelessDogInPromimity = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
+        private CachedValue<bool> isEyelessDogInProximity = new CachedValue<bool>(value: false, updateInterval: Const.TIMER_CHECK_EXPOSED);
 
         public LineRendererUtil LineRendererUtil = null!;
         private float stuckTimer; // Used for stuck detection
@@ -965,12 +965,6 @@ namespace LethalBots.AI
                 Plugin.LogDebug($"{lethalBotController.playerUsername} externalForceAutoFade {lethalBotController.externalForceAutoFade.sqrMagnitude}");
                 return true;
             }
-
-            // Animation with triggers
-            if (lethalBotController.currentTriggerInAnimationWith != null)
-            {
-                return true;
-            }
             return false;
         }
 
@@ -982,6 +976,11 @@ namespace LethalBots.AI
                 && !LethalBotManager.AreWeInOrbit(instanceSOR)
                 && (LethalBotManager.IsTheShipLeaving(instanceSOR)
                     || !LethalBotManager.IsTheShipLanded(instanceSOR)))
+            {
+                return true;
+            }
+            // Animation with triggers
+            if (lethalBotController.currentTriggerInAnimationWith != null)
             {
                 return true;
             }
@@ -3095,9 +3094,9 @@ namespace LethalBots.AI
         /// <returns>true: there is an eyeless dog nearby, false: no eyeless dog nearby</returns>
         public bool CheckProximityForEyelessDogs(bool bypassCooldown = false)
         {
-            if (!bypassCooldown && !isEyelessDogInPromimity.CanUpdate())
+            if (!bypassCooldown && !isEyelessDogInProximity.CanUpdate())
             {
-                return isEyelessDogInPromimity;
+                return isEyelessDogInProximity;
             }
 
             RoundManager instanceRM = RoundManager.Instance;
@@ -3113,12 +3112,12 @@ namespace LethalBots.AI
                     const float fearRange = 30f; // NOTE: 22f is the footstep range when running!
                     if ((spawnedEnemy.transform.position - ourPos).sqrMagnitude < fearRange * fearRange)
                     {
-                        isEyelessDogInPromimity.Value = true;
+                        isEyelessDogInProximity.Value = true;
                         return true;
                     }
                 }
             }
-            isEyelessDogInPromimity.Value = false;
+            isEyelessDogInProximity.Value = false;
             return false;
         }
 

@@ -484,6 +484,26 @@ namespace LethalBots.Patches.MapPatches
             return false;
         }
 
+        [HarmonyPatch("StopInteraction")]
+        [HarmonyPostfix]
+        public static void StopInteraction_Postfix(InteractTrigger __instance)
+        {
+            // Now we need to find the bot using this interact trigger!
+            PlayerControllerB[] allPlayerScripts = StartOfRound.Instance.allPlayerScripts;
+            for (int i = 0; i < allPlayerScripts.Length; i++)
+            {
+                PlayerControllerB tempPlayer = allPlayerScripts[i];
+                LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAIIfLocalIsOwner(tempPlayer);
+                if (lethalBotAI != null
+                    && (tempPlayer.isPlayerControlled
+                        || tempPlayer.isPlayerDead)
+                    && tempPlayer.currentTriggerInAnimationWith == __instance)
+                {
+                    lethalBotAI.LethalBotInteraction?.StopHoldInteractionOnTrigger();
+                }
+            }
+        }
+
         [HarmonyPatch("StopSpecialAnimation")]
         [HarmonyPrefix]
         public static bool StopSpecialAnimation_Prefix(InteractTrigger __instance, ref Transform ___lockedPlayer)
@@ -510,7 +530,7 @@ namespace LethalBots.Patches.MapPatches
             for (int i = 0; i < allPlayerScripts.Length; i++)
             {
                 PlayerControllerB tempPlayer = allPlayerScripts[i];
-                LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(tempPlayer);
+                LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAIIfLocalIsOwner(tempPlayer);
                 if (lethalBotAI != null 
                     && (tempPlayer.isPlayerControlled 
                         || tempPlayer.isPlayerDead) 
@@ -519,7 +539,7 @@ namespace LethalBots.Patches.MapPatches
                     player = tempPlayer;
                     playerTransform = tempPlayer.transform;
                     Plugin.LogDebug($"Stop special animation on {__instance.gameObject.name}, by {playerTransform}; {player}");
-                    if (__instance.isPlayingSpecialAnimation && __instance.stopAnimationManually && playerTransform != null)
+                    if (!__instance.isGettingDestroyed && __instance.isPlayingSpecialAnimation && __instance.stopAnimationManually && playerTransform != null)
                     {
                         Plugin.LogDebug($"Calling stop animation function StopUsing server rpc for playerController: {player.playerClientId}");
                         __instance.StopUsingServerRpc((int)player.playerClientId);
@@ -555,6 +575,10 @@ namespace LethalBots.Patches.MapPatches
                             player.playerBodyAnimator.SetTrigger(__instance.stopAnimationString);
                         }
                         player.UpdateSpecialAnimationValue(specialAnimation: false, 0);
+                        if (___lockedPlayer == playerTransform)
+                        {
+                            ___lockedPlayer = null!;
+                        }
                         __instance.currentCooldownValue = __instance.cooldownTime;
                         __instance.onInteract.Invoke(null);
                         Plugin.LogDebug("Stop special animation G");
@@ -572,7 +596,8 @@ namespace LethalBots.Patches.MapPatches
                 }
             }
 
-            return false;
+            // Always run the default
+            return true;
         }
 
         /// <summary>

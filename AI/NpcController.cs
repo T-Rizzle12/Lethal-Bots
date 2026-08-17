@@ -32,7 +32,6 @@ namespace LethalBots.AI
     {
         public PlayerControllerB Npc { get; set; } = null!;
 
-        // TODO: Create patches to PlayerPhysicsRegion to make them work with the bots
         public List<PlayerPhysicsRegion> CurrentLethalBotPhysicsRegions = new List<PlayerPhysicsRegion>();
 
         public bool HasToMove { private set; get; }
@@ -1067,7 +1066,7 @@ namespace LethalBots.AI
 
                 // If animation
                 // Update animation if current != previous
-                this.currentAnimationSpeed = lethalBotController.playerBodyAnimator.GetFloat("animationSpeed");
+                this.currentAnimationSpeed = lethalBotController.playerBodyAnimator.GetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED);
                 for (int i = 0; i < animationsStateHash.Length; i++)
                 {
                     this.currentAnimationStateHash[i] = animationsStateHash[i];
@@ -1413,7 +1412,7 @@ namespace LethalBots.AI
             if (lethalBotController.inSpecialInteractAnimation || this.updatePlayerAnimationsInterval > 0.14f)
             {
                 this.updatePlayerAnimationsInterval = 0f;
-                this.currentAnimationSpeed = lethalBotController.playerBodyAnimator.GetFloat("animationSpeed");
+                this.currentAnimationSpeed = lethalBotController.playerBodyAnimator.GetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED);
                 for (int i = 0; i < animationsStateHash.Length; i++)
                 {
                     this.currentAnimationStateHash[i] = animationsStateHash[i];
@@ -1437,9 +1436,9 @@ namespace LethalBots.AI
         public void ApplyUpdateLethalBotAnimationsNotOwner(int animationState, float animationSpeed)
         {
             PlayerControllerB lethalBotController = Npc;
-            if (lethalBotController.playerBodyAnimator.GetFloat("animationSpeed") != animationSpeed)
+            if (lethalBotController.playerBodyAnimator.GetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED) != animationSpeed)
             {
-                lethalBotController.playerBodyAnimator.SetFloat("animationSpeed", animationSpeed);
+                lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, animationSpeed);
             }
 
             if (animationState != 0 && lethalBotController.playerBodyAnimator.GetCurrentAnimatorStateInfo(0).fullPathHash != animationState)

@@ -1,4 +1,5 @@
-﻿using GameNetcodeStuff;
+﻿using Dusk;
+using GameNetcodeStuff;
 using LethalBots.AI;
 using LethalBots.Constants;
 using LethalBots.Enums;
@@ -8,6 +9,7 @@ using LethalBots.Utils.Helpers.VehicleHelpers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using UnityEngine;
 using UnityEngine.AI;
@@ -19,6 +21,51 @@ namespace LethalBots.Utils.Vehicles
     /// </summary>
     public class CompanyCruiserInfo : VehicleAdapter<VehicleController, CompanyCruiserGearRequest>
     {
+        public override bool IsSeatOccupied(VehicleController vehicleController, InteractTrigger seatTrigger, [NotNullWhen(true)] out PlayerControllerB? playerInSeat)
+        {
+            playerInSeat = null; // By default mark the player as null
+            if (vehicleController.driverSeatTrigger == seatTrigger)
+            {
+                playerInSeat = vehicleController.driverSeatTrigger.playerScriptInSpecialAnimation;
+            }
+            else if (vehicleController.passengerSeatTrigger == seatTrigger)
+            {
+                playerInSeat = vehicleController.passengerSeatTrigger.playerScriptInSpecialAnimation;
+            }
+
+            // Check if the seat is open
+            return playerInSeat != null;
+        }
+
+        public override bool IsPlayerInVehicle(VehicleController vehicleController, PlayerControllerB playerToCheck, out InteractTrigger? seatTrigger)
+        {
+            seatTrigger = null; // Default to null
+
+            // Check the driver seat
+            InteractTrigger? seatTriggerToCheck = vehicleController.driverSeatTrigger;
+            if (seatTriggerToCheck != null && seatTriggerToCheck.playerScriptInSpecialAnimation == playerToCheck)
+            {
+                seatTrigger = seatTriggerToCheck;
+                return true;
+            }
+
+            // Check the passenger seat
+            seatTriggerToCheck = vehicleController.passengerSeatTrigger;
+            if (seatTriggerToCheck != null && seatTriggerToCheck.playerScriptInSpecialAnimation == playerToCheck)
+            {
+                seatTrigger = seatTriggerToCheck;
+                return true;
+            }
+
+            // Check if the player is in the trunk
+            if (playerToCheck.overridePhysicsParent == null && vehicleController.physicsRegion.physicsTransform == playerToCheck.physicsParent)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         public override IEnumerator StartCar(VehicleController vehicleController, LethalBotAI lethalBotAI)
         {
             // If the car is already started, we don't need to do anything
@@ -182,8 +229,8 @@ namespace LethalBots.Utils.Vehicles
                     yield return StartCar(vehicleController, lethalBotAI);
                 }
 
-                // Update the crusier's NavMeshAgent with the current speed and acceleration of the vehicle
-                vehicleAgent.speed = vehicleController.mainRigidbody.velocity.magnitude;
+                // Update the Cruiser's NavMeshAgent with the current speed and acceleration of the vehicle
+                vehicleAgent.speed = MaxDrivingSpeed;
                 vehicleAgent.acceleration = float.MaxValue;
 
                 // Drive the vehicle using the NavMeshAgent
@@ -282,7 +329,7 @@ namespace LethalBots.Utils.Vehicles
                 // Same logic as the base game
                 // We handle the stuff here since we don't want to call some of the base game stuff
                 vehicleController.currentDriver = lethalBotController;
-                lethalBotController.playerBodyAnimator.SetFloat("animationSpeed", 0.5f);
+                lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 0.5f);
                 if (vehicleController.ignitionStarted)
                 {
                     lethalBotController.playerBodyAnimator.SetInteger("SA_CarAnim", 1);

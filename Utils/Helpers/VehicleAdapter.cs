@@ -7,11 +7,14 @@ using LethalBots.Utils.Helpers.VehicleHelpers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Unity.AI.Navigation;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.UIElements;
+using static UnityEngine.GraphicsBuffer;
 
 namespace LethalBots.Utils.Helpers
 {
@@ -25,12 +28,12 @@ namespace LethalBots.Utils.Helpers
         where TVehicle : VehicleController
         where TGearRequest : IChangeGearRequest
     {
-        public int NavMeshAgentTypeID => Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID;
+        public virtual int NavMeshAgentTypeID => Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID;
 
         /// <summary>
         /// The maximum speed the bot should attempt to drive at.
         /// </summary>
-        protected virtual float MaxDrivingSpeed => 14f;
+        protected virtual float MaxDrivingSpeed => 14f; // Was 28f, but it was TOO FAST
 
         /// <summary>
         /// The minimum speed to maintain while making very sharp turns.
@@ -45,7 +48,7 @@ namespace LethalBots.Utils.Helpers
         /// <summary>
         /// The distance at which the bot should come to a complete stop.
         /// </summary>
-        protected virtual float StopDistance => 2f;
+        protected virtual float StopDistance => 4f;
 
         /// <summary>
         /// Acceptable speed error before applying throttle or brakes.
@@ -60,7 +63,7 @@ namespace LethalBots.Utils.Helpers
         /// <summary>
         /// The angle the max angle <typeparamref name="TVehicle"/> can turn
         /// </summary>
-        protected virtual float SteeringAngle => 15f;
+        protected virtual float SteeringAngle => 45f;
 
         #region Interface Helpers
 
@@ -69,6 +72,16 @@ namespace LethalBots.Utils.Helpers
         bool IVehicleAdapter.CanDrive(VehicleController vehicleController, LethalBotAI lethalBotAI)
         {
             return CanDrive((TVehicle)vehicleController, lethalBotAI);
+        }
+
+        bool IVehicleAdapter.IsSeatOccupied(VehicleController vehicleController, InteractTrigger seatTrigger, [NotNullWhen(true)] out PlayerControllerB? playerInSeat)
+        {
+            return IsSeatOccupied((TVehicle)vehicleController, seatTrigger, out playerInSeat);
+        }
+
+        bool IVehicleAdapter.IsPlayerInVehicle(VehicleController vehicleController, PlayerControllerB playerInVehicle, out InteractTrigger? seatTrigger)
+        {
+            return IsPlayerInVehicle((TVehicle)vehicleController, playerInVehicle, out seatTrigger);
         }
 
         void IVehicleAdapter.SetupNavMeshAgent(NavMeshAgent agent, VehicleController vehicleController)
@@ -147,50 +160,64 @@ namespace LethalBots.Utils.Helpers
         /// This tells the given <paramref name="lethalBotAI"/> that your coroutine has finished.
         /// </summary>
         /// <remarks>
-        /// WARNING: YOU MUST CALL THIS WHEN ANY OF YOUR CORUTINES FINISH OR ELSE THE BOT WILL ENTER AN INFINTE LOOP
+        /// WARNING: YOU MUST CALL THIS WHEN ANY OF YOUR COROUTINES FINISH OR ELSE THE BOT WILL ENTER AN INFINTE LOOP
         /// </remarks>
         /// <param name="lethalBotAI"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void EndCoroutine(LethalBotAI lethalBotAI)
+        protected void EndCoroutine(LethalBotAI lethalBotAI)
         {
             if (lethalBotAI.State is UseCruiserState useCruiserState)
             {
-                useCruiserState.crusierInteractionCoroutine = null;
+                useCruiserState.cruiserInteractionCoroutine = null;
             }
         }
 
-        /// <summary>
-        /// Allows you to check if the bot can drive the vehicle or not.
-        /// </summary>
-        /// <param name="vehicleController">The vehicle to check</param>
-        /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
-        /// <returns><see langword="true"/> if the bot can drive the vehicle, <see langword="false"/> otherwise</returns>
+        /// <inheritdoc cref="IVehicleAdapter.CanDrive(VehicleController, LethalBotAI)"/>
         public virtual bool CanDrive(TVehicle vehicleController, LethalBotAI lethalBotAI)
         {
             return !vehicleController.carDestroyed;
         }
 
+        /// <inheritdoc cref="IVehicleAdapter.IsSeatOccupied(VehicleController, InteractTrigger, out PlayerControllerB?)"/>
+        public abstract bool IsSeatOccupied(TVehicle vehicleController, InteractTrigger seatTrigger, [NotNullWhen(true)] out PlayerControllerB? playerInSeat);
+
+        /// <inheritdoc cref="IVehicleAdapter.IsPlayerInVehicle(VehicleController, PlayerControllerB, out InteractTrigger?)"/>
+        public abstract bool IsPlayerInVehicle(VehicleController vehicleController, PlayerControllerB playerToCheck, out InteractTrigger? seatTrigger);
+
         /// <summary>
-        /// Allows you to setup the crusier's NavMesh agent with your own custom variables
+        /// Allows you to setup the Cruiser's NavMesh agent with your own custom variables
         /// </summary>
         /// <param name="agent"></param>
         /// <param name="vehicleController"></param>
         public virtual void SetupNavMeshAgent(NavMeshAgent agent, TVehicle vehicleController)
         {
             // Default settings for the NavMeshAgent
-            //agent.agentTypeID = NavMeshAgentTypeID;
-            agent.baseOffset = 2f;
-            agent.radius = 2;
-            agent.height = 4;
+            agent.agentTypeID = NavMeshAgentTypeID;
+            agent.enabled = true;
+            agent.baseOffset = 1.9f;
+            agent.radius = 5; // 2;
+            agent.height = 4.5f;
             agent.speed = MaxDrivingSpeed;
             agent.angularSpeed = 120f;
             agent.autoBraking = true;
             agent.updatePosition = false;
             agent.updateRotation = false;
 
-            agent.gameObject.transform.position = vehicleController.transform.position;
-            agent.Warp(vehicleController.transform.position);
+            // Update NavMesh areaMask
+            int areaMask = NavMesh.AllAreas;
+            int smallSpaceAreaMask = NavMesh.GetAreaFromName("SmallSpace");
+            areaMask &= ~(1 << smallSpaceAreaMask);
+            agent.areaMask = areaMask;
 
+            // Update area costs
+            int waterAreaMask = NavMesh.GetAreaFromName("Water");
+            agent.SetAreaCost(waterAreaMask, 5f);
+
+            // Try not to use Enemy Only area
+            int enemyOnlyArea = NavMesh.GetAreaFromName("EnemiesOnly");
+            agent.SetAreaCost(enemyOnlyArea, 100f);
+
+            // Disable default NavMeshObstacle
             foreach (var obstacle in vehicleController.GetComponentsInChildren<NavMeshObstacle>())
             {
                 if (obstacle != null)
@@ -199,31 +226,21 @@ namespace LethalBots.Utils.Helpers
                 }
             }
 
-            foreach (var navMeshSurface in vehicleController.GetComponentsInChildren<NavMeshSurface>())
-            {
-                if (navMeshSurface != null)
-                {
-                    navMeshSurface.enabled = false;
-                }
-            }
+            // Attach the agent to the cruiser
+            agent.Warp(vehicleController.transform.position);
+            //agent.transform.position = vehicleController.transform.position;
+            //agent.transform.SetParent(vehicleController.transform, worldPositionStays: true);
+            //agent.transform.localPosition = new Vector3(0f, -2f, 0f);
         }
 
-        /// <summary>
-        /// Tells the bot to start the vehicle!
-        /// </summary>
-        /// <remarks>
-        /// This allows you as a modder to implement your own vehicle starting logic based on the vehicle.
-        /// </remarks>
-        /// <param name="vehicleController">The vehicle the <paramref name="lethalBotAI"/> is trying to start</param>
-        /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
-        /// <returns></returns>
+        /// <inheritdoc cref="IVehicleAdapter.StartCar(VehicleController, LethalBotAI)"/>
         public abstract IEnumerator StartCar(TVehicle vehicleController, LethalBotAI lethalBotAI);
 
         /// <summary>
         /// Check if the car is started or not
         /// </summary>
         /// <remarks>
-        /// Handles the default Company Crusier by default.
+        /// Handles the default Company Cruiser by default.
         /// </remarks>
         /// <param name="vehicleController">The vehicle to check</param>
         /// <returns><see langword="true"/> if the car is started, <see langword="false"/> otherwise</returns>
@@ -232,56 +249,23 @@ namespace LethalBots.Utils.Helpers
             return vehicleController.ignitionStarted;
         }
 
-        /// <summary>
-        /// Allows you to set how the bot changes gears.
-        /// </summary>
-        /// <remarks>
-        /// I added this cause of the Scanvan! YOUR KEYS ARE IN THE IGNITION!
-        /// </remarks>
-        /// <param name="vehicleController">The vehicle to change gears for</param>
-        /// <param name="changeGearInfo">Information about the gear change</param>
-        /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
-        /// <returns></returns>
+        /// <inheritdoc cref="IVehicleAdapter.ChangeGear(VehicleController, IChangeGearRequest, LethalBotAI)"/>
         public abstract IEnumerator ChangeGear(TVehicle vehicleController, TGearRequest changeGearInfo, LethalBotAI lethalBotAI);
 
-        /// <summary>
-        /// Finds an open passenger seat in the vehicle.
-        /// </summary>
-        /// <remarks>
-        /// This doesn't include the driver seat, only passenger seats. <br/>
-        /// Makes it easy for you to tell the bot about open passenger seats. <br/>
-        /// Bots will use this to find a seat to sit in if they are not the driver.
-        /// </remarks>
-        /// <param name="vehicleController">The vehicle to check for open passenger seats</param>
-        /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
-        /// <returns>The open passenger seat, or null if none is available.</returns>
+        /// <inheritdoc cref="IVehicleAdapter.FindOpenPassengerSeat(VehicleController, LethalBotAI)"/>
         public abstract InteractTrigger? FindOpenPassengerSeat(TVehicle vehicleController, LethalBotAI lethalBotAI);
 
-        /// <summary>
-        /// Finds the driver seat in the vehicle.
-        /// </summary>
-        /// <param name="vehicleController">The vehicle to check for the driver seat</param>
-        /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
-        /// <returns>The driver seat.</returns>
+        /// <inheritdoc cref="IVehicleAdapter.GetDriverSeat(VehicleController, LethalBotAI)"/>
         public abstract InteractTrigger? GetDriverSeat(TVehicle vehicleController, LethalBotAI lethalBotAI);
 
-        /// <summary>
-        /// Finds a place for the bot to stand in the trunk of the vehicle.
-        /// </summary>
-        /// <remarks>
-        /// Some vehicles don't have enough seats for all players, 
-        /// so this allows you to find a place for the bot to stand in the trunk of the vehicle. <br/>
-        /// </remarks>
-        /// <param name="vehicleController">The vehicle to check for an open trunk position</param>
-        /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
-        /// <returns>The open trunk position, or null if none is available.</returns>
+        /// <inheritdoc cref="IVehicleAdapter.FindOpenTrunkPosition(VehicleController, LethalBotAI)"/>
         public abstract Vector3? FindOpenTrunkPosition(TVehicle vehicleController, LethalBotAI lethalBotAI);
 
         /// <summary>
         /// Checks if the trunk of the vehicle is open or not.
         /// </summary>
         /// <remarks>
-        /// Handles the default Company Crusier by default.
+        /// Handles the default Company Cruiser by default.
         /// </remarks>
         /// <param name="vehicleController">The vehicle to check</param>
         /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
@@ -291,57 +275,19 @@ namespace LethalBots.Utils.Helpers
             return vehicleController.backDoorOpen;
         }
 
-        /// <summary>
-        /// Allows you to customize how the bot opens the trunk of the vehicle.
-        /// </summary>
-        /// <param name="vehicleController">The vehicle to open the trunk of</param>
-        /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
-        /// <returns></returns>
+        /// <inheritdoc cref="IVehicleAdapter.OpenTrunk(VehicleController, LethalBotAI)"/>
         public abstract IEnumerator OpenTrunk(TVehicle vehicleController, LethalBotAI lethalBotAI);
 
-        /// <summary>
-        /// Allows you to customize how the bot closes the trunk of the vehicle.
-        /// </summary>
-        /// <param name="vehicleController">The vehicle to close the trunk of</param>
-        /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
-        /// <returns></returns>
+        /// <inheritdoc cref="IVehicleAdapter.CloseTrunk(VehicleController, LethalBotAI)"/>
         public abstract IEnumerator CloseTrunk(TVehicle vehicleController, LethalBotAI lethalBotAI);
 
-        /// <summary>
-        /// Allows you to customize how the bot enters the vehicle.
-        /// </summary>
-        /// <remarks>
-        /// This allows you to make it so the bot opens the door, gets in, and closes the door.....etc....
-        /// </remarks>
-        /// <param name="vehicleController">The vehicle to enter</param>
-        /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
-        /// <param name="seatTrigger">The seat trigger to use</param>
-        /// <returns></returns>
+        /// <inheritdoc cref="IVehicleAdapter.EnterVehicle(VehicleController, LethalBotAI, InteractTrigger)"/>
         public abstract IEnumerator EnterVehicle(TVehicle vehicleController, LethalBotAI lethalBotAI, InteractTrigger seatTrigger);
 
-        /// <summary>
-        /// Allows you to customize how the bot exits the vehicle.
-        /// </summary>
-        /// <remarks>
-        /// This allows you to make it so the bot opens the door, gets out, and closes the door.....oh and for turning the car off if they are the driver.....etc....
-        /// </remarks>
-        /// <param name="vehicleController">The vehicle to exit</param>
-        /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
-        /// <returns></returns>
+        /// <inheritdoc cref="IVehicleAdapter.ExitVehicle(VehicleController, LethalBotAI)"/>
         public abstract IEnumerator ExitVehicle(TVehicle vehicleController, LethalBotAI lethalBotAI);
 
-        /// <summary>
-        /// A coroutine that runs while the bot is driving the vehicle.
-        /// </summary>
-        /// <remarks>
-        /// This is where you can implement your own driving logic for the bot. <br/>
-        /// You will be responsible for starting the car, setting the throttle, steering, and braking of the vehicle. <br/>
-        /// The bot will use the <paramref name="vehicleAgent"/> to calculate the path to the destination, but you will be responsible for actually driving the vehicle. <br/>
-        /// </remarks>
-        /// <param name="vehicleController">The vehicle the bot is driving</param>
-        /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
-        /// <param name="vehicleAgent">The vehicle's <see cref="NavMeshAgent"/></param>
-        /// <returns></returns>
+        /// <inheritdoc cref="IVehicleAdapter.DriveVehicle(VehicleController, LethalBotAI, NavMeshAgent)"/>
         public abstract IEnumerator DriveVehicle(TVehicle vehicleController, LethalBotAI lethalBotAI, NavMeshAgent vehicleAgent);
 
         /// <summary>
@@ -358,10 +304,12 @@ namespace LethalBots.Utils.Helpers
 
             // Keep the agent synced with the actual vehicle position.
             // The agent is only a navigation brain, not the actual mover.
-            //Vector3 vehiclePosition = RoundManager.Instance.GetNavMeshPosition(vehicle.transform.position, sampleRadius: 2.7f);
-            Vector3 vehiclePosition = vehicle.transform.position;
-            agent.nextPosition = vehicle.transform.position + Vector3.down * agent.baseOffset;
-            agent.gameObject.transform.position = vehiclePosition;
+            //int areaMask = NavMesh.AllAreas;
+            //int smallSpaceAreaMask = NavMesh.GetAreaFromName("SmallSpace");
+            //areaMask &= ~(1 << smallSpaceAreaMask);
+            //Vector3 vehiclePosition = RoundManager.Instance.GetNavMeshPosition(vehicle.transform.position, sampleRadius: 2.7f, areaMask: areaMask);
+            agent.nextPosition = vehicle.mainRigidbody.transform.position; // vehicle.mainRigidbody.transform.position;
+            //agent.gameObject.transform.position = vehiclePosition;
 
             // Make sure we have a path to follow, if not, we should brake to a stop.
             if (!agent.hasPath || agent.pathPending || agent.isStopped)
@@ -377,34 +325,57 @@ namespace LethalBots.Utils.Helpers
             // Get the target position from the agent.
             // TODO: Improve Steering code as bots either use too much or too little
             //Vector3 target = (vehicle.mainRigidbody.transform.position - agent.desiredVelocity); //agent.steeringTarget;
-            Vector3 target = (agent.steeringTarget - vehicle.mainRigidbody.transform.position);
+            //Vector3 target = (agent.steeringTarget - vehicle.mainRigidbody.transform.position);
+            Vector3 target = agent.desiredVelocity;
+            target.y = 0f;
+            target.Normalize();
 
             // Convert to local space (relative to the cruiser forward direction)
-            Vector3 localTarget = vehicle.mainRigidbody.transform.InverseTransformDirection(target.normalized);
+            Vector3 localTarget = vehicle.mainRigidbody.transform.InverseTransformDirection(target);
+            localTarget.y = 0f;
+            localTarget.Normalize();
 
             // Check the current steering direction
             //Vector3 vehicleDirection = vehicle.transform.forward * SteeringAngle * vehicle.steeringInput;
 
             // Get the planar distance to the target (ignoring height).
-            float planarDistance = Mathf.Max(new Vector2(localTarget.x, localTarget.z).magnitude, 0.1f);
+            //float planarDistance = Mathf.Max(new Vector2(localTarget.x, localTarget.z).magnitude, 0.1f);
+
+            // Calculate the target angle
+            float targetAngle = Mathf.Atan2(localTarget.x, localTarget.z) * Mathf.Rad2Deg;
 
             // Steering (-1 to 1)
-            float targetSteering = Mathf.Clamp(localTarget.x / planarDistance, -1f, 1f);
+            //float targetSteering = Mathf.Clamp(localTarget.x / planarDistance, -1f, 1f);
+            // Full steering at this angle.
+            float targetSteering = Mathf.Clamp(-targetAngle / SteeringAngle, -1f, 1f);
             float vehicleSteeringInputNormalised = vehicle.steeringInput / 3f;
-            float desiredSteering;
+            float desiredSteering = targetSteering;
 
             // Check our set tolerance
-            if (Mathf.Abs(targetSteering - vehicleSteeringInputNormalised) < SteeringTolerance)
-            {
-                desiredSteering = vehicleSteeringInputNormalised; // Keep at it
-            }
-            else
-            {
-                desiredSteering = targetSteering; // Update our steering angle
-            }
+            //if (Mathf.Abs(targetSteering - vehicleSteeringInputNormalised) < SteeringTolerance)
+            //{
+            //    desiredSteering = vehicleSteeringInputNormalised; // Keep at it
+            //}
+            //else
+            //{
+            //    desiredSteering = targetSteering; // Update our steering angle
+            //}
 
             // Smooth steering.
             input.Steering = desiredSteering;
+
+            Plugin.LogDebug(
+                $"VehiclePos: {vehicle.mainRigidbody.position} | " +
+                $"VehicleForward: {vehicle.mainRigidbody.transform.forward} | " +
+                $"SteeringTarget: {agent.steeringTarget} | " +
+                $"AgentDestination: {agent.destination} | " +
+                $"AgentPathEndPosition: {agent.pathEndPosition} | " +
+                $"ToTarget: {target} | " +
+                $"LocalTarget: {localTarget} | " +
+                $"Angle: {targetAngle:F2} | " +
+                $"Steering: {targetSteering:F2} | " +
+                $"Velocity: {vehicle.mainRigidbody.velocity}"
+            );
 
             // Adjust speed based on turn angle and distance to target.
             float steeringAmount = Mathf.Abs(desiredSteering);

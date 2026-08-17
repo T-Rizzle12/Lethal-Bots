@@ -5,6 +5,7 @@ using LethalBots.Constants;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using UnityEngine;
 using UnityEngine.AI;
@@ -23,11 +24,11 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
 
         /// <summary>
         /// Custom Agent ID for the vehicle <br/>
-        /// Lethal Bots defines a custom crusier NavSettings by default: <see cref="Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID"/>
+        /// Lethal Bots defines a custom Cruiser NavSettings by default: <see cref="Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID"/>
         /// </summary>
         /// <remarks>
         /// WARNING: IF YOU WANT CUSTOM NAVMESH SETTING FOR YOUR VEHICLE, YOU ARE RESPONSIBLE FOR CREATING CUSTOM AGENT TYPES FOR YOUR CRUISER <br/>
-        /// The default crusier NavSettings should work for MOST vehicles
+        /// The default Cruiser NavSettings should work for MOST vehicles
         /// </remarks>
         public int NavMeshAgentTypeID { get; }
 
@@ -40,7 +41,25 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         public bool CanDrive(VehicleController vehicleController, LethalBotAI lethalBotAI);
 
         /// <summary>
-        /// Allows you to setup the crusier's NavMesh agent with your own custom variables
+        /// Checks if the given seat is occupied
+        /// </summary>
+        /// <param name="vehicleController">The vehicle to check</param>
+        /// <param name="seatTrigger">The seat to check</param>
+        /// <param name="playerInSeat">The player who is sitting in the seat. Null if no-one is in the seat</param>
+        /// <returns><see langword="true"/> if the seat is occupied; otherwise <see langword="false"/></returns>
+        public bool IsSeatOccupied(VehicleController vehicleController, InteractTrigger seatTrigger, [NotNullWhen(true)] out PlayerControllerB? playerInSeat);
+
+        /// <summary>
+        /// Checks if the given player is in the vehicle
+        /// </summary>
+        /// <param name="vehicleController">The vehicle to check</param>
+        /// <param name="playerToCheck">The player to check</param>
+        /// <param name="seatTrigger">The seat <paramref name="playerToCheck"/> was sitting in. May be null if player is standing on vehicle</param>
+        /// <returns><see langword="true"/> if the player is sitting in the vehicle; otherwise <see langword="false"/></returns>
+        public bool IsPlayerInVehicle(VehicleController vehicleController, PlayerControllerB playerToCheck, out InteractTrigger? seatTrigger);
+
+        /// <summary>
+        /// Allows you to setup the Cruiser's NavMesh agent with your own custom variables
         /// </summary>
         /// <param name="agent"></param>
         /// <param name="vehicleController"></param>
@@ -61,7 +80,7 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         /// Check if the car is started or not
         /// </summary>
         /// <remarks>
-        /// Handles the default Company Crusier by default.
+        /// Handles the default Company Cruiser by default.
         /// </remarks>
         /// <param name="vehicleController">The vehicle to check</param>
         /// <returns><see langword="true"/> if the car is started, <see langword="false"/> otherwise</returns>
@@ -116,7 +135,7 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         /// Checks if the trunk of the vehicle is open or not.
         /// </summary>
         /// <remarks>
-        /// Handles the default Company Crusier by default.
+        /// Handles the default Company Cruiser by default.
         /// </remarks>
         /// <param name="vehicleController">The vehicle to check</param>
         /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>

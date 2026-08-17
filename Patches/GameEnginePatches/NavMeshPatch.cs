@@ -17,17 +17,7 @@ namespace LethalBots.Patches.GameEnginePatches
             Plugin.LogDebug($"GetSettingsByID returned settings with ID: {__result.agentTypeID}");
             if (__result.agentTypeID == Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID)
             {
-                const int defaultAgentID = 0;
-                NavMeshBuildSettings defaultSettings = NavMesh.GetSettingsByID(defaultAgentID);
-                __result.agentSlope = 48; // Same as default player slope height
-                __result.agentClimb = 1.5f; // TODO: Adjust as needed
-                __result.agentHeight = 4; // TODO: Adjust as needed
-                __result.agentRadius = 2; // TODO: Adjust as needed
-                __result.minRegionArea = defaultSettings.minRegionArea;
-                __result.overrideTileSize = defaultSettings.overrideTileSize;
-                __result.tileSize = defaultSettings.tileSize;
-                __result.overrideVoxelSize = defaultSettings.overrideVoxelSize;
-                __result.voxelSize = defaultSettings.voxelSize;
+                OverrideNavMeshSettings(ref __result);
                 Plugin.LogDebug($"Overriding GetSettingsByID NavMeshBuildSettings for Bot Cruiser NavMesh. Agent ID: {Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID}");
             }
         }
@@ -39,19 +29,24 @@ namespace LethalBots.Patches.GameEnginePatches
             Plugin.LogDebug($"GetSettingsByIndex returned settings with ID: {__result.agentTypeID}");
             if (__result.agentTypeID == Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID)
             {
-                const int defaultAgentID = 0;
-                NavMeshBuildSettings defaultSettings = NavMesh.GetSettingsByID(defaultAgentID);
-                __result.agentSlope = 48; // Same as default player slope height
-                __result.agentClimb = 1.5f; // TODO: Adjust as needed
-                __result.agentHeight = 4; // TODO: Adjust as needed
-                __result.agentRadius = 2; // TODO: Adjust as needed
-                __result.minRegionArea = defaultSettings.minRegionArea;
-                __result.overrideTileSize = defaultSettings.overrideTileSize;
-                __result.tileSize = defaultSettings.tileSize;
-                __result.overrideVoxelSize = defaultSettings.overrideVoxelSize;
-                __result.voxelSize = defaultSettings.voxelSize;
+                OverrideNavMeshSettings(ref __result);
                 Plugin.LogDebug($"Overriding GetSettingsByIndex NavMeshBuildSettings for Bot Cruiser NavMesh. Agent ID: {Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID}");
             }
+        }
+
+        private static void OverrideNavMeshSettings(ref NavMeshBuildSettings buildSettings)
+        {
+            const int defaultAgentID = 0;
+            NavMeshBuildSettings defaultSettings = NavMesh.GetSettingsByID(defaultAgentID);
+            buildSettings.agentSlope = 48; // Same as default player slope height
+            buildSettings.agentClimb = 1.33f; // TODO: Adjust as needed
+            buildSettings.agentHeight = 4; // TODO: Adjust as needed
+            buildSettings.agentRadius = 2.5f; // TODO: Adjust as needed
+            buildSettings.minRegionArea = defaultSettings.minRegionArea;
+            buildSettings.overrideTileSize = true;
+            buildSettings.tileSize = 256;
+            buildSettings.overrideVoxelSize = true;
+            buildSettings.voxelSize = 0.6666667f;
         }
     }
 }

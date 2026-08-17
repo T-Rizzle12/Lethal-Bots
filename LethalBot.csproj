@@ -244,7 +244,7 @@
 	<Reference Include="Facepunch.Steamworks.Win64">
 	  <HintPath>lib\Facepunch.Steamworks.Win64.dll</HintPath>  
 	</Reference>
-	<Reference Include="Unity.AI.Navigation">
+	<Reference Include="Unity.AI.Navigation" Publicize="true">
 		<HintPath>lib\Unity.AI.Navigation.dll</HintPath>
 	</Reference>
   </ItemGroup>
