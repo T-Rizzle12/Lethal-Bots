@@ -41,12 +41,19 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         public bool CanDrive(VehicleController vehicleController, LethalBotAI lethalBotAI);
 
         /// <summary>
-        /// Checks if the given seat is occupied
+        /// Checks if the given <paramref name="vehicleController"/> is destroyed
+        /// </summary>
+        /// <param name="vehicleController">The vehicle to check</param>
+        /// <returns><see langword="true"/> if the <paramref name="vehicleController"/> is destroyed; otherwise <see langword="false"/></returns>
+        public bool IsVehicleDestroyed(VehicleController vehicleController);
+
+        /// <summary>
+        /// Checks if the given <paramref name="seatTrigger"/> is occupied
         /// </summary>
         /// <param name="vehicleController">The vehicle to check</param>
         /// <param name="seatTrigger">The seat to check</param>
         /// <param name="playerInSeat">The player who is sitting in the seat. Null if no-one is in the seat</param>
-        /// <returns><see langword="true"/> if the seat is occupied; otherwise <see langword="false"/></returns>
+        /// <returns><see langword="true"/> if the <paramref name="seatTrigger"/> is occupied; otherwise <see langword="false"/></returns>
         public bool IsSeatOccupied(VehicleController vehicleController, InteractTrigger seatTrigger, [NotNullWhen(true)] out PlayerControllerB? playerInSeat);
 
         /// <summary>
@@ -61,9 +68,17 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         /// <summary>
         /// Allows you to setup the Cruiser's NavMesh agent with your own custom variables
         /// </summary>
-        /// <param name="agent"></param>
-        /// <param name="vehicleController"></param>
-        public void SetupNavMeshAgent(NavMeshAgent agent, VehicleController vehicleController);
+        /// <param name="agent">The <see cref="NavMeshAgent"/> the bot will be using</param>
+        /// <param name="vehicleController">The vehicle the bot intents to drive</param>
+        /// <param name="lethalBotAI">The bot who is prepping to use the vehicle</param>
+        public void SetupNavMeshAgent(NavMeshAgent agent, VehicleController vehicleController, LethalBotAI lethalBotAI);
+
+        /// <summary>
+        /// Called when a bot has decided it doesn't want to drive anymore
+        /// </summary>
+        /// <param name="vehicleController">The vehicle to cleanup</param>
+        /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
+        public void CleanupBotDriver(VehicleController vehicleController, LethalBotAI lethalBotAI);
 
         /// <summary>
         /// Tells the bot to start the vehicle!

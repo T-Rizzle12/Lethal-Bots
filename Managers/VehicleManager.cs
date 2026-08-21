@@ -28,7 +28,7 @@ namespace LethalBots.Managers
             {
                 if (CruiserNavMeshAgentObject == null)
                 {
-                    GameObject cruiserAgent = new GameObject("CrusierNavMeshAgent");
+                    GameObject cruiserAgent = new GameObject("CruiserNavMeshAgent");
                     field = cruiserAgent.AddComponent<NavMeshAgent>();
                     CruiserNavMeshAgentObject = cruiserAgent;
                 }

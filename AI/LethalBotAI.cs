@@ -808,7 +808,8 @@ namespace LethalBots.AI
             }
             else
             {
-                SetAgent(enabled: true);
+                // Check if the AI state wants the agent enabled, return true if the current AI State is null
+                SetAgent(enabled: State?.ShouldUseNavMeshAgent() ?? true);
 
                 // Do the actual AI calculation
                 DoAIInterval();

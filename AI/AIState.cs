@@ -1915,6 +1915,12 @@ namespace LethalBots.AI
         public virtual bool CheckAllowsTerminalUse() => false;
 
         /// <summary>
+        /// Helper function that checks if the bot wants its NavMeshAgent enabled
+        /// </summary>
+        /// <returns><see langword="true"/>The bot will have its <see cref="NavMeshAgent"/> enabled; Otherwise <see langword="false"/> for disabled</returns>
+        public virtual bool ShouldUseNavMeshAgent() => true;
+
+        /// <summary>
         /// Get the <see cref="Enums.EnumAIStates"><c>Enums.EnumAIStates</c></see> of current State
         /// </summary>
         /// <returns></returns>

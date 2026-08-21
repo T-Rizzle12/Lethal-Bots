@@ -1,4 +1,5 @@
-﻿using GameNetcodeStuff;
+﻿using Dusk;
+using GameNetcodeStuff;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
@@ -16,9 +17,10 @@ namespace LethalBots.AI.AIStates
         private VehicleController vehicleController;
         private InteractTrigger? chosenSeat;
         private Vector3? chosenSpot;
-        public Coroutine? driveCruiserCoroutine;
-        public Coroutine? cruiserInteractionCoroutine;
+        internal Coroutine? driveCruiserCoroutine;
+        internal Coroutine? cruiserInteractionCoroutine;
         private bool leaveSeat = false;
+        private bool? enableNavAgent = null;
         private CountdownTimer closeDoorInterval = new CountdownTimer();
         internal static Vector3? targetCruiserPosition = null;
 
@@ -53,21 +55,32 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         public override void DoAI()
         {
+            // We want the agent enabled
+            enableNavAgent = true;
+
             // Grab our cruiser info
             PlayerControllerB lethalBotController = npcController.Npc;
-            if (!VehicleManager.Instance.TryGetVehicleInfo(vehicleController, out IVehicleAdapter? vehicleAdapter))
+            if (!VehicleManager.Instance.TryGetVehicleInfo(vehicleController, out IVehicleAdapter? vehicleInfo))
             {
                 ai.State = new GetCloseToPlayerState(this);
                 return;
             }
 
-            // TODO: Implement a way for bots to sit in the passenger seat!
+            // Can't use a destroyed vehicle
+            if (vehicleInfo.IsVehicleDestroyed(vehicleController))
+            {
+                ai.State = new GetCloseToPlayerState(this);
+                return;
+            }
+
+            // Check if we are in the cruiser
             //Vector3 entryPointLethalBotCruiser = vehicleController.transform.position + vehicleController.transform.rotation * GetNextRandomEntryPosCruiser();
             Vector3? chosenSpot = GetChosenSpot();
-            if (leaveSeat || lethalBotController.inVehicleAnimation || vehicleController.physicsRegion.physicsTransform == lethalBotController.physicsParent)
+            if (vehicleInfo.IsPlayerInVehicle(vehicleController, lethalBotController, out InteractTrigger? ourSeat) || leaveSeat)
             {
                 Plugin.LogInfo($"Bot {lethalBotController.playerUsername} in cruiser!");
-                ai.SetAgent(enabled: false);
+                enableNavAgent = false; // Disable the agent, we don't need it anymore
+                ai.SetAgent(enabled: false); // Make the change NOW!
                 if (leaveSeat || ai.GetVehicleCruiserTargetPlayerIsIn() == null)
                 {
                     // Exit vehicle cruiser
@@ -77,7 +90,7 @@ namespace LethalBots.AI.AIStates
                     // Wait here
                     ai.StopMoving();
 
-                    if (chosenSeat != null && lethalBotController.currentTriggerInAnimationWith == chosenSeat)
+                    if (chosenSeat != null && ourSeat == chosenSeat)
                     {
                         // Stop driving the cruiser
                         StopDriveCruiserCoroutine();
@@ -86,17 +99,17 @@ namespace LethalBots.AI.AIStates
                         leaveSeat = true;
                         if (!IsInteractingWithCruiser())
                         {
-                            cruiserInteractionCoroutine = ai.StartCoroutine(vehicleAdapter.ExitVehicle(vehicleController, ai));
+                            cruiserInteractionCoroutine = ai.StartCoroutine(vehicleInfo.ExitVehicle(vehicleController, ai));
                         }
                         return;
                     }
 
                     // Open the trunk if its closed
-                    if (chosenSpot.HasValue && !vehicleAdapter.IsTrunkOpen(vehicleController, ai))
+                    if (chosenSpot.HasValue && !vehicleInfo.IsTrunkOpen(vehicleController, ai))
                     {
                         if (!IsInteractingWithCruiser())
                         {
-                            cruiserInteractionCoroutine = ai.StartCoroutine(vehicleAdapter.OpenTrunk(vehicleController, ai));
+                            cruiserInteractionCoroutine = ai.StartCoroutine(vehicleInfo.OpenTrunk(vehicleController, ai));
                         }
                         return;
                     }
@@ -113,7 +126,7 @@ namespace LethalBots.AI.AIStates
                     ai.StopMoving();
 
                     // Are we the driver
-                    InteractTrigger? driverSeat = vehicleAdapter.GetDriverSeat(vehicleController, ai);
+                    InteractTrigger? driverSeat = vehicleInfo.GetDriverSeat(vehicleController, ai);
                     if (driverSeat != null && chosenSeat == driverSeat)
                     {
                         // Start driving the cruiser
@@ -127,15 +140,15 @@ namespace LethalBots.AI.AIStates
                                 costs[i] = cruiserNavMeshAgent.GetAreaCost(i);
                             }
 
-                            Vector3 mainEntrancePos = targetCruiserPosition ?? RoundManager.Instance.GetNavMeshPosition(RoundManager.FindMainEntrancePosition(getTeleportPosition: false, getOutsideEntrance: true), sampleRadius: 5f);
+                            Vector3 targetPosition = targetCruiserPosition ?? RoundManager.Instance.GetNavMeshPosition(RoundManager.FindMainEntrancePosition(getTeleportPosition: false, getOutsideEntrance: true), sampleRadius: 5f);
                             NavMeshQueryFilter navMeshQueryFilter = new NavMeshQueryFilter() { agentTypeID = cruiserNavMeshAgent.agentTypeID, areaMask = cruiserNavMeshAgent.areaMask, costs = costs };
-                            if (LethalBotAI.IsValidPathToTarget(vehicleController.transform.position, mainEntrancePos, navMeshQueryFilter, ref ai.path1, false, out _))
+                            if (LethalBotAI.IsValidPathToTarget(vehicleController.transform.position, targetPosition, navMeshQueryFilter, ref ai.path1, false, out _))
                             {
-                                Plugin.LogDebug("We found a valid path to main");
+                                Plugin.LogDebug($"We found a valid path to target {targetPosition}");
                             }
                             else
                             {
-                                Plugin.LogDebug("Failed to find a path to main");
+                                Plugin.LogDebug($"Failed to find a path to target {targetPosition}");
                                 //ai.SendChatMessage("No path to main! :(");
                                 //int deathAnimation = Random.Range(1, 3) == 1 ? 9 : 6;
                                 //npcController.Npc.KillPlayer(Vector3.zero, deathAnimation: deathAnimation);
@@ -146,15 +159,17 @@ namespace LethalBots.AI.AIStates
                                 //    Landmine.SpawnExplosion(vehicleController.transform.position, spawnExplosionEffect: true, float.MaxValue, float.MaxValue, int.MaxValue, float.MaxValue, goThroughCar: true);
                                 //}
                             }
-                            cruiserNavMeshAgent.SetDestination(mainEntrancePos);
+
+                            if (cruiserNavMeshAgent.destination != targetPosition)
+                                cruiserNavMeshAgent.SetDestination(targetPosition);
                         }
                         else
                         {
                             // Setup the cruiser
-                            vehicleAdapter.SetupNavMeshAgent(VehicleManager.Instance.CruiserNavMeshAgent, vehicleController);
+                            vehicleInfo.SetupNavMeshAgent(VehicleManager.Instance.CruiserNavMeshAgent, vehicleController, ai);
 
                             // Lets go!!!!!!!!!!!!!!
-                            driveCruiserCoroutine = ai.StartCoroutine(vehicleAdapter.DriveVehicle(vehicleController, ai, VehicleManager.Instance.CruiserNavMeshAgent));
+                            driveCruiserCoroutine = ai.StartCoroutine(vehicleInfo.DriveVehicle(vehicleController, ai, VehicleManager.Instance.CruiserNavMeshAgent));
                         }
                     }
                     else
@@ -173,11 +188,11 @@ namespace LethalBots.AI.AIStates
                     {
                         // Close the trunk if its open
                         closeDoorInterval.Start(Random.Range(1.5f, 2.5f));
-                        if (vehicleAdapter.IsTrunkOpen(vehicleController, ai))
+                        if (vehicleInfo.IsTrunkOpen(vehicleController, ai))
                         {
                             if (!IsInteractingWithCruiser())
                             {
-                                cruiserInteractionCoroutine = ai.StartCoroutine(vehicleAdapter.CloseTrunk(vehicleController, ai));
+                                cruiserInteractionCoroutine = ai.StartCoroutine(vehicleInfo.CloseTrunk(vehicleController, ai));
                             }
                             return;
                         }
@@ -214,14 +229,15 @@ namespace LethalBots.AI.AIStates
             if (chosenSeat != null)
             {
                 // Seat was taken, pick another
-                PlayerControllerB? currentPlayerInSeat = chosenSeat.playerScriptInSpecialAnimation;
-                if (currentPlayerInSeat != null && currentPlayerInSeat != lethalBotController)
+                if (vehicleInfo.IsSeatOccupied(vehicleController, chosenSeat, out PlayerControllerB? currentPlayerInSeat) 
+                    && currentPlayerInSeat != lethalBotController)
                 {
                     SelectPassengerSeat();
                     return;
                 }
 
-                float distSqrToChosenSeat = (chosenSeat.transform.position - lethalBotController.transform.position).sqrMagnitude;
+                Vector3 chosenSeatPos = GetNearestNavAreaCruiser(chosenSeat.transform.position);
+                float distSqrToChosenSeat = (chosenSeatPos - lethalBotController.transform.position).sqrMagnitude;
                 if (distSqrToChosenSeat < 10f * 10f) // Interaction range lethalBotController.grabDistance * lethalBotController.grabDistance
                 {
                     // Stand here
@@ -230,12 +246,12 @@ namespace LethalBots.AI.AIStates
                     // Enter the vehicle
                     if (!IsInteractingWithCruiser())
                     {
-                        cruiserInteractionCoroutine = ai.StartCoroutine(vehicleAdapter.EnterVehicle(vehicleController, ai, chosenSeat));
+                        cruiserInteractionCoroutine = ai.StartCoroutine(vehicleInfo.EnterVehicle(vehicleController, ai, chosenSeat));
                     }
                 }
                 else
                 {
-                    ai.SetDestinationToPositionLethalBotAI(chosenSeat.transform.position);
+                    ai.SetDestinationToPositionLethalBotAI(chosenSeatPos);
                     ai.OrderMoveToDestination();
                 }
                 return;
@@ -248,17 +264,19 @@ namespace LethalBots.AI.AIStates
                 ai.State = new GetCloseToPlayerState(this);
                 return;
             }
-            ai.SetDestinationToPositionLethalBotAI(chosenSpot.Value);
+
+            bool isTrunkOpen = vehicleInfo.IsTrunkOpen(vehicleController, ai);
+            ai.SetDestinationToPositionLethalBotAI(isTrunkOpen ? chosenSpot.Value : vehicleController.backDoorContainer.transform.position);
             ai.OrderMoveToDestination();
 
             // Open the trunk if its closed
             // FIXME: Bots can open the trunk from anywhere on the map.......
             closeDoorInterval.Start(Random.Range(5.0f, 6.0f));
-            if (!vehicleAdapter.IsTrunkOpen(vehicleController, ai))
+            if (!isTrunkOpen)
             {
                 if (!IsInteractingWithCruiser())
                 {
-                    cruiserInteractionCoroutine = ai.StartCoroutine(vehicleAdapter.OpenTrunk(vehicleController, ai));
+                    cruiserInteractionCoroutine = ai.StartCoroutine(vehicleInfo.OpenTrunk(vehicleController, ai));
                 }
                 return;
             }
@@ -296,6 +314,61 @@ namespace LethalBots.AI.AIStates
         }
 
         /// <summary>
+        /// Do we have the right conditions to start this state.
+        /// </summary>
+        /// <param name="vehicle">The vehicle the bot wants to use</param>
+        /// <param name="lethalBotAI">The bot</param>
+        /// <returns><see langword="true"/> the bot can use <paramref name="vehicle"/>; otherwise <see langword="false"/></returns>
+        public static bool IsPossible(VehicleController vehicle, LethalBotAI lethalBotAI)
+        {
+            // Grab our cruiser info
+            PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
+            if (!VehicleManager.Instance.TryGetVehicleInfo(vehicle, out IVehicleAdapter? vehicleInfo))
+            {
+                return false;
+            }
+
+            // Can't use a destroyed vehicle
+            if (vehicleInfo.IsVehicleDestroyed(vehicle))
+            {
+                return false;
+            }
+
+            // Check if the bot is already in the vehicle
+            if (vehicleInfo.IsPlayerInVehicle(vehicle, lethalBotController, out _))
+            {
+                return true;
+            }
+
+            // Check if the driver seat is open
+            PlayerControllerB? playerInSeat;
+            InteractTrigger? potentialSeat = vehicleInfo.CanDrive(vehicle, lethalBotAI) ? vehicleInfo.GetDriverSeat(vehicle, lethalBotAI) : null;
+            if (potentialSeat != null
+                && (!vehicleInfo.IsSeatOccupied(vehicle, potentialSeat, out playerInSeat)
+                    || playerInSeat == lethalBotController))
+            {
+                return true;
+            }
+
+            // Find an open passenger seat
+            potentialSeat = vehicleInfo.FindOpenPassengerSeat(vehicle, lethalBotAI);
+            if (potentialSeat != null && potentialSeat.playerScriptInSpecialAnimation == null
+                && (!vehicleInfo.IsSeatOccupied(vehicle, potentialSeat, out playerInSeat)
+                    || playerInSeat == lethalBotController))
+            {
+                return true;
+            }
+
+            // Just find a spot in the trunk
+            return vehicleInfo.FindOpenTrunkPosition(vehicle, lethalBotAI).HasValue;
+        }
+
+        public override bool ShouldUseNavMeshAgent()
+        {
+            return enableNavAgent ?? base.ShouldUseNavMeshAgent(); // Lets us override the bot's NavMeshAgent so we can use the cruiser's instead
+        }
+
+        /// <summary>
         /// Is the bot driving the cruiser
         /// </summary>
         /// <returns></returns>
@@ -326,18 +399,11 @@ namespace LethalBots.AI.AIStates
         {
             if (driveCruiserCoroutine != null)
             {
-                // HACKHACK: Renable NavMeshCollider and NavMeshSurface.
-                // TODO: Make a better way of doing this
-                foreach (var obstacle in vehicleController.GetComponentsInChildren<NavMeshObstacle>())
+                // Call the drive cleanup function
+                if (VehicleManager.Instance.TryGetVehicleInfo(vehicleController, out var vehicleInfo))
                 {
-                    if (obstacle != null)
-                    {
-                        obstacle.enabled = true;
-                    }
+                    vehicleInfo.CleanupBotDriver(vehicleController, ai);
                 }
-
-                // Disable the CruiserNavMeshAgent
-                VehicleManager.Instance.CruiserNavMeshAgent.enabled = false;
 
                 ai.StopCoroutine(driveCruiserCoroutine);
                 driveCruiserCoroutine = null;
@@ -389,6 +455,36 @@ namespace LethalBots.AI.AIStates
         private Vector3? GetChosenSpot()
         {
             return chosenSpot.HasValue ? vehicleController.transform.position + vehicleController.transform.rotation * chosenSpot.Value : null;
+        }
+
+        private Vector3 GetNearestNavAreaCruiser(Vector3 targetPos, bool useCruiserAgentSpecs = false)
+        {
+            if (useCruiserAgentSpecs)
+            {
+                NavMeshAgent cruiserNavMeshAgent = VehicleManager.Instance.CruiserNavMeshAgent;
+                float[] costs = new float[32];
+                for (int i = 0; i < costs.Length; i++)
+                {
+                    costs[i] = cruiserNavMeshAgent.GetAreaCost(i);
+                }
+                NavMeshQueryFilter navMeshQueryFilter = new NavMeshQueryFilter() { agentTypeID = cruiserNavMeshAgent.agentTypeID, areaMask = cruiserNavMeshAgent.areaMask, costs = costs };
+                if (NavMesh.SamplePosition(targetPos, out var navMeshHit, 5f, navMeshQueryFilter))
+                {
+                    return navMeshHit.position;
+                }
+            }
+            else
+            {
+                int areaMask = NavMesh.AllAreas;
+                int smallSpaceAreaMask = NavMesh.GetAreaFromName("SmallSpace");
+                areaMask &= ~(1 << smallSpaceAreaMask);
+                if (NavMesh.SamplePosition(targetPos, out var navMeshHit, 5f, areaMask))
+                {
+                    return navMeshHit.position;
+                }
+            }
+
+            return targetPos;
         }
 
         private Vector3 GetNextRandomInCruiserPos()

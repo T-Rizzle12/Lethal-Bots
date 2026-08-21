@@ -3,11 +3,13 @@ using GameNetcodeStuff;
 using LethalBots.AI;
 using LethalBots.AI.AIStates;
 using LethalBots.Constants;
+using LethalBots.Managers;
 using LethalBots.Utils.Helpers.VehicleHelpers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Unity.AI.Navigation;
@@ -36,9 +38,19 @@ namespace LethalBots.Utils.Helpers
         protected virtual float MaxDrivingSpeed => 14f; // Was 28f, but it was TOO FAST
 
         /// <summary>
+        /// The bare minimum speed the bot should attempt to drive at.
+        /// </summary>
+        protected virtual float MinDrivingSpeed => 2f;
+
+        /// <summary>
         /// The minimum speed to maintain while making very sharp turns.
         /// </summary>
         protected virtual float MinCornerSpeed => 4f;
+
+        /// <summary>
+        /// The cruiser's speed before we should change gears
+        /// </summary>
+        protected virtual float ChangeGearSpeed => 4f;
 
         /// <summary>
         /// How far from the destination the bot begins slowing down.
@@ -65,6 +77,17 @@ namespace LethalBots.Utils.Helpers
         /// </summary>
         protected virtual float SteeringAngle => 45f;
 
+        /// <summary>
+        /// The minimum heading error at which the bot will consider reversing
+        /// instead of making a large forward turn.
+        /// </summary>
+        protected virtual float ReverseEnterAngle => 120f;
+
+        /// <summary>
+        /// The minimum heading error at which the bot will consider to stop reversing.
+        /// </summary>
+        protected virtual float ReverseExitAngle => 75f;
+
         #region Interface Helpers
 
         Type IVehicleAdapter.VehicleType => typeof(TVehicle);
@@ -72,6 +95,11 @@ namespace LethalBots.Utils.Helpers
         bool IVehicleAdapter.CanDrive(VehicleController vehicleController, LethalBotAI lethalBotAI)
         {
             return CanDrive((TVehicle)vehicleController, lethalBotAI);
+        }
+
+        bool IVehicleAdapter.IsVehicleDestroyed(VehicleController vehicleController)
+        {
+            return IsVehicleDestroyed((TVehicle)vehicleController);
         }
 
         bool IVehicleAdapter.IsSeatOccupied(VehicleController vehicleController, InteractTrigger seatTrigger, [NotNullWhen(true)] out PlayerControllerB? playerInSeat)
@@ -84,9 +112,14 @@ namespace LethalBots.Utils.Helpers
             return IsPlayerInVehicle((TVehicle)vehicleController, playerInVehicle, out seatTrigger);
         }
 
-        void IVehicleAdapter.SetupNavMeshAgent(NavMeshAgent agent, VehicleController vehicleController)
+        void IVehicleAdapter.SetupNavMeshAgent(NavMeshAgent agent, VehicleController vehicleController, LethalBotAI lethalBotAI)
         {
-            SetupNavMeshAgent(agent, (TVehicle)vehicleController);
+            SetupNavMeshAgent(agent, (TVehicle)vehicleController, lethalBotAI);
+        }
+
+        void IVehicleAdapter.CleanupBotDriver(VehicleController vehicleController, LethalBotAI lethalBotAI)
+        {
+            CleanupBotDriver((TVehicle)vehicleController, lethalBotAI);
         }
 
         IEnumerator IVehicleAdapter.StartCar(VehicleController vehicleController, LethalBotAI lethalBotAI)
@@ -175,7 +208,13 @@ namespace LethalBots.Utils.Helpers
         /// <inheritdoc cref="IVehicleAdapter.CanDrive(VehicleController, LethalBotAI)"/>
         public virtual bool CanDrive(TVehicle vehicleController, LethalBotAI lethalBotAI)
         {
-            return !vehicleController.carDestroyed;
+            return !IsVehicleDestroyed(vehicleController);
+        }
+
+        /// <inheritdoc cref="IVehicleAdapter.IsVehicleDestroyed(VehicleController)"/>
+        public virtual bool IsVehicleDestroyed(TVehicle vehicleController)
+        {
+            return vehicleController.carDestroyed;
         }
 
         /// <inheritdoc cref="IVehicleAdapter.IsSeatOccupied(VehicleController, InteractTrigger, out PlayerControllerB?)"/>
@@ -184,22 +223,19 @@ namespace LethalBots.Utils.Helpers
         /// <inheritdoc cref="IVehicleAdapter.IsPlayerInVehicle(VehicleController, PlayerControllerB, out InteractTrigger?)"/>
         public abstract bool IsPlayerInVehicle(VehicleController vehicleController, PlayerControllerB playerToCheck, out InteractTrigger? seatTrigger);
 
-        /// <summary>
-        /// Allows you to setup the Cruiser's NavMesh agent with your own custom variables
-        /// </summary>
-        /// <param name="agent"></param>
-        /// <param name="vehicleController"></param>
-        public virtual void SetupNavMeshAgent(NavMeshAgent agent, TVehicle vehicleController)
+        /// <inheritdoc cref="IVehicleAdapter.SetupNavMeshAgent(NavMeshAgent, VehicleController, LethalBotAI)"/>
+        public virtual void SetupNavMeshAgent(NavMeshAgent agent, TVehicle vehicleController, LethalBotAI lethalBotAI)
         {
             // Default settings for the NavMeshAgent
             agent.agentTypeID = NavMeshAgentTypeID;
             agent.enabled = true;
             agent.baseOffset = 1.9f;
-            agent.radius = 5; // 2;
+            agent.radius = 4; // 5;
             agent.height = 4.5f;
             agent.speed = MaxDrivingSpeed;
             agent.angularSpeed = 120f;
-            agent.autoBraking = true;
+            agent.acceleration = float.MaxValue;
+            agent.autoBraking = false;
             agent.updatePosition = false;
             agent.updateRotation = false;
 
@@ -231,6 +267,47 @@ namespace LethalBots.Utils.Helpers
             //agent.transform.position = vehicleController.transform.position;
             //agent.transform.SetParent(vehicleController.transform, worldPositionStays: true);
             //agent.transform.localPosition = new Vector3(0f, -2f, 0f);
+
+            // Reset bot input
+            lethalBotAI.NpcController.vehicleInput.Reset();
+        }
+
+        /// <inheritdoc cref="IVehicleAdapter.CleanupBotDriver(VehicleController, LethalBotAI)"/>
+        public virtual void CleanupBotDriver(TVehicle vehicleController, LethalBotAI lethalBotAI)
+        {
+            // HACKHACK: Renable NavMeshCollider
+            // TODO: Make a better way of doing this
+            // FIXME: So, apparently Zeekerss left behind a NavMeshObstacle on the Player,
+            // since players get parented to the cruiser, this causes my code to accidently renable them as well.
+            // We we have to loop through and prevent that from happening.
+            HashSet<NavMeshObstacle> navMeshObstacles = new HashSet<NavMeshObstacle>();
+            PlayerControllerB[] allPlayerScripts = StartOfRound.Instance.allPlayerScripts;
+            for (int i = 0; i < allPlayerScripts.Length; i++)
+            {
+                PlayerControllerB playerControllerB = allPlayerScripts[i];
+                if (playerControllerB != null)
+                {
+                    NavMeshObstacle[] playerNavMeshObstacles = playerControllerB.GetComponentsInChildren<NavMeshObstacle>();
+                    for (int j = 0; j < playerNavMeshObstacles.Length; j++)
+                    {
+                        navMeshObstacles.Add(playerNavMeshObstacles[j]);
+                    }
+                }
+            }
+
+            foreach (var obstacle in vehicleController.GetComponentsInChildren<NavMeshObstacle>())
+            {
+                if (obstacle != null && !navMeshObstacles.Contains(obstacle))
+                {
+                    obstacle.enabled = true;
+                }
+            }
+
+            // Disable the CruiserNavMeshAgent
+            VehicleManager.Instance.CruiserNavMeshAgent.enabled = false;
+
+            // Reset bot input
+            lethalBotAI.NpcController.vehicleInput.Reset();
         }
 
         /// <inheritdoc cref="IVehicleAdapter.StartCar(VehicleController, LethalBotAI)"/>
@@ -308,7 +385,7 @@ namespace LethalBots.Utils.Helpers
             //int smallSpaceAreaMask = NavMesh.GetAreaFromName("SmallSpace");
             //areaMask &= ~(1 << smallSpaceAreaMask);
             //Vector3 vehiclePosition = RoundManager.Instance.GetNavMeshPosition(vehicle.transform.position, sampleRadius: 2.7f, areaMask: areaMask);
-            agent.nextPosition = vehicle.mainRigidbody.transform.position; // vehicle.mainRigidbody.transform.position;
+            agent.nextPosition = vehicle.mainRigidbody.transform.position; 
             //agent.gameObject.transform.position = vehiclePosition;
 
             // Make sure we have a path to follow, if not, we should brake to a stop.
@@ -320,7 +397,7 @@ namespace LethalBots.Utils.Helpers
             }
 
             // Get the current speed of the vehicle.
-            float currentSpeed = vehicle.mainRigidbody.velocity.magnitude;
+            Vector3 currentVelocity = vehicle.mainRigidbody.velocity;
 
             // Get the target position from the agent.
             // TODO: Improve Steering code as bots either use too much or too little
@@ -331,15 +408,42 @@ namespace LethalBots.Utils.Helpers
             target.Normalize();
 
             // Convert to local space (relative to the cruiser forward direction)
-            Vector3 localTarget = vehicle.mainRigidbody.transform.InverseTransformDirection(target);
-            localTarget.y = 0f;
-            localTarget.Normalize();
+            //Vector3 localTarget = vehicle.mainRigidbody.transform.InverseTransformDirection(target);
+            //localTarget.y = 0f;
+            //localTarget.Normalize();
 
             // Check the current steering direction
-            //Vector3 vehicleDirection = vehicle.transform.forward * SteeringAngle * vehicle.steeringInput;
+            Vector3 vehicleForward = vehicle.mainRigidbody.transform.forward;
+            vehicleForward.y = 0f;
+            vehicleForward.Normalize();
+
+            float currentSpeed = Vector3.Dot(currentVelocity, vehicleForward); // currentVelocity.magnitude
 
             // Get the planar distance to the target (ignoring height).
             //float planarDistance = Mathf.Max(new Vector2(localTarget.x, localTarget.z).magnitude, 0.1f);
+
+            // Cacluate the vehicle's horizontal right direction.
+            // This gives us the local X axis without using the vehicle's pitch/roll.
+            //Vector3 vehicleRight = Vector3.Cross(Vector3.up, vehicleForward);
+
+            //// Calculate the target direction in our horizontal vehicle-local space.
+            //Vector3 localTarget = new Vector3(
+            //    Vector3.Dot(target, vehicleRight),
+            //    0f,
+            //    Vector3.Dot(target, vehicleForward)
+            //);
+            //localTarget.Normalize();
+
+            // Build a yaw-only rotation for the vehicle.
+            // Ignore pitch and roll caused by terrain.
+            float vehicleYaw = vehicle.mainRigidbody.transform.eulerAngles.y;
+
+            Quaternion yawRotation = Quaternion.Euler(0f, vehicleYaw, 0f);
+
+            // Convert the desired direction into yaw-local space.
+            Vector3 localTarget = Quaternion.Inverse(yawRotation) * target;
+            localTarget.y = 0f;
+            localTarget.Normalize();
 
             // Calculate the target angle
             float targetAngle = Mathf.Atan2(localTarget.x, localTarget.z) * Mathf.Rad2Deg;
@@ -347,8 +451,8 @@ namespace LethalBots.Utils.Helpers
             // Steering (-1 to 1)
             //float targetSteering = Mathf.Clamp(localTarget.x / planarDistance, -1f, 1f);
             // Full steering at this angle.
-            float targetSteering = Mathf.Clamp(-targetAngle / SteeringAngle, -1f, 1f);
-            float vehicleSteeringInputNormalised = vehicle.steeringInput / 3f;
+            float targetSteering = Mathf.Clamp(targetAngle / SteeringAngle, -1f, 1f);
+            //float vehicleSteeringInputNormalised = vehicle.steeringInput / 3f;
             float desiredSteering = targetSteering;
 
             // Check our set tolerance
@@ -360,6 +464,18 @@ namespace LethalBots.Utils.Helpers
             //{
             //    desiredSteering = targetSteering; // Update our steering angle
             //}
+
+            // Check is we want to be reversing instead of driving forward
+            if (!input.IsReversing 
+                && Mathf.Abs(targetAngle) >= ReverseEnterAngle)
+            {
+                input.IsReversing = true; // Tell the input class we want to move backwards
+            }
+            else if (input.IsReversing 
+                && Mathf.Abs(targetAngle) <= ReverseExitAngle)
+            {
+                input.IsReversing = false; // Tell the input class we want to move forwards
+            }
 
             // Smooth steering.
             input.Steering = desiredSteering;
@@ -391,14 +507,30 @@ namespace LethalBots.Utils.Helpers
                 desiredSpeed *= factor;
             }
 
+            // Don't drive slower than our minimum speed
+            desiredSpeed = Mathf.Max(desiredSpeed, MinDrivingSpeed);
+
+            // Consider our current move direction
+            float currentSpeedMagnitude = Mathf.Abs(currentSpeed);
+            bool movingWrongDirection = currentSpeedMagnitude > SpeedTolerance 
+                && (input.IsReversing ? currentSpeed > 0f : currentSpeed < 0f);
+
             // Apply throttle or brake based on speed error.
-            float speedError = desiredSpeed - currentSpeed;
-            if (speedError > SpeedTolerance)
+            float speedError = desiredSpeed - currentSpeedMagnitude;
+            if (movingWrongDirection)
             {
-                input.Throttle = 1f;
+                // We're moving opposite the desired direction.
+                // Brake until we're stopped.
+                input.Brake = 1f;
+            }
+            else if (speedError > SpeedTolerance)
+            {
+                // We're moving in the correct direction but too slowly.
+                input.Throttle = input.IsReversing ? -1f : 1f;
             }
             else if (speedError < -SpeedTolerance)
             {
+                // We're moving in the correct direction but too quickly.
                 input.Brake = 1f;
             }
 

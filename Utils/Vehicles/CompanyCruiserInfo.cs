@@ -89,7 +89,8 @@ namespace LethalBots.Utils.Vehicles
                 }
                 vehicleController.keyIgnitionCoroutine = vehicleController.StartCoroutine(vehicleController.TryIgnition(isLocalDriver: true));
                 vehicleController.TryIgnitionServerRpc((int)GameNetworkManager.Instance.localPlayerController.playerClientId, vehicleController.keyIsInIgnition);
-                yield return new WaitUntil(() => IsIgnitionStarted(vehicleController) || (Time.timeSinceLevelLoad - startTime) > 3f);
+                float startMaxWaitTime = UnityEngine.Random.Range(2.7f, 3.2f);
+                yield return new WaitUntil(() => IsIgnitionStarted(vehicleController) || (Time.timeSinceLevelLoad - startTime) > startMaxWaitTime);
 
                 // Now if we failed to start the engine, end our current attempt and try again later.
                 // The cruiser has a chance to fail to start the engine, so we need to handle that case.
@@ -211,12 +212,8 @@ namespace LethalBots.Utils.Vehicles
 
         public override IEnumerator DriveVehicle(VehicleController vehicleController, LethalBotAI lethalBotAI, NavMeshAgent vehicleAgent)
         {
-            // Kinda hard to drive a vehicle if the engine isn't started!
-            if (!IsIgnitionStarted(vehicleController))
-            {
-                // Start the car. StartCar will handle the case where the car fails to start and will keep trying until it starts.
-                yield return StartCar(vehicleController, lethalBotAI);
-            }
+            // Just in case, reset input
+            lethalBotAI.NpcController.vehicleInput.Reset();
 
             // Drive the vehicle we are using, the loop must be MANUALLY ended
             // by the AIState that is managing this.
@@ -230,8 +227,8 @@ namespace LethalBots.Utils.Vehicles
                 }
 
                 // Update the Cruiser's NavMeshAgent with the current speed and acceleration of the vehicle
+                float vehicleSpeed = vehicleController.mainRigidbody.velocity.magnitude;
                 vehicleAgent.speed = MaxDrivingSpeed;
-                vehicleAgent.acceleration = float.MaxValue;
 
                 // Drive the vehicle using the NavMeshAgent
                 ref VehicleInputHelper input = ref lethalBotAI.NpcController.vehicleInput;
@@ -241,14 +238,24 @@ namespace LethalBots.Utils.Vehicles
                 CarGearShift currentGear = vehicleController.gear;
                 if (input.WantsForward && currentGear != CarGearShift.Drive)
                 {
-                    input.Throttle = 0f; // Prevent the vehicle from moving forward while we are changing gears
-                    yield return ChangeGear(vehicleController, new CompanyCruiserGearRequest { DesiredGear = CarGearShift.Drive }, lethalBotAI);
+                    input.Throttle = 0f; // Prevent the vehicle from moving while we are changing gears
+
+                    // Don't change to reverse if we are at high speed, we need to slow down first.
+                    if (vehicleSpeed <= ChangeGearSpeed)
+                    {
+                        yield return ChangeGear(vehicleController, new CompanyCruiserGearRequest { DesiredGear = CarGearShift.Drive }, lethalBotAI);
+                    }
+                    else
+                    {
+                        input.Brake = 1f; // Apply brakes to slow down the vehicle before changing gears
+                    }
                 }
                 else if (input.WantsReverse && currentGear != CarGearShift.Reverse)
                 {
-                    input.Throttle = 0f; // Prevent the vehicle from moving forward while we are changing gears
-                    // Don't change to park if we are at high speed, we need to slow down first.
-                    if (vehicleAgent.speed <= MinCornerSpeed)
+                    input.Throttle = 0f; // Prevent the vehicle from moving while we are changing gears
+
+                    // Don't change to reverse if we are at high speed, we need to slow down first.
+                    if (vehicleSpeed <= ChangeGearSpeed)
                     {
                         yield return ChangeGear(vehicleController, new CompanyCruiserGearRequest { DesiredGear = CarGearShift.Reverse }, lethalBotAI);
                     }
@@ -260,7 +267,7 @@ namespace LethalBots.Utils.Vehicles
                 else if (input.Brake > 0f && currentGear != CarGearShift.Park)
                 {
                     // Don't change to park if we are at high speed, we need to slow down first.
-                    if (input.IsStopping)
+                    if (input.IsStopping && vehicleSpeed <= ChangeGearSpeed)
                     {
                         yield return ChangeGear(vehicleController, new CompanyCruiserGearRequest { DesiredGear = CarGearShift.Park }, lethalBotAI);
                     }
@@ -393,6 +400,15 @@ namespace LethalBots.Utils.Vehicles
             PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
             if (driverSeat.playerScriptInSpecialAnimation == lethalBotController)
             {
+                // Put the brake on
+                VehicleInputHelper vehicleInput = lethalBotAI.NpcController.vehicleInput;
+                vehicleInput.Zero();
+                vehicleInput.Brake = 1f;
+
+                // Wait a bit for our input to actually take affect
+                yield return null;
+                yield return null;
+
                 // Make sure the vehicle is in park
                 if (vehicleController.gear != CarGearShift.Park)
                 {
