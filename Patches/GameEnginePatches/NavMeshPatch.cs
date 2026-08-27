@@ -34,19 +34,26 @@ namespace LethalBots.Patches.GameEnginePatches
             }
         }
 
+        private static float agentSlope = 45f; // Same as default player slope height // Was 48, testing smaller value
+        private static float agentClimb = 1.33f; // TODO: Adjust as needed
+        private static float agentHeight = 4.5f; // TODO: Adjust as needed
+        private static float agentRadius = 2f; // TODO: Adjust as needed // Was 2.5f and 4f, testing a larger number
+        private static int tileSize = 90; // Was 256, testing a smaller value
+        private static float voxelSize = 0.25f; // Was 1.333333f, testing a smaller number
+
         private static void OverrideNavMeshSettings(ref NavMeshBuildSettings buildSettings)
         {
             const int defaultAgentID = 0;
             NavMeshBuildSettings defaultSettings = NavMesh.GetSettingsByID(defaultAgentID);
-            buildSettings.agentSlope = 45; // Same as default player slope height // Was 48, testing smaller value
-            buildSettings.agentClimb = 1.33f; // TODO: Adjust as needed
-            buildSettings.agentHeight = 4f; // TODO: Adjust as needed
-            buildSettings.agentRadius = 4.4f; // TODO: Adjust as needed // Was 2.5f and 4f, testing a larger number
+            buildSettings.agentSlope = agentSlope;
+            buildSettings.agentClimb = agentClimb;
+            buildSettings.agentHeight = agentHeight;
+            buildSettings.agentRadius = agentRadius;
             buildSettings.minRegionArea = defaultSettings.minRegionArea;
             buildSettings.overrideTileSize = true;
-            buildSettings.tileSize = 256;
+            buildSettings.tileSize = tileSize;
             buildSettings.overrideVoxelSize = true;
-            buildSettings.voxelSize = 0.6666667f;
+            buildSettings.voxelSize = voxelSize;
         }
     }
 }

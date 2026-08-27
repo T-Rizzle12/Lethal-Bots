@@ -306,11 +306,11 @@ namespace LethalBots.NetworkSerializers
             }
 
             // HACKHACK: Fix the look at code rather than doing this
-            if (lethalBotController.isClimbingLadder)
+            if (lethalBotController.isClimbingLadder || lethalBotController.inVehicleAnimation)
             {
                 // If we are using a ladder, set our rotation to it!
                 InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
-                if (ourTrigger != null && ourTrigger.isLadder)
+                if (ourTrigger != null && (ourTrigger.isLadder || ourTrigger.setVehicleAnimation))
                 {
                     lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
                     npcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
@@ -382,7 +382,7 @@ namespace LethalBots.NetworkSerializers
 
         public static bool operator ==(LookAtTarget? left, LookAtTarget? right)
         {
-            if (ReferenceEquals(left, right)) return true;
+            if (ReferenceEquals(left, right)) return true; // ReferenceEquals returns true if both objects are null!
             if (left is null || right is null) return false;
             return left.Equals(right);
         }

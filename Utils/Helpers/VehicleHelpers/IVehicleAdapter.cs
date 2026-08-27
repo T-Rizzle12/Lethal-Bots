@@ -33,6 +33,62 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         public int NavMeshAgentTypeID { get; }
 
         /// <summary>
+        /// The maximum speed the bot should attempt to drive at.
+        /// </summary>
+        public float MaxDrivingSpeed { protected set; get; }
+
+        /// <summary>
+        /// The bare minimum speed the bot should attempt to drive at.
+        /// </summary>
+        public float MinDrivingSpeed { get; }
+
+        /// <summary>
+        /// The minimum speed to maintain while making very sharp turns.
+        /// </summary>
+        public float MinCornerSpeed { get; }
+
+        /// <summary>
+        /// The cruiser's speed before we should change gears
+        /// </summary>
+        public float ChangeGearSpeed { get; }
+
+        /// <summary>
+        /// How far from the destination the bot begins slowing down.
+        /// </summary>
+        public float SlowdownDistance { get; }
+
+        /// <summary>
+        /// The distance at which the bot should come to a complete stop.
+        /// </summary>
+        public float StopDistance { get; }
+
+        /// <summary>
+        /// Acceptable speed error before applying throttle or brakes.
+        /// </summary>
+        public float SpeedTolerance { get; }
+
+        /// <summary>
+        /// Acceptable steering error before attempting to  
+        /// </summary>
+        //protected virtual float SteeringTolerance => 0.1f;
+
+        /// <summary>
+        /// The angle the max angle vehicle can turn
+        /// </summary>
+        public virtual float SteeringAngle => 45f;
+
+        /// <summary>
+        /// The minimum heading error at which the bot will consider reversing
+        /// instead of making a large forward turn.
+        /// </summary>
+        public virtual float ReverseEnterAngle => 120f;
+
+        /// <summary>
+        /// The minimum heading error at which the bot will consider to stop reversing.
+        /// </summary>
+        public virtual float ReverseExitAngle => 75f;
+
+        /// <summary>
         /// Allows you to check if the bot can drive the vehicle or not.
         /// </summary>
         /// <param name="vehicleController">The vehicle to check</param>
@@ -72,6 +128,18 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         /// <param name="vehicleController">The vehicle the bot intents to drive</param>
         /// <param name="lethalBotAI">The bot who is prepping to use the vehicle</param>
         public void SetupNavMeshAgent(NavMeshAgent agent, VehicleController vehicleController, LethalBotAI lethalBotAI);
+
+        /// <summary>
+        /// Allows you to change the area costs for your Cruiser's NavMesh agent
+        /// </summary>
+        /// <remarks>
+        /// This should be called in your <see cref="DriveVehicle(VehicleController, LethalBotAI, NavMeshAgent)"/> 
+        /// loop as Unity may reset your set area costs. <br/>
+        /// You should not do expensive operations in here as this should be called every frame.
+        /// </remarks>
+        /// <param name="agent">The <see cref="NavMeshAgent"/> the bot is using</param>
+        /// <param name="vehicleController">The vehicle the bot intents to drive</param>
+        public void SetAreaCostsForCruiser(NavMeshAgent agent, VehicleController vehicleController);
 
         /// <summary>
         /// Called when a bot has decided it doesn't want to drive anymore
@@ -119,7 +187,8 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         /// <remarks>
         /// This doesn't include the driver seat, only passenger seats. <br/>
         /// Makes it easy for you to tell the bot about open passenger seats. <br/>
-        /// Bots will use this to find a seat to sit in if they are not the driver.
+        /// Bots will use this to find a seat to sit in if they are not the driver. <br/>
+        /// This can be called often by bots. Try not to do expensive operations in here.
         /// </remarks>
         /// <param name="vehicleController">The vehicle to check for open passenger seats</param>
         /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
@@ -129,6 +198,11 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         /// <summary>
         /// Finds the driver seat in the vehicle.
         /// </summary>
+        /// <remarks>
+        /// Unlike <see cref="FindOpenPassengerSeat(VehicleController, LethalBotAI)"/> this should ALWAYS return the driver seat. <br/>
+        /// Bots use this to see if they can drive <paramref name="vehicleController"/>. <br/>
+        /// This will be called more often then <see cref="FindOpenPassengerSeat(VehicleController, LethalBotAI)"/>, so try not to do expensive operations in here.
+        /// </remarks>
         /// <param name="vehicleController">The vehicle to check for the driver seat</param>
         /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
         /// <returns>The driver seat.</returns>
@@ -140,6 +214,7 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         /// <remarks>
         /// Some vehicles don't have enough seats for all players, 
         /// so this allows you to find a place for the bot to stand in the trunk of the vehicle. <br/>
+        /// This can be called often by bots. Try not to do expensive operations in here.
         /// </remarks>
         /// <param name="vehicleController">The vehicle to check for an open trunk position</param>
         /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
@@ -150,7 +225,7 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         /// Checks if the trunk of the vehicle is open or not.
         /// </summary>
         /// <remarks>
-        /// Handles the default Company Cruiser by default.
+        /// Handles the vanilla Company Cruiser by default.
         /// </remarks>
         /// <param name="vehicleController">The vehicle to check</param>
         /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
@@ -177,7 +252,8 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         /// Allows you to customize how the bot enters the vehicle.
         /// </summary>
         /// <remarks>
-        /// This allows you to make it so the bot opens the door, gets in, and closes the door.....etc....
+        /// This allows you to make it so the bot opens the door, gets in, and closes the door.....etc....<br/>
+        /// NOTE: This is only called if the bot wants to enter a seat in the vehicle.
         /// </remarks>
         /// <param name="vehicleController">The vehicle to enter</param>
         /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
@@ -189,7 +265,8 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         /// Allows you to customize how the bot exits the vehicle.
         /// </summary>
         /// <remarks>
-        /// This allows you to make it so the bot opens the door, gets out, and closes the door.....oh and for turning the car off if they are the driver.....etc....
+        /// This allows you to make it so the bot opens the door, gets out, and closes the door.....oh and for turning the car off if they are the driver.....etc....<br/>
+        /// NOTE: This is only called if the bot wants to exit a seat in the vehicle.
         /// </remarks>
         /// <param name="vehicleController">The vehicle to exit</param>
         /// <param name="lethalBotAI">The bot's <see cref="LethalBotAI"/></param>
@@ -202,6 +279,9 @@ namespace LethalBots.Utils.Helpers.VehicleHelpers
         /// <remarks>
         /// This is where you can implement your own driving logic for the bot. <br/>
         /// You will be responsible for starting the car, setting the throttle, steering, and braking of the vehicle. <br/>
+        /// A helper function <see cref="UpdateVehicleInput(VehicleController, LethalBotAI, NavMeshAgent, ref VehicleInputHelper)"/>
+        /// has been provided with confirguable variables to make it easier to teach the bots how to drive. <br/>
+        /// A default implementation has been provided in <see cref="VehicleAdapter{TVehicle, TGearRequest}"/> <br/>
         /// The bot will use the <paramref name="vehicleAgent"/> to calculate the path to the destination, but you will be responsible for actually driving the vehicle. <br/>
         /// </remarks>
         /// <param name="vehicleController">The vehicle the bot is driving</param>

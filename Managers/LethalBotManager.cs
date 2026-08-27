@@ -30,6 +30,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -199,7 +200,8 @@ namespace LethalBots.Managers
 
         #endregion
 
-        public VehicleController? VehicleController;
+        [Obsolete("This has been moved into the SingletonManager. Use that instead!")]
+        public VehicleController? VehicleController => SingletonManager.VehicleController;
 
         // Variables that handle the ship's NavMesh
         #region Ship NavMesh
@@ -1365,7 +1367,7 @@ namespace LethalBots.Managers
                                         // Kick the bot from the server
                                         // NEEDTOVALIDATE: Should I just have the bot, "disconnect," instead?
                                         Plugin.LogDebug($"[LethalBotManager] Kicking bot {lethalBotController.playerUsername}. Player quota exceeded!");
-                                        StartOfRound.Instance.KickPlayer((int)lethalBotController.playerClientId);
+                                        instanceSOR.KickPlayer((int)lethalBotController.playerClientId);
                                         break; // Only kick one bot per quota update
                                     }
                                 }
@@ -3000,7 +3002,10 @@ namespace LethalBots.Managers
                     // Lets the host have bots join the game
                     if (HostPlayerScript != playerWhoSentMessage)
                     {
-                        HUDManager.Instance.AddTextToChatOnServer("Only the host can add bots!");
+                        if (IsPlayerLocal(playerWhoSentMessage))
+                        {
+                            HUDManager.Instance.AddChatMessage("Only the host can add bots!", dontRepeat: true);
+                        }
                         return;
                     }
 
@@ -3010,10 +3015,10 @@ namespace LethalBots.Managers
                         EnableShipNavMesh(reason: "Bots spawning in orbit!");
                         SpawnLethalBotsAtShip(markBotsAsLoaded: true);
                     }
-                    else
+                    else if (IsPlayerLocal(playerWhoSentMessage))
                     {
                         string failMessage = Plugin.Config.AllowBotsInOrbit.Value ? "You can only manually add bots in orbit!" : "You have disabled bots in orbit!";
-                        HUDManager.Instance.AddTextToChatOnServer(failMessage);
+                        HUDManager.Instance.AddChatMessage(failMessage, dontRepeat: true);
                     }
                     return;
                 }
@@ -3031,7 +3036,7 @@ namespace LethalBots.Managers
                             if (message.Contains("all"))
                             {
                                 // Register all items with the same internal name as the held item as blacklisted!
-                                List<NetworkObjectReference> itemsToBlacklist = new List<NetworkObjectReference>();
+                                HashSet<NetworkObjectReference> itemsToBlacklist = new HashSet<NetworkObjectReference>();
                                 string itemName = heldItem.itemProperties.itemName;
                                 foreach (var gameObject in grabbableObjectsInMap)
                                 {
@@ -3072,7 +3077,7 @@ namespace LethalBots.Managers
                             if (message.Contains("all"))
                             {
                                 // Register all items with the same internal name as the held item as blacklisted!
-                                List<NetworkObjectReference> itemsToBlacklist = new List<NetworkObjectReference>();
+                                HashSet<NetworkObjectReference> itemsToBlacklist = new HashSet<NetworkObjectReference>();
                                 string itemName = heldItem.itemProperties.itemName;
                                 foreach (var gameObject in grabbableObjectsInMap)
                                 {
@@ -3121,6 +3126,19 @@ namespace LethalBots.Managers
                 else if (message.Contains("drive here"))
                 {
                     UseCruiserState.targetCruiserPosition = playerWhoSentMessage.transform.position;
+                }
+                else if (message.Contains("hurry up"))
+                {
+                    // Don't have to tell me twice
+                    UseCruiserState.ShouldSpeed = true;
+                    if (SingletonManager.VehicleController.TryGet(out VehicleController? vehicleController))
+                    {
+                        LethalBotAI? botDriver = GetLethalBotAIIfLocalIsOwner(vehicleController.currentDriver);
+                        if (botDriver != null)
+                        {
+                            botDriver.SendChatMessage("Don't have to tell me twice!", bypassConfig: true);
+                        }
+                    }
                 }
                 //else if (message.Contains("get navarea"))
                 //{
@@ -3446,6 +3464,9 @@ namespace LethalBots.Managers
 
             // Panik state
             PanikState.RegisterChatCommands();
+
+            // Use Cruiser state
+            UseCruiserState.RegisterChatCommands();
 
             // *******************************************************************************
             // We go ahead and create the default signal translator commands for every state!
@@ -4619,7 +4640,7 @@ namespace LethalBots.Managers
         /// <param name="player"><c>PlayerControllerB</c> </param>
         /// <returns><c>LethalBotAI</c> if the <c>PlayerControllerB</c> has an <c>LethalBotAI</c> associated and the local client is the owner, 
         /// else returns null</returns>
-        public LethalBotAI? GetLethalBotAIIfLocalIsOwner(PlayerControllerB player)
+        public LethalBotAI? GetLethalBotAIIfLocalIsOwner(PlayerControllerB? player)
         {
             LethalBotAI? lethalBotAI = GetLethalBotAI(player);
             if (lethalBotAI != null
@@ -4788,7 +4809,7 @@ namespace LethalBots.Managers
         /// </remarks>
         /// <param name="player"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsPlayerLocal(PlayerControllerB player)
+        internal static bool IsPlayerLocal([NotNullWhen(true)] PlayerControllerB? player)
         {
             return player != null && player == GameNetworkManager.Instance.localPlayerController;
         }
@@ -5653,16 +5674,6 @@ namespace LethalBots.Managers
         private void SyncEndOfRoundLethalBotsFromServerToClientRpc(bool preRevive = false)
         {
             EndOfRoundForLethalBots(preRevive);
-        }
-
-        #endregion
-
-        #region Vehicle landing on map RPC
-
-        public void VehicleHasLanded()
-        {
-            VehicleController = Object.FindObjectOfType<VehicleController>();
-            Plugin.LogDebug($"Vehicle has landed : {VehicleController}");
         }
 
         #endregion

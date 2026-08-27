@@ -79,6 +79,9 @@ namespace LethalBots.Configs
         // Mod Related Settings
         [SyncedEntryField] public SyncedEntry<bool> AllowRandomCalling;
 
+        // Experimental
+        [SyncedEntryField] public SyncedEntry<bool> AllowDrivingCruiser;
+
         // Config identities
         public ConfigIdentities ConfigIdentities;
         public ConfigLoadouts ConfigLoadouts;
@@ -315,6 +318,12 @@ namespace LethalBots.Configs
                                                     "Allow Random Calling", 
                                                     defaultVal: true, 
                                                     "[Lethal Phones] Are bots allowed to use their phones to randomly call players while they are searching for scrap?");
+
+            // Experimental
+            AllowDrivingCruiser = cfg.BindSyncedEntry(ConfigConst.ConfigSectionExperimental,
+                                      "Allow Driving Cruiser",
+                                      defaultVal: false,
+                                      "Should bots be allowed to drive the cruiser code? VERY EXPERIMENTAL AND UNFINISHED!");
 
             ClearUnusedEntries(cfg);
             cfg.SaveOnConfigSet = true;

@@ -44,6 +44,7 @@ using System.Text;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
 namespace LethalBots
@@ -216,6 +217,8 @@ namespace LethalBots
             PatchBaseGame();
 
             PatchOtherMods();
+
+            SceneManager.sceneLoaded += OnSceneLoaded;
 
             Logger.LogInfo($"Plugin {ModGUID} is loaded!");
         }
@@ -481,7 +484,7 @@ namespace LethalBots
             }
         }
 
-        private bool IsModLoaded(string modGUID)
+        private static bool IsModLoaded(string modGUID)
         {
             bool ret = Chainloader.PluginInfos.ContainsKey(modGUID);
             if (ret)
@@ -497,7 +500,7 @@ namespace LethalBots
             return ret;
         }
 
-        private bool IsPreLoaderLoaded(string dllFileName, List<string> fileNames)
+        private static bool IsPreLoaderLoaded(string dllFileName, List<string> fileNames)
         {
             bool ret = fileNames.Contains(dllFileName);
             if (ret)
@@ -535,6 +538,77 @@ namespace LethalBots
             GameObject gameObject = new GameObject("PluginManager");
             gameObject.AddComponent<PluginManager>();
             PluginManager.Instance.InitManagers();
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            // Fix RadMechAI NavMeshObstacles for bot cruiser AI.
+            var prefabs = Resources.FindObjectsOfTypeAll<EnemyAINestSpawnObject>();
+            if (prefabs == null || prefabs.Length == 0) return;
+
+            // Flag for if we successfully added what we wanted
+            bool replaced = false;
+            try
+            {
+                // Loop through all prefabs
+                for (int i = 0; i < prefabs.Length; i++)
+                {
+                    // Sanity check
+                    var prefab = prefabs[i];
+                    if (prefab != null)
+                    {
+                        // Another sanity check
+                        EnemyType enemyType = prefab.enemyType;
+                        if (enemyType != null)
+                        {
+                            // Make sure this is the RadMech prefab we want
+                            if (enemyType.enemyPrefab.TryGetComponent(out RadMechAI radmech))
+                            {
+                                // Check the left arm
+                                Plugin.LogInfo($"Found Radmech Prefab {radmech} with nest Prefab {prefab}");
+                                Transform leftArm = prefab.transform.Find("Cube (4)");
+                                if (leftArm != null)
+                                {
+                                    var navMeshObstacle = leftArm.gameObject.AddComponent<NavMeshObstacle>();
+                                    navMeshObstacle.carving = true;
+                                    navMeshObstacle.carvingMoveThreshold = 0.1f;
+                                    navMeshObstacle.carvingTimeToStationary = 0.5f;
+                                    navMeshObstacle.carveOnlyStationary = true;
+                                    Plugin.LogInfo("Added NavmeshObstacle to Left Arm");
+                                }
+
+                                // Check the right arm
+                                Transform rightArm = prefab.transform.Find("Cube (5)");
+                                if (rightArm != null)
+                                {
+                                    var navMeshObstacle = rightArm.gameObject.AddComponent<NavMeshObstacle>();
+                                    navMeshObstacle.carving = true;
+                                    navMeshObstacle.carvingMoveThreshold = 0.1f;
+                                    navMeshObstacle.carvingTimeToStationary = 0.5f;
+                                    navMeshObstacle.carveOnlyStationary = true;
+                                    Plugin.LogInfo("Added NavmeshObstacle to Right Arm");
+                                }
+
+                                // Mark it as updated
+                                replaced = true;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.LogError($"An error occured when attempting to edit RadMech Prefab. \n Error: {e}");
+            }
+            finally
+            {
+                // Check if we succeded
+                if (replaced)
+                {
+                    // Remove our hook as our work here is done
+                    SceneManager.sceneLoaded -= OnSceneLoaded;
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

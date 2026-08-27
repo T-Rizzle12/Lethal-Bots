@@ -14,6 +14,7 @@ namespace LethalBots.Constants
         public const string ConfigSectionVoiceRecognition = "6. Voice Recognition";
         public const string ConfigSectionDebug = "7. Debug";
         public const string ConfigSectionMods = "8. Mod Support Related Settings";
+        public const string ConfigSectionExperimental = "9. Experimental";
 
         public const int DEFAULT_MAX_BOTS_AVAILABLE = 16;
         public const int MIN_BOTS_AVAILABLE = 0;

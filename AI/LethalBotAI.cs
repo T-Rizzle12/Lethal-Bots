@@ -943,6 +943,14 @@ namespace LethalBots.AI
                 }
             }
 
+            // Use player controller movement while in the crusier
+            // NEEDTOVALDIATE: Should this be in ShouldFixedMovement instead?
+            if (NpcController.IsControllerInCruiser)
+            {
+                Plugin.LogDebug($"{lethalBotController.playerUsername} is in the Cruiser!");
+                return true;
+            }
+
             // Check if the fire players cutscene is running
             if (StartOfRound.Instance.suckingPlayersOutOfShip)
             {
@@ -951,17 +959,18 @@ namespace LethalBots.AI
             }
 
             // External forces
+            const float freeMovementThreshold = 2f;
             Vector3 externalForces = lethalBotController.externalForces;
             Vector3 previousExternalForces = NpcController.PreviousExternalForces;
-            if (externalForces.sqrMagnitude > 2f * 2f 
-                || previousExternalForces.sqrMagnitude > 2f * 2f)
+            if (externalForces.sqrMagnitude > freeMovementThreshold * freeMovementThreshold 
+                || previousExternalForces.sqrMagnitude > freeMovementThreshold * freeMovementThreshold)
             {
                 Plugin.LogDebug($"{lethalBotController.playerUsername} externalForces {externalForces.sqrMagnitude} previousExternalForces {previousExternalForces}");
                 return true;
             }
 
             // External forces part 2
-            if (lethalBotController.externalForceAutoFade.sqrMagnitude > 2f * 2f)
+            if (lethalBotController.externalForceAutoFade.sqrMagnitude > freeMovementThreshold * freeMovementThreshold)
             {
                 Plugin.LogDebug($"{lethalBotController.playerUsername} externalForceAutoFade {lethalBotController.externalForceAutoFade.sqrMagnitude}");
                 return true;
@@ -1015,13 +1024,7 @@ namespace LethalBots.AI
                 && targetPlayer != null
                 && IsFollowingTargetPlayer())
             {
-                if (targetPlayer.isCrouching
-                    && !lethalBotController.isCrouching)
-                {
-                    NpcController.OrderToToggleCrouch();
-                }
-                else if (!targetPlayer.isCrouching
-                        && lethalBotController.isCrouching)
+                if (targetPlayer.isCrouching != lethalBotController.isCrouching)
                 {
                     NpcController.OrderToToggleCrouch();
                 }
@@ -1751,12 +1754,12 @@ namespace LethalBots.AI
         /// Please note that you <c>MUST</c> wait until <see cref="Task.IsCompleted"/> is true before you can get the result!
         /// </returns>
         /// <inheritdoc cref="IsPathDangerousAsync(NavMeshPath, bool, bool, bool, bool, CancellationToken)"/>
-        public Task<(bool isDangerous, bool isPathValid, float pathDistance)> TryStartPathDangerousAsync(Vector3 targetPos, bool calculatePathDistance = false, bool useEyePosition = true, bool checkForEnemies = true, bool checkForQuicksand = true, CancellationToken token = default)
+        public Task<SafePathResult> TryStartPathDangerousAsync(Vector3 targetPos, bool calculatePathDistance = false, bool useEyePosition = true, bool checkForEnemies = true, bool checkForQuicksand = true, CancellationToken token = default)
         {
             // Check if we were canceled before pathfinding!  
             if (token.IsCancellationRequested)
             {
-                return Task.FromCanceled<(bool isDangerous, bool isPathValid, float pathDistance)>(token);
+                return Task.FromCanceled<SafePathResult>(token);
             }
 
             // Lets us know when the bot is checking if a path is dangerous
@@ -1766,11 +1769,13 @@ namespace LethalBots.AI
             // We MUST have a local version of the path since this is running over multiple frames  
             NavMeshPath ourPath = new NavMeshPath();
 
-            // Check if there is a valid path  
+            // Check if there is a valid path
+            // TODO: PathfindingLib has Multi-Threaded pathfinding.
+            // I should swap to using that instead of the current Single-Threaded implementaton.
             if (!IsValidPathToTarget(targetPos, ref ourPath))
             {
                 Plugin.LogDebug($"Bot {NpcController.Npc.playerUsername} failed to find a path to {targetPos}!");
-                return Task.FromResult((true, false, 0f));
+                return Task.FromResult(new SafePathResult(isDangerous: true, isPathValid: false, pathDistance: 0f));
             }
 
             Plugin.LogDebug($"Path found to target {targetPos}. Checking for danger...");
@@ -1794,7 +1799,7 @@ namespace LethalBots.AI
         /// <param name="checkForQuicksand">Should we check for quicksand and water on the path</param>
         /// <param name="token">The cancelation token, this allows you to stop the function early!</param>
         /// <returns>Task indicating if the path is safe or not</returns>
-        private async Task<(bool isDangerous, bool isPathValid, float pathDistance)> IsPathDangerousAsync(NavMeshPath ourPath, bool calculatePathDistance = false, bool useEyePosition = true, bool checkForEnemies = true, bool checkForQuicksand = true, CancellationToken token = default)
+        private async Task<SafePathResult> IsPathDangerousAsync(NavMeshPath ourPath, bool calculatePathDistance = false, bool useEyePosition = true, bool checkForEnemies = true, bool checkForQuicksand = true, CancellationToken token = default)
         {
             // Check if we were canceled before pathfinding!
             if (token.IsCancellationRequested)
@@ -1806,7 +1811,7 @@ namespace LethalBots.AI
             Vector3[]? corners = ourPath?.corners;
             if (corners == null || corners.Length == 0)
             {
-                return (true, false, 0f);
+                return new SafePathResult(isDangerous: true, isPathValid: false, pathDistance: 0f);
             }
 
             // Cache stuff we use a lot, since this could get very expensive fast!
@@ -1850,7 +1855,7 @@ namespace LethalBots.AI
                     if (!calculatePathDistance)
                     {
                         Plugin.LogDebug($"{NpcController.Npc.playerUsername}: Reached corner 15, stopping checks now");
-                        return (false, true, pathDistance);
+                        return new SafePathResult(isDangerous: false, isPathValid: true, pathDistance);
                     }
                     continue;
                 }
@@ -1890,7 +1895,7 @@ namespace LethalBots.AI
                     {
                         Plugin.LogDebug($"Danger detected at segment {j} from {previousNode} to {nodePos}. Path is dangerous!");
                         if (!calculatePathDistance)
-                            return (true, true, pathDistance);
+                            return new SafePathResult(isDangerous: true, isPathValid: true, pathDistance);
                         else
                             isPathDangerous = true;
                     }
@@ -1905,7 +1910,7 @@ namespace LethalBots.AI
                     {
                         Plugin.LogDebug($"Danger detected due to quicksand or water at segment {j}. Path is dangerous!");
                         if (!calculatePathDistance)
-                            return (true, true, pathDistance);
+                            return new SafePathResult(isDangerous: true, isPathValid: true, pathDistance);
                         else
                             isPathDangerous = true;
                     }
@@ -1918,7 +1923,7 @@ namespace LethalBots.AI
             if (!isPathDangerous)
                 Plugin.LogDebug("Path is safe. No danger detected.");
 
-            return (isPathDangerous, true, pathDistance); // NOTE: Return the path distance here since it may be modifed by other pathfind calls!
+            return new SafePathResult(isPathDangerous, isPathValid: true, pathDistance); // NOTE: Return the path distance here since it may be modifed by other pathfind calls!
         }
 
         /// <summary>
@@ -3140,7 +3145,8 @@ namespace LethalBots.AI
                 return null;
             }
 
-            VehicleController? vehicleController = LethalBotManager.Instance.VehicleController;
+            // TODO: Make the bot recognize when the human player is in the trunk
+            VehicleController? vehicleController = SingletonManager.VehicleController.Instance;
             if (vehicleController == null)
             {
                 return null;
@@ -3297,7 +3303,7 @@ namespace LethalBots.AI
                     && (linkEndPos - ladderBottomPos).sqrMagnitude <= maxDistanceSqr;
                 if (!matchesUp && !matchesDown)
                 {
-                    continue;
+                    continue; // Ladder is too far, skip
                 }
 
                 // The bot is currently at the start of the OffMeshLink,
@@ -3384,6 +3390,9 @@ namespace LethalBots.AI
         /// <returns></returns>
         public DoorLock? GetDoorIfWantsToOpen()
         {
+            // No doors, no need to check
+            if (doorLocksArray == null || doorLocksArray.Length == 0) return null;
+
             Vector3 npcBodyPos = NpcController.Npc.thisController.transform.position;
             for (int i = 0; i < doorLocksArray.Length; i++)
             {
@@ -3874,10 +3883,13 @@ namespace LethalBots.AI
         public void StopOffMeshLinkMovement(bool warpToEnd = true)
         {
             // Stop using the off mesh link
-            if (offMeshLinkCoroutine != null)
+            if (offMeshLinkCoroutine != null || agent.isOnOffMeshLink)
             {
-                StopCoroutine(offMeshLinkCoroutine);
-                offMeshLinkCoroutine = null;
+                if (offMeshLinkCoroutine != null)
+                {
+                    StopCoroutine(offMeshLinkCoroutine);
+                    offMeshLinkCoroutine = null;
+                }
                 OffMeshLinkData currentOffMeshLinkData = agent.currentOffMeshLinkData;
                 agent.CompleteOffMeshLink();
                 if (currentOffMeshLinkData.valid)
@@ -5824,13 +5836,14 @@ namespace LethalBots.AI
             PlayerControllerB lethalBotController = this.NpcController.Npc;
             int lethalBotPlayerClientID = (int)lethalBotController.playerClientId;
             PlayerControllerB spectatedPlayerScript;
-            if (GameNetworkManager.Instance.localPlayerController.isPlayerDead && GameNetworkManager.Instance.localPlayerController.spectatedPlayerScript != null)
+            PlayerControllerB localPlayerController = GameNetworkManager.Instance.localPlayerController;
+            if (localPlayerController.isPlayerDead && localPlayerController.spectatedPlayerScript != null)
             {
-                spectatedPlayerScript = GameNetworkManager.Instance.localPlayerController.spectatedPlayerScript;
+                spectatedPlayerScript = localPlayerController.spectatedPlayerScript;
             }
             else
             {
-                spectatedPlayerScript = GameNetworkManager.Instance.localPlayerController;
+                spectatedPlayerScript = localPlayerController;
             }
 
             bool walkieTalkie = lethalBotController.speakingToWalkieTalkie
@@ -5843,7 +5856,7 @@ namespace LethalBots.AI
                 this.creatureVoice.panStereo = 0f;
                 SoundManager.Instance.playerVoicePitchTargets[lethalBotPlayerClientID] = this.LethalBotIdentity.Voice.VoicePitch;
                 SoundManager.Instance.SetPlayerPitch(this.LethalBotIdentity.Voice.VoicePitch, lethalBotPlayerClientID);
-                if (GameNetworkManager.Instance.localPlayerController.isPlayerDead)
+                if (localPlayerController.isPlayerDead)
                 {
                     this.creatureVoice.spatialBlend = 0f;
                     this.creatureVoice.volume = this.LethalBotIdentity.Voice.Volume;
@@ -5872,7 +5885,7 @@ namespace LethalBots.AI
                 else
                 {
                     this.creatureVoice.spatialBlend = 0f;
-                    if (GameNetworkManager.Instance.localPlayerController.isPlayerDead)
+                    if (localPlayerController.isPlayerDead)
                     {
                         this.creatureVoice.panStereo = 0f;
                         this.creatureVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[lethalBotPlayerClientID];
@@ -5889,7 +5902,7 @@ namespace LethalBots.AI
                     occludeAudio.lowPassOverride = 4000f;
                     audioLowPassFilter.lowpassResonanceQ = 3f;
                 }
-                if (GameNetworkManager.Instance.localPlayerController.isPlayerDead)
+                if (localPlayerController.isPlayerDead)
                 {
                     this.creatureVoice.volume = this.LethalBotIdentity.Voice.Volume * 0.8f;
                 }
@@ -5910,7 +5923,7 @@ namespace LethalBots.AI
         [ClientRpc]
         private void PlayAudioClientRpc(string smallPathAudioClip, EnumTalkativeness enumTalkativeness, EnumResponsiveness enumResponsiveness)
         {
-            if (enumTalkativeness == Plugin.Config.Talkativeness.Value || enumResponsiveness == Plugin.Config.Responsiveness.Value || LethalBotIdentity.Voice.CanPlayAudioAfterCooldown(LethalBotIdentity.Voice.LastVoiceState))
+            if (enumTalkativeness == Plugin.Config.Talkativeness.Value || enumResponsiveness == Plugin.Config.Responsiveness.Value || LethalBotIdentity.Voice.CanPlayAudioAfterCooldown(LethalBotIdentity.Voice.LastVoiceState.VoiceState))
             {
                 Managers.AudioManager.Instance.PlayAudio(smallPathAudioClip, LethalBotIdentity.Voice);
             }

@@ -264,7 +264,7 @@ namespace LethalBots.AI.AIStates
             {
                 VoiceState = voiceState,
                 CanTalkIfOtherLethalBotTalk = true,
-                WaitForCooldown = ai.LethalBotIdentity.Voice.LastVoiceState == voiceState, // Only wait for cooldown if we are trying to repeat the same voice state, otherwise we can interrupt ourselves!
+                WaitForCooldown = ai.LethalBotIdentity.Voice.LastVoiceState.VoiceState == voiceState, // Only wait for cooldown if we are trying to repeat the same voice state, otherwise we can interrupt ourselves!
                 CutCurrentVoiceStateToTalk = true,
                 CanRepeatVoiceState = true,
 

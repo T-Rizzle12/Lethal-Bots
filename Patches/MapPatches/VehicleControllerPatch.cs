@@ -20,29 +20,6 @@ namespace LethalBots.Patches.MapPatches
     [HarmonyPatch(typeof(VehicleController))]
     public class VehicleControllerPatch
     {
-        /// <summary>
-        /// HACKHACK: Postfixes are not called if the method throws an exception.
-        /// Zeekerss has some kind of error in here that causes it to throw an exception.
-        /// </summary>
-        /// <param name="__exception"></param>
-        /// <returns></returns>
-        [HarmonyPatch("Start")]
-        [HarmonyFinalizer]
-        static Exception Start_Finalizer(Exception __exception)
-        {
-            // Run our code
-            LethalBotManager.Instance.VehicleHasLanded();
-            return __exception; // Let the original exception propagate!
-        }
-
-        [HarmonyPatch("Start")]
-        [HarmonyPostfix]
-        static void Start_PostFix()
-        {
-            // Run our code
-            LethalBotManager.Instance.VehicleHasLanded();
-        }
-
         [HarmonyPatch("Update")]
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> Update_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
@@ -118,7 +95,7 @@ namespace LethalBots.Patches.MapPatches
             List<CodeInstruction> codesToAdd = new List<CodeInstruction>
             {
                 new CodeInstruction(OpCodes.Ldarg_0), // Load this
-                new CodeInstruction(OpCodes.Ldfld, currentPassengerField), // Load this.playerHeldBy
+                new CodeInstruction(OpCodes.Ldfld, currentPassengerField), // Load this.currentPassenger
                 new CodeInstruction(OpCodes.Stloc, playerLocal) // Store in our local variable
             };
             codes.InsertRange(startIndex, codesToAdd);
@@ -290,37 +267,48 @@ namespace LethalBots.Patches.MapPatches
         {
             PlayerControllerB lethalBotController;
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
+            IVehicleAdapter? vehicleInfo = VehicleManager.Instance.GetVehicleInfo(__instance);
             for (int i = 0; i < lethalBotAIs.Length; i++)
             {
                 LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 lethalBotController = lethalBotAI.NpcController.Npc;
 
+                // Check if the bot is in the vehicle
                 if (lethalBotController.overridePhysicsParent == null)
                 {
+                    // In the trunk
                     if (__instance.physicsRegion.physicsTransform == lethalBotController.physicsParent)
                     {
                         lethalBotController.DamagePlayer(10, hasDamageSFX: true, callRPC: true, CauseOfDeath.Inertia, 0, false, vel);
                         lethalBotController.externalForceAutoFade += vel;
                     }
-                    return;
+                    continue;
+                }
+
+                // Check if this is a registered vehicle
+                // and the bot is sitting in it.
+                if (vehicleInfo == null 
+                    || !vehicleInfo.IsPlayerInVehicle(__instance, lethalBotController, out _))
+                {
+                    continue;
                 }
 
                 if (magnitude > 28f)
                 {
                     lethalBotController.KillPlayer(vel, spawnBody: true, CauseOfDeath.Inertia, 0, __instance.transform.up * 0.77f);
-                    return;
+                    continue;
                 }
 
                 if (magnitude <= 24f)
                 {
                     lethalBotController.DamagePlayer(30, hasDamageSFX: true, callRPC: true, CauseOfDeath.Inertia, 0, false, vel);
-                    return;
+                    continue;
                 }
 
                 if (lethalBotController.health < 20)
                 {
                     lethalBotController.KillPlayer(vel, spawnBody: true, CauseOfDeath.Inertia, 0, __instance.transform.up * 0.77f);
-                    return;
+                    continue;
                 }
                 lethalBotController.DamagePlayer(40, hasDamageSFX: true, callRPC: true, CauseOfDeath.Inertia, 0, false, vel);
             }
@@ -348,15 +336,23 @@ namespace LethalBots.Patches.MapPatches
         [HarmonyPostfix]
         static void DestroyCar_PostFix(VehicleController __instance)
         {
+            // Only do this for valid vehicles
+            if (!VehicleManager.Instance.TryGetVehicleInfo(__instance, out IVehicleAdapter? vehicleInfo))
+            {
+                return;
+            }
+
             PlayerControllerB lethalBotController;
             LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
             for (int i = 0; i < lethalBotAIs.Length; i++)
             {
+                // Like the base game, kill bots that are sitting in a seat when the car is blown up
                 LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 lethalBotController = lethalBotAI.NpcController.Npc;
-                if (lethalBotController.overridePhysicsParent != null && lethalBotController.overridePhysicsParent == __instance.transform)
+                if (vehicleInfo.IsPlayerInVehicle(__instance, lethalBotController, out InteractTrigger? seatTrigger) 
+                    && seatTrigger != null)
                 {
-                    lethalBotAI.NpcController.Npc.KillPlayer(Vector3.up * 27f + 20f * UnityEngine.Random.insideUnitSphere, spawnBody: true, CauseOfDeath.Blast, 6, Vector3.up * 1.5f);
+                    lethalBotController.KillPlayer(Vector3.up * 27f + 20f * UnityEngine.Random.insideUnitSphere, spawnBody: true, CauseOfDeath.Blast, 6, Vector3.up * 1.5f);
                 }
             }
         }

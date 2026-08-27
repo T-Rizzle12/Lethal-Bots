@@ -42,21 +42,15 @@ namespace LethalBots.Managers
 
         private void Update()
         {
-            if (LethalBotIdentities == null)
-            {
-                return;
-            }
+            //if (LethalBotIdentities == null)
+            //{
+            //    return;
+            //}
 
-            LethalBotIdentity lethalBotIdentity;
-            for (int i = 0; i < LethalBotIdentities.Length; i++)
-            {
-                lethalBotIdentity = LethalBotIdentities[i];
-                if (lethalBotIdentity != null
-                    && lethalBotIdentity.Voice != null)
-                {
-                    lethalBotIdentity.Voice.ReduceCooldown(Time.deltaTime);
-                }
-            }
+            //for (int i = 0; i < LethalBotIdentities.Length; i++)
+            //{
+            //    LethalBotIdentities[i]?.Voice?.ReduceCooldown(Time.deltaTime);
+            //}
         }
 
         public void InitIdentities(ConfigIdentity[] configIdentities)

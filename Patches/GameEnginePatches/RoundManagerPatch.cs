@@ -7,6 +7,7 @@ using LethalBots.Managers;
 using LethalBots.Patches.ModPatches.PathfindingLib;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
@@ -18,7 +19,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.SceneManagement;
-using static Unity.Netcode.NetworkBehaviour;
+using Object = UnityEngine.Object;
 
 namespace LethalBots.Patches.GameEnginePatches
 {
@@ -161,6 +162,11 @@ namespace LethalBots.Patches.GameEnginePatches
 
             // Don't update the mesh unless we have to
             GameObject outsideNavMesh = GameObject.FindGameObjectWithTag("OutsideLevelNavMesh");
+            if (outsideNavMesh == null)
+            {
+                outsideNavMesh = GameObject.Find("CompanyBuildingNavMesh"); // NavMeshInCompanyRedux support!
+            }
+
             if (outsideNavMesh != null)
             {
                 // Log about what we are updating!
@@ -181,10 +187,8 @@ namespace LethalBots.Patches.GameEnginePatches
 
                 NavMeshSurface navMesh = cruiserNavMeshObject.AddComponent<NavMeshSurface>();
                 navMesh.agentTypeID = Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID;
-                navMesh.overrideTileSize = true;
-                navMesh.tileSize = 256;
-                navMesh.overrideVoxelSize = true;
-                navMesh.voxelSize = 0.6666667f;
+                navMesh.overrideTileSize = false;
+                navMesh.overrideVoxelSize = false;
                 navMesh.ignoreNavMeshAgent = navMeshSurface.ignoreNavMeshAgent;
                 navMesh.ignoreNavMeshObstacle = navMeshSurface.ignoreNavMeshObstacle;
                 navMesh.collectObjects = navMeshSurface.collectObjects;
@@ -199,27 +203,45 @@ namespace LethalBots.Patches.GameEnginePatches
 
         private static void CreateCruiserNavMesh(GameObject cruiserNavMeshObject, NavMeshSurface cruiserNavMeshSurface, NavMeshSurface outsideNavSurface)
         {
-            List<NavMeshBuildSource> sources = outsideNavSurface.CollectSources();
-            Bounds localBounds = new Bounds(outsideNavSurface.m_Center, NavMeshSurface.Abs(outsideNavSurface.m_Size));
-            if (outsideNavSurface.m_CollectObjects != CollectObjects.Volume)
-            {
-                localBounds = outsideNavSurface.CalculateWorldBounds(sources);
-            }
+            // HACKHACK: Make sure the outsideNavSurface uses our custom agent type
+            int oldAgentTypeID = outsideNavSurface.agentTypeID;
+            outsideNavSurface.agentTypeID = cruiserNavMeshSurface.agentTypeID;
 
-            NavMeshBuildSettings settings = cruiserNavMeshSurface.GetBuildSettings();
-            Plugin.LogInfo($"Cruiser NavSettings Before Info: \n Agent ID: {settings.agentTypeID} \n Agent Slope: {settings.agentSlope} \n Agent Height: {settings.agentHeight} \n Agent Climb: {settings.agentClimb}");
-
-            NavMeshData navMeshData = NavMeshBuilder.BuildNavMeshData(settings, sources, localBounds, outsideNavSurface.transform.position, outsideNavSurface.transform.rotation);
-            if (navMeshData != null)
+            // Just in case any part of this errors out
+            try
             {
-                Plugin.LogInfo($"Cruiser NavSettings After Info: \n Agent ID: {settings.agentTypeID} \n Agent Slope: {settings.agentSlope} \n Agent Height: {settings.agentHeight} \n Agent Climb: {settings.agentClimb}");
-                navMeshData.name = cruiserNavMeshSurface.gameObject.name;
-                cruiserNavMeshSurface.RemoveData();
-                cruiserNavMeshSurface.m_NavMeshData = navMeshData;
-                if (cruiserNavMeshSurface.isActiveAndEnabled)
+                // Mimic BuildNavMesh
+                List<NavMeshBuildSource> sources = outsideNavSurface.CollectSources();
+                Bounds localBounds = new Bounds(outsideNavSurface.m_Center, NavMeshSurface.Abs(outsideNavSurface.m_Size));
+                if (outsideNavSurface.m_CollectObjects != CollectObjects.Volume)
                 {
-                    cruiserNavMeshSurface.AddData();
+                    localBounds = outsideNavSurface.CalculateWorldBounds(sources);
                 }
+
+                NavMeshBuildSettings settings = cruiserNavMeshSurface.GetBuildSettings();
+                Plugin.LogInfo($"Cruiser NavSettings Before Info: \n Agent ID: {settings.agentTypeID} \n Agent Slope: {settings.agentSlope} \n Agent Height: {settings.agentHeight} \n Agent Climb: {settings.agentClimb}");
+
+                NavMeshData navMeshData = NavMeshBuilder.BuildNavMeshData(settings, sources, localBounds, outsideNavSurface.transform.position, outsideNavSurface.transform.rotation);
+                if (navMeshData != null)
+                {
+                    Plugin.LogInfo($"Cruiser NavSettings After Info: \n Agent ID: {settings.agentTypeID} \n Agent Slope: {settings.agentSlope} \n Agent Height: {settings.agentHeight} \n Agent Climb: {settings.agentClimb}");
+                    navMeshData.name = cruiserNavMeshSurface.gameObject.name;
+                    cruiserNavMeshSurface.RemoveData();
+                    cruiserNavMeshSurface.m_NavMeshData = navMeshData;
+                    if (cruiserNavMeshSurface.isActiveAndEnabled)
+                    {
+                        cruiserNavMeshSurface.AddData();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.LogError($"An error occured when attempting to build cruiser NavMesh: {e}");
+            }
+            finally
+            {
+                // Give the old agent type back
+                outsideNavSurface.agentTypeID = oldAgentTypeID;
             }
         }
 
@@ -337,7 +359,7 @@ namespace LethalBots.Patches.GameEnginePatches
             // The game keeps a cache of all of the surfaces that were used for the full bake
             // of the dungeon, I can just loop through those and call UpdateNavMesh!
             AdjacentRoomCullingModified roomCullingModified = StartOfRound.Instance.occlusionCuller;
-            bool wasEnabed = roomCullingModified.enabled;
+            bool wasEnabled = roomCullingModified.enabled;
             foreach (var navMeshSurface in fullBakeSurfaces)
             {
                 if (navMeshSurface != null)
@@ -349,7 +371,7 @@ namespace LethalBots.Patches.GameEnginePatches
                     // before we can safely rebuild the mesh!
                     if (roomCullingModified != null && roomCullingModified.enabled)
                     {
-                        wasEnabed = true;
+                        wasEnabled = true;
                         roomCullingModified.enabled = false;
                     }
 
@@ -384,9 +406,9 @@ namespace LethalBots.Patches.GameEnginePatches
 
             // Turn the vanilla game culling back on!
             roomCullingModified ??= StartOfRound.Instance.occlusionCuller;
-            if (roomCullingModified != null && roomCullingModified.enabled != wasEnabed)
+            if (roomCullingModified != null && roomCullingModified.enabled != wasEnabled)
             {
-                roomCullingModified.enabled = wasEnabed;
+                roomCullingModified.enabled = wasEnabled;
             }
 
             Plugin.LogDebug("Updated all interior NavMeshes.");

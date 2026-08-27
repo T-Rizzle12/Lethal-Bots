@@ -828,7 +828,7 @@ namespace LethalBots.AI
         /// <param name="entrance"></param>
         /// <returns>true: <paramref name="entrance"/> is the front entrance. false: <paramref name="entrance"/> is not the front entrance</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsFrontEntrance([NotNullWhen(true)]EntranceTeleport? entrance)
+        public static bool IsFrontEntrance([NotNullWhen(true)] EntranceTeleport? entrance)
         {
             return entrance != null && entrance.entranceId == 0;
         }
@@ -839,7 +839,7 @@ namespace LethalBots.AI
         /// <param name="entrance"></param>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected bool IsEntranceCoveredInQuickSand(EntranceTeleport? entrance)
+        protected bool IsEntranceCoveredInQuickSand([NotNullWhen(true)] EntranceTeleport? entrance)
         {
             // Check if the entrance is covered in quicksand
             return entrance != null && IsPositionCoveredInQuickSand(entrance.isEntranceToBuilding ? entrance.entrancePoint.position : entrance.exitScript.entrancePoint.position);
@@ -1493,7 +1493,7 @@ namespace LethalBots.AI
                 // If the direct path safe?
                 CancelAsyncPathfindToken(); // Clear the old token
                 pathfindCancellationToken = new CancellationTokenSource();
-                Task<(bool isDangerous, bool isPathValid, float pathDistance)> pathfindTask = ai.TryStartPathDangerousAsync(targetDestination.Value, token: pathfindCancellationToken.Token);
+                var pathfindTask = ai.TryStartPathDangerousAsync(targetDestination.Value, token: pathfindCancellationToken.Token);
                 //yield return new WaitUntil(() => pathfindTask.IsCompleted);
                 while (!pathfindTask.IsCompleted)
                 {
@@ -1511,13 +1511,18 @@ namespace LethalBots.AI
                 {
                     Plugin.LogWarning($"Async pathfinder was canceled early!");
                 }
-                else if (!pathfindTask.Result.isDangerous
-                    || ShouldIgnoreInitialDangerCheck())
+                else
                 {
-                    safePathPos = targetDestination.Value;
-                    ai.SetDestinationToPositionLethalBotAI(safePathPos);
-                    yield return new WaitForSeconds(ai.AIIntervalTime);
-                    continue;
+                    // Check if the path is valid and safe
+                    SafePathResult result = pathfindTask.Result;
+                    if (result.isPathValid
+                        && (!result.isDangerous || ShouldIgnoreInitialDangerCheck()))
+                    {
+                        safePathPos = targetDestination.Value;
+                        ai.SetDestinationToPositionLethalBotAI(safePathPos);
+                        yield return new WaitForSeconds(ai.AIIntervalTime);
+                        continue;
+                    }
                 }
 
                 // FIXME: This relies on Elucian Distance rather than travel distance, this should be fixed!
@@ -1571,10 +1576,14 @@ namespace LethalBots.AI
                         Plugin.LogWarning($"Async pathfinder was canceled early, skipping node!");
                         continue;
                     }
-                    // Did the task say the path was dangerous?
-                    else if (pathfindTask.Result.isDangerous)
+                    else
                     {
-                        continue;
+                        // Did the task say the path was dangerous?
+                        SafePathResult result = pathfindTask.Result;
+                        if (!result.isPathValid || result.isDangerous)
+                        {
+                            continue;
+                        }
                     }
 
                     safePathPos = nodePos;

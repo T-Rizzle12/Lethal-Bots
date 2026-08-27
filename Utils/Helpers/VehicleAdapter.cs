@@ -32,65 +32,43 @@ namespace LethalBots.Utils.Helpers
     {
         public virtual int NavMeshAgentTypeID => Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID;
 
-        /// <summary>
-        /// The maximum speed the bot should attempt to drive at.
-        /// </summary>
-        protected virtual float MaxDrivingSpeed => 14f; // Was 28f, but it was TOO FAST
+        public virtual float MaxDrivingSpeed { protected set; get; } = 14f; // Was 28f, but it was TOO FAST
 
-        /// <summary>
-        /// The bare minimum speed the bot should attempt to drive at.
-        /// </summary>
-        protected virtual float MinDrivingSpeed => 2f;
+        public virtual float MinDrivingSpeed => 2f;
 
-        /// <summary>
-        /// The minimum speed to maintain while making very sharp turns.
-        /// </summary>
-        protected virtual float MinCornerSpeed => 4f;
+        public virtual float MinCornerSpeed => 4f;
 
-        /// <summary>
-        /// The cruiser's speed before we should change gears
-        /// </summary>
-        protected virtual float ChangeGearSpeed => 4f;
+        public virtual float ChangeGearSpeed => 4f;
 
-        /// <summary>
-        /// How far from the destination the bot begins slowing down.
-        /// </summary>
-        protected virtual float SlowdownDistance => 12f;
+        public virtual float SlowdownDistance => 12f;
 
-        /// <summary>
-        /// The distance at which the bot should come to a complete stop.
-        /// </summary>
-        protected virtual float StopDistance => 4f;
+        public virtual float StopDistance => 4f;
 
-        /// <summary>
-        /// Acceptable speed error before applying throttle or brakes.
-        /// </summary>
-        protected virtual float SpeedTolerance => 0.5f;
+        public virtual float SpeedTolerance => 0.5f;
 
-        /// <summary>
-        /// Acceptable steering error before attempting to  
-        /// </summary>
-        protected virtual float SteeringTolerance => 0.1f;
+        public virtual float SteeringAngle => 45f;
 
-        /// <summary>
-        /// The angle the max angle <typeparamref name="TVehicle"/> can turn
-        /// </summary>
-        protected virtual float SteeringAngle => 45f;
+        public virtual float ReverseEnterAngle => 120f;
 
-        /// <summary>
-        /// The minimum heading error at which the bot will consider reversing
-        /// instead of making a large forward turn.
-        /// </summary>
-        protected virtual float ReverseEnterAngle => 120f;
-
-        /// <summary>
-        /// The minimum heading error at which the bot will consider to stop reversing.
-        /// </summary>
-        protected virtual float ReverseExitAngle => 75f;
+        public virtual float ReverseExitAngle => 75f;
 
         #region Interface Helpers
 
         Type IVehicleAdapter.VehicleType => typeof(TVehicle);
+
+        float IVehicleAdapter.MaxDrivingSpeed { get => MaxDrivingSpeed; set => MaxDrivingSpeed = value; }
+
+        float IVehicleAdapter.MinDrivingSpeed => MinDrivingSpeed;
+
+        float IVehicleAdapter.MinCornerSpeed => MinCornerSpeed;
+
+        float IVehicleAdapter.ChangeGearSpeed => ChangeGearSpeed;
+
+        float IVehicleAdapter.SlowdownDistance => SlowdownDistance;
+
+        float IVehicleAdapter.StopDistance => StopDistance;
+
+        float IVehicleAdapter.SpeedTolerance => SpeedTolerance;
 
         bool IVehicleAdapter.CanDrive(VehicleController vehicleController, LethalBotAI lethalBotAI)
         {
@@ -115,6 +93,11 @@ namespace LethalBots.Utils.Helpers
         void IVehicleAdapter.SetupNavMeshAgent(NavMeshAgent agent, VehicleController vehicleController, LethalBotAI lethalBotAI)
         {
             SetupNavMeshAgent(agent, (TVehicle)vehicleController, lethalBotAI);
+        }
+
+        void IVehicleAdapter.SetAreaCostsForCruiser(NavMeshAgent agent, VehicleController vehicleController)
+        {
+            SetAreaCostsForCruiser(agent, (TVehicle)vehicleController);
         }
 
         void IVehicleAdapter.CleanupBotDriver(VehicleController vehicleController, LethalBotAI lethalBotAI)
@@ -208,7 +191,7 @@ namespace LethalBots.Utils.Helpers
         /// <inheritdoc cref="IVehicleAdapter.CanDrive(VehicleController, LethalBotAI)"/>
         public virtual bool CanDrive(TVehicle vehicleController, LethalBotAI lethalBotAI)
         {
-            return !IsVehicleDestroyed(vehicleController);
+            return !IsVehicleDestroyed(vehicleController) && Plugin.Config.AllowDrivingCruiser.Value;
         }
 
         /// <inheritdoc cref="IVehicleAdapter.IsVehicleDestroyed(VehicleController)"/>
@@ -230,7 +213,7 @@ namespace LethalBots.Utils.Helpers
             agent.agentTypeID = NavMeshAgentTypeID;
             agent.enabled = true;
             agent.baseOffset = 1.9f;
-            agent.radius = 4; // 5;
+            agent.radius = 2f; // Was 4.7f, but was causing issues;
             agent.height = 4.5f;
             agent.speed = MaxDrivingSpeed;
             agent.angularSpeed = 120f;
@@ -242,16 +225,14 @@ namespace LethalBots.Utils.Helpers
             // Update NavMesh areaMask
             int areaMask = NavMesh.AllAreas;
             int smallSpaceAreaMask = NavMesh.GetAreaFromName("SmallSpace");
-            areaMask &= ~(1 << smallSpaceAreaMask);
+            int playerShipAreaMask = NavMesh.GetAreaFromName("PlayerShip");
+            int mediumSpaceAreaMask = NavMesh.GetAreaFromName("MediumSpace");
+            int climbAreaMask = NavMesh.GetAreaFromName("Climb");
+            areaMask &= ~(1 << smallSpaceAreaMask) | ~(1 << playerShipAreaMask) | ~(1 << mediumSpaceAreaMask) | ~(1 << climbAreaMask);
             agent.areaMask = areaMask;
 
             // Update area costs
-            int waterAreaMask = NavMesh.GetAreaFromName("Water");
-            agent.SetAreaCost(waterAreaMask, 5f);
-
-            // Try not to use Enemy Only area
-            int enemyOnlyArea = NavMesh.GetAreaFromName("EnemiesOnly");
-            agent.SetAreaCost(enemyOnlyArea, 100f);
+            SetAreaCostsForCruiser(agent, vehicleController);
 
             // Disable default NavMeshObstacle
             foreach (var obstacle in vehicleController.GetComponentsInChildren<NavMeshObstacle>())
@@ -272,6 +253,18 @@ namespace LethalBots.Utils.Helpers
             lethalBotAI.NpcController.vehicleInput.Reset();
         }
 
+        /// <inheritdoc cref="IVehicleAdapter.SetAreaCostsForCruiser(NavMeshAgent, VehicleController)"/>
+        public virtual void SetAreaCostsForCruiser(NavMeshAgent agent, VehicleController vehicleController)
+        {
+            // Update area costs
+            int waterAreaMask = NavMesh.GetAreaFromName("Water");
+            agent.SetAreaCost(waterAreaMask, 5f);
+
+            // Try not to use Enemy Only area
+            int enemyOnlyArea = NavMesh.GetAreaFromName("EnemiesOnly");
+            agent.SetAreaCost(enemyOnlyArea, 100f);
+        }
+
         /// <inheritdoc cref="IVehicleAdapter.CleanupBotDriver(VehicleController, LethalBotAI)"/>
         public virtual void CleanupBotDriver(TVehicle vehicleController, LethalBotAI lethalBotAI)
         {
@@ -280,6 +273,7 @@ namespace LethalBots.Utils.Helpers
             // FIXME: So, apparently Zeekerss left behind a NavMeshObstacle on the Player,
             // since players get parented to the cruiser, this causes my code to accidently renable them as well.
             // We we have to loop through and prevent that from happening.
+            // TO MODDERS: Unlike me, you have the advantage of caching your NavMeshObstacle............please, make use of it.......
             HashSet<NavMeshObstacle> navMeshObstacles = new HashSet<NavMeshObstacle>();
             PlayerControllerB[] allPlayerScripts = StartOfRound.Instance.allPlayerScripts;
             for (int i = 0; i < allPlayerScripts.Length; i++)
@@ -295,6 +289,7 @@ namespace LethalBots.Utils.Helpers
                 }
             }
 
+            // Renable NavMeshObstacle
             foreach (var obstacle in vehicleController.GetComponentsInChildren<NavMeshObstacle>())
             {
                 if (obstacle != null && !navMeshObstacles.Contains(obstacle))
@@ -380,13 +375,9 @@ namespace LethalBots.Utils.Helpers
             input.Zero();
 
             // Keep the agent synced with the actual vehicle position.
-            // The agent is only a navigation brain, not the actual mover.
-            //int areaMask = NavMesh.AllAreas;
-            //int smallSpaceAreaMask = NavMesh.GetAreaFromName("SmallSpace");
-            //areaMask &= ~(1 << smallSpaceAreaMask);
-            //Vector3 vehiclePosition = RoundManager.Instance.GetNavMeshPosition(vehicle.transform.position, sampleRadius: 2.7f, areaMask: areaMask);
-            agent.nextPosition = vehicle.mainRigidbody.transform.position; 
-            //agent.gameObject.transform.position = vehiclePosition;
+            // The agent is only for pathfinding, not the actual mover.
+            Rigidbody mainRigidbody = vehicle.mainRigidbody;
+            agent.nextPosition = mainRigidbody.transform.position;
 
             // Make sure we have a path to follow, if not, we should brake to a stop.
             if (!agent.hasPath || agent.pathPending || agent.isStopped)
@@ -396,48 +387,25 @@ namespace LethalBots.Utils.Helpers
                 return;
             }
 
-            // Get the current speed of the vehicle.
-            Vector3 currentVelocity = vehicle.mainRigidbody.velocity;
+            // Get the current velocity of the vehicle.
+            Vector3 currentVelocity = mainRigidbody.velocity;
 
             // Get the target position from the agent.
-            // TODO: Improve Steering code as bots either use too much or too little
-            //Vector3 target = (vehicle.mainRigidbody.transform.position - agent.desiredVelocity); //agent.steeringTarget;
-            //Vector3 target = (agent.steeringTarget - vehicle.mainRigidbody.transform.position);
-            Vector3 target = agent.desiredVelocity;
+            Vector3 target = agent.desiredVelocity; // This includes collision avoidance as well
             target.y = 0f;
             target.Normalize();
 
-            // Convert to local space (relative to the cruiser forward direction)
-            //Vector3 localTarget = vehicle.mainRigidbody.transform.InverseTransformDirection(target);
-            //localTarget.y = 0f;
-            //localTarget.Normalize();
-
             // Check the current steering direction
-            Vector3 vehicleForward = vehicle.mainRigidbody.transform.forward;
+            Vector3 vehicleForward = mainRigidbody.transform.forward;
             vehicleForward.y = 0f;
             vehicleForward.Normalize();
 
+            // Calculate the current signed speed of the cruiser
             float currentSpeed = Vector3.Dot(currentVelocity, vehicleForward); // currentVelocity.magnitude
-
-            // Get the planar distance to the target (ignoring height).
-            //float planarDistance = Mathf.Max(new Vector2(localTarget.x, localTarget.z).magnitude, 0.1f);
-
-            // Cacluate the vehicle's horizontal right direction.
-            // This gives us the local X axis without using the vehicle's pitch/roll.
-            //Vector3 vehicleRight = Vector3.Cross(Vector3.up, vehicleForward);
-
-            //// Calculate the target direction in our horizontal vehicle-local space.
-            //Vector3 localTarget = new Vector3(
-            //    Vector3.Dot(target, vehicleRight),
-            //    0f,
-            //    Vector3.Dot(target, vehicleForward)
-            //);
-            //localTarget.Normalize();
 
             // Build a yaw-only rotation for the vehicle.
             // Ignore pitch and roll caused by terrain.
-            float vehicleYaw = vehicle.mainRigidbody.transform.eulerAngles.y;
-
+            float vehicleYaw = mainRigidbody.transform.eulerAngles.y;
             Quaternion yawRotation = Quaternion.Euler(0f, vehicleYaw, 0f);
 
             // Convert the desired direction into yaw-local space.
@@ -449,10 +417,7 @@ namespace LethalBots.Utils.Helpers
             float targetAngle = Mathf.Atan2(localTarget.x, localTarget.z) * Mathf.Rad2Deg;
 
             // Steering (-1 to 1)
-            //float targetSteering = Mathf.Clamp(localTarget.x / planarDistance, -1f, 1f);
-            // Full steering at this angle.
             float targetSteering = Mathf.Clamp(targetAngle / SteeringAngle, -1f, 1f);
-            //float vehicleSteeringInputNormalised = vehicle.steeringInput / 3f;
             float desiredSteering = targetSteering;
 
             // Check our set tolerance
@@ -480,30 +445,38 @@ namespace LethalBots.Utils.Helpers
             // Smooth steering.
             input.Steering = desiredSteering;
 
-            Plugin.LogDebug(
-                $"VehiclePos: {vehicle.mainRigidbody.position} | " +
-                $"VehicleForward: {vehicle.mainRigidbody.transform.forward} | " +
-                $"SteeringTarget: {agent.steeringTarget} | " +
-                $"AgentDestination: {agent.destination} | " +
-                $"AgentPathEndPosition: {agent.pathEndPosition} | " +
-                $"ToTarget: {target} | " +
-                $"LocalTarget: {localTarget} | " +
-                $"Angle: {targetAngle:F2} | " +
-                $"Steering: {targetSteering:F2} | " +
-                $"Velocity: {vehicle.mainRigidbody.velocity}"
-            );
+            //Plugin.LogDebug(
+            //    $"VehiclePos: {mainRigidbody.position} | " +
+            //    $"VehicleForward: {mainRigidbody.transform.forward} | " +
+            //    $"SteeringTarget: {agent.steeringTarget} | " +
+            //    $"AgentDestination: {agent.destination} | " +
+            //    $"AgentPathEndPosition: {agent.pathEndPosition} | " +
+            //    $"ToTarget: {target} | " +
+            //    $"LocalTarget: {localTarget} | " +
+            //    $"Angle: {targetAngle:F2} | " +
+            //    $"Steering: {targetSteering:F2} | " +
+            //    $"Velocity: {mainRigidbody.velocity}"
+            //);
 
             // Adjust speed based on turn angle and distance to target.
             float steeringAmount = Mathf.Abs(desiredSteering);
 
+            // Grab our max speed
+            float maxSpeed = MaxDrivingSpeed;
+            if (UseCruiserState.ShouldSpeed)
+            {
+                maxSpeed *= 2f;
+            }
+
             // Square it so speed falls off smoothly.
             float steeringCurve = steeringAmount * steeringAmount;
-            float desiredSpeed = Mathf.Lerp(MaxDrivingSpeed, MinCornerSpeed, steeringCurve);
+            float desiredSpeed = Mathf.Lerp(maxSpeed, MinCornerSpeed, steeringCurve);
 
             // Begin slowing near the destination.
-            if (agent.remainingDistance < SlowdownDistance)
+            float remainingDistance = agent.remainingDistance;
+            if (remainingDistance < SlowdownDistance)
             {
-                float factor = Mathf.InverseLerp(StopDistance, SlowdownDistance, agent.remainingDistance);
+                float factor = Mathf.InverseLerp(StopDistance, SlowdownDistance, remainingDistance);
                 desiredSpeed *= factor;
             }
 
@@ -535,7 +508,7 @@ namespace LethalBots.Utils.Helpers
             }
 
             // If we are very close to the destination, come to a complete stop.
-            if (agent.remainingDistance <= StopDistance)
+            if (remainingDistance <= StopDistance)
             {
                 input.Zero();
                 input.Brake = 1f;

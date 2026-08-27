@@ -23,6 +23,7 @@ namespace LethalBots.AI.AIStates
         private bool? enableNavAgent = null;
         private CountdownTimer closeDoorInterval = new CountdownTimer();
         internal static Vector3? targetCruiserPosition = null;
+        internal static bool ShouldSpeed = false;
 
         public UseCruiserState(AIState state, VehicleController vehicleController) : base(state)
         {
@@ -48,6 +49,13 @@ namespace LethalBots.AI.AIStates
             }
 
             base.OnEnterState();
+        }
+
+        public override void OnExitState(AIState newState)
+        {
+            npcController.IsControllerInCruiser = false;
+            ShouldSpeed = false;
+            base.OnExitState(newState);
         }
 
         /// <summary>
@@ -79,8 +87,6 @@ namespace LethalBots.AI.AIStates
             if (vehicleInfo.IsPlayerInVehicle(vehicleController, lethalBotController, out InteractTrigger? ourSeat) || leaveSeat)
             {
                 Plugin.LogInfo($"Bot {lethalBotController.playerUsername} in cruiser!");
-                enableNavAgent = false; // Disable the agent, we don't need it anymore
-                ai.SetAgent(enabled: false); // Make the change NOW!
                 if (leaveSeat || ai.GetVehicleCruiserTargetPlayerIsIn() == null)
                 {
                     // Exit vehicle cruiser
@@ -127,41 +133,60 @@ namespace LethalBots.AI.AIStates
 
                     // Are we the driver
                     InteractTrigger? driverSeat = vehicleInfo.GetDriverSeat(vehicleController, ai);
-                    if (driverSeat != null && chosenSeat == driverSeat)
+                    if (driverSeat != null && chosenSeat == ourSeat && chosenSeat == driverSeat)
                     {
+                        // Mark the bot as in the crusier
+                        npcController.IsControllerInCruiser = true;
+                        enableNavAgent = false; // Disable the agent, we don't need it anymore
+                        ai.SetAgent(enabled: false); // Make the change NOW!
+
                         // Start driving the cruiser
                         if (IsDrivingCruiser())
                         {
-                            // DEBUG: Drive to the main entrance
-                            NavMeshAgent cruiserNavMeshAgent = VehicleManager.Instance.CruiserNavMeshAgent;
-                            float[] costs = new float[32];
-                            for (int i = 0; i < costs.Length; i++)
+                            // Lets go!
+                            if (targetCruiserPosition.HasValue)
                             {
-                                costs[i] = cruiserNavMeshAgent.GetAreaCost(i);
-                            }
+                                NavMeshAgent cruiserNavMeshAgent = VehicleManager.Instance.CruiserNavMeshAgent;
+                                float[] costs = new float[32];
+                                for (int i = 0; i < costs.Length; i++)
+                                {
+                                    costs[i] = cruiserNavMeshAgent.GetAreaCost(i);
+                                }
 
-                            Vector3 targetPosition = targetCruiserPosition ?? RoundManager.Instance.GetNavMeshPosition(RoundManager.FindMainEntrancePosition(getTeleportPosition: false, getOutsideEntrance: true), sampleRadius: 5f);
-                            NavMeshQueryFilter navMeshQueryFilter = new NavMeshQueryFilter() { agentTypeID = cruiserNavMeshAgent.agentTypeID, areaMask = cruiserNavMeshAgent.areaMask, costs = costs };
-                            if (LethalBotAI.IsValidPathToTarget(vehicleController.transform.position, targetPosition, navMeshQueryFilter, ref ai.path1, false, out _))
-                            {
-                                Plugin.LogDebug($"We found a valid path to target {targetPosition}");
-                            }
-                            else
-                            {
-                                Plugin.LogDebug($"Failed to find a path to target {targetPosition}");
-                                //ai.SendChatMessage("No path to main! :(");
-                                //int deathAnimation = Random.Range(1, 3) == 1 ? 9 : 6;
-                                //npcController.Npc.KillPlayer(Vector3.zero, deathAnimation: deathAnimation);
-                                //Landmine.SpawnExplosion(vehicleController.transform.position, spawnExplosionEffect: true, float.MaxValue, float.MaxValue, int.MaxValue, 50f, goThroughCar: true);
-                                //if (vehicleController is ScanVan)
-                                //{
-                                //    ai.SendChatMessage("HOW THE FUCK DO I DRIVE THIS THING!!!!!!!!!!");
-                                //    Landmine.SpawnExplosion(vehicleController.transform.position, spawnExplosionEffect: true, float.MaxValue, float.MaxValue, int.MaxValue, float.MaxValue, goThroughCar: true);
-                                //}
-                            }
+                                Vector3 targetPosition = targetCruiserPosition.Value;
+                                NavMeshQueryFilter navMeshQueryFilter = new NavMeshQueryFilter() { agentTypeID = cruiserNavMeshAgent.agentTypeID, areaMask = cruiserNavMeshAgent.areaMask, costs = costs };
+                                if (LethalBotAI.IsValidPathToTarget(vehicleController.transform.position, targetPosition, navMeshQueryFilter, ref ai.path1, false, out _))
+                                {
+                                    Plugin.LogDebug($"We found a valid path to target {targetPosition}");
+                                }
+                                else
+                                {
+                                    Plugin.LogDebug($"Failed to find a path to target {targetPosition}");
+                                    //ai.SendChatMessage("No path to main! :(");
+                                    //int deathAnimation = Random.Range(1, 3) == 1 ? 9 : 6;
+                                    //npcController.Npc.KillPlayer(Vector3.zero, deathAnimation: deathAnimation);
+                                    //Landmine.SpawnExplosion(vehicleController.transform.position, spawnExplosionEffect: true, float.MaxValue, float.MaxValue, int.MaxValue, 50f, goThroughCar: true);
+                                    //if (vehicleController is ScanVan)
+                                    //{
+                                    //    ai.SendChatMessage("HOW THE FUCK DO I DRIVE THIS THING!!!!!!!!!!");
+                                    //    Landmine.SpawnExplosion(vehicleController.transform.position, spawnExplosionEffect: true, float.MaxValue, float.MaxValue, int.MaxValue, float.MaxValue, goThroughCar: true);
+                                    //}
+                                }
 
-                            if (cruiserNavMeshAgent.destination != targetPosition)
-                                cruiserNavMeshAgent.SetDestination(targetPosition);
+                                // Once we are close enough, mark ourself as finished
+                                // TODO: Should this be a function instead?
+                                if (cruiserNavMeshAgent.hasPath 
+                                    && !cruiserNavMeshAgent.pathPending 
+                                    && cruiserNavMeshAgent.remainingDistance < vehicleInfo.StopDistance)
+                                {
+                                    targetCruiserPosition = null;
+                                    cruiserNavMeshAgent.ResetPath();
+                                }
+                                else if (cruiserNavMeshAgent.destination != targetPosition)
+                                {
+                                    cruiserNavMeshAgent.SetDestination(targetPosition);
+                                }
+                            }
                         }
                         else
                         {
@@ -202,6 +227,9 @@ namespace LethalBots.AI.AIStates
                     float distSqrToChosenSpot = (chosenSpot.Value - lethalBotController.transform.position).sqrMagnitude;
                     if (distSqrToChosenSpot < Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
                     {
+                        npcController.IsControllerInCruiser = true;
+                        enableNavAgent = false; // Disable the agent, we don't need it anymore
+                        ai.SetAgent(enabled: false); // Make the change NOW!
                         ai.StopMoving();
                     }
                     else
@@ -238,7 +266,7 @@ namespace LethalBots.AI.AIStates
 
                 Vector3 chosenSeatPos = GetNearestNavAreaCruiser(chosenSeat.transform.position);
                 float distSqrToChosenSeat = (chosenSeatPos - lethalBotController.transform.position).sqrMagnitude;
-                if (distSqrToChosenSeat < 10f * 10f) // Interaction range lethalBotController.grabDistance * lethalBotController.grabDistance
+                if (distSqrToChosenSeat < lethalBotController.grabDistance * lethalBotController.grabDistance) // Interaction range
                 {
                     // Stand here
                     ai.StopMoving();
@@ -304,6 +332,82 @@ namespace LethalBots.AI.AIStates
                 IsLethalBotInside = npcController.Npc.isInsideFactory,
                 AllowSwearing = Plugin.Config.AllowSwearing.Value
             });
+        }
+
+        public override void OnBotStuck()
+        {
+            // If we are in the trunk and stuck, just set our chosen spot to where we are standing.
+            if (npcController.IsControllerInCruiser)
+            {
+                if (chosenSpot.HasValue)
+                {
+                    chosenSpot = npcController.Npc.transform.position;
+                }
+                return;
+            }
+            base.OnBotStuck();
+        }
+
+        /// <inheritdoc cref="AIState.RegisterChatCommands"/>
+        public static new void RegisterChatCommands()
+        {
+            // Custom Chat commands, just for the crusier
+            const string DRIVE_TO_COMMAND = "drive to";
+
+            // Someone is asking us to drive to the given location
+            ChatCommandsManager.RegisterCommandForState<UseCruiserState>(new ChatCommand(DRIVE_TO_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            {
+                // First we need to extract the message!
+                // FIXME: There has to be a better way to do this!
+                UseCruiserState useCruiserState = (UseCruiserState)state; // We have bigger problems if this cast fails!
+                int driveToIndex = message.IndexOf(DRIVE_TO_COMMAND) + DRIVE_TO_COMMAND.Length;
+                string desiredLocation = message.Substring(driveToIndex).Trim();
+                if (string.IsNullOrWhiteSpace(desiredLocation))
+                {
+                    return true; // Do nothing
+                }
+
+                // TEMP: For debug purposes, we define this here.
+                // This will be improved later on
+                const string DRIVE_TO_MAIN = "main entrance";
+                const string DRIVE_TO_FIRE = "fire exit";
+                const string DRIVE_TO_SHIP = "ship";
+                if (desiredLocation.Contains(DRIVE_TO_MAIN))
+                {
+                    for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
+                    {
+                        var entrance = LethalBotAI.EntrancesTeleportArray[i];
+                        if (entrance == null || !entrance.isEntranceToBuilding || !IsFrontEntrance(entrance)) continue;
+
+                        lethalBotAI.SendChatMessage("Alright, I will drive to main entrance!");
+                        targetCruiserPosition = useCruiserState.GetNearestNavAreaCruiser(entrance.transform.position, useCruiserAgentSpecs: false);
+                        return true;
+                    }
+
+                    targetCruiserPosition = null;
+                }
+                else if (desiredLocation.Contains(DRIVE_TO_FIRE))
+                {
+                    for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
+                    {
+                        var entrance = LethalBotAI.EntrancesTeleportArray[i];
+                        if (entrance == null || !entrance.isEntranceToBuilding || IsFrontEntrance(entrance)) continue;
+
+                        lethalBotAI.SendChatMessage("Alright, I will drive to fire!");
+                        targetCruiserPosition = useCruiserState.GetNearestNavAreaCruiser(entrance.transform.position, useCruiserAgentSpecs: false);
+                        return true;
+                    }
+
+                    targetCruiserPosition = null;
+                }
+                else if (desiredLocation.Contains(DRIVE_TO_SHIP))
+                {
+                    lethalBotAI.SendChatMessage("Alright, I will drive to the ship!");
+                    targetCruiserPosition = useCruiserState.GetNearestNavAreaCruiser(StartOfRound.Instance.magnetPoint.position, useCruiserAgentSpecs: false);
+                }
+
+                return true;
+            }));
         }
 
         /// <inheritdoc cref="AIState.RegisterSignalTranslatorCommands"/>
@@ -462,12 +566,12 @@ namespace LethalBots.AI.AIStates
             if (useCruiserAgentSpecs)
             {
                 NavMeshAgent cruiserNavMeshAgent = VehicleManager.Instance.CruiserNavMeshAgent;
-                float[] costs = new float[32];
-                for (int i = 0; i < costs.Length; i++)
-                {
-                    costs[i] = cruiserNavMeshAgent.GetAreaCost(i);
-                }
-                NavMeshQueryFilter navMeshQueryFilter = new NavMeshQueryFilter() { agentTypeID = cruiserNavMeshAgent.agentTypeID, areaMask = cruiserNavMeshAgent.areaMask, costs = costs };
+                //float[] costs = new float[32];
+                //for (int i = 0; i < costs.Length; i++)
+                //{
+                //    costs[i] = cruiserNavMeshAgent.GetAreaCost(i);
+                //}
+                NavMeshQueryFilter navMeshQueryFilter = new NavMeshQueryFilter() { agentTypeID = cruiserNavMeshAgent.agentTypeID, areaMask = cruiserNavMeshAgent.areaMask, /* costs = costs */ };
                 if (NavMesh.SamplePosition(targetPos, out var navMeshHit, 5f, navMeshQueryFilter))
                 {
                     return navMeshHit.position;
@@ -477,8 +581,12 @@ namespace LethalBots.AI.AIStates
             {
                 int areaMask = NavMesh.AllAreas;
                 int smallSpaceAreaMask = NavMesh.GetAreaFromName("SmallSpace");
-                areaMask &= ~(1 << smallSpaceAreaMask);
-                if (NavMesh.SamplePosition(targetPos, out var navMeshHit, 5f, areaMask))
+                int playerShipAreaMask = NavMesh.GetAreaFromName("PlayerShip");
+                int mediumSpaceAreaMask = NavMesh.GetAreaFromName("MediumSpace");
+                int climbAreaMask = NavMesh.GetAreaFromName("Climb");
+                areaMask &= ~(1 << smallSpaceAreaMask) | ~(1 << playerShipAreaMask) | ~(1 << mediumSpaceAreaMask) | ~(1 << climbAreaMask);
+                NavMeshQueryFilter navMeshQueryFilter = new NavMeshQueryFilter() { agentTypeID = Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID, areaMask = areaMask };
+                if (NavMesh.SamplePosition(targetPos, out var navMeshHit, 5f, navMeshQueryFilter))
                 {
                     return navMeshHit.position;
                 }

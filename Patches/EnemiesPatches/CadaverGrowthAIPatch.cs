@@ -461,6 +461,8 @@ namespace LethalBots.Patches.EnemiesPatches
             // NEEDTOVALIDATE: Depending on how often this function is called, which appears to be every frame, this might cause performance issues with a ton
             // of bots, I may have to limit how often this logic runs for bots, maybe every 0.5 seconds or something like that.
             // I just need to remeber to include the throttle time or they could get infected way slower than intended.
+            StartOfRound instanceSOR = StartOfRound.Instance;
+            TimeOfDay instanceTOD = TimeOfDay.Instance;
             for (int i = 0; i < __instance.playerInfections.Length; i++)
             {
                 PlayerInfection playerInfection = __instance.playerInfections[i];
@@ -469,7 +471,7 @@ namespace LethalBots.Patches.EnemiesPatches
                     continue;
                 }
 
-                PlayerControllerB playerController = StartOfRound.Instance.allPlayerScripts[i];
+                PlayerControllerB playerController = instanceSOR.allPlayerScripts[i];
                 if (!playerController.isPlayerControlled)
                 {
                     continue; // Base game already handles this.
@@ -497,9 +499,9 @@ namespace LethalBots.Patches.EnemiesPatches
                         playerController.poison = Mathf.Lerp(playerController.poison, 0f, Time.deltaTime * 0.3f);
                         if (playerInfection.burstMeter >= 0.9f)
                         {
-                            if (!StartOfRound.Instance.shipIsLeaving)
+                            if (!instanceSOR.shipIsLeaving)
                             {
-                                if (StartOfRound.Instance.livingPlayers <= 1)
+                                if (instanceSOR.livingPlayers <= 1)
                                 {
                                     //HUDManager.Instance.DisplayStatusEffect("HIGH FEVER DETECTED!!!\nFOREIGN BODIES DETECTED!!!\nIRREGULAR BRAINWAVE DETECTED!!!");
                                     playerInfection.burstMeter += Time.deltaTime * 0.0055f;
@@ -511,7 +513,7 @@ namespace LethalBots.Patches.EnemiesPatches
                                 // There could be a case where the bot changes ownership with the isMovementHindered check.
                                 // It will be a rare case, but it could cause the bot to not get the movement hindered effect when it should, or to get the movement hindered effect when it shouldn't.
                                 // I will leave it like this for now, but if it becomes a problem, I can add an RPC to sync the movement hindered state change.
-                                if (StartOfRound.Instance.connectedPlayersAmount > 0 && !playerInfection.hinderingPlayerMovement)
+                                if (instanceSOR.connectedPlayersAmount > 0 && !playerInfection.hinderingPlayerMovement)
                                 {
                                     playerController.isMovementHindered++;
                                     playerInfection.hinderingPlayerMovement = true;
@@ -523,18 +525,18 @@ namespace LethalBots.Patches.EnemiesPatches
                             continue;
                         }
                         float num;
-                        if (StartOfRound.Instance.connectedPlayersAmount > 0)
+                        if (instanceSOR.connectedPlayersAmount > 0)
                         {
-                            if (StartOfRound.Instance.livingPlayers == 1)
+                            if (instanceSOR.livingPlayers == 1)
                             {
                                 num = 0.75f;
                             }
                             else
                             {
                                 float num2 = 2000f;
-                                for (int j = 0; j < StartOfRound.Instance.allPlayerScripts.Length; j++)
+                                for (int j = 0; j < instanceSOR.allPlayerScripts.Length; j++)
                                 {
-                                    PlayerControllerB otherPlayer = StartOfRound.Instance.allPlayerScripts[j];
+                                    PlayerControllerB otherPlayer = instanceSOR.allPlayerScripts[j];
                                     if (otherPlayer != playerController)
                                     {
                                         float num3 = Vector3.Distance(otherPlayer.transform.position, playerController.transform.position);
@@ -569,7 +571,7 @@ namespace LethalBots.Patches.EnemiesPatches
                     }
                     float num4 = 1f;
                     bool flag = false;
-                    if (!playerController.isInsideFactory && TimeOfDay.Instance.normalizedTimeOfDay < 0.6f && !Physics.Linecast(TimeOfDay.Instance.sunDirect.transform.position, playerController.gameplayCamera.transform.position, StartOfRound.Instance.collidersRoomDefaultAndFoliage, QueryTriggerInteraction.Ignore))
+                    if (!playerController.isInsideFactory && instanceTOD.normalizedTimeOfDay < 0.6f && !Physics.Linecast(instanceTOD.sunDirect.transform.position, playerController.gameplayCamera.transform.position, instanceSOR.collidersRoomDefaultAndFoliage, QueryTriggerInteraction.Ignore))
                     {
                         flag = true;
                     }
@@ -581,9 +583,9 @@ namespace LethalBots.Patches.EnemiesPatches
                     {
                         num4 = ((!(playerInfection.infectionMeter > 0.925f)) ? (num4 * 0.7f) : (num4 * 1.5f));
                     }
-                    num4 *= Mathf.Lerp(1f, 0.85f, (float)___numberOfInfected / (float)StartOfRound.Instance.livingPlayers);
+                    num4 *= Mathf.Lerp(1f, 0.85f, (float)___numberOfInfected / (float)instanceSOR.livingPlayers);
                     num4 *= 1f + lethalBotInfection.totalTimeSpentInPlants / 15f;
-                    bool flag2 = StartOfRound.Instance.connectedPlayersAmount == 0;
+                    bool flag2 = instanceSOR.connectedPlayersAmount == 0;
                     float num5 = Time.deltaTime * __instance.InfectionSpeedMultiplier * num4 * playerInfection.multiplier;
                     if (flag2)
                     {
@@ -603,7 +605,7 @@ namespace LethalBots.Patches.EnemiesPatches
                     {
                         playerController.poison = Mathf.Lerp(playerController.poison, lethalBotInfection.setPoison, Time.deltaTime * 0.7f);
                     }
-                    if (StartOfRound.Instance.connectedPlayersAmount == 0)
+                    if (instanceSOR.connectedPlayersAmount == 0)
                     {
                         if (lethalBotInfection.showSignsMeter > 0.05f)
                         {
@@ -651,7 +653,7 @@ namespace LethalBots.Patches.EnemiesPatches
             foreach (var lethalBot in lethalBotAIs)
             {
                 PlayerControllerB? lethalBotController = lethalBot.NpcController?.Npc;
-                if (lethalBotController != null && lethalBotController != playerScript)
+                if (lethalBotController != null && lethalBotController != playerScript && lethalBot != lethalBotAI)
                 {
                     lethalBot?.BotInfectionData.Value.totalTimeSpentInPlants = 0f;
                 }
