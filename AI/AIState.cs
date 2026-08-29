@@ -339,6 +339,7 @@ namespace LethalBots.AI
                         lethalBotAI.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
                         {
                             VoiceState = EnumVoicesState.OrderedToFollow,
+                            VoicePriority = EnumVoicePriority.HIGH_PRIORITY,
                             CanTalkIfOtherLethalBotTalk = true,
                             WaitForCooldown = false,
                             CutCurrentVoiceStateToTalk = true,
@@ -404,6 +405,7 @@ namespace LethalBots.AI
                     lethalBotAI.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
                     {
                         VoiceState = EnumVoicesState.OrderedToStay,
+                        VoicePriority = EnumVoicePriority.HIGH_PRIORITY,
                         CanTalkIfOtherLethalBotTalk = true,
                         WaitForCooldown = false,
                         CutCurrentVoiceStateToTalk = true,
@@ -724,7 +726,7 @@ namespace LethalBots.AI
                     //float entranceDistSqr = (entrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
                     if (entrance.FindExitPoint()
                         && !IsEntranceCoveredInQuickSand(entrance)
-                        && LethalBotAI.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, false, out _)
+                        && NavMeshUtil.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, out _, calculatePathDistance: false)
                         && CanPathToEntrance(entrance, true) 
                         && ai.pathDistance < closestEntranceDist)
                     {
@@ -799,7 +801,7 @@ namespace LethalBots.AI
                     // NOTE: We use exit point here or the pathfind would always fail since the entrance we are using is inside the facility!
                     if (entrance.FindExitPoint()
                         && !IsEntranceCoveredInQuickSand(entrance)
-                        && LethalBotAI.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, false, out _)
+                        && NavMeshUtil.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, out _, calculatePathDistance: false)
                         && CanPathToEntrance(entrance, false))
                     {
                         validEntrances.Add(entrance);

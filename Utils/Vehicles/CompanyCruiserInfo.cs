@@ -238,7 +238,7 @@ namespace LethalBots.Utils.Vehicles
 
                 // Update the Cruiser's NavMeshAgent with the current speed and acceleration of the vehicle
                 float vehicleSpeed = vehicleController.mainRigidbody.velocity.magnitude;
-                vehicleAgent.speed = MaxDrivingSpeed; // Assume Max Vehicle speed for avoidance calculations
+                vehicleAgent.speed = Mathf.Max(MaxDrivingSpeed, vehicleSpeed); // Assume Max Vehicle speed for avoidance calculations
 
                 // Drive the vehicle using the NavMeshAgent
                 ref VehicleInputHelper input = ref lethalBotAI.NpcController.vehicleInput;
@@ -358,6 +358,7 @@ namespace LethalBots.Utils.Vehicles
                     lethalBotController.playerBodyAnimator.SetInteger(CRUISER_ANIMATION_STRING, 0);
                 }
 
+                // Same as base game apply player collison
                 vehicleController.SetVehicleCollisionForPlayer(setEnabled: false, lethalBotController);
                 vehicleController.SetPlayerInControlOfVehicleServerRpc((int)lethalBotController.playerClientId);
             }
@@ -391,6 +392,7 @@ namespace LethalBots.Utils.Vehicles
                 }
 
                 // Base game, thanks to our patches, handles this just fine so no special logic is needed here.
+                vehicleController.SetVehicleCollisionForPlayer(setEnabled: false, lethalBotController);
                 seatTrigger.Interact(lethalBotController.thisPlayerBody);
             }
 
@@ -409,6 +411,7 @@ namespace LethalBots.Utils.Vehicles
                 yield break;
             }
 
+            // There is diffrent logic for the driver and passenger seat
             PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
             if (driverSeat.playerScriptInSpecialAnimation == lethalBotController)
             {
@@ -446,7 +449,7 @@ namespace LethalBots.Utils.Vehicles
 
                 // Carbon Copy of ExitDriverSideSeat, but modified to work for the bots
                 lethalBotController.playerBodyAnimator.SetInteger(CRUISER_ANIMATION_STRING, 0);
-                int num = vehicleController.CanExitCar(passengerSide: true);
+                int num = CanExitCar(vehicleController, lethalBotController, passengerSide: true);
                 if (num != -1)
                 {
                     lethalBotController.TeleportPlayer(vehicleController.driverSideExitPoints[num].position);
@@ -485,7 +488,7 @@ namespace LethalBots.Utils.Vehicles
                 }
 
                 // Carbon Copy of ExitPassengerSideSeat, but modified to work for the bots
-                int num = vehicleController.CanExitCar(passengerSide: false);
+                int num = CanExitCar(vehicleController, lethalBotController, passengerSide: false);
                 if (num != -1)
                 {
                     lethalBotController.TeleportPlayer(vehicleController.passengerSideExitPoints[num].position);
@@ -515,6 +518,40 @@ namespace LethalBots.Utils.Vehicles
 
             // Let the bot know we finished
             EndCoroutine(lethalBotAI);
+        }
+
+        /// <summary>
+        /// Carbon copy of <see cref="VehicleController.CanExitCar(bool)"/>, but made for bots
+        /// </summary>
+        /// <param name="vehicleController"></param>
+        /// <param name="lethalbotController"></param>
+        /// <param name="passengerSide"></param>
+        /// <returns></returns>
+        private static int CanExitCar(VehicleController vehicleController, PlayerControllerB lethalbotController, bool passengerSide)
+        {
+            Vector3 cameraPosition = lethalbotController.gameplayCamera.transform.position;
+            if (passengerSide)
+            {
+                for (int i = 0; i < vehicleController.driverSideExitPoints.Length; i++)
+                {
+                    if (!Physics.Linecast(cameraPosition, vehicleController.driverSideExitPoints[i].position, vehicleController.exitCarLayerMask, QueryTriggerInteraction.Ignore))
+                    {
+                        return i;
+                    }
+                }
+
+                return -1;
+            }
+
+            for (int j = 0; j < vehicleController.passengerSideExitPoints.Length; j++)
+            {
+                if (!Physics.Linecast(cameraPosition, vehicleController.passengerSideExitPoints[j].position, vehicleController.exitCarLayerMask, QueryTriggerInteraction.Ignore))
+                {
+                    return j;
+                }
+            }
+
+            return -1;
         }
     }
 }

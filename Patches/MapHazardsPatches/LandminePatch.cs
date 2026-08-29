@@ -59,6 +59,7 @@ namespace LethalBots.Patches.MapHazardsPatches
                     lethalBotAI.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
                     {
                         VoiceState = EnumVoicesState.SteppedOnTrap,
+                        VoicePriority = EnumVoicePriority.MEDIUM_PRIORITY,
                         CanTalkIfOtherLethalBotTalk = true,
                         WaitForCooldown = false,
                         CutCurrentVoiceStateToTalk = true,
@@ -111,6 +112,7 @@ namespace LethalBots.Patches.MapHazardsPatches
                     lethalBotAI.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
                     {
                         VoiceState = EnumVoicesState.SteppedOnTrap,
+                        VoicePriority = EnumVoicePriority.MEDIUM_PRIORITY,
                         CanTalkIfOtherLethalBotTalk = true,
                         WaitForCooldown = false,
                         CutCurrentVoiceStateToTalk = true,

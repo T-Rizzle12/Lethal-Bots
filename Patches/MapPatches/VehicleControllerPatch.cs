@@ -356,5 +356,37 @@ namespace LethalBots.Patches.MapPatches
                 }
             }
         }
+
+        /// <summary>
+        /// HACKHACKH: Fix the bots falling through the floor of the crusier when riding in the back
+        /// </summary>
+        /// <param name="__instance"></param>
+        //[HarmonyPatch("DisableVehicleCollisionForAllPlayers")]
+        //[HarmonyPostfix]
+        //static void DisableVehicleCollisionForAllPlayers_Postfix(VehicleController __instance)
+        //{
+        //    // Only do this for valid vehicles
+        //    if (!VehicleManager.Instance.TryGetVehicleInfo(__instance, out IVehicleAdapter? vehicleInfo))
+        //    {
+        //        return;
+        //    }
+
+        //    // Don't disable for bots not in the seat
+        //    LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotsAIOwnedByLocal();
+        //    for (int i = 0; i < lethalBotAIs.Length; i++)
+        //    {
+        //        LethalBotAI? lethalBotAI = lethalBotAIs[i];
+        //        PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
+        //        if (!vehicleInfo.IsPlayerInVehicle(__instance, lethalBotController, out InteractTrigger? seatTrigger)
+        //            || seatTrigger == null)
+        //        {
+        //            lethalBotController.GetComponent<CharacterController>().excludeLayers = 0;
+        //        }
+        //        else
+        //        {
+        //            lethalBotController.GetComponent<CharacterController>().excludeLayers = 1073741824;
+        //        }
+        //    }
+        //}
     }
 }

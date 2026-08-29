@@ -262,12 +262,13 @@ namespace LethalBots.AI
                 }
             }
 
-            if (!parameters.CutCurrentVoiceStateToTalk)
+            // If we are already talking, don't cut ourself off
+            // unless we are a higher priority or told not to
+            if (IsTalking() 
+                && (!parameters.CutCurrentVoiceStateToTalk
+                    || LastVoiceState.VoicePriority <= parameters.VoicePriority))
             {
-                if (IsTalking())
-                {
-                    return;
-                }
+                return;
             }
 
             if (parameters.CanRepeatVoiceState)
@@ -513,9 +514,23 @@ namespace LethalBots.AI
         public bool CanRepeatVoiceState { get; set; }
 
         public EnumVoicesState VoiceState { get; set; }
+        public EnumVoicePriority VoicePriority { get; set; }
 
         public bool ShouldSync { get; set; }
         public bool IsLethalBotInside { get; set; }
         public bool AllowSwearing { get; set; }
+
+        public PlayVoiceParameters()
+        {
+            CanTalkIfOtherLethalBotTalk = false;
+            WaitForCooldown = false;
+            CutCurrentVoiceStateToTalk = false;
+            CanRepeatVoiceState = false;
+            VoiceState = EnumVoicesState.None;
+            VoicePriority = EnumVoicePriority.LOW_PRIORITY;
+            ShouldSync = false;
+            IsLethalBotInside = false;
+            AllowSwearing = false;
+        }
     }
 }

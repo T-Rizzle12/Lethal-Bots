@@ -99,6 +99,7 @@
     <PackageReference Include="MillieTheSilly-SuperEclipse" Version="0.1.0" />
     <PackageReference Include="Mono.pdb2mdb" Version="0.1.0.20130128" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="OomJan-BetterLethalVRM" Version="1.0.1" />
     <PackageReference Include="Rune580.Mods.LethalCompany.InputUtils" Version="0.7.13" />
     <PackageReference Include="Tomatobird-AutoRevive" Version="0.4.0" Publicize="true" />
     <PackageReference Include="UnityEngine.Modules" Version="2022.3.62" IncludeAssets="compile" />

@@ -230,6 +230,7 @@ namespace LethalBots.Managers
                     lethalBot.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
                     {
                         VoiceState = EnumVoicesState.OrderedToFollow,
+                        VoicePriority = EnumVoicePriority.HIGH_PRIORITY,
                         CanTalkIfOtherLethalBotTalk = true,
                         WaitForCooldown = false,
                         CutCurrentVoiceStateToTalk = true,

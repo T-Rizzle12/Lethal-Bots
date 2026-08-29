@@ -4454,13 +4454,13 @@ namespace LethalBots.Managers
         public static bool IsValidPathToEntrance(Vector3 startPosition, Vector3 entrancePosition, int areaMask, ref NavMeshPath path, EntranceTeleport targetEntrance)
         {
             // Check if we can path to the entrance!
-            if (!LethalBotAI.IsValidPathToTarget(startPosition, entrancePosition, areaMask, ref path, false, out _))
+            if (!NavMeshUtil.IsValidPathToTarget(startPosition, entrancePosition, areaMask, ref path, out _, calculatePathDistance: false))
             {
                 // Check if this is the front entrance if we need to use an elevator
                 if (AIState.IsFrontEntrance(targetEntrance) && !targetEntrance.isEntranceToBuilding && LethalBotAI.ElevatorScript != null)
                 {
                     // Check if we can path to the bottom of the elevator
-                    if (LethalBotAI.IsValidPathToTarget(startPosition, LethalBotAI.ElevatorScript.elevatorBottomPoint.position, areaMask, ref path, false, out _))
+                    if (NavMeshUtil.IsValidPathToTarget(startPosition, LethalBotAI.ElevatorScript.elevatorBottomPoint.position, areaMask, ref path, out _, calculatePathDistance: false))
                     {
                         return true;
                     }
@@ -4659,8 +4659,9 @@ namespace LethalBots.Managers
         /// <returns><c>LethalBotAI</c> if holding the <c>GrabbableObject</c>, else returns null</returns>
         public LethalBotAI? GetLethalBotAiOwnerOfObject(GrabbableObject grabbableObject)
         {
-            foreach (var lethalBotAI in AllLethalBotAIs)
+            for (int i = 0; i < AllLethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = AllLethalBotAIs[i];
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
                     || lethalBotAI.isEnemyDead
@@ -4688,8 +4689,7 @@ namespace LethalBots.Managers
         public bool IsPlayerLethalBot(PlayerControllerB? player)
         {
             if (player == null) return false;
-            LethalBotAI? lethalBotAI = GetLethalBotAI(player);
-            return lethalBotAI != null;
+            return GetLethalBotAI(player) != null;
         }
 
         /// <summary>
@@ -4700,8 +4700,7 @@ namespace LethalBots.Managers
         /// <returns><c>true</c> if <c>PlayerControllerB</c> has <c>LethalBotAI</c>, else <c>false</c></returns>
         public bool IsPlayerLethalBot(int id)
         {
-            LethalBotAI? lethalBotAI = GetLethalBotAI(id);
-            return lethalBotAI != null;
+            return GetLethalBotAI(id) != null;
         }
 
         /// <summary>

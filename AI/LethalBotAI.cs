@@ -365,7 +365,8 @@ namespace LethalBots.AI
             // Body collider
             LethalBotBodyCollider = NpcController.Npc.GetComponentInChildren<Collider>();
             BoxCollider ourCollider = this.GetComponentInChildren<BoxCollider>();
-            ourCollider?.size = LethalBotBodyCollider.bounds.extents; // Set the bounds of the collider to the body collider bounds
+            ourCollider.size = LethalBotBodyCollider.bounds.extents; // Set the bounds of the collider to the body collider bounds
+            ourCollider.excludeLayers = 1073741824; // Make it so we don't collide with the cruiser
 
             // Bot voice
             InitLethalBotVoiceComponent();
@@ -989,6 +990,7 @@ namespace LethalBots.AI
             {
                 return true;
             }
+
             // Animation with triggers
             if (lethalBotController.currentTriggerInAnimationWith != null)
             {
@@ -1213,38 +1215,11 @@ namespace LethalBots.AI
         /// <param name="calculatePathDistance">This updates <paramref name="pathDistance"/> with the length of the path. <paramref name="pathDistance"/> is set to zero on failure</param>
         /// <param name="pathDistance"></param>
         /// <returns><see langword="true"/> if a valid and complete path exists; otherwise, <see langword="false"/></returns>
+        [Obsolete("This has been moved into NavMeshUtil. Use that one instead.")]
 
         public static bool IsValidPathToTarget(Vector3 startPosition, Vector3 endPosition, int areaMask, ref NavMeshPath path, bool calculatePathDistance, out float pathDistance)
         {
-            // Check if we can create a path there first!
-            pathDistance = 0f;
-            if (!NavMesh.CalculatePath(startPosition, endPosition, areaMask, path))
-            {
-                return false;
-            }
-
-            // Check to make sure the path is valid!
-            Vector3[]? corners = path?.corners;
-            if (corners == null || corners.Length == 0)
-            {
-                return false;
-            }
-
-            // This may be a partial path, make sure the end of the path actually reaches our target destiniation!
-            if ((corners[corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(endPosition, RoundManager.Instance.navHit, 2.7f)).sqrMagnitude > 1.5f * 1.5f)
-            {
-                return false;
-            }
-
-            if (calculatePathDistance)
-            {
-                for (int i = 1; i < corners.Length; i++)
-                {
-                    pathDistance += Vector3.Distance(corners[i - 1], corners[i]);
-                }
-            }
-
-            return true;
+            return NavMeshUtil.IsValidPathToTarget(startPosition, endPosition, areaMask, ref path, out pathDistance, calculatePathDistance);
         }
 
         /// <summary>
@@ -1265,38 +1240,10 @@ namespace LethalBots.AI
         /// <param name="calculatePathDistance">This updates <paramref name="pathDistance"/> with the length of the path. <paramref name="pathDistance"/> is set to zero on failure</param>
         /// <param name="pathDistance"></param>
         /// <returns><see langword="true"/> if a valid and complete path exists; otherwise, <see langword="false"/></returns>
-
+        [Obsolete("This has been moved into NavMeshUtil. Use that one instead.")]
         public static bool IsValidPathToTarget(Vector3 startPosition, Vector3 endPosition, NavMeshQueryFilter queryFilter, ref NavMeshPath path, bool calculatePathDistance, out float pathDistance)
         {
-            // Check if we can create a path there first!
-            pathDistance = 0f;
-            if (!NavMesh.CalculatePath(startPosition, endPosition, queryFilter, path))
-            {
-                return false;
-            }
-
-            // Check to make sure the path is valid!
-            Vector3[]? corners = path?.corners;
-            if (corners == null || corners.Length == 0)
-            {
-                return false;
-            }
-
-            // This may be a partial path, make sure the end of the path actually reaches our target destiniation!
-            if ((corners[corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(endPosition, RoundManager.Instance.navHit, 2.7f)).sqrMagnitude > 1.5f * 1.5f)
-            {
-                return false;
-            }
-
-            if (calculatePathDistance)
-            {
-                for (int i = 1; i < corners.Length; i++)
-                {
-                    pathDistance += Vector3.Distance(corners[i - 1], corners[i]);
-                }
-            }
-
-            return true;
+            return NavMeshUtil.IsValidPathToTarget(startPosition, endPosition, queryFilter, ref path, out pathDistance, calculatePathDistance);
         }
 
         /// <inheritdoc cref="IsValidPathToTarget(Vector3, ref NavMeshPath, bool, float, float)"/>
@@ -8173,6 +8120,7 @@ namespace LethalBots.AI
                 this.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
                 {
                     VoiceState = EnumVoicesState.Hit,
+                    VoicePriority = EnumVoicePriority.HIGH_PRIORITY,
                     CanTalkIfOtherLethalBotTalk = true,
                     WaitForCooldown = false,
                     CutCurrentVoiceStateToTalk = true,
@@ -9341,7 +9289,7 @@ namespace LethalBots.AI
             isTouchingGround = Physics.Raycast(new Ray(lethalBotPosition + Vector3.up, Vector3.down),
                                                out groundHit,
                                                2.5f,
-                                               StartOfRound.Instance.walkableSurfacesMask, QueryTriggerInteraction.Ignore);
+                                               StartOfRound.Instance.allPlayersCollideWithMask, QueryTriggerInteraction.Ignore);
         }
     }
 }

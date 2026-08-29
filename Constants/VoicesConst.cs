@@ -9,7 +9,7 @@ namespace LethalBots.Constants
         public const EnumTalkativeness DEFAULT_CONFIG_ENUM_TALKATIVENESS = EnumTalkativeness.Normal;
         public const EnumResponsiveness DEFAULT_CONFIG_ENUM_RESPONSIVENESS = EnumResponsiveness.Normal;
 
-        public static readonly PlayVoiceParameters DEFAULT_VOICE_PARAMETERS = new PlayVoiceParameters() { VoiceState = EnumVoicesState.None };
+        public static readonly PlayVoiceParameters DEFAULT_VOICE_PARAMETERS = new PlayVoiceParameters();
 
         public const float DISTANCE_HEAR_OTHER_BOTS = 10f;
         public const string SWEAR_KEYWORD = "_cuss";

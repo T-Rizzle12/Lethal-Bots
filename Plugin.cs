@@ -14,6 +14,7 @@ using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.AdditionalNetworking;
 using LethalBots.Patches.ModPatches.AutoRevive;
 using LethalBots.Patches.ModPatches.BetterEmotes;
+using LethalBots.Patches.ModPatches.BetterLethalVRM;
 using LethalBots.Patches.ModPatches.BunkbedRevive;
 using LethalBots.Patches.ModPatches.ButteryFixes;
 using LethalBots.Patches.ModPatches.DawnLib;
@@ -84,6 +85,7 @@ namespace LethalBots
     [BepInDependency(Const.NAVMESHINCOMPANYREDUX_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(SelfSortingStorage.Plugin.GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(PathfindingLib.PathfindingLibPlugin.PluginGUID, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(OomJan.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         // Please don't use the MyPluginInfo class for the GUID, my mod is
@@ -339,6 +341,7 @@ namespace LethalBots
             bool isModButteryFixesLoaded = IsModLoaded(Const.BUTTERYFIXES_GUID);
             bool isModPeepersLoaded = IsModLoaded(Const.PEEPERS_GUID);
             bool isModLethalCompanyVRLoaded = IsModLoaded(LCVR.Plugin.PLUGIN_GUID);
+            bool isModBetterVRMLoaded = IsModLoaded(OomJan.MyPluginInfo.PLUGIN_GUID);
 
             // -------------------
             // Read the preloaders
@@ -481,6 +484,10 @@ namespace LethalBots
             {
                 _harmony.PatchAll(typeof(PathfindingLibPatch));
                 PathfindingLibPatch.AddCustomAreaMasks();
+            }
+            if (isModBetterVRMLoaded)
+            {
+                _harmony.PatchAll(typeof(BetterLethalVRMPatch));
             }
         }
 
