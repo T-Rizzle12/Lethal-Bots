@@ -4686,9 +4686,9 @@ namespace LethalBots.Managers
         /// a <c>PlayerControllerB</c> that has <c>LethalBotAI</c>
         /// </summary>
         /// <returns><c>true</c> if <c>PlayerControllerB</c> has <c>LethalBotAI</c>, else <c>false</c></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPlayerLethalBot(PlayerControllerB? player)
         {
-            if (player == null) return false;
             return GetLethalBotAI(player) != null;
         }
 
@@ -4698,6 +4698,7 @@ namespace LethalBots.Managers
         /// </summary>
         /// <param name="id"><c>PlayerControllerB.playerClientId</c></param>
         /// <returns><c>true</c> if <c>PlayerControllerB</c> has <c>LethalBotAI</c>, else <c>false</c></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPlayerLethalBot(int id)
         {
             return GetLethalBotAI(id) != null;
