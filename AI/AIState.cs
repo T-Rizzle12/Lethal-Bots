@@ -175,10 +175,6 @@ namespace LethalBots.AI
         // TODO: Now that we have voice recogntion code, it may be a good idea to update this!!!!!
         public virtual void PlayerHeard(Vector3 noisePosition) { }
 
-        // TODO: Remove this function, I don't think I will ever find a way to get this to work.
-        [Obsolete("Broken on purpose! This function is never called and will never be fixed since you can't tell who created a sound!", true)]
-        public virtual void EnemyHeard(Vector3 noisePosition) { }
-
         /// <summary>
         /// Called when the bot is stuck and can't move!<br/>
         /// </summary>

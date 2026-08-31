@@ -2942,82 +2942,11 @@ namespace LethalBots.AI
         /// <summary>
         /// Returns true if the given EnemyAI can be killed!
         /// </summary>
-        /// <inheritdoc cref="LethalBotAI.CanEnemyBeKilled(EnemyAI, bool, bool, bool)"/>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [Obsolete("This has been moved into ShouldAttackEnemy. Use that instead!")]
         public bool CanEnemyBeKilled(EnemyAI enemy, bool isMissionController = false)
         {
             return ShouldAttackEnemy(enemy, isMissionController);
-        }
-
-        /// <summary>
-        /// Returns true if the given EnemyAI can be killed!
-        /// </summary>
-        /// <remarks>
-        /// <para>NOTE: This is a switch statement and doesn't work with custom enemies!</para>
-        /// TODO: Move this into a Query system like the fear ranges!
-        /// </remarks>
-        /// <param name="enemy"></param>
-        /// <param name="hasRangedWeapon"></param>
-        /// <param name="isHumanPlayer"></param>
-        /// <param name="isMissionController"></param>
-        /// <returns>Can the enemy be killed?</returns>
-        [Obsolete("This has been replaced by ShouldAttackEnemy. Use that instead!", true)]
-        public static bool CanEnemyBeKilled(EnemyAI enemy, bool hasRangedWeapon = false, bool isHumanPlayer = false, bool isMissionController = false)
-        {
-            // If you turn this on.....just know what you are getting yourself into......
-            // After all, the bots can't tell if you are outmatched here...........
-            if (Plugin.Config.ShouldKillEverything)
-            {
-                return true;
-            }
-
-            // FIXME: Only a few enemies can be targeted since
-            // I need to check when its a good idea to fight!
-            bool isEnemyStunned = enemy.stunnedIndefinitely > 0f || enemy.stunNormalizedTimer > 0f;
-            if (enemy is CentipedeAI 
-                || enemy is MaskedPlayerEnemy 
-                || enemy is CrawlerAI
-                || enemy is HoarderBugAI
-                || enemy is BaboonBirdAI)
-            {
-                return true;
-            }
-            else if (enemy is NutcrackerEnemyAI nutcracker 
-                && (hasRangedWeapon || isHumanPlayer || isEnemyStunned)
-                        && (enemy.currentBehaviourStateIndex == 2
-                            || nutcracker.isInspecting))
-            {
-                return true;
-            }
-            else if (enemy is FlowermanAI 
-                || enemy is SandSpiderAI)
-            {
-                return hasRangedWeapon || isHumanPlayer || isEnemyStunned;
-            }
-            else if (enemy is ButlerEnemyAI 
-                || enemy is MouthDogAI
-                || enemy is CaveDwellerAI)
-            {
-                return isHumanPlayer;
-            }
-            else if (enemy is BushWolfEnemy bushWolf)
-            {
-                if (bushWolf.draggingPlayer != null)
-                {
-                    return true; // We need to save a player, ATTACK!
-                }
-                return hasRangedWeapon || isHumanPlayer || isEnemyStunned || enemy.isInsidePlayerShip;
-            }
-            else if (enemy is PumaAI || enemy is CadaverBloomAI)
-            {
-                // The mission controller bot should only protect the ship, not give chase to the fieopar or cadaver!
-                return !isMissionController || enemy.isInsidePlayerShip;
-            }
-            else
-            {
-                return false;
-            }
         }
 
         /// <summary>

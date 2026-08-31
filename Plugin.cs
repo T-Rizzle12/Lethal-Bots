@@ -130,8 +130,8 @@ namespace LethalBots
 
         private void Awake()
         {
-            var bundleName = "lethalbotnpcmodassets";
-            var bundleName2 = "ship_orbit_navmesh";
+            const string bundleName = "lethalbotnpcmodassets";
+            const string bundleName2 = "ship_orbit_navmesh";
             DirectoryName = Path.GetDirectoryName(Info.Location);
 
             Logger = base.Logger;
@@ -221,6 +221,10 @@ namespace LethalBots
             PatchOtherMods();
 
             SceneManager.sceneLoaded += OnSceneLoaded;
+
+            // Unload the asset bundles
+            ModAssets.Unload(false);
+            ShipOrbitNavMeshAssets.Unload(false);
 
             Logger.LogInfo($"Plugin {ModGUID} is loaded!");
         }
