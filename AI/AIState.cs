@@ -240,7 +240,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <remarks>
         /// This should be called in <see cref="LethalBotManager.RegisterDefaultCommands"/> 
-        /// and <see cref="LethalBotManager.RegisterCustomCommands"/>
+        /// and <see cref="LethalBotManager.RegisterCustomChatCommands"/>
         /// </remarks>
         public static void RegisterChatCommands()
         {
@@ -456,7 +456,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <remarks>
         /// This should be called in <see cref="LethalBotManager.RegisterDefaultCommands"/> 
-        /// and <see cref="LethalBotManager.RegisterCustomCommands"/>
+        /// and <see cref="LethalBotManager.RegisterCustomChatCommands"/>
         /// </remarks>
         public static void RegisterSignalTranslatorCommands()
         {

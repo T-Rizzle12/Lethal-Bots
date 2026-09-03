@@ -20,7 +20,11 @@ namespace LethalBots.Managers
 
         public Dictionary<string, AudioClip?> DictAudioClipsByPath = new Dictionary<string, AudioClip?>();
 
-        private const string voicesPath = "Audio\\Voices\\";
+        private const string AudioDirectory = "Audio";
+        private const string VoicesDirectory = "Voices";
+
+        private static readonly string voicesPath = Path.Combine(AudioDirectory, VoicesDirectory);
+
 
         // Supported audio extentions
         // Only supports what UnityWebRequestMultimedia.GetAudioClip supports
@@ -183,7 +187,10 @@ namespace LethalBots.Managers
                 yield return www.SendWebRequest();
 
                 Plugin.LogDebug($"Loading audio file at {www.uri}");
-                if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
+                UnityWebRequest.Result result = www.result;
+                if (result == UnityWebRequest.Result.ConnectionError 
+                    || result == UnityWebRequest.Result.ProtocolError 
+                    || result == UnityWebRequest.Result.DataProcessingError)
                 {
                     lethalBotVoice.ResetAboutToTalk();
                     Plugin.LogError($"Error while loading audio file at {uri} : {www.error} \n SanitizedUri: {sanitizedUri}");
@@ -232,6 +239,7 @@ namespace LethalBots.Managers
 
             if (DictAudioClipsByPath.ContainsKey(path))
             {
+                Plugin.LogWarning($"A path of the same has already been added, path {path}. Overwriting!");
                 DictAudioClipsByPath[path] = audioClip;
             }
             else

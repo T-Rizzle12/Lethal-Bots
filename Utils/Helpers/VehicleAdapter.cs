@@ -463,7 +463,7 @@ namespace LethalBots.Utils.Helpers
 
             // Grab our max speed
             float maxSpeed = MaxDrivingSpeed;
-            if (UseCruiserState.ShouldSpeed)
+            if (bot.State is UseCruiserState useCruiserState && useCruiserState.ShouldSpeed)
             {
                 maxSpeed *= 2f;
             }

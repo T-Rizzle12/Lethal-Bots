@@ -1561,6 +1561,16 @@ namespace LethalBots.AI
             // Health regen
             LethalBotAIController.HealthRegen();
 
+            // If we are using a trigger, set our position and rotation to it!
+            InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
+            if (ourTrigger != null && !ourTrigger.isLadder)
+            {
+                Transform thisPlayerBody = lethalBotController.thisPlayerBody;
+                thisPlayerBody.localPosition = Vector3.Lerp(thisPlayerBody.localPosition, thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
+                thisPlayerBody.rotation = Quaternion.Lerp(thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
+                SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
+            }
+
             if (LethalBotAIController.IsClientOwnerOfLethalBot())
             {
                 this.LethalBotRotationAndLookUpdate();

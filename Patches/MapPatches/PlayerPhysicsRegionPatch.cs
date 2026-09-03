@@ -15,7 +15,7 @@ namespace LethalBots.Patches.MapPatches
     {
         // Static variables
         // Conditional Weak Table since when the PlayerPhysicsRegion is removed, the table automatically cleans itself!
-        private static readonly ConditionalWeakTable<PlayerPhysicsRegion, PlayerPhysicsRegionMonitor> playerPhysicsRegionMonitorList = new ConditionalWeakTable<PlayerPhysicsRegion, PlayerPhysicsRegionMonitor>();
+        public static readonly ConditionalWeakTable<PlayerPhysicsRegion, PlayerPhysicsRegionMonitor> playerPhysicsRegionMonitorList = new ConditionalWeakTable<PlayerPhysicsRegion, PlayerPhysicsRegionMonitor>();
 
         /// <summary>
         /// Helper function that retrieves the <see cref="PlayerPhysicsRegion"/>
@@ -81,6 +81,7 @@ namespace LethalBots.Patches.MapPatches
                         botPhysicsData.checkInterval = 0f;
                         botPhysicsData.hasLethalBot = false;
                         lethalBotAI.NpcController?.CurrentLethalBotPhysicsRegions.Remove(__instance);
+                        lethalBotController.lastSyncedPhysicsParent = null;
                     }
                     else
                     {
@@ -106,7 +107,7 @@ namespace LethalBots.Patches.MapPatches
         /// <summary>
         /// Helper class used to mimic local player variables for bots
         /// </summary>
-        public sealed class PlayerPhysicsRegionMonitor
+        public class PlayerPhysicsRegionMonitor
         {
             public PlayerPhysicsRegion playerPhysicsRegion { get; private set; } = null!;
             private readonly Dictionary<LethalBotAI, PhysicsRegionData> lethalBotAIs = new Dictionary<LethalBotAI, PhysicsRegionData>();

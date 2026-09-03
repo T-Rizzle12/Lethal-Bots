@@ -248,6 +248,9 @@ namespace LethalBots.AI
         public LineRendererUtil LineRendererUtil = null!;
         private float stuckTimer; // Used for stuck detection
 
+        private EnumLastSyncedPhysicsType lastSyncedPhysicsType = EnumLastSyncedPhysicsType.None;
+        public Transform? lastSyncedOverrideParent = null;
+
         public override void Awake()
         {
             // Behaviour states
@@ -538,7 +541,7 @@ namespace LethalBots.AI
                 }
 
                 // No AI calculation if in special animation if climbing ladder or inSpecialInteractAnimation
-                if (!lethalBotController.isClimbingLadder && !lethalBotController.inTerminalMenu && !lethalBotController.inVehicleAnimation
+                if (!lethalBotController.isClimbingLadder && !lethalBotController.inTerminalMenu
                     && (lethalBotController.inSpecialInteractAnimation || lethalBotController.enteringSpecialAnimation))
                 {
                     // If we are using a trigger, set our position and rotation to it!
@@ -703,22 +706,11 @@ namespace LethalBots.AI
                 || StateControllerMovement == EnumStateControllerMovement.Free)
             {
                 StateControllerMovement = EnumStateControllerMovement.Free;
-                //Plugin.LogDebug($"{lethalBotController.playerUsername} falling ! lethalBotController.transform.position {lethalBotController.transform.position} MoveVector {NpcController.MoveVector}");
-                /*Vector3 endPos = lethalBotController.transform.position + NpcController.MoveVector * Time.deltaTime;
-                if (IsTouchingGroundTimedCheck.IsTouchingGround(lethalBotController.transform.position) && NpcController.MoveVector.y < 0)
-                {
-                    RaycastHit groundRaycastHit = IsTouchingGroundTimedCheck.GetGroundHit(lethalBotController.thisPlayerBody.position);
-                    endPos.y = groundRaycastHit.point.y;
-                }
-                lethalBotController.transform.position = endPos;*/
 
                 // If we are using a trigger, set our position and rotation to it!
                 InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
                 if (ourTrigger != null && !ourTrigger.isLadder && !ourTrigger.setVehicleAnimation)
                 {
-                    lethalBotController.thisPlayerBody.localPosition = Vector3.Lerp(lethalBotController.thisPlayerBody.localPosition, lethalBotController.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
-                    lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
-                    NpcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
                     this.transform.position = lethalBotController.transform.position;
                     this.serverPosition = lethalBotController.transform.position;
                 }
@@ -731,14 +723,16 @@ namespace LethalBots.AI
             {
                 // If we are using a trigger, set our position and rotation to it!
                 InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
-                if (ourTrigger != null && !ourTrigger.isLadder && !ourTrigger.setVehicleAnimation)
+                if (ourTrigger != null && !ourTrigger.isLadder)
                 {
                     lethalBotController.thisPlayerBody.localPosition = Vector3.Lerp(lethalBotController.thisPlayerBody.localPosition, lethalBotController.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
                     lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
-                    NpcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
                 }
-                this.transform.position = lethalBotController.transform.position;
-                this.serverPosition = lethalBotController.transform.position;
+                if (!NpcController.IsControllerInCruiser && (ourTrigger == null || !ourTrigger.setVehicleAnimation))
+                {
+                    this.transform.position = lethalBotController.transform.position;
+                    this.serverPosition = lethalBotController.transform.position;
+                }
             }
             else if (StateControllerMovement == EnumStateControllerMovement.FollowAgent)
             {
@@ -753,9 +747,9 @@ namespace LethalBots.AI
             }
 
             // Is still falling ?
-            if (StateControllerMovement == EnumStateControllerMovement.Free
-                && NpcController.IsTouchingGround
-                && !shouldFreeMovement)
+            if (!shouldFreeMovement 
+                && StateControllerMovement == EnumStateControllerMovement.Free
+                && NpcController.IsTouchingGround)
             {
                 //Plugin.LogDebug($"{lethalBotController.playerUsername} ============= touch ground GroundHit.point {NpcController.GroundHit.point}");
                 StateControllerMovement = EnumStateControllerMovement.FollowAgent;
@@ -946,11 +940,11 @@ namespace LethalBots.AI
 
             // Use player controller movement while in the crusier
             // NEEDTOVALDIATE: Should this be in ShouldFixedMovement instead?
-            if (NpcController.IsControllerInCruiser)
-            {
-                Plugin.LogDebug($"{lethalBotController.playerUsername} is in the Cruiser!");
-                return true;
-            }
+            //if (NpcController.IsControllerInCruiser)
+            //{
+            //    Plugin.LogDebug($"{lethalBotController.playerUsername} is in the Cruiser!");
+            //    return true;
+            //}
 
             // Check if the fire players cutscene is running
             if (StartOfRound.Instance.suckingPlayersOutOfShip)
@@ -988,6 +982,13 @@ namespace LethalBots.AI
                 && (LethalBotManager.IsTheShipLeaving(instanceSOR)
                     || !LethalBotManager.IsTheShipLanded(instanceSOR)))
             {
+                return true;
+            }
+
+            // Use player controller movement while in the crusier
+            if (NpcController.IsControllerInCruiser)
+            {
+                Plugin.LogDebug($"{lethalBotController.playerUsername} is in the Cruiser!");
                 return true;
             }
 
@@ -1762,13 +1763,14 @@ namespace LethalBots.AI
             }
 
             // Cache stuff we use a lot, since this could get very expensive fast!
+            PlayerControllerB lethalBotController = NpcController.Npc;
             bool isPathDangerous = false; // Grandpa, why does this bool exist? Well you see Timmy, we want to be able to return the full path distance, even if we fail in the end. So, this holds the true final result!
             bool skipLOSCheckThisSegment = false;
             float pathDistance = 0f; // We must cache this and set it when we finish, since we are running asynchronously
-            float headOffset = NpcController.Npc.gameplayCamera.transform.position.y - NpcController.Npc.transform.position.y;
+            float headOffset = lethalBotController.gameplayCamera.transform.position.y - lethalBotController.transform.position.y;
             float predictedDrownTimer = NpcController.DrowningTimer; // Travel based on how much air we have left. This makes us wait outside of water before we head back in to it!
-            float moveSpeed = NpcController.Npc.movementSpeed > 0f ? NpcController.Npc.movementSpeed : 4.5f;
-            moveSpeed /= NpcController.Npc.carryWeight;
+            float moveSpeed = lethalBotController.movementSpeed > 0f ? lethalBotController.movementSpeed : 4.5f;
+            moveSpeed /= lethalBotController.carryWeight;
             // FIXME: Rethink this, each water body has its own speed multiplier, so we should not use the NpcController's hindered multiplier here!
             //moveSpeed /= 2f * NpcController.Npc.hinderedMultiplier; // We need to account for the hindered multiplier, since moving in water is slower!
             for (int j = 1; j < corners.Length; j++)
@@ -1801,7 +1803,7 @@ namespace LethalBots.AI
                     // We should still calculate the full distance as needed!
                     if (!calculatePathDistance)
                     {
-                        Plugin.LogDebug($"{NpcController.Npc.playerUsername}: Reached corner 15, stopping checks now");
+                        Plugin.LogDebug($"{lethalBotController.playerUsername}: Reached corner 15, stopping checks now");
                         return new SafePathResult(isDangerous: false, isPathValid: true, pathDistance);
                     }
                     continue;
@@ -5294,6 +5296,9 @@ namespace LethalBots.AI
             }
         }
 
+        /// <summary>
+        /// Updates the bot's physics parents
+        /// </summary>
         public void SetLethalBotInElevator()
         {
             if (this.NpcController == null)
@@ -5311,13 +5316,17 @@ namespace LethalBots.AI
                 Bounds shipInnerRoomBounds = instanceSOR.shipInnerRoomBounds.bounds;
                 if (!instanceSOR.inShipPhase && instanceSOR.shipDoorsEnabled && !instanceSOR.suckingPlayersOutOfShip)
                 {
+                    // Base game checks if you fall too far out of bounds.
+                    // We do the same for bots
                     const float OUT_OF_BOUNDS_Y_RANGE = -600f;
                     if (lethalBotController.transform.position.y < OUT_OF_BOUNDS_Y_RANGE)
                     {
                         lethalBotController.KillPlayer(Vector3.zero, spawnBody: false, CauseOfDeath.Gravity);
                     }
+                    // Base game only check if the player is in the ship if they are touching the ground.
                     else if (NpcController.IsTouchingGround)
                     {
+                        // Slight diffrence from base game that we raise the bot's position before we do the check 
                         bool isInElevator = shipBounds.Contains(playerPos + Vector3.up * 0.25f);
                         if (lethalBotController.isInElevator != isInElevator)
                         {
@@ -5359,6 +5368,7 @@ namespace LethalBots.AI
                         this.SetEnemyOutside(true);
                     }
 
+                    // Bot falls out of the ship, teleport them back just like the base game does for players.
                     if (instanceSOR.testRoom == null && !shipInnerRoomBounds.Contains(playerPos + Vector3.up * 0.25f))
                     {
                         lethalBotController.TeleportPlayer(instanceSOR.GetPlayerSpawnPosition((int)lethalBotController.playerClientId, true));
@@ -5380,50 +5390,88 @@ namespace LethalBots.AI
                         networkObject = playerPhysicsRegion.parentNetworkObject;
                     }
                 }
+                // HACKHACK: Sometimes the bot becomes unparented to the cruiser.
+                // If the bot was trying to ride in said cruiser, this could cause major issues with player collison
+                // on the cruiser's rigidbody. So, if the bot is in the cruiser,
+                // and doesn't have a physics parent,
+                // we force the physics parent to be the cruiser's physics region.
+                if (transform == null 
+                    && NpcController.IsControllerInCruiser 
+                    && SingletonManager.VehicleController.TryGet(out var vehicleController))
+                {
+                    Plugin.LogDebug("Bot is in the cruiser and has no physics parent, forcing physics parent to be the cruiser's physics region.");
+                    PlayerPhysicsRegion physicsRegion = vehicleController.physicsRegion;
+                    transform = physicsRegion.physicsTransform;
+                    networkObject = physicsRegion.parentNetworkObject;
+                }
                 if (lethalBotController.isInElevator && priority <= 0)
                 {
                     transform = null;
                 }
+
                 lethalBotController.physicsParent = transform;
 
-                if (lethalBotController.overridePhysicsParent != null)
+                // HACKHACK: Got to love that there is a bug where
+                // physics parent can become desynced in some rare cases.
+                Transform? physicsParent = lethalBotController.physicsParent;
+                Transform overridePhysicsParent = lethalBotController.overridePhysicsParent;
+                if (overridePhysicsParent != null)
                 {
-                    if (lethalBotController.overridePhysicsParent != lethalBotController.lastSyncedPhysicsParent)
+                    // We have an override physics parent, so we need to make sure we are synced with the server
+                    if (overridePhysicsParent != this.lastSyncedOverrideParent
+                        || overridePhysicsParent != lethalBotController.lastSyncedPhysicsParent
+                        || lastSyncedPhysicsType != EnumLastSyncedPhysicsType.OverridePhysicsParent)
                     {
+                        lastSyncedPhysicsType = EnumLastSyncedPhysicsType.OverridePhysicsParent;
                         lethalBotController.parentedToElevatorLastFrame = false;
-                        lethalBotController.lastSyncedPhysicsParent = lethalBotController.overridePhysicsParent;
-                        this.ReParentLethalBot(lethalBotController.overridePhysicsParent);
-                        lethalBotController.UpdatePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, lethalBotController.overridePhysicsParent.GetComponent<NetworkObject>(), isOverride: true, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
+                        this.lastSyncedOverrideParent = overridePhysicsParent;
+                        lethalBotController.lastSyncedPhysicsParent = overridePhysicsParent;
+                        this.ReParentLethalBot(overridePhysicsParent);
+                        lethalBotController.UpdatePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, overridePhysicsParent.GetComponent<NetworkObject>(), isOverride: true, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
                     }
                 }
-                else if (lethalBotController.physicsParent != null)
+                // If we have a physics parent, then we need to make sure we are synced with the server
+                else if (physicsParent != null)
                 {
-                    if (lethalBotController.physicsParent != lethalBotController.lastSyncedPhysicsParent)
+                    // We have a physics parent, so we need to make sure we are synced with the server
+                    if (physicsParent != lethalBotController.lastSyncedPhysicsParent 
+                        || lastSyncedPhysicsType != EnumLastSyncedPhysicsType.PhysicsParent)
                     {
+                        lastSyncedPhysicsType = EnumLastSyncedPhysicsType.PhysicsParent;
                         lethalBotController.parentedToElevatorLastFrame = false;
-                        lethalBotController.lastSyncedPhysicsParent = lethalBotController.physicsParent;
-                        this.ReParentLethalBot(lethalBotController.physicsParent);
+                        lethalBotController.lastSyncedPhysicsParent = physicsParent;
+                        this.ReParentLethalBot(physicsParent);
                         lethalBotController.UpdatePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, networkObject.GetComponent<NetworkObject>(), isOverride: false, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
                     }
                 }
                 else
                 {
-                    if (lethalBotController.lastSyncedPhysicsParent != null)
+                    // Just like the base game, if we synced to a physics parent or override physics parent last frame,
+                    // then we need to remove the physics parent on the server
+                    if (lethalBotController.lastSyncedPhysicsParent != null 
+                        || this.lastSyncedOverrideParent != null)
                     {
+                        this.lastSyncedOverrideParent = null;
                         lethalBotController.lastSyncedPhysicsParent = null;
                         this.ReParentLethalBot(lethalBotController.playersManager.playersContainer);
                         lethalBotController.RemovePlayerPhysicsParentServerRpc(lethalBotController.thisPlayerBody.localPosition, removeOverride: false, removeBoth: true, lethalBotController.isInElevator, lethalBotController.isInHangarShipRoom);
                     }
+
+                    // Now, check if we should be parented to the ship or the world
                     if (lethalBotController.isInElevator)
                     {
-                        if (!lethalBotController.parentedToElevatorLastFrame)
+                        if (!lethalBotController.parentedToElevatorLastFrame 
+                            || lastSyncedPhysicsType != EnumLastSyncedPhysicsType.Elevator)
                         {
+                            lastSyncedPhysicsType = EnumLastSyncedPhysicsType.Elevator;
                             lethalBotController.parentedToElevatorLastFrame = true;
                             this.ReParentLethalBot(lethalBotController.playersManager.elevatorTransform);
                         }
                     }
-                    else if (lethalBotController.parentedToElevatorLastFrame)
+                    else if (lethalBotController.parentedToElevatorLastFrame 
+                        || lastSyncedPhysicsType != EnumLastSyncedPhysicsType.None)
                     {
+                        lastSyncedPhysicsType = EnumLastSyncedPhysicsType.None;
                         lethalBotController.parentedToElevatorLastFrame = false;
                         this.ReParentLethalBot(lethalBotController.playersManager.playersContainer);
                     }
@@ -8204,13 +8252,6 @@ namespace LethalBots.AI
                     //lethalBotController.deadBody.transform.position = lethalBotController.thisPlayerBody.position + Vector3.up * num + positionOffset;
                     lethalBotController.deadBody.transform.position += Vector3.up * 0.001f;
                     this.LethalBotIdentity.DeadBody = lethalBotController.deadBody;
-
-                    // Lets make sure the bots don't attempt to grab dead bodies as soon as a player is killed!
-                    GrabbableObject? deadBody = lethalBotController.deadBody.grabBodyObject;
-                    if (deadBody != null)
-                    {
-                        DictJustDroppedItems[deadBody] = Time.realtimeSinceStartup;
-                    }
                 }
                 else
                 {

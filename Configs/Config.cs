@@ -32,6 +32,7 @@ namespace LethalBots.Configs
 
         // Identity  
         [SyncedEntryField] public SyncedEntry<bool> SpawnIdentitiesRandomly;
+        [SyncedEntryField] public SyncedEntry<bool> PreserveKickedBots;
         public ConfigEntry<bool> AllowBotProfilePictures;
         [SyncedEntryField] public SyncedEntry<bool> ResetIdentitiesWhenFired;
         public ConfigEntry<bool> ResetIdentities;
@@ -123,6 +124,11 @@ namespace LethalBots.Configs
                                               "Randomness of identities",
                                               defaultVal: false,
                                               "Spawn the bot with random identities from the file rather than in order?");
+
+            PreserveKickedBots = cfg.BindSyncedEntry(ConfigConst.ConfigSectionIdentities,
+                                               "Preserve Kicked Bots",
+                                               defaultVal: true,
+                                               "When a bot is kicked from the game, should it be marked for auto rejoin? This only does something if SpawnIdentitiesRandomly is set to true.");
 
             AllowBotProfilePictures = cfg.Bind(ConfigConst.ConfigSectionIdentities, 
                                                "Allow Bot Profile Pictures (Client only)",

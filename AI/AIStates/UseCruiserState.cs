@@ -23,9 +23,9 @@ namespace LethalBots.AI.AIStates
         private bool leaveSeat = false;
         private bool? enableNavAgent = null;
         private bool modifiedCollision = false;
+        public bool ShouldSpeed { get; private set; } = false;
         private CountdownTimer closeDoorInterval = new CountdownTimer();
         internal static Vector3? targetCruiserPosition = null;
-        internal static bool ShouldSpeed = false;
 
         public UseCruiserState(AIState state, VehicleController vehicleController) : base(state)
         {
@@ -57,10 +57,12 @@ namespace LethalBots.AI.AIStates
         {
             npcController.IsControllerInCruiser = false;
             ShouldSpeed = false;
-            if (modifiedCollision)
+            if (modifiedCollision 
+                && newState is not BrainDeadState
+                && !npcController.Npc.isPlayerDead
+                && npcController.Npc.isPlayerControlled)
             {
-                modifiedCollision = false;
-                vehicleController.SetVehicleCollisionForPlayer(setEnabled: false, npcController.Npc);
+                npcController.Npc.thisController.enabled = true;
             }
             base.OnExitState(newState);
         }
@@ -247,7 +249,7 @@ namespace LethalBots.AI.AIStates
                         if (!modifiedCollision)
                         {
                             modifiedCollision = true;
-                            vehicleController.SetVehicleCollisionForPlayer(setEnabled: true, lethalBotController);
+                            npcController.Npc.thisController.enabled = false;
                         }
                     }
                     else if (npcController.IsControllerInCruiser)
@@ -257,7 +259,7 @@ namespace LethalBots.AI.AIStates
                         if (!modifiedCollision)
                         {
                             modifiedCollision = true;
-                            vehicleController.SetVehicleCollisionForPlayer(setEnabled: true, lethalBotController);
+                            npcController.Npc.thisController.enabled = false;
                         }
                     }
                     else
@@ -274,7 +276,7 @@ namespace LethalBots.AI.AIStates
             else if (modifiedCollision)
             {
                 modifiedCollision = false;
-                vehicleController.SetVehicleCollisionForPlayer(setEnabled: false, npcController.Npc);
+                npcController.Npc.thisController.enabled = true;
             }
 
             // Bot still not in vehicle
@@ -389,6 +391,7 @@ namespace LethalBots.AI.AIStates
         {
             // Custom Chat commands, just for the crusier
             const string DRIVE_TO_COMMAND = "drive to";
+            const string HURRY_UP_COMMAND = "hurry up";
 
             // Someone is asking us to drive to the given location
             ChatCommandsManager.RegisterCommandForState<UseCruiserState>(new ChatCommand(DRIVE_TO_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
@@ -450,6 +453,23 @@ namespace LethalBots.AI.AIStates
                     targetCruiserPosition = useCruiserState.GetNearestNavAreaCruiser(StartOfRound.Instance.magnetPoint.position, useCruiserAgentSpecs: false);
                 }
 
+                return true;
+            }));
+
+            // Someone asked us to hurry up
+            ChatCommandsManager.RegisterCommandForState<UseCruiserState>(new ChatCommand(HURRY_UP_COMMAND, (state, lethalBotAI, playerWhoSentMessage, message, isVoice) =>
+            {
+                UseCruiserState useCruiserState = (UseCruiserState)state; // We have bigger problems if this cast fails!
+                // Check that we are the driver of the vehicle
+                VehicleController vehicleController = useCruiserState.vehicleController;
+                if (vehicleController == null
+                || vehicleController.currentDriver != lethalBotAI.NpcController.Npc)
+                {
+                    return true; // Do nothing
+                }
+                // Make the bot speed up
+                useCruiserState.ShouldSpeed = true;
+                lethalBotAI.SendChatMessage("Alright, I will hurry up!");
                 return true;
             }));
         }

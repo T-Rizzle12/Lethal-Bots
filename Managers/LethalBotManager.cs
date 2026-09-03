@@ -232,6 +232,17 @@ namespace LethalBots.Managers
         /// </remarks>
         public static readonly UnityEvent RegisterModdedEnemies = new UnityEvent();
 
+        /// <summary>
+        /// Helper function that registers custom chat command that are added by mods!
+        /// </summary>
+        /// <remarks>
+        /// This exists for the sole purpose 
+        /// of allowing modders a function to patch to that will guarantee two things:<br/>
+        /// 1. The ability to override the default chat commands as desired.<br/>
+        /// 2. A hook to safely register their modded chat commands.
+        /// </remarks>
+        public static readonly UnityEvent RegisterCustomChatCommands = new UnityEvent();
+
         public Dictionary<EnemyAI, INoiseListener> DictEnemyAINoiseListeners = new Dictionary<EnemyAI, INoiseListener>();
 
         /// <summary>
@@ -293,7 +304,7 @@ namespace LethalBots.Managers
         public static List<GrabbableObject> grabbableObjectsInMap = new List<GrabbableObject>();
         private float timerUpdateLightsOnMap;
         private static List<Light> lightsOnMap = new List<Light>();
-        public static IReadOnlyList<Light> LightsOnMap => lightsOnMap;
+        public static IReadOnlyList<Light> LightsOnMap => lightsOnMap.AsReadOnly();
         private static float timerUpdateHoardingBugItems;
         internal static Dictionary<GrabbableObject, HoarderBugItem> DictHoardingBugItems = new Dictionary<GrabbableObject, HoarderBugItem>();
 
@@ -1295,9 +1306,12 @@ namespace LethalBots.Managers
 
             // Register chat commands
             RegisterDefaultCommands();
+            #pragma warning disable CS0618 // Type or member is obsolete
             RegisterCustomCommands();
+            #pragma warning restore CS0618 // Type or member is obsolete
+            RegisterCustomChatCommands.Invoke();
 
-            // Don't run this is Speech Recognition mod isn't loaded
+            // Don't run this if Speech Recognition mod isn't loaded
             if (Plugin.IsModSpeechRecognitionAPILoaded)
             {
                 RegisterVoiceCommands();
@@ -1395,7 +1409,7 @@ namespace LethalBots.Managers
                             }
                             else
                             {
-                                Plugin.LogWarning("No available player objects to spawn any more lethal bots!");
+                                Plugin.LogDebug("[WARNING] No available player objects to spawn any more lethal bots!");
                             }
                         }
                     }
@@ -1403,7 +1417,9 @@ namespace LethalBots.Managers
                 // If we are not in orbit, keep reseting the quota timer
                 else
                 {
-                    maintainQuotaTimer.Start(1.0f); // Check every second
+                    // If the host has spawned, check every second, otherwise check every 5 seconds
+                    float delayQuotaCheck = instanceSOR.hasHostSpawned ? 1.0f : 5.0f;
+                    maintainQuotaTimer.Start(delayQuotaCheck);
                 }
             }
 
@@ -2684,7 +2700,7 @@ namespace LethalBots.Managers
                 lethalBotController.DropAllHeldItems(itemsFall: true, disconnecting: true);
 
                 // Mark the status as recently used so they are spawned in again!
-                lethalBotAI.LethalBotIdentity.Status = EnumStatusIdentity.ToSpawn;
+                lethalBotAI.LethalBotIdentity.Status = Plugin.Config.PreserveKickedBots.Value ? EnumStatusIdentity.ToSpawn : EnumStatusIdentity.Available;
                 lethalBotAI.LethalBotIdentity.DiedLastRound = true;
                 lethalBotAI.LethalBotIdentity.JustJoinedServer = true; // We were kicked, if we "rejoin" we want the join message!
                 if (lethalBotAI.State != null
@@ -2904,7 +2920,7 @@ namespace LethalBots.Managers
         /// Checks if the given number of <paramref name="connectedPlayersAmount"/> and <paramref name="connectedBotAmount"/> are greater than the given <paramref name="desiredQuotaAmount"/>
         /// </summary>
         /// <returns></returns>
-        private bool AreTooFewBots(int connectedPlayersAmount, int connectedBotAmount, int desiredQuotaAmount)
+        private static bool AreTooFewBots(int connectedPlayersAmount, int connectedBotAmount, int desiredQuotaAmount)
         {
             switch (Plugin.Config.QuotaType.Value)
             {
@@ -2920,7 +2936,7 @@ namespace LethalBots.Managers
         /// Checks if the given number of <paramref name="connectedPlayersAmount"/> and <paramref name="connectedBotAmount"/> are less than the given <paramref name="desiredQuotaAmount"/>
         /// </summary>
         /// <returns></returns>
-        private bool AreTooManyBots(int connectedPlayersAmount, int connectedBotAmount, int desiredQuotaAmount)
+        private static bool AreTooManyBots(int connectedPlayersAmount, int connectedBotAmount, int desiredQuotaAmount)
         {
             switch (Plugin.Config.QuotaType.Value)
             {
@@ -3126,19 +3142,6 @@ namespace LethalBots.Managers
                 else if (message.Contains("drive here"))
                 {
                     UseCruiserState.targetCruiserPosition = playerWhoSentMessage.transform.position;
-                }
-                else if (message.Contains("hurry up"))
-                {
-                    // Don't have to tell me twice
-                    UseCruiserState.ShouldSpeed = true;
-                    if (SingletonManager.VehicleController.TryGet(out VehicleController? vehicleController))
-                    {
-                        LethalBotAI? botDriver = GetLethalBotAIIfLocalIsOwner(vehicleController.currentDriver);
-                        if (botDriver != null)
-                        {
-                            botDriver.SendChatMessage("Don't have to tell me twice!", bypassConfig: true);
-                        }
-                    }
                 }
                 //else if (message.Contains("get navarea"))
                 //{
@@ -3520,6 +3523,7 @@ namespace LethalBots.Managers
         /// 1. The ability to override the default chat commands as desired.<br/>
         /// 2. A hook to safely register their modded chat commands.
         /// </remarks>
+        [Obsolete("This function is no longer used. Use the hook RegisterCustomChatCommands instead.")]
         private static void RegisterCustomCommands()
         {
             // We do nothing here, by default.......

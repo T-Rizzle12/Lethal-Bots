@@ -157,7 +157,7 @@ namespace LethalBots.Patches.MapHazardsPatches
             Collider[] array = Physics.OverlapSphere(explosionPosition, damageRange, 8, QueryTriggerInteraction.Collide);
             PlayerControllerB? lethalBotController;
             LethalBotAI? lethalBotAI;
-            HashSet<ulong> lethalBotsAlreadyExploded = new HashSet<ulong>();
+            HashSet<PlayerControllerB> lethalBotsAlreadyExploded = new HashSet<PlayerControllerB>();
             for (int i = 0; i < array.Length; i++)
             {
                 var hitCollider = array[i];
@@ -165,7 +165,7 @@ namespace LethalBots.Patches.MapHazardsPatches
                 float distanceFromExplosion = Vector3.Distance(explosionPosition, hitCollider.transform.position);
                 lethalBotController = hitCollider.gameObject.GetComponent<PlayerControllerB>();
                 if (lethalBotController == null 
-                    || lethalBotsAlreadyExploded.Contains(lethalBotController.playerClientId))
+                    || lethalBotsAlreadyExploded.Contains(lethalBotController))
                 {
                     continue;
                 }
@@ -185,15 +185,16 @@ namespace LethalBots.Patches.MapHazardsPatches
 
                 if (hitCollider.gameObject.layer == 3)
                 {
+                    Vector3 cameraPosition = lethalBotController.gameplayCamera.transform.position;
                     if (distanceFromExplosion < killRange)
                     {
-                        Vector3 vector = Vector3.Normalize(lethalBotController.gameplayCamera.transform.position - explosionPosition) * 80f / Vector3.Distance(lethalBotController.gameplayCamera.transform.position, explosionPosition);
+                        Vector3 vector = Vector3.Normalize(cameraPosition - explosionPosition) * 80f / Vector3.Distance(cameraPosition, explosionPosition);
                         Plugin.LogDebug($"SyncKillLethalBot from explosion for LOCAL client #{lethalBotAI.NetworkManager.LocalClientId}, lethalBot object: Bot #{lethalBotAI.BotId}");
                         lethalBotController.KillPlayer(vector, spawnBody: true, CauseOfDeath.Blast, 0, default);
                     }
                     else if (distanceFromExplosion < damageRange)
                     {
-                        Vector3 vector = Vector3.Normalize(lethalBotController.gameplayCamera.transform.position - explosionPosition) * 80f / Vector3.Distance(lethalBotController.gameplayCamera.transform.position, explosionPosition);
+                        Vector3 vector = Vector3.Normalize(cameraPosition - explosionPosition) * 80f / Vector3.Distance(cameraPosition, explosionPosition);
                         lethalBotController.DamagePlayer(nonLethalDamage, hasDamageSFX: true, callRPC: true, CauseOfDeath.Blast, 0, false, vector * 0.6f);
                     }
                 }
@@ -216,7 +217,7 @@ namespace LethalBots.Patches.MapHazardsPatches
                     }
                 }
 
-                lethalBotsAlreadyExploded.Add(lethalBotController.playerClientId);
+                lethalBotsAlreadyExploded.Add(lethalBotController);
             }
         }
 
