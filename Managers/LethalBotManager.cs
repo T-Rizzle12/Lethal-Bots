@@ -25,14 +25,17 @@ using Scoops.patch;
 using Scoops.service;
 using SelfSortingStorage.Cupboard;
 using SpeechRecognitionAPI;
+using Steamworks;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Unity.AI.Navigation;
 using Unity.Collections;
 using Unity.Netcode;
@@ -197,7 +200,8 @@ namespace LethalBots.Managers
 
         #endregion
 
-        public VehicleController? VehicleController;
+        [Obsolete("This has been moved into the SingletonManager. Use that instead!")]
+        public VehicleController? VehicleController => SingletonManager.VehicleController;
 
         // Variables that handle the ship's NavMesh
         #region Ship NavMesh
@@ -226,9 +230,37 @@ namespace LethalBots.Managers
         /// 1. The ability to override the default enemies panik levels and/or functions as desired.<br/>
         /// 2. A hook to safely register their modded enemies into the threat list.
         /// </remarks>
-        public static UnityEvent RegisterModdedEnemies = new UnityEvent();
+        public static readonly UnityEvent RegisterModdedEnemies = new UnityEvent();
+
+        /// <summary>
+        /// Helper function that registers custom chat command that are added by mods!
+        /// </summary>
+        /// <remarks>
+        /// This exists for the sole purpose 
+        /// of allowing modders a function to patch to that will guarantee two things:<br/>
+        /// 1. The ability to override the default chat commands as desired.<br/>
+        /// 2. A hook to safely register their modded chat commands.
+        /// </remarks>
+        public static readonly UnityEvent RegisterCustomChatCommands = new UnityEvent();
 
         public Dictionary<EnemyAI, INoiseListener> DictEnemyAINoiseListeners = new Dictionary<EnemyAI, INoiseListener>();
+
+        /// <summary>
+        /// Helper event that allows you to get the sent PFP for a bot<br/>
+        /// This is called right after a bot PFP is sent to the client.<br/>
+        /// WARNING: This will not be called if the client disables bot PFPs on their side
+        /// </summary>
+        /// <remarks>
+        /// The <see cref="SteamId"/> should belong to a bot.<br/>
+        /// The given <see cref="byte"/> array is the raw image data.<br/>
+        /// An already made <see cref="Texture2D"/> has been provided as well.<br/>
+        /// </remarks>
+        public readonly UnityEvent<SteamId, byte[], Texture2D> OnBotPFPRecevied = new UnityEvent<SteamId, byte[], Texture2D>();
+
+        /// <summary>
+        /// Helper event that is called when the manager is being despawned
+        /// </summary>
+        public readonly UnityEvent OnBotPFPManagerDestroyed = new UnityEvent();
 
         private LethalBotAI[] AllLethalBotAIs = null!; // new LethalBotAI[50] So far the largest size a modded lobby I have seen is 50, this will resize as needed to not waste memory!
         private List<int> AllBotPlayerIndexs = new List<int>();
@@ -272,7 +304,7 @@ namespace LethalBots.Managers
         public static List<GrabbableObject> grabbableObjectsInMap = new List<GrabbableObject>();
         private float timerUpdateLightsOnMap;
         private static List<Light> lightsOnMap = new List<Light>();
-        public static IReadOnlyList<Light> LightsOnMap => lightsOnMap;
+        public static IReadOnlyList<Light> LightsOnMap => lightsOnMap.AsReadOnly();
         private static float timerUpdateHoardingBugItems;
         internal static Dictionary<GrabbableObject, HoarderBugItem> DictHoardingBugItems = new Dictionary<GrabbableObject, HoarderBugItem>();
 
@@ -340,11 +372,16 @@ namespace LethalBots.Managers
 
         public override void OnNetworkSpawn()
         {
+            // Add our OnChanged hooks
             base.OnNetworkSpawn();
             blacklistedNetworkList.OnListChanged += OnBlacklistChanged;
             LootTransferPlayersNetworkList.OnListChanged += OnLootTransferPlayersChanged;
             missionControlPlayerNetworkVar.OnValueChanged += OnMissionControllerChanged;
 
+            // Register Custom Message RPC
+            NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(Const.LETHAL_BOTS_PROFILE_PICTURE_NET_MESSAGE, OnBotPFPReceived);
+
+            // Destory Duplicate Instances
             if (!base.NetworkManager.IsServer)
             {
                 if (Instance != null && Instance != this)
@@ -356,12 +393,167 @@ namespace LethalBots.Managers
             }
         }
 
+        #region Bot Profile Picture Helpers
+
+        /// <summary>
+        /// Helper function for use in our custom named message
+        /// </summary>
+        /// <param name="senderClientId"></param>
+        /// <param name="reader"></param>
+        private void OnBotPFPReceived(ulong senderClientId, FastBufferReader reader)
+        {
+            // Only the server can send Profile Pictures
+            if (senderClientId != NetworkManager.ServerClientId)
+            {
+                Plugin.LogWarning($"ALERT! Unauthorized user attempted to send FPF for a bot. Sender Client Id: {senderClientId}");
+                return;
+            }
+
+            // The client doesn't want bot PFPs
+            if (!Plugin.Config.AllowBotProfilePictures.Value)
+            {
+                return;
+            }
+
+            // Read PFP data
+            reader.ReadValueSafe(out ulong botSteamID);
+            reader.ReadValueSafe(out byte[] pfpData);
+            if (pfpData == null || pfpData.Length == 0)
+            {
+                Plugin.LogWarning($"Received empty PFP data for bot {botSteamID}.");
+                return;
+            }
+
+            // Create the texture
+            Texture2D texture = new Texture2D(2, 2);
+            if (!texture.LoadImage(pfpData))
+            {
+                Plugin.LogWarning($"Failed to decode PFP image for bot {botSteamID}.");
+                Object.Destroy(texture);
+                return;
+            }
+
+            // Force Unity to upload it to the GPU immediately.
+            texture.Apply();
+
+            // Call our OnBotPFPRecevied hook
+            OnBotPFPRecevied.Invoke(botSteamID, pfpData, texture);
+        }
+
+        /// <summary>
+        /// Requests a bot's profile picture using the given <paramref name="botSteamID"/>
+        /// </summary>
+        /// <param name="botSteamID"></param>
+        /// <param name="serverRpcParams"></param>
+        [ServerRpc(RequireOwnership = false)]
+        public void RequestBotProfilePictureServerRpc(ulong botSteamID, ServerRpcParams serverRpcParams = default)
+        {
+            // Find and send the bot's PFP back down to the client who requested it
+            LethalBotIdentity? lethalBotIdentity = IdentityManager.Instance.GetIdentityWithSteamID(botSteamID);
+            if (lethalBotIdentity != null)
+            {
+                // Find and send our custom image
+                SendBotProfilePictureAsync(serverRpcParams.Receive.SenderClientId, lethalBotIdentity);
+            }
+            else
+            {
+                Plugin.LogWarning($"Client {serverRpcParams.Receive.SenderClientId} asked for PFP for bot with SteamID: {botSteamID}, but given SteamID didn't belong to a bot.");
+            }
+        }
+
+        /// <summary>
+        /// Finds and sends a bot's FPF to the given <paramref name="targetClientId"/>
+        /// </summary>
+        /// <param name="targetClientId"></param>
+        /// <param name="identity"></param>
+        /// <returns></returns>
+        private async void SendBotProfilePictureAsync(ulong targetClientId, LethalBotIdentity identity)
+        {
+            // Read file asynchronously here.
+            byte[]? pfpData = null;
+
+            // Cache the Profile Picture file path, since LethalBotIdentity is NOT Thread Safe
+            string botProfilePicture = identity.PFPFilePath;
+            if (string.IsNullOrWhiteSpace(botProfilePicture) || botProfilePicture.Equals("None", StringComparison.OrdinalIgnoreCase))
+            {
+                Plugin.LogDebug("Skipping bot profile picture as its null or not set.");
+                return;
+            }
+
+            // Move to a worker thread
+            await Task.Run(async () =>
+            {
+                // Include custom added profile pictures from other mods
+                foreach (string pluginDir in Directory.GetDirectories(Paths.PluginPath))
+                {
+                    // Find the Profile Pictures folder
+                    string pluginPFPs = Path.Combine(pluginDir, Const.LETHAL_BOTS_PATH, Const.LETHAL_BOTS_PFP_PATH);
+                    if (Directory.Exists(pluginPFPs))
+                    {
+                        // Load all paths
+                        Plugin.LogDebug($"Searching for bot PFP in: {pluginPFPs}");
+                        string? file = Directory.EnumerateFiles(pluginPFPs, botProfilePicture, SearchOption.AllDirectories).FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(file))
+                        {
+                            pfpData = await File.ReadAllBytesAsync(file); // Get the data
+                            break;
+                        }
+                    }
+                }
+
+                // Check default profile pictures
+                if (pfpData == null)
+                {
+                    string defaultPFPs = Path.Combine(Plugin.DirectoryName, Const.LETHAL_BOTS_PFP_PATH);
+                    if (Directory.Exists(defaultPFPs))
+                    {
+                        // Load all paths
+                        Plugin.LogDebug($"Searching for bot PFP in: {defaultPFPs}");
+                        string? file = Directory.EnumerateFiles(defaultPFPs, botProfilePicture, SearchOption.AllDirectories).FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(file))
+                        {
+                            pfpData = await File.ReadAllBytesAsync(file); // Get the data
+                        }
+                    }
+                }
+            });
+
+            // Then send pfpData to client.
+            if (pfpData != null)
+            {
+                // The size varies based on the image being send, so we calculate the size here
+                int bufferSize = FastBufferWriter.GetWriteSize(identity.BotSteamID) + FastBufferWriter.GetWriteSize(pfpData);
+                using FastBufferWriter writer = new FastBufferWriter(bufferSize, Allocator.Temp);
+
+                // Write the data to be sent
+                writer.WriteValueSafe((ulong)identity.BotSteamID);
+                writer.WriteValueSafe(pfpData);
+
+                // Send our custom message
+                // NOTE: We send this fragmented since the size of some images may be larger than maximum RPC size
+                NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(Const.LETHAL_BOTS_PROFILE_PICTURE_NET_MESSAGE, targetClientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
+            }
+            else
+            {
+                Plugin.LogWarning($"Failed to find bot profile picture with name {identity.PFPFilePath}");
+            }
+        }
+
+        #endregion
+
         public override void OnNetworkDespawn()
         {
+            // Remove our OnChanged hooks
             base.OnNetworkDespawn();
             blacklistedNetworkList.OnListChanged -= OnBlacklistChanged;
             LootTransferPlayersNetworkList.OnListChanged -= OnLootTransferPlayersChanged;
             missionControlPlayerNetworkVar.OnValueChanged -= OnMissionControllerChanged;
+
+            // Remove Custom Message RPC
+            NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(Const.LETHAL_BOTS_PROFILE_PICTURE_NET_MESSAGE);
+
+            // Call OnBotPFPManagerDestroyed hook, so other hooks know to deregister themselves
+            OnBotPFPManagerDestroyed.Invoke();
 
             // Destory the ShipNavMesh as well!
             if (shipNavMeshInstance != null)
@@ -1114,8 +1306,16 @@ namespace LethalBots.Managers
 
             // Register chat commands
             RegisterDefaultCommands();
+            #pragma warning disable CS0618 // Type or member is obsolete
             RegisterCustomCommands();
-            RegisterVoiceCommands();
+            #pragma warning restore CS0618 // Type or member is obsolete
+            RegisterCustomChatCommands.Invoke();
+
+            // Don't run this if Speech Recognition mod isn't loaded
+            if (Plugin.IsModSpeechRecognitionAPILoaded)
+            {
+                RegisterVoiceCommands();
+            }
         }
 
         private void Update()
@@ -1181,7 +1381,7 @@ namespace LethalBots.Managers
                                         // Kick the bot from the server
                                         // NEEDTOVALIDATE: Should I just have the bot, "disconnect," instead?
                                         Plugin.LogDebug($"[LethalBotManager] Kicking bot {lethalBotController.playerUsername}. Player quota exceeded!");
-                                        StartOfRound.Instance.KickPlayer((int)lethalBotController.playerClientId);
+                                        instanceSOR.KickPlayer((int)lethalBotController.playerClientId);
                                         break; // Only kick one bot per quota update
                                     }
                                 }
@@ -1209,7 +1409,7 @@ namespace LethalBots.Managers
                             }
                             else
                             {
-                                Plugin.LogWarning("No available player objects to spawn any more lethal bots!");
+                                Plugin.LogDebug("[WARNING] No available player objects to spawn any more lethal bots!");
                             }
                         }
                     }
@@ -1217,7 +1417,9 @@ namespace LethalBots.Managers
                 // If we are not in orbit, keep reseting the quota timer
                 else
                 {
-                    maintainQuotaTimer.Start(1.0f); // Check every second
+                    // If the host has spawned, check every second, otherwise check every 5 seconds
+                    float delayQuotaCheck = instanceSOR.hasHostSpawned ? 1.0f : 5.0f;
+                    maintainQuotaTimer.Start(delayQuotaCheck);
                 }
             }
 
@@ -2003,7 +2205,7 @@ namespace LethalBots.Managers
             lethalBotController.disconnectedMidGame = false;
             lethalBotController.isPlayerControlled = true;
             lethalBotController.transform.localScale = Vector3.one;
-            lethalBotController.playerSteamId = 0ul; // Set SteamId to 0 since the game code considers that invalid
+            lethalBotController.playerSteamId = lethalBotIdentity.BotSteamID; // Set SteamId to the fake id assigned to the bot
             lethalBotController.playerClientId = (ulong)spawnParamsNetworkSerializable.IndexNextPlayerObject;
             lethalBotController.actualClientId = lethalBotController.playerClientId + Const.LETHAL_BOT_ACTUAL_ID_OFFSET;
             lethalBotController.isInElevator = true;
@@ -2150,22 +2352,13 @@ namespace LethalBots.Managers
             // NOTE: Funnily enough, this doesn't actually add an entry to the list, but rather just updated the slot for that player index!
             // This means we don't have to worry about duplicates or anything!
             // Bots will automatically "disconnect" when they are despawned since the player slot is freed up!
-            lethalBotController.quickMenuManager.AddUserToPlayerList(0ul, lethalBotController.playerUsername, (int)lethalBotController.playerClientId);
+            lethalBotController.quickMenuManager.AddUserToPlayerList(lethalBotIdentity.BotSteamID, lethalBotController.playerUsername, (int)lethalBotController.playerClientId);
 
             // Change voice volume to what is set in the identiy file!
             // HACKHACK: MoreCompany for some reason sets the voicevolume to whatever the default is which is 1f, making the bots WAY too loud!
             lethalBotController.quickMenuManager.playerListSlots[lethalBotController.playerClientId].volumeSlider.normalizedValue = lethalBotAI.LethalBotIdentity.Voice.Volume;
 
-            // Radar name update
-            //foreach (var radarTarget in instance.mapScreen.radarTargets)
-            //{
-            //    if (radarTarget != null
-            //        && radarTarget.transform == lethalBotController.transform)
-            //    {
-            //        radarTarget.name = lethalBotController.playerUsername;
-            //        break;
-            //    }
-            //}
+            // Mod Support
             if (Plugin.IsModGeneralImprovementsLoaded)
             {
                 // Update scan nodes now that we have the Steam names
@@ -2187,7 +2380,20 @@ namespace LethalBots.Managers
 
             // Direct access to avoid looping
             // Exactly how the game does it in PlayerControllerB.SendNewPlayerValuesClientRpc!
-            instance.mapScreen.radarTargets[(int)lethalBotController.playerClientId].name = lethalBotController.playerUsername;
+            //instance.mapScreen.radarTargets[(int)lethalBotController.playerClientId].name = lethalBotController.playerUsername;
+
+            // Radar name update
+            List<TransformAndName> radarTargets = instance.mapScreen.radarTargets;
+            for (int i = 0; i < radarTargets.Count; i++)
+            {
+                TransformAndName? radarTarget = radarTargets[i];
+                if (radarTarget != null
+                    && radarTarget.transform == lethalBotController.transform)
+                {
+                    radarTarget.name = lethalBotController.playerUsername;
+                    break;
+                }
+            }
 
             // If the bot was revived, we need to update the spectator boxes to reflect this!
             if (GameNetworkManager.Instance.localPlayerController.isPlayerDead)
@@ -2494,7 +2700,7 @@ namespace LethalBots.Managers
                 lethalBotController.DropAllHeldItems(itemsFall: true, disconnecting: true);
 
                 // Mark the status as recently used so they are spawned in again!
-                lethalBotAI.LethalBotIdentity.Status = EnumStatusIdentity.ToSpawn;
+                lethalBotAI.LethalBotIdentity.Status = Plugin.Config.PreserveKickedBots.Value ? EnumStatusIdentity.ToSpawn : EnumStatusIdentity.Available;
                 lethalBotAI.LethalBotIdentity.DiedLastRound = true;
                 lethalBotAI.LethalBotIdentity.JustJoinedServer = true; // We were kicked, if we "rejoin" we want the join message!
                 if (lethalBotAI.State != null
@@ -2601,6 +2807,10 @@ namespace LethalBots.Managers
                 {
                     RoundManager.Instance.playersFinishedGeneratingFloor.Remove(clientId);
                 }
+
+                // Reset voice pitch
+                SoundManager.Instance.playerVoicePitchTargets[lethalBotController.playerClientId] = 1f;
+                SoundManager.Instance.playerVoicePitchLerpSpeed[lethalBotController.playerClientId] = 3f;
 
                 // Set the name back to the default for LAN players
                 if (GameNetworkManager.Instance.disableSteam)
@@ -2710,7 +2920,7 @@ namespace LethalBots.Managers
         /// Checks if the given number of <paramref name="connectedPlayersAmount"/> and <paramref name="connectedBotAmount"/> are greater than the given <paramref name="desiredQuotaAmount"/>
         /// </summary>
         /// <returns></returns>
-        private bool AreTooFewBots(int connectedPlayersAmount, int connectedBotAmount, int desiredQuotaAmount)
+        private static bool AreTooFewBots(int connectedPlayersAmount, int connectedBotAmount, int desiredQuotaAmount)
         {
             switch (Plugin.Config.QuotaType.Value)
             {
@@ -2726,7 +2936,7 @@ namespace LethalBots.Managers
         /// Checks if the given number of <paramref name="connectedPlayersAmount"/> and <paramref name="connectedBotAmount"/> are less than the given <paramref name="desiredQuotaAmount"/>
         /// </summary>
         /// <returns></returns>
-        private bool AreTooManyBots(int connectedPlayersAmount, int connectedBotAmount, int desiredQuotaAmount)
+        private static bool AreTooManyBots(int connectedPlayersAmount, int connectedBotAmount, int desiredQuotaAmount)
         {
             switch (Plugin.Config.QuotaType.Value)
             {
@@ -2808,7 +3018,10 @@ namespace LethalBots.Managers
                     // Lets the host have bots join the game
                     if (HostPlayerScript != playerWhoSentMessage)
                     {
-                        HUDManager.Instance.AddTextToChatOnServer("Only the host can add bots!");
+                        if (IsPlayerLocal(playerWhoSentMessage))
+                        {
+                            HUDManager.Instance.AddChatMessage("Only the host can add bots!", dontRepeat: true);
+                        }
                         return;
                     }
 
@@ -2818,10 +3031,10 @@ namespace LethalBots.Managers
                         EnableShipNavMesh(reason: "Bots spawning in orbit!");
                         SpawnLethalBotsAtShip(markBotsAsLoaded: true);
                     }
-                    else
+                    else if (IsPlayerLocal(playerWhoSentMessage))
                     {
                         string failMessage = Plugin.Config.AllowBotsInOrbit.Value ? "You can only manually add bots in orbit!" : "You have disabled bots in orbit!";
-                        HUDManager.Instance.AddTextToChatOnServer(failMessage);
+                        HUDManager.Instance.AddChatMessage(failMessage, dontRepeat: true);
                     }
                     return;
                 }
@@ -2839,7 +3052,7 @@ namespace LethalBots.Managers
                             if (message.Contains("all"))
                             {
                                 // Register all items with the same internal name as the held item as blacklisted!
-                                List<NetworkObjectReference> itemsToBlacklist = new List<NetworkObjectReference>();
+                                HashSet<NetworkObjectReference> itemsToBlacklist = new HashSet<NetworkObjectReference>();
                                 string itemName = heldItem.itemProperties.itemName;
                                 foreach (var gameObject in grabbableObjectsInMap)
                                 {
@@ -2880,7 +3093,7 @@ namespace LethalBots.Managers
                             if (message.Contains("all"))
                             {
                                 // Register all items with the same internal name as the held item as blacklisted!
-                                List<NetworkObjectReference> itemsToBlacklist = new List<NetworkObjectReference>();
+                                HashSet<NetworkObjectReference> itemsToBlacklist = new HashSet<NetworkObjectReference>();
                                 string itemName = heldItem.itemProperties.itemName;
                                 foreach (var gameObject in grabbableObjectsInMap)
                                 {
@@ -2925,6 +3138,10 @@ namespace LethalBots.Managers
                         GroupManager.Instance.RemoveFromCurrentGroupAndSync(playerWhoSentMessage);
                     }
                     return;
+                }
+                else if (message.Contains("drive here"))
+                {
+                    UseCruiserState.targetCruiserPosition = playerWhoSentMessage.transform.position;
                 }
                 //else if (message.Contains("get navarea"))
                 //{
@@ -3251,6 +3468,9 @@ namespace LethalBots.Managers
             // Panik state
             PanikState.RegisterChatCommands();
 
+            // Use Cruiser state
+            UseCruiserState.RegisterChatCommands();
+
             // *******************************************************************************
             // We go ahead and create the default signal translator commands for every state!
             // *******************************************************************************
@@ -3276,7 +3496,7 @@ namespace LethalBots.Managers
             GetCloseToPlayerState.RegisterSignalTranslatorCommands();
 
             // Player in Cruiser state
-            PlayerInCruiserState.RegisterSignalTranslatorCommands();
+            UseCruiserState.RegisterSignalTranslatorCommands();
 
             // Just Lost Player state
             JustLostPlayerState.RegisterSignalTranslatorCommands();
@@ -3303,6 +3523,7 @@ namespace LethalBots.Managers
         /// 1. The ability to override the default chat commands as desired.<br/>
         /// 2. A hook to safely register their modded chat commands.
         /// </remarks>
+        [Obsolete("This function is no longer used. Use the hook RegisterCustomChatCommands instead.")]
         private static void RegisterCustomCommands()
         {
             // We do nothing here, by default.......
@@ -4237,13 +4458,13 @@ namespace LethalBots.Managers
         public static bool IsValidPathToEntrance(Vector3 startPosition, Vector3 entrancePosition, int areaMask, ref NavMeshPath path, EntranceTeleport targetEntrance)
         {
             // Check if we can path to the entrance!
-            if (!LethalBotAI.IsValidPathToTarget(startPosition, entrancePosition, areaMask, ref path, false, out _))
+            if (!NavMeshUtil.IsValidPathToTarget(startPosition, entrancePosition, areaMask, ref path, out _, calculatePathDistance: false))
             {
                 // Check if this is the front entrance if we need to use an elevator
                 if (AIState.IsFrontEntrance(targetEntrance) && !targetEntrance.isEntranceToBuilding && LethalBotAI.ElevatorScript != null)
                 {
                     // Check if we can path to the bottom of the elevator
-                    if (LethalBotAI.IsValidPathToTarget(startPosition, LethalBotAI.ElevatorScript.elevatorBottomPoint.position, areaMask, ref path, false, out _))
+                    if (NavMeshUtil.IsValidPathToTarget(startPosition, LethalBotAI.ElevatorScript.elevatorBottomPoint.position, areaMask, ref path, out _, calculatePathDistance: false))
                     {
                         return true;
                     }
@@ -4423,7 +4644,7 @@ namespace LethalBots.Managers
         /// <param name="player"><c>PlayerControllerB</c> </param>
         /// <returns><c>LethalBotAI</c> if the <c>PlayerControllerB</c> has an <c>LethalBotAI</c> associated and the local client is the owner, 
         /// else returns null</returns>
-        public LethalBotAI? GetLethalBotAIIfLocalIsOwner(PlayerControllerB player)
+        public LethalBotAI? GetLethalBotAIIfLocalIsOwner(PlayerControllerB? player)
         {
             LethalBotAI? lethalBotAI = GetLethalBotAI(player);
             if (lethalBotAI != null
@@ -4442,8 +4663,9 @@ namespace LethalBots.Managers
         /// <returns><c>LethalBotAI</c> if holding the <c>GrabbableObject</c>, else returns null</returns>
         public LethalBotAI? GetLethalBotAiOwnerOfObject(GrabbableObject grabbableObject)
         {
-            foreach (var lethalBotAI in AllLethalBotAIs)
+            for (int i = 0; i < AllLethalBotAIs.Length; i++)
             {
+                LethalBotAI? lethalBotAI = AllLethalBotAIs[i];
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
                     || lethalBotAI.isEnemyDead
@@ -4468,11 +4690,10 @@ namespace LethalBots.Managers
         /// a <c>PlayerControllerB</c> that has <c>LethalBotAI</c>
         /// </summary>
         /// <returns><c>true</c> if <c>PlayerControllerB</c> has <c>LethalBotAI</c>, else <c>false</c></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPlayerLethalBot(PlayerControllerB? player)
         {
-            if (player == null) return false;
-            LethalBotAI? lethalBotAI = GetLethalBotAI(player);
-            return lethalBotAI != null;
+            return GetLethalBotAI(player) != null;
         }
 
         /// <summary>
@@ -4481,10 +4702,23 @@ namespace LethalBots.Managers
         /// </summary>
         /// <param name="id"><c>PlayerControllerB.playerClientId</c></param>
         /// <returns><c>true</c> if <c>PlayerControllerB</c> has <c>LethalBotAI</c>, else <c>false</c></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPlayerLethalBot(int id)
         {
-            LethalBotAI? lethalBotAI = GetLethalBotAI(id);
-            return lethalBotAI != null;
+            return GetLethalBotAI(id) != null;
+        }
+
+        /// <summary>
+        /// Is the given <paramref name="steamId"/> belong to a bot
+        /// </summary>
+        /// <remarks>
+        /// If you need the <see cref="LethalBotIdentity"/> associated with a bot, use <see cref="IdentityManager.GetIdentityWithSteamID(SteamId)"/>
+        /// </remarks>
+        /// <param name="steamId">A steam id</param>
+        /// <returns>If the given <paramref name="steamId"/> belongs to a bot</returns>
+        public bool IsSteamIdBot(SteamId steamId)
+        {
+            return IdentityManager.Instance.GetIdentityWithSteamID(steamId) != null;
         }
 
         /// <summary>
@@ -4579,7 +4813,7 @@ namespace LethalBots.Managers
         /// </remarks>
         /// <param name="player"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsPlayerLocal(PlayerControllerB player)
+        internal static bool IsPlayerLocal([NotNullWhen(true)] PlayerControllerB? player)
         {
             return player != null && player == GameNetworkManager.Instance.localPlayerController;
         }
@@ -5444,16 +5678,6 @@ namespace LethalBots.Managers
         private void SyncEndOfRoundLethalBotsFromServerToClientRpc(bool preRevive = false)
         {
             EndOfRoundForLethalBots(preRevive);
-        }
-
-        #endregion
-
-        #region Vehicle landing on map RPC
-
-        public void VehicleHasLanded()
-        {
-            VehicleController = Object.FindObjectOfType<VehicleController>();
-            Plugin.LogDebug($"Vehicle has landed : {VehicleController}");
         }
 
         #endregion

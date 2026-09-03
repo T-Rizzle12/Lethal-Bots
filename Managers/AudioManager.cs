@@ -1,5 +1,6 @@
 ﻿using BepInEx;
 using LethalBots.AI;
+using LethalBots.Constants;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -19,9 +20,11 @@ namespace LethalBots.Managers
 
         public Dictionary<string, AudioClip?> DictAudioClipsByPath = new Dictionary<string, AudioClip?>();
 
-        private const string lethalBotsPath = "LethalBots\\";
+        private const string AudioDirectory = "Audio";
+        private const string VoicesDirectory = "Voices";
 
-        private const string voicesPath = "Audio\\Voices\\";
+        private static readonly string voicesPath = Path.Combine(AudioDirectory, VoicesDirectory);
+
 
         // Supported audio extentions
         // Only supports what UnityWebRequestMultimedia.GetAudioClip supports
@@ -70,7 +73,7 @@ namespace LethalBots.Managers
             foreach (string pluginDir in Directory.GetDirectories(Paths.PluginPath))
             {
                 // Find the pluginVoices folder
-                string pluginVoices = Path.Combine(pluginDir, lethalBotsPath, voicesPath);
+                string pluginVoices = Path.Combine(pluginDir, Const.LETHAL_BOTS_PATH, voicesPath);
                 if (Directory.Exists(pluginVoices))
                 {
                     // Load all paths
@@ -184,14 +187,17 @@ namespace LethalBots.Managers
                 yield return www.SendWebRequest();
 
                 Plugin.LogDebug($"Loading audio file at {www.uri}");
-                if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
+                UnityWebRequest.Result result = www.result;
+                if (result == UnityWebRequest.Result.ConnectionError 
+                    || result == UnityWebRequest.Result.ProtocolError 
+                    || result == UnityWebRequest.Result.DataProcessingError)
                 {
                     lethalBotVoice.ResetAboutToTalk();
                     Plugin.LogError($"Error while loading audio file at {uri} : {www.error} \n SanitizedUri: {sanitizedUri}");
                 }
                 else
                 {
-                    Plugin.LogInfo($"Loaded audio file at {uri} \n SanitizedUri: {sanitizedUri}");
+                    Plugin.LogDebug($"Loaded audio file at {uri} \n SanitizedUri: {sanitizedUri}");
                     AudioClip audioClip = DownloadHandlerAudioClip.GetContent(www);
                     AddAudioClip(uri, audioClip);
 
@@ -229,13 +235,11 @@ namespace LethalBots.Managers
 
         private void AddAudioClip(string path, AudioClip audioClip)
         {
-            if (DictAudioClipsByPath == null)
-            {
-                DictAudioClipsByPath = new Dictionary<string, AudioClip?>();
-            }
+            DictAudioClipsByPath ??= new Dictionary<string, AudioClip?>();
 
             if (DictAudioClipsByPath.ContainsKey(path))
             {
+                Plugin.LogWarning($"A path of the same has already been added, path {path}. Overwriting!");
                 DictAudioClipsByPath[path] = audioClip;
             }
             else

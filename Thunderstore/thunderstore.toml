@@ -39,6 +39,10 @@ source = "../UnityProject/AssetBundles/StandaloneWindows/ship_orbit_navmesh"
 target = "plugins/TRizzle-LethalBot/"
 
 [[build.copy]]
+source = "../Assets/Profile-Pictures/Mathew-Kelly-ID-pic.png"
+target = "plugins/TRizzle-LethalBot/Profile-Pictures/"
+
+[[build.copy]]
 source = "./CHANGELOG.md"
 target = "/"
 

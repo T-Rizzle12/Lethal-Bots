@@ -32,6 +32,8 @@ namespace LethalBots.Configs
 
         // Identity  
         [SyncedEntryField] public SyncedEntry<bool> SpawnIdentitiesRandomly;
+        [SyncedEntryField] public SyncedEntry<bool> PreserveKickedBots;
+        public ConfigEntry<bool> AllowBotProfilePictures;
         [SyncedEntryField] public SyncedEntry<bool> ResetIdentitiesWhenFired;
         public ConfigEntry<bool> ResetIdentities;
 
@@ -78,6 +80,9 @@ namespace LethalBots.Configs
         // Mod Related Settings
         [SyncedEntryField] public SyncedEntry<bool> AllowRandomCalling;
 
+        // Experimental
+        [SyncedEntryField] public SyncedEntry<bool> AllowDrivingCruiser;
+
         // Config identities
         public ConfigIdentities ConfigIdentities;
         public ConfigLoadouts ConfigLoadouts;
@@ -119,6 +124,16 @@ namespace LethalBots.Configs
                                               "Randomness of identities",
                                               defaultVal: false,
                                               "Spawn the bot with random identities from the file rather than in order?");
+
+            PreserveKickedBots = cfg.BindSyncedEntry(ConfigConst.ConfigSectionIdentities,
+                                               "Preserve Kicked Bots",
+                                               defaultVal: true,
+                                               "When a bot is kicked from the game, should it be marked for auto rejoin? This only does something if SpawnIdentitiesRandomly is set to true.");
+
+            AllowBotProfilePictures = cfg.Bind(ConfigConst.ConfigSectionIdentities, 
+                                               "Allow Bot Profile Pictures (Client only)",
+                                               defaultValue: true,
+                                               "Is the server allowed to send you custom profile pictures for the bots?");
 
             ResetIdentitiesWhenFired = cfg.BindSyncedEntry(ConfigConst.ConfigSectionIdentities,
                                                 "Reset identities when fired",
@@ -309,6 +324,12 @@ namespace LethalBots.Configs
                                                     "Allow Random Calling", 
                                                     defaultVal: true, 
                                                     "[Lethal Phones] Are bots allowed to use their phones to randomly call players while they are searching for scrap?");
+
+            // Experimental
+            AllowDrivingCruiser = cfg.BindSyncedEntry(ConfigConst.ConfigSectionExperimental,
+                                      "Allow Driving Cruiser",
+                                      defaultVal: false,
+                                      "Should bots be allowed to drive the cruiser code? VERY EXPERIMENTAL AND UNFINISHED!");
 
             ClearUnusedEntries(cfg);
             cfg.SaveOnConfigSet = true;

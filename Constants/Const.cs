@@ -40,6 +40,13 @@ namespace LethalBots.Constants
 
         public const string ADDITIONALNETWORKING_DLLFILENAME = "AdditionalNetworking_Preloader.dll";
 
+        // Named Network Message Strings
+        public const string LETHAL_BOTS_PROFILE_PICTURE_NET_MESSAGE = "LethalBots.SendBotPFP";
+
+        // Important File Paths
+        public const string LETHAL_BOTS_PATH = "LethalBots";
+        public const string LETHAL_BOTS_PFP_PATH = "Profile-Pictures";
+
         public const float EPSILON = 0.01f; // NOTE: This is different from float.Epsilon!
         public const bool DISABLE_ORIGINAL_GAME_DEBUG_LOGS = false;
         public const ulong LETHAL_BOT_ACTUAL_ID_OFFSET = 200000ul; // Was 100000ul, but changed to not conflict with LethalInternship
@@ -115,7 +122,7 @@ namespace LethalBots.Constants
 
         public const string PLAYER_ANIMATION_TRIGGER_THROW = "Throw";
         public const string PLAYER_ANIMATION_TRIGGER_DAMAGE = "Damage";
-        public const string PLAYER_ANINATION_TRIGGER_TERMINAL = "Terminal";
+        public const string PLAYER_ANINATION_TRIGGER_TERMINAL = "SA_Typing";
         public const string PLAYER_ANIMATION_TRIGGER_SHORTFALLLANDING = "ShortFallLanding";
         public const string PLAYER_ANIMATION_TRIGGER_ENTERLADDER = "EnterLadder";
 
@@ -305,8 +312,8 @@ namespace LethalBots.Constants
 
         // Tips
         public const string TOOLTIP_DROP_ITEM = "Drop your item : [{0}]";
-        public const string TOOLTIP_FOLLOW_ME = "Follow me: [{0}]";
-        public const string TOOLTIP_LEAD_THE_WAY = "Lead the way: [{0}]";
+        public const string TOOLTIP_FOLLOW_ME = "Follow me : [{0}]";
+        public const string TOOLTIP_LEAD_THE_WAY = "Lead the way : [{0}]";
         public const string TOOLTIP_CHANGE_SUIT_BOTS = "Change suit : [{0}]";
         public const string TOOLTIP_MAKE_BOT_LOOK = "Make bots look : [{0}]";
         public const string TOOLTIPS_ORDER_1 = "order 1 : [{0}]";

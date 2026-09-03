@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Audio;
-using static UnityEngine.InputForUI.EventModifiers;
 
 namespace LethalBots.Patches.ModPatches.LethalPhones
 {

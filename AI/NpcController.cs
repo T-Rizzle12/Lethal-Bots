@@ -7,6 +7,7 @@ using LethalBots.NetworkSerializers;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using LethalBots.Utils.Helpers.VehicleHelpers;
 using LethalInternship.AI;
 using ModelReplacement;
 using System;
@@ -31,7 +32,6 @@ namespace LethalBots.AI
     {
         public PlayerControllerB Npc { get; set; } = null!;
 
-        // TODO: Create patches to PlayerPhysicsRegion to make them work with the bots
         public List<PlayerPhysicsRegion> CurrentLethalBotPhysicsRegions = new List<PlayerPhysicsRegion>();
 
         public bool HasToMove { private set; get; }
@@ -67,11 +67,7 @@ namespace LethalBots.AI
             }
         }
 
-        private int movementHinderedPrev;
-        private float sprintMultiplier = 1f;
         public bool WaitForFullStamina { get; private set; }
-        //private float slopeModifier; // ignore for now
-        private Vector3 walkForce;
 
         private Dictionary<string, bool> dictAnimationBoolPerItem = null!;
 
@@ -84,9 +80,11 @@ namespace LethalBots.AI
         private LookAtTarget oldLookAtTarget = new LookAtTarget();
         public LookAtTarget LookAtTarget { private set; get; } = new LookAtTarget();
 
+        public VehicleInputHelper vehicleInput = new VehicleInputHelper();
         public Vector2 lastMoveVector;
         private float floatSprint;
         internal bool goDownLadder;
+        internal Vector3? ladderEndpoint;
 
         private int[] animationHashLayers = null!;
         private List<int> currentAnimationStateHash = null!;
@@ -238,6 +236,10 @@ namespace LethalBots.AI
                 {
                     // Update movement when using ladder
                     UpdateMoveWhenClimbingLadder();
+                }
+                if (lethalBotController.inVehicleAnimation && (lethalBotController.externalForces + lethalBotController.externalForceAutoFade).sqrMagnitude > 50f * 50f)
+                {
+                    lethalBotController.CancelSpecialTriggerAnimations();
                 }
                 lethalBotController.teleportingThisFrame = false;
 
@@ -470,7 +472,7 @@ namespace LethalBots.AI
                     StopAnimations();
                 }
                 else if (floatSprint > 0.3f
-                            && movementHinderedPrev <= 0
+                            && lethalBotController.movementHinderedPrev <= 0
                             && !lethalBotController.criticallyInjured
                             && lethalBotController.sprintMeter > 0.1f)
                 {
@@ -507,11 +509,11 @@ namespace LethalBots.AI
 
                 if (lethalBotController.isSprinting)
                 {
-                    sprintMultiplier = Mathf.Lerp(sprintMultiplier, 2.25f, Time.deltaTime * 1f);
+                    lethalBotController.sprintMultiplier = Mathf.Lerp(lethalBotController.sprintMultiplier, 2.25f, Time.deltaTime * 1f);
                 }
                 else
                 {
-                    sprintMultiplier = Mathf.Lerp(sprintMultiplier, 1f, 10f * Time.deltaTime);
+                    lethalBotController.sprintMultiplier = Mathf.Lerp(lethalBotController.sprintMultiplier, 1f, 10f * Time.deltaTime);
                 }
 
                 if (lethalBotController.moveInputVector.y < 0.2f && lethalBotController.moveInputVector.y > -0.2f && !lethalBotController.inSpecialInteractAnimation)
@@ -528,13 +530,13 @@ namespace LethalBots.AI
                 }
                 else if (lethalBotController.moveInputVector.y < 0.5f && lethalBotController.moveInputVector.x < 0.5f)
                 {
-                    //lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, -1f * Mathf.Clamp(slopeModifier + 1f, 0.7f, 1.4f));
-                    lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, -1f);
+                    lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, -1f * Mathf.Clamp(lethalBotController.slopeModifier + 1f, 0.7f, 1.4f));
+                    //lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, -1f);
                 }
                 else
                 {
-                    //lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f * Mathf.Clamp(slopeModifier + 1f, 0.7f, 1.4f));
-                    lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f);
+                    lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f * Mathf.Clamp(lethalBotController.slopeModifier + 1f, 0.7f, 1.4f));
+                    //lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, 1f);
                 }
             }
             else
@@ -732,7 +734,7 @@ namespace LethalBots.AI
                 {
                     num3 *= 15f;
                 }
-                if (movementHinderedPrev > 0)
+                if (lethalBotController.movementHinderedPrev > 0)
                 {
                     num3 /= 2f * lethalBotController.hinderedMultiplier;
                 }
@@ -747,6 +749,19 @@ namespace LethalBots.AI
                 if (!lethalBotController.isCrouching && lethalBotController.crouchMeter > 1.2f)
                 {
                     num3 *= 0.5f;
+                }
+                if (!lethalBotController.isCrouching)
+                {
+                    float num4 = Vector3.Dot(lethalBotController.playerGroundNormal, lethalBotController.walkForce);
+                    if (num4 > 0.05f)
+                    {
+                        lethalBotController.slopeModifier = Mathf.MoveTowards(lethalBotController.slopeModifier, num4, (lethalBotController.slopeModifierSpeed + 0.45f) * Time.deltaTime);
+                    }
+                    else
+                    {
+                        lethalBotController.slopeModifier = Mathf.MoveTowards(lethalBotController.slopeModifier, num4, lethalBotController.slopeModifierSpeed / 2f * Time.deltaTime);
+                    }
+                    num3 = Mathf.Max(num3 * 0.8f, num3 + lethalBotController.slopeIntensity * lethalBotController.slopeModifier);
                 }
             }
             if (lethalBotController.isTypingChat || lethalBotController.disableMoveInput || lethalBotController.jetpackControls && !IsTouchingGround || instanceSOR.suckingPlayersOutOfShip)
@@ -779,8 +794,8 @@ namespace LethalBots.AI
             {
                 num7 = 10f / lethalBotController.carryWeight;
             }
-            walkForce = Vector3.MoveTowards(walkForce, lethalBotController.transform.right * lethalBotController.moveInputVector.x + lethalBotController.transform.forward * lethalBotController.moveInputVector.y, num7 * Time.deltaTime);
-            Vector3 vector2 = walkForce * num3 * sprintMultiplier + new Vector3(0f, lethalBotController.fallValue, 0f) + NearEntitiesPushVector;
+            lethalBotController.walkForce = Vector3.MoveTowards(lethalBotController.walkForce, lethalBotController.transform.right * lethalBotController.moveInputVector.x + lethalBotController.transform.forward * lethalBotController.moveInputVector.y, num7 * Time.deltaTime);
+            Vector3 vector2 = lethalBotController.walkForce * num3 * lethalBotController.sprintMultiplier + new Vector3(0f, lethalBotController.fallValue, 0f) + NearEntitiesPushVector;
             vector2 += lethalBotController.externalForces;
             if (lethalBotController.externalForceAutoFade.sqrMagnitude > 0.05f * 0.05f)
             {
@@ -851,7 +866,7 @@ namespace LethalBots.AI
             }
             else
             {
-                movementHinderedPrev = lethalBotController.isMovementHindered;
+                lethalBotController.movementHinderedPrev = lethalBotController.isMovementHindered;
                 if (!lethalBotController.isJumping)
                 {
                     if (lethalBotController.isFallingNoJump)
@@ -864,11 +879,11 @@ namespace LethalBots.AI
                         //Plugin.LogDebug($"{lethalBotController.playerUsername} JustTouchedGround fallValue {lethalBotController.fallValue}");
                         lethalBotController.PlayerHitGroundEffects();
                     }
-                    //if (!IsFallingFromJump)
-                    //{
-                    //    lethalBotController.fallValue = -7f - Mathf.Clamp(12f * slopeModifier, 0f, 100f);
-                    //    lethalBotController.fallValueUncapped = -7f - Mathf.Clamp(12f * slopeModifier, 0f, 100f);
-                    //}
+                    if (!lethalBotController.isFallingFromJump)
+                    {
+                        lethalBotController.fallValue = -7f - Mathf.Clamp(12f * lethalBotController.slopeModifier, 0f, 100f);
+                        lethalBotController.fallValueUncapped = -7f - Mathf.Clamp(12f * lethalBotController.slopeModifier, 0f, 100f);
+                    }
                 }
                 lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_FALLNOJUMP, false);
             }
@@ -1060,7 +1075,7 @@ namespace LethalBots.AI
 
                 // If animation
                 // Update animation if current != previous
-                this.currentAnimationSpeed = lethalBotController.playerBodyAnimator.GetFloat("animationSpeed");
+                this.currentAnimationSpeed = lethalBotController.playerBodyAnimator.GetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED);
                 for (int i = 0; i < animationsStateHash.Length; i++)
                 {
                     this.currentAnimationStateHash[i] = animationsStateHash[i];
@@ -1248,6 +1263,22 @@ namespace LethalBots.AI
                 lethalBotController.cameraLookRig1.weight = 0.45f;
                 lethalBotController.cameraLookRig2.weight = 1f;
             }
+            if (lethalBotController.inVehicleAnimation)
+            {
+                lethalBotController.cameraLookRig1.weight = 0.33f;
+                lethalBotController.cameraLookRig2.weight = 1f;
+                lethalBotController.leftArmRigSecondary.weight = 1f;
+                lethalBotController.rightArmRigSecondary.weight = 1f;
+                lethalBotController.leftArmRig.weight = 0f;
+                lethalBotController.rightArmRig.weight = 0f;
+            }
+            else
+            {
+                lethalBotController.leftArmRigSecondary.weight = 0f;
+                lethalBotController.rightArmRigSecondary.weight = 0f;
+                lethalBotController.leftArmRig.weight = 1f;
+                lethalBotController.rightArmRig.weight = 1f;
+            }
             if (lethalBotController.isExhausted)
             {
                 this.exhaustionEffectLerp = Mathf.Lerp(this.exhaustionEffectLerp, 1f, 10f * Time.deltaTime);
@@ -1390,7 +1421,7 @@ namespace LethalBots.AI
             if (lethalBotController.inSpecialInteractAnimation || this.updatePlayerAnimationsInterval > 0.14f)
             {
                 this.updatePlayerAnimationsInterval = 0f;
-                this.currentAnimationSpeed = lethalBotController.playerBodyAnimator.GetFloat("animationSpeed");
+                this.currentAnimationSpeed = lethalBotController.playerBodyAnimator.GetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED);
                 for (int i = 0; i < animationsStateHash.Length; i++)
                 {
                     this.currentAnimationStateHash[i] = animationsStateHash[i];
@@ -1414,9 +1445,9 @@ namespace LethalBots.AI
         public void ApplyUpdateLethalBotAnimationsNotOwner(int animationState, float animationSpeed)
         {
             PlayerControllerB lethalBotController = Npc;
-            if (lethalBotController.playerBodyAnimator.GetFloat("animationSpeed") != animationSpeed)
+            if (lethalBotController.playerBodyAnimator.GetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED) != animationSpeed)
             {
-                lethalBotController.playerBodyAnimator.SetFloat("animationSpeed", animationSpeed);
+                lethalBotController.playerBodyAnimator.SetFloat(Const.PLAYER_ANIMATION_FLOAT_ANIMATIONSPEED, animationSpeed);
             }
 
             if (animationState != 0 && lethalBotController.playerBodyAnimator.GetCurrentAnimatorStateInfo(0).fullPathHash != animationState)
@@ -1441,42 +1472,6 @@ namespace LethalBots.AI
             lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_WALKING, false);
             lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SPRINTING, false);
             lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_SIDEWAYS, false);
-        }
-
-        public void PlayFootstep(bool isServer)
-        {
-            PlayerControllerB lethalBotController = Npc;
-            if (lethalBotController.isClimbingLadder 
-                || lethalBotController.inSpecialInteractAnimation 
-                || lethalBotController.isCrouching)
-            {
-                return;
-            }
-
-            if ((isServer && !LethalBotAIController.IsOwner && lethalBotController.isPlayerControlled)
-                || (!isServer && LethalBotAIController.IsOwner && lethalBotController.isPlayerControlled))
-            {
-                bool noiseIsInsideClosedShip = lethalBotController.isInHangarShipRoom && lethalBotController.playersManager.hangarDoorsClosed;
-                if (lethalBotController.isSprinting)
-                {
-                    PlayAudibleNoiseLethalBot(lethalBotController.transform.position, 22f, 0.6f, 0, noiseIsInsideClosedShip, 6);
-                }
-                else
-                {
-                    PlayAudibleNoiseLethalBot(lethalBotController.transform.position, 17f, 0.4f, 0, noiseIsInsideClosedShip, 6);
-                }
-
-                PlayerControllerB localPlayer = StartOfRound.Instance.localPlayerController;
-                Vector3 localPlayerPos = localPlayer.transform.position;
-                if (localPlayer.isPlayerDead && localPlayer.spectatedPlayerScript != null)
-                {
-                    localPlayerPos = localPlayer.spectatedPlayerScript.transform.position;
-                }
-                if ((localPlayerPos - lethalBotController.transform.position).sqrMagnitude < 20f * 20f)
-                {
-                    lethalBotController.PlayFootstepSound();
-                }
-            }
         }
 
         public void PlayAudibleNoiseLethalBot(Vector3 noisePosition,
@@ -1565,6 +1560,16 @@ namespace LethalBots.AI
 
             // Health regen
             LethalBotAIController.HealthRegen();
+
+            // If we are using a trigger, set our position and rotation to it!
+            InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
+            if (ourTrigger != null && !ourTrigger.isLadder)
+            {
+                Transform thisPlayerBody = lethalBotController.thisPlayerBody;
+                thisPlayerBody.localPosition = Vector3.Lerp(thisPlayerBody.localPosition, thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
+                thisPlayerBody.rotation = Quaternion.Lerp(thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
+                SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
+            }
 
             if (LethalBotAIController.IsClientOwnerOfLethalBot())
             {
@@ -1825,7 +1830,7 @@ namespace LethalBots.AI
                 allUnlockableEmotes = SessionManager.unlockedEmotes;
             }
             int randomEmoteID = Random.Range(0, allUnlockableEmotes.Count);
-            LethalBotAIController.PerformTooManyEmoteLethalBotAndSync(allUnlockableEmotes[randomEmoteID].emoteId);
+            PerformTooManyEmote(allUnlockableEmotes[randomEmoteID].emoteId);
         }
 
         /// <summary>
@@ -1933,7 +1938,7 @@ namespace LethalBots.AI
             }
 
             // PerformEmote TooMany emote
-            LethalBotAIController.PerformTooManyEmoteLethalBotAndSync(emoteControllerPlayerOfplayerToMimic.performingEmote.emoteId, (int)playerToMimic.playerClientId);
+            PerformTooManyEmote(emoteControllerPlayerOfplayerToMimic.performingEmote.emoteId, (int)playerToMimic.playerClientId);
         }
 
         /// <summary>
@@ -2010,11 +2015,14 @@ namespace LethalBots.AI
                     // Can't do this, as it assumes the local player if this is the server.
                     // We just recreate the logic intead!
                     //SyncPerformingEmoteManager.SendSyncEmoteUpdateToServer(emoteControllerLethalBot, overrideEmoteId);
-                    Plugin.LogInfo("Sending sync emote update to server. Sync with emote controller id: " + emoteControllerLethalBot);
-                    FastBufferWriter messageStream = new FastBufferWriter(4, Allocator.Temp);
-                    messageStream.WriteValue<ushort>((ushort)emoteControllerLethalBot.emoteControllerId, default(FastBufferWriter.ForPrimitives));
-                    messageStream.WriteValue<short>((short)overrideEmoteId, default(FastBufferWriter.ForPrimitives));
-                    NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("TooManyEmotes.SyncEmoteServerRpc", 0uL, messageStream);
+                    Plugin.LogInfo("Sending sync emote update to server. Sync with emote controller id: " + emoteControllerLethalBot.emoteControllerId);
+                    FastBufferWriter messageStream = new FastBufferWriter(6, Allocator.Temp);
+                    using (messageStream)
+                    {
+                        messageStream.WriteValue<uint>((uint)emoteControllerLethalBot.emoteControllerId, default(FastBufferWriter.ForPrimitives));
+                        messageStream.WriteValue<short>((short)overrideEmoteId, default(FastBufferWriter.ForPrimitives));
+                        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("TooManyEmotes.SyncEmoteServerRpc", NetworkManager.ServerClientId, messageStream);
+                    }
                     emoteControllerLethalBot.timeSinceStartingEmote = 0f;
                     Npc.performingEmote = true;
                     Plugin.LogDebug($"Lethal Bot {Npc.playerUsername} successfuly synced emote with {playerToSyncWith.playerUsername}!");
@@ -2182,11 +2190,6 @@ namespace LethalBots.AI
         /// </summary>
         private void UpdateTurnBodyTowardsDirection()
         {
-            if (IsControllerInCruiser)
-            {
-                return;
-            }
-
             UpdateNowTurnBodyTowardsDirection(LookAtTarget.directionToUpdateTurnBodyTowardsTo);
         }
 
@@ -2324,9 +2327,11 @@ namespace LethalBots.AI
         /// Set the controller to go down or up on the ladder
         /// </summary>
         /// <param name="hasToGoDown"></param>
-        public void OrderToGoUpDownLadder(bool hasToGoDown)
+        /// <param name="ladderEnd"></param>
+        public void OrderToGoUpDownLadder(bool hasToGoDown, Vector3? ladderEnd = null)
         {
             this.goDownLadder = hasToGoDown;
+            this.ladderEndpoint = ladderEnd;
         }
 
         /// <summary>

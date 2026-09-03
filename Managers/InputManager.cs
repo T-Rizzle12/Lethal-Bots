@@ -230,6 +230,7 @@ namespace LethalBots.Managers
                     lethalBot.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
                     {
                         VoiceState = EnumVoicesState.OrderedToFollow,
+                        VoicePriority = EnumVoicePriority.HIGH_PRIORITY,
                         CanTalkIfOtherLethalBotTalk = true,
                         WaitForCooldown = false,
                         CutCurrentVoiceStateToTalk = true,
@@ -252,6 +253,14 @@ namespace LethalBots.Managers
                 }
                 else if (currentBotState != EnumAIStates.SearchingForScrap)
                 {
+                    // Can't tell a bot to follow if they are in a special animation.
+                    if (lethalBot.IsInSpecialAnimation())
+                    {
+                        HUDManager.Instance.DisplayTip("Bot is busy!", "Please wait for the bot to finish the special animation first.");
+                        return;
+                    }
+
+                    // Remove ourself from our current group
                     if (GroupManager.Instance.ArePlayersInSameGroup(player, localPlayer))
                     {
                         GroupManager.Instance.RemoveFromCurrentGroupAndSync(player);

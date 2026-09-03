@@ -7,15 +7,19 @@ using LethalBots.Managers;
 using LethalBots.Patches.ModPatches.PathfindingLib;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using Unity.AI.Navigation;
 using Unity.Netcode;
 using UnityEngine;
-using static Unity.Netcode.NetworkBehaviour;
+using UnityEngine.AI;
+using UnityEngine.SceneManagement;
+using Object = UnityEngine.Object;
 
 namespace LethalBots.Patches.GameEnginePatches
 {
@@ -157,25 +161,87 @@ namespace LethalBots.Patches.GameEnginePatches
             }
 
             // Don't update the mesh unless we have to
-            if (shouldUpdateNavmesh)
+            GameObject outsideNavMesh = GameObject.FindGameObjectWithTag("OutsideLevelNavMesh");
+            if (outsideNavMesh == null)
             {
-                GameObject outsideNavMesh = GameObject.FindGameObjectWithTag("OutsideLevelNavMesh");
-                if (outsideNavMesh != null)
+                outsideNavMesh = GameObject.Find("CompanyBuildingNavMesh"); // NavMeshInCompanyRedux support!
+            }
+
+            if (outsideNavMesh != null)
+            {
+                // Log about what we are updating!
+                NavMeshSurface navMeshSurface = outsideNavMesh.GetComponent<NavMeshSurface>();
+
+                // Since we are only adding NavMeshModifiers, no need to rebuild the mesh.
+                // Just force the game to update the NavMeshAttributes!
+                if (shouldUpdateNavmesh)
                 {
-                    // Log about what we are updating!
-                    NavMeshSurface navMeshSurface = outsideNavMesh.GetComponent<NavMeshSurface>();
-                    //foreach (var modifier in navMeshSurface.GetComponentsInChildren<NavMeshModifierVolume>())
-                    //{
-                    //    if (modifier != null)
-                    //    {
-                    //        Plugin.LogInfo($"Modifier: {modifier} Rotation: {modifier.transform.rotation} Area: {modifier.area}");
-                    //    }
-                    //}
-                    //navMeshSurface.BuildNavMesh();
-                    // Since we are only adding NavMeshModifiers, no need to rebuild the mesh.
-                    // Just force the game to update the NavMeshAttributes!
                     __instance.StartCoroutine(UpdateNavmeshDelayed(navMeshSurface));
                 }
+
+                GameObject cruiserNavMeshObject = new GameObject("CruiserNavMeshSurface");
+                SceneManager.MoveGameObjectToScene(cruiserNavMeshObject, outsideNavMesh.scene);
+                cruiserNavMeshObject.transform.position = outsideNavMesh.transform.position;
+                cruiserNavMeshObject.transform.rotation = outsideNavMesh.transform.rotation;
+                cruiserNavMeshObject.transform.localScale = outsideNavMesh.transform.localScale;
+
+                NavMeshSurface navMesh = cruiserNavMeshObject.AddComponent<NavMeshSurface>();
+                navMesh.agentTypeID = Const.LETHAL_BOT_CRUISER_NAV_SETTINGS_ID;
+                navMesh.overrideTileSize = false;
+                navMesh.overrideVoxelSize = false;
+                navMesh.ignoreNavMeshAgent = navMeshSurface.ignoreNavMeshAgent;
+                navMesh.ignoreNavMeshObstacle = navMeshSurface.ignoreNavMeshObstacle;
+                navMesh.collectObjects = navMeshSurface.collectObjects;
+                navMesh.buildHeightMesh = navMeshSurface.buildHeightMesh;
+                navMesh.defaultArea = navMeshSurface.defaultArea;
+                navMesh.layerMask = navMeshSurface.layerMask;
+                navMesh.center = navMeshSurface.center;
+                navMesh.size = navMeshSurface.size;
+                CreateCruiserNavMesh(cruiserNavMeshObject, navMesh, navMeshSurface);
+            }
+        }
+
+        private static void CreateCruiserNavMesh(GameObject cruiserNavMeshObject, NavMeshSurface cruiserNavMeshSurface, NavMeshSurface outsideNavSurface)
+        {
+            // HACKHACK: Make sure the outsideNavSurface uses our custom agent type
+            int oldAgentTypeID = outsideNavSurface.agentTypeID;
+            outsideNavSurface.agentTypeID = cruiserNavMeshSurface.agentTypeID;
+
+            // Just in case any part of this errors out
+            try
+            {
+                // Mimic BuildNavMesh
+                List<NavMeshBuildSource> sources = outsideNavSurface.CollectSources();
+                Bounds localBounds = new Bounds(outsideNavSurface.m_Center, NavMeshSurface.Abs(outsideNavSurface.m_Size));
+                if (outsideNavSurface.m_CollectObjects != CollectObjects.Volume)
+                {
+                    localBounds = outsideNavSurface.CalculateWorldBounds(sources);
+                }
+
+                NavMeshBuildSettings settings = cruiserNavMeshSurface.GetBuildSettings();
+                Plugin.LogInfo($"Cruiser NavSettings Before Info: \n Agent ID: {settings.agentTypeID} \n Agent Slope: {settings.agentSlope} \n Agent Height: {settings.agentHeight} \n Agent Climb: {settings.agentClimb}");
+
+                NavMeshData navMeshData = NavMeshBuilder.BuildNavMeshData(settings, sources, localBounds, outsideNavSurface.transform.position, outsideNavSurface.transform.rotation);
+                if (navMeshData != null)
+                {
+                    Plugin.LogInfo($"Cruiser NavSettings After Info: \n Agent ID: {settings.agentTypeID} \n Agent Slope: {settings.agentSlope} \n Agent Height: {settings.agentHeight} \n Agent Climb: {settings.agentClimb}");
+                    navMeshData.name = cruiserNavMeshSurface.gameObject.name;
+                    cruiserNavMeshSurface.RemoveData();
+                    cruiserNavMeshSurface.m_NavMeshData = navMeshData;
+                    if (cruiserNavMeshSurface.isActiveAndEnabled)
+                    {
+                        cruiserNavMeshSurface.AddData();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.LogError($"An error occured when attempting to build cruiser NavMesh: {e}");
+            }
+            finally
+            {
+                // Give the old agent type back
+                outsideNavSurface.agentTypeID = oldAgentTypeID;
             }
         }
 
@@ -293,7 +359,7 @@ namespace LethalBots.Patches.GameEnginePatches
             // The game keeps a cache of all of the surfaces that were used for the full bake
             // of the dungeon, I can just loop through those and call UpdateNavMesh!
             AdjacentRoomCullingModified roomCullingModified = StartOfRound.Instance.occlusionCuller;
-            bool wasEnabed = roomCullingModified.enabled;
+            bool wasEnabled = roomCullingModified.enabled;
             foreach (var navMeshSurface in fullBakeSurfaces)
             {
                 if (navMeshSurface != null)
@@ -305,7 +371,7 @@ namespace LethalBots.Patches.GameEnginePatches
                     // before we can safely rebuild the mesh!
                     if (roomCullingModified != null && roomCullingModified.enabled)
                     {
-                        wasEnabed = true;
+                        wasEnabled = true;
                         roomCullingModified.enabled = false;
                     }
 
@@ -340,9 +406,9 @@ namespace LethalBots.Patches.GameEnginePatches
 
             // Turn the vanilla game culling back on!
             roomCullingModified ??= StartOfRound.Instance.occlusionCuller;
-            if (roomCullingModified != null && roomCullingModified.enabled != wasEnabed)
+            if (roomCullingModified != null && roomCullingModified.enabled != wasEnabled)
             {
-                roomCullingModified.enabled = wasEnabed;
+                roomCullingModified.enabled = wasEnabled;
             }
 
             Plugin.LogDebug("Updated all interior NavMeshes.");
@@ -510,7 +576,7 @@ namespace LethalBots.Patches.GameEnginePatches
         //    }
         //    else
         //    {
-        //        Plugin.LogWarning($"LethalBot.Patches.GameEnginePatches.BakeDunGenNavMesh_Transpiler could not skip interior NavMesh generation for Lethal Bot Crusier NavMesh!");
+        //        Plugin.LogWarning($"LethalBot.Patches.GameEnginePatches.BakeDunGenNavMesh_Transpiler could not skip interior NavMesh generation for Lethal Bot Cruiser NavMesh!");
         //    }
 
         //    return codes.AsEnumerable();

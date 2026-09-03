@@ -152,10 +152,12 @@ namespace LethalBots.AI.AIStates
                 if (LethalBotManager.Instance.LootTransferPlayers.Count > 0 
                     && !LethalBotManager.Instance.LootTransferPlayers.Contains(ai.targetPlayer))
                 {
+                    // Check if we are near an entrance
                     bool areWeNearbyEntrance = false;
                     Vector3 ourPos = lethalBotController.transform.position;
-                    foreach (EntranceTeleport entrance in LethalBotAI.EntrancesTeleportArray)
+                    for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
                     {
+                        EntranceTeleport entrance = LethalBotAI.EntrancesTeleportArray[i];
                         if (entrance == null) continue;
 
                         if (entrance.isEntranceToBuilding
@@ -166,6 +168,7 @@ namespace LethalBots.AI.AIStates
                         }
                     }
 
+                    // Check if we should drop our held item
                     if (areWeNearbyEntrance)
                     {
                         // Stop moving while we drop our items
@@ -182,15 +185,16 @@ namespace LethalBots.AI.AIStates
                         {
                             ai.SwitchItemSlotsAndSync(objectSlot);
                         }
+
+                        return;
                     }
                 }
-                return;
             }
 
             VehicleController? vehicleController = ai.GetVehicleCruiserTargetPlayerIsIn();
             if (vehicleController != null)
             {
-                ai.State = new PlayerInCruiserState(this, vehicleController);
+                ai.State = new UseCruiserState(this, vehicleController);
                 return;
             }
 
@@ -359,7 +363,7 @@ namespace LethalBots.AI.AIStates
                 {
                     PlayerControllerB? player = hit.collider.gameObject.GetComponent<PlayerControllerB>();
                     if (player != null
-                        && player.playerClientId != StartOfRound.Instance.localPlayerController.playerClientId)
+                        && !LethalBotManager.IsPlayerLocal(player))
                     {
                         npcController.OrderToLookAtPosition(hit.point, EnumLookAtPriority.HIGH_PRIORITY, ai.AIIntervalTime);
                         return;
@@ -376,7 +380,7 @@ namespace LethalBots.AI.AIStates
                     }
 
                     PlayerControllerB? player = hit.collider.gameObject.GetComponent<PlayerControllerB>();
-                    if (player != null && player.playerClientId == StartOfRound.Instance.localPlayerController.playerClientId)
+                    if (LethalBotManager.IsPlayerLocal(player))
                     {
                         continue;
                     }

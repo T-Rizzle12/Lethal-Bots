@@ -107,7 +107,7 @@ namespace LethalBots.AI.AIStates
                 case EnumAIStates.GetCloseToPlayer:
                 case EnumAIStates.ChillWithPlayer:
                 case EnumAIStates.JustLostPlayer:
-                case EnumAIStates.PlayerInCruiser:
+                case EnumAIStates.UseCruiser:
                     LethalBotManager.Instance.MissionControlPlayer = null;
                     break;
                 default:

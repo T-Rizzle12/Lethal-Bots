@@ -6,7 +6,7 @@
     <AssemblyName>LethalBots</AssemblyName>
     <Product>LethalBots</Product>
     <!-- Change to whatever version you're currently on. This will be used by tcli when building our Thunderstore package. -->
-    <Version>12.1.1</Version>
+    <Version>13.0.0</Version>
   </PropertyGroup>
 
   <!-- Project Properties -->
@@ -92,17 +92,19 @@
     <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" ExcludeAssets="runtime" />
     <PackageReference Include="BepInEx.Core" Version="5.*" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" PrivateAssets="all" />
-    <PackageReference Include="etherealemil-UsualScrap" Version="2.0.7" Publicize="true" />
-    <PackageReference Include="Evaisa.LethalLib" Version="1.2.0" />
+    <PackageReference Include="etherealemil-UsualScrap" Version="2.*" Publicize="true" />
+    <PackageReference Include="Evaisa.LethalLib" Version="1.*" />
+    <PackageReference Include="FlipMods-TooManyEmotes" Version="2.*" />
     <PackageReference Include="Lost.Compat.NullabilityAttributes" Version="0.0.4" PrivateAssets="all" />
     <PackageReference Include="MillieTheSilly-SuperEclipse" Version="0.1.0" />
     <PackageReference Include="Mono.pdb2mdb" Version="0.1.0.20130128" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="OomJan-BetterLethalVRM" Version="1.*" />
     <PackageReference Include="Rune580.Mods.LethalCompany.InputUtils" Version="0.7.13" />
-    <PackageReference Include="Tomatobird-AutoRevive" Version="0.4.0" Publicize="true" />
-    <PackageReference Include="UnityEngine.Modules" Version="6000.2.12" IncludeAssets="compile" />
-    <PackageReference Include="Zaggy1024-PathfindingLib" Version="2.4.1" Publicize="true" />
-    <PackageReference Include="Zigzag-SelfSortingStorage" Version="1.5.1" Publicize="true" />
+    <PackageReference Include="Tomatobird-AutoRevive" Version="0.*" Publicize="true" />
+    <PackageReference Include="UnityEngine.Modules" Version="2022.3.62" IncludeAssets="compile" />
+    <PackageReference Include="Zaggy1024-PathfindingLib" Version="2.*" Publicize="true" />
+    <PackageReference Include="Zigzag-SelfSortingStorage" Version="1.*" Publicize="true" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
@@ -116,6 +118,7 @@
     <PackageReference Include="LethalCompany.GameLibs.Steam" Version="*-*" Publicize="true" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Assets\Profile-Pictures\" />
     <Folder Include="lib\mods\" />
     <Folder Include="lib\LCv64\" />
     <Folder Include="Example Voicepack\" />
@@ -175,9 +178,6 @@
     </Reference>
     <Reference Include="Peepers">
       <HintPath>lib\mods\Peepers.dll</HintPath>
-    </Reference>
-    <Reference Include="TooManyEmotes">
-      <HintPath>lib\mods\TooManyEmotes.dll</HintPath>
     </Reference>
 	<Reference Include="FacilityMeltdown">
 	  <HintPath>lib\mods\FacilityMeltdown.dll</HintPath>
@@ -245,7 +245,7 @@
 	<Reference Include="Facepunch.Steamworks.Win64">
 	  <HintPath>lib\Facepunch.Steamworks.Win64.dll</HintPath>  
 	</Reference>
-	<Reference Include="Unity.AI.Navigation">
+	<Reference Include="Unity.AI.Navigation" Publicize="true">
 		<HintPath>lib\Unity.AI.Navigation.dll</HintPath>
 	</Reference>
   </ItemGroup>

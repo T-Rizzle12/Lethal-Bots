@@ -14,6 +14,7 @@ using LethalBots.Patches.MapPatches;
 using LethalBots.Patches.ModPatches.AdditionalNetworking;
 using LethalBots.Patches.ModPatches.AutoRevive;
 using LethalBots.Patches.ModPatches.BetterEmotes;
+using LethalBots.Patches.ModPatches.BetterLethalVRM;
 using LethalBots.Patches.ModPatches.BunkbedRevive;
 using LethalBots.Patches.ModPatches.ButteryFixes;
 using LethalBots.Patches.ModPatches.DawnLib;
@@ -44,6 +45,7 @@ using System.Text;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
 namespace LethalBots
@@ -83,6 +85,7 @@ namespace LethalBots
     [BepInDependency(Const.NAVMESHINCOMPANYREDUX_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(SelfSortingStorage.Plugin.GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(PathfindingLib.PathfindingLibPlugin.PluginGUID, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(OomJan.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         // Please don't use the MyPluginInfo class for the GUID, my mod is
@@ -127,8 +130,8 @@ namespace LethalBots
 
         private void Awake()
         {
-            var bundleName = "lethalbotnpcmodassets";
-            var bundleName2 = "ship_orbit_navmesh";
+            const string bundleName = "lethalbotnpcmodassets";
+            const string bundleName2 = "ship_orbit_navmesh";
             DirectoryName = Path.GetDirectoryName(Info.Location);
 
             Logger = base.Logger;
@@ -216,6 +219,12 @@ namespace LethalBots
             PatchBaseGame();
 
             PatchOtherMods();
+
+            SceneManager.sceneLoaded += OnSceneLoaded;
+
+            // Unload the asset bundles
+            ModAssets.Unload(false);
+            ShipOrbitNavMeshAssets.Unload(false);
 
             Logger.LogInfo($"Plugin {ModGUID} is loaded!");
         }
@@ -336,6 +345,7 @@ namespace LethalBots
             bool isModButteryFixesLoaded = IsModLoaded(Const.BUTTERYFIXES_GUID);
             bool isModPeepersLoaded = IsModLoaded(Const.PEEPERS_GUID);
             bool isModLethalCompanyVRLoaded = IsModLoaded(LCVR.Plugin.PLUGIN_GUID);
+            bool isModBetterVRMLoaded = IsModLoaded(OomJan.MyPluginInfo.PLUGIN_GUID);
 
             // -------------------
             // Read the preloaders
@@ -458,6 +468,7 @@ namespace LethalBots
             if (IsModDawnLibLoaded)
             {
                 _harmony.PatchAll(typeof(DawnMoonNetworkerPatch));
+                _harmony.PatchAll(typeof(PlayerNameplateUIPatch));
             }
             if (IsModUsualScrapLoaded)
             {
@@ -478,9 +489,13 @@ namespace LethalBots
                 _harmony.PatchAll(typeof(PathfindingLibPatch));
                 PathfindingLibPatch.AddCustomAreaMasks();
             }
+            if (isModBetterVRMLoaded)
+            {
+                _harmony.PatchAll(typeof(BetterLethalVRMPatch));
+            }
         }
 
-        private bool IsModLoaded(string modGUID)
+        private static bool IsModLoaded(string modGUID)
         {
             bool ret = Chainloader.PluginInfos.ContainsKey(modGUID);
             if (ret)
@@ -496,7 +511,7 @@ namespace LethalBots
             return ret;
         }
 
-        private bool IsPreLoaderLoaded(string dllFileName, List<string> fileNames)
+        private static bool IsPreLoaderLoaded(string dllFileName, List<string> fileNames)
         {
             bool ret = fileNames.Contains(dllFileName);
             if (ret)
@@ -534,6 +549,77 @@ namespace LethalBots
             GameObject gameObject = new GameObject("PluginManager");
             gameObject.AddComponent<PluginManager>();
             PluginManager.Instance.InitManagers();
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            // Fix RadMechAI NavMeshObstacles for bot cruiser AI.
+            var prefabs = Resources.FindObjectsOfTypeAll<EnemyAINestSpawnObject>();
+            if (prefabs == null || prefabs.Length == 0) return;
+
+            // Flag for if we successfully added what we wanted
+            bool replaced = false;
+            try
+            {
+                // Loop through all prefabs
+                for (int i = 0; i < prefabs.Length; i++)
+                {
+                    // Sanity check
+                    var prefab = prefabs[i];
+                    if (prefab != null)
+                    {
+                        // Another sanity check
+                        EnemyType enemyType = prefab.enemyType;
+                        if (enemyType != null)
+                        {
+                            // Make sure this is the RadMech prefab we want
+                            if (enemyType.enemyPrefab.TryGetComponent(out RadMechAI radmech))
+                            {
+                                // Check the left arm
+                                Plugin.LogInfo($"Found Radmech Prefab {radmech} with nest Prefab {prefab}");
+                                Transform leftArm = prefab.transform.Find("Cube (4)");
+                                if (leftArm != null)
+                                {
+                                    var navMeshObstacle = leftArm.gameObject.AddComponent<NavMeshObstacle>();
+                                    navMeshObstacle.carving = true;
+                                    navMeshObstacle.carvingMoveThreshold = 0.1f;
+                                    navMeshObstacle.carvingTimeToStationary = 0.5f;
+                                    navMeshObstacle.carveOnlyStationary = true;
+                                    Plugin.LogInfo("Added NavmeshObstacle to Left Arm");
+                                }
+
+                                // Check the right arm
+                                Transform rightArm = prefab.transform.Find("Cube (5)");
+                                if (rightArm != null)
+                                {
+                                    var navMeshObstacle = rightArm.gameObject.AddComponent<NavMeshObstacle>();
+                                    navMeshObstacle.carving = true;
+                                    navMeshObstacle.carvingMoveThreshold = 0.1f;
+                                    navMeshObstacle.carvingTimeToStationary = 0.5f;
+                                    navMeshObstacle.carveOnlyStationary = true;
+                                    Plugin.LogInfo("Added NavmeshObstacle to Right Arm");
+                                }
+
+                                // Mark it as updated
+                                replaced = true;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.LogError($"An error occured when attempting to edit RadMech Prefab. \n Error: {e}");
+            }
+            finally
+            {
+                // Check if we succeded
+                if (replaced)
+                {
+                    // Remove our hook as our work here is done
+                    SceneManager.sceneLoaded -= OnSceneLoaded;
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -68,7 +68,21 @@ namespace LethalBots.AI
         protected Coroutine? panikCoroutine;
         protected Coroutine? safePathCoroutine;
         protected Coroutine? lookingAroundCoroutine;
-        public LethalBotInteraction? LethalBotInteraction { protected set; get; }
+
+        [Obsolete("This has been moved to LethalBotAI. Use LethalBotAI.LethalBotInteraction instead.")]
+        public LethalBotInteraction? LethalBotInteraction
+        {
+            set
+            {
+                ai.LethalBotInteraction = value;
+            }
+            get
+            {
+                return ai.LethalBotInteraction;
+            }
+        }
+
+
         protected Vector3 safePathPos; // The closest point to targetShipPos that is safe
         protected CancellationTokenSource? pathfindCancellationToken = null; // For use in the async danger pathfinder
         protected EntranceTeleport? targetEntrance = null;
@@ -161,10 +175,6 @@ namespace LethalBots.AI
         // TODO: Now that we have voice recogntion code, it may be a good idea to update this!!!!!
         public virtual void PlayerHeard(Vector3 noisePosition) { }
 
-        // TODO: Remove this function, I don't think I will ever find a way to get this to work.
-        [Obsolete("Broken on purpose! This function is never called and will never be fixed since you can't tell who created a sound!", true)]
-        public virtual void EnemyHeard(Vector3 noisePosition) { }
-
         /// <summary>
         /// Called when the bot is stuck and can't move!<br/>
         /// </summary>
@@ -230,7 +240,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <remarks>
         /// This should be called in <see cref="LethalBotManager.RegisterDefaultCommands"/> 
-        /// and <see cref="LethalBotManager.RegisterCustomCommands"/>
+        /// and <see cref="LethalBotManager.RegisterCustomChatCommands"/>
         /// </remarks>
         public static void RegisterChatCommands()
         {
@@ -325,6 +335,7 @@ namespace LethalBots.AI
                         lethalBotAI.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
                         {
                             VoiceState = EnumVoicesState.OrderedToFollow,
+                            VoicePriority = EnumVoicePriority.HIGH_PRIORITY,
                             CanTalkIfOtherLethalBotTalk = true,
                             WaitForCooldown = false,
                             CutCurrentVoiceStateToTalk = true,
@@ -390,6 +401,7 @@ namespace LethalBots.AI
                     lethalBotAI.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
                     {
                         VoiceState = EnumVoicesState.OrderedToStay,
+                        VoicePriority = EnumVoicePriority.HIGH_PRIORITY,
                         CanTalkIfOtherLethalBotTalk = true,
                         WaitForCooldown = false,
                         CutCurrentVoiceStateToTalk = true,
@@ -444,7 +456,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <remarks>
         /// This should be called in <see cref="LethalBotManager.RegisterDefaultCommands"/> 
-        /// and <see cref="LethalBotManager.RegisterCustomCommands"/>
+        /// and <see cref="LethalBotManager.RegisterCustomChatCommands"/>
         /// </remarks>
         public static void RegisterSignalTranslatorCommands()
         {
@@ -710,7 +722,7 @@ namespace LethalBots.AI
                     //float entranceDistSqr = (entrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
                     if (entrance.FindExitPoint()
                         && !IsEntranceCoveredInQuickSand(entrance)
-                        && LethalBotAI.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, false, out _)
+                        && NavMeshUtil.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, out _, calculatePathDistance: false)
                         && CanPathToEntrance(entrance, true) 
                         && ai.pathDistance < closestEntranceDist)
                     {
@@ -785,7 +797,7 @@ namespace LethalBots.AI
                     // NOTE: We use exit point here or the pathfind would always fail since the entrance we are using is inside the facility!
                     if (entrance.FindExitPoint()
                         && !IsEntranceCoveredInQuickSand(entrance)
-                        && LethalBotAI.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, false, out _)
+                        && NavMeshUtil.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, out _, calculatePathDistance: false)
                         && CanPathToEntrance(entrance, false))
                     {
                         validEntrances.Add(entrance);
@@ -814,7 +826,7 @@ namespace LethalBots.AI
         /// <param name="entrance"></param>
         /// <returns>true: <paramref name="entrance"/> is the front entrance. false: <paramref name="entrance"/> is not the front entrance</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsFrontEntrance([NotNullWhen(true)]EntranceTeleport? entrance)
+        public static bool IsFrontEntrance([NotNullWhen(true)] EntranceTeleport? entrance)
         {
             return entrance != null && entrance.entranceId == 0;
         }
@@ -825,7 +837,7 @@ namespace LethalBots.AI
         /// <param name="entrance"></param>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected bool IsEntranceCoveredInQuickSand(EntranceTeleport? entrance)
+        protected bool IsEntranceCoveredInQuickSand([NotNullWhen(true)] EntranceTeleport? entrance)
         {
             // Check if the entrance is covered in quicksand
             return entrance != null && IsPositionCoveredInQuickSand(entrance.isEntranceToBuilding ? entrance.entrancePoint.position : entrance.exitScript.entrancePoint.position);
@@ -1449,7 +1461,7 @@ namespace LethalBots.AI
             }
             StopSafePathCoroutine();
             StopLookingAroundCoroutine();
-            StopLethalBotInteraction();
+            ai.StopLethalBotInteraction();
         }
 
         /// <summary>
@@ -1479,7 +1491,7 @@ namespace LethalBots.AI
                 // If the direct path safe?
                 CancelAsyncPathfindToken(); // Clear the old token
                 pathfindCancellationToken = new CancellationTokenSource();
-                Task<(bool isDangerous, bool isPathValid, float pathDistance)> pathfindTask = ai.TryStartPathDangerousAsync(targetDestination.Value, token: pathfindCancellationToken.Token);
+                var pathfindTask = ai.TryStartPathDangerousAsync(targetDestination.Value, token: pathfindCancellationToken.Token);
                 //yield return new WaitUntil(() => pathfindTask.IsCompleted);
                 while (!pathfindTask.IsCompleted)
                 {
@@ -1497,13 +1509,18 @@ namespace LethalBots.AI
                 {
                     Plugin.LogWarning($"Async pathfinder was canceled early!");
                 }
-                else if (!pathfindTask.Result.isDangerous
-                    || ShouldIgnoreInitialDangerCheck())
+                else
                 {
-                    safePathPos = targetDestination.Value;
-                    ai.SetDestinationToPositionLethalBotAI(safePathPos);
-                    yield return new WaitForSeconds(ai.AIIntervalTime);
-                    continue;
+                    // Check if the path is valid and safe
+                    SafePathResult result = pathfindTask.Result;
+                    if (result.isPathValid
+                        && (!result.isDangerous || ShouldIgnoreInitialDangerCheck()))
+                    {
+                        safePathPos = targetDestination.Value;
+                        ai.SetDestinationToPositionLethalBotAI(safePathPos);
+                        yield return new WaitForSeconds(ai.AIIntervalTime);
+                        continue;
+                    }
                 }
 
                 // FIXME: This relies on Elucian Distance rather than travel distance, this should be fixed!
@@ -1557,10 +1574,14 @@ namespace LethalBots.AI
                         Plugin.LogWarning($"Async pathfinder was canceled early, skipping node!");
                         continue;
                     }
-                    // Did the task say the path was dangerous?
-                    else if (pathfindTask.Result.isDangerous)
+                    else
                     {
-                        continue;
+                        // Did the task say the path was dangerous?
+                        SafePathResult result = pathfindTask.Result;
+                        if (!result.isPathValid || result.isDangerous)
+                        {
+                            continue;
+                        }
                     }
 
                     safePathPos = nodePos;
@@ -1854,18 +1875,6 @@ namespace LethalBots.AI
             }
         }
 
-        public void StopLethalBotInteraction()
-        {
-            if (this.LethalBotInteraction != null)
-            {
-                if (!LethalBotInteraction.IsCompleted)
-                {
-                    LethalBotInteraction.StopHoldInteractionOnTrigger();
-                }
-                LethalBotInteraction = null;
-            }
-        }
-
         /// <summary>
         /// Changes back to the previous state
         /// </summary>
@@ -1911,6 +1920,12 @@ namespace LethalBots.AI
         /// </summary>
         /// <returns><see langword="true"/> the bot will not automatically leave the terminal. <see langword="false"/> the bot will automatically get off the terminal</returns>
         public virtual bool CheckAllowsTerminalUse() => false;
+
+        /// <summary>
+        /// Helper function that checks if the bot wants its NavMeshAgent enabled
+        /// </summary>
+        /// <returns><see langword="true"/>The bot will have its <see cref="NavMeshAgent"/> enabled; Otherwise <see langword="false"/> for disabled</returns>
+        public virtual bool ShouldUseNavMeshAgent() => true;
 
         /// <summary>
         /// Get the <see cref="Enums.EnumAIStates"><c>Enums.EnumAIStates</c></see> of current State

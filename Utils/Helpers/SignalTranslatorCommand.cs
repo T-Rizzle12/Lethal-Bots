@@ -12,7 +12,16 @@ namespace LethalBots.Utils.Helpers
     public class SignalTranslatorCommand
     {
         public string Keyword;
-        public Func<AIState, LethalBotAI, string, bool> Execute;
+        public SignalTranslatorCommandDelegate Execute;
+
+        /// <summary>
+        /// A chat command callback
+        /// </summary>
+        /// <param name="state">The <paramref name="lethalBotAI"/>'s current AI state</param>
+        /// <param name="lethalBotAI">The bot who saw or heard the <paramref name="message"/></param>
+        /// <param name="message">The message sent on the signal translator</param>
+        /// <returns><see langword="true"/> if the given <paramref name="state"/> took some kind of action on the given <paramref name="message"/>; otherwise <see langword="false"/></returns>
+        public delegate bool SignalTranslatorCommandDelegate(AIState state, LethalBotAI lethalBotAI, string message);
 
         /// <summary>
         /// Creates a new chat command
@@ -24,7 +33,7 @@ namespace LethalBots.Utils.Helpers
         /// <param name="execute"></param>
         public SignalTranslatorCommand(
             string keyword,
-            Func<AIState, LethalBotAI, string, bool> execute)
+            SignalTranslatorCommandDelegate execute)
         {
             Keyword = keyword.ToLower();
             Execute = execute;
