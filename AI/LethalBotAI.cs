@@ -16,6 +16,7 @@ using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using LethalInternship.AI;
+using NavMeshLib;
 using ReservedItemSlotCore;
 using ReservedItemSlotCore.Data;
 using ReservedItemSlotCore.Patches;
@@ -702,23 +703,7 @@ namespace LethalBots.AI
             bool shouldFixedMovement = ShouldFixedMovement();
 
             // Update position
-            if (shouldFreeMovement
-                || StateControllerMovement == EnumStateControllerMovement.Free)
-            {
-                StateControllerMovement = EnumStateControllerMovement.Free;
-
-                // If we are using a trigger, set our position and rotation to it!
-                InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
-                if (ourTrigger != null && !ourTrigger.isLadder && !ourTrigger.setVehicleAnimation)
-                {
-                    this.transform.position = lethalBotController.transform.position;
-                    this.serverPosition = lethalBotController.transform.position;
-                }
-
-                // Just use the character controller as this fixes multiple issues the old addon had!
-                lethalBotController.thisController.Move(NpcController.MoveVector * Time.deltaTime);
-            }
-            else if (shouldFixedMovement 
+            if (shouldFixedMovement
                 || StateControllerMovement == EnumStateControllerMovement.Fixed)
             {
                 // If we are using a trigger, set our position and rotation to it!
@@ -728,11 +713,24 @@ namespace LethalBots.AI
                     lethalBotController.thisPlayerBody.localPosition = Vector3.Lerp(lethalBotController.thisPlayerBody.localPosition, lethalBotController.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
                     lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
                 }
-                if (!NpcController.IsControllerInCruiser && (ourTrigger == null || !ourTrigger.setVehicleAnimation))
+                this.transform.position = lethalBotController.transform.position;
+                this.serverPosition = lethalBotController.transform.position;
+            }
+            else if (shouldFreeMovement
+                || StateControllerMovement == EnumStateControllerMovement.Free)
+            {
+                StateControllerMovement = EnumStateControllerMovement.Free;
+
+                // If we are using a trigger, set our position and rotation to it!
+                InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
+                if (ourTrigger != null && !ourTrigger.isLadder)
                 {
                     this.transform.position = lethalBotController.transform.position;
                     this.serverPosition = lethalBotController.transform.position;
                 }
+
+                // Just use the character controller as this fixes multiple issues the old addon had!
+                lethalBotController.thisController.Move(NpcController.MoveVector * Time.deltaTime);
             }
             else if (StateControllerMovement == EnumStateControllerMovement.FollowAgent)
             {
@@ -871,6 +869,7 @@ namespace LethalBots.AI
             State.UseHeldItem();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void UpdateController()
         {
             NpcController?.Update();
@@ -920,6 +919,15 @@ namespace LethalBots.AI
         private bool ShouldFreeMovement()
         {
             PlayerControllerB lethalBotController = this.NpcController.Npc;
+            StartOfRound instanceSOR = StartOfRound.Instance;
+            if ((lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom)
+                && !LethalBotManager.AreWeInOrbit(instanceSOR)
+                && (LethalBotManager.IsTheShipLeaving(instanceSOR)
+                    || !LethalBotManager.IsTheShipLanded(instanceSOR)))
+            {
+                return true;
+            }
+
             if (NpcController.IsTouchingGround)
             {
                 RaycastHit groundRaycastHit = IsTouchingGroundTimedCheck.GetGroundHit(lethalBotController.thisPlayerBody.position);
@@ -939,12 +947,12 @@ namespace LethalBots.AI
             }
 
             // Use player controller movement while in the crusier
-            // NEEDTOVALDIATE: Should this be in ShouldFixedMovement instead?
-            //if (NpcController.IsControllerInCruiser)
-            //{
-            //    Plugin.LogDebug($"{lethalBotController.playerUsername} is in the Cruiser!");
-            //    return true;
-            //}
+            if (NpcController.IsControllerInCruiser 
+                && lethalBotController.currentTriggerInAnimationWith == null)
+            {
+                Plugin.LogDebug($"{lethalBotController.playerUsername} is in the Cruiser!");
+                return true;
+            }
 
             // Check if the fire players cutscene is running
             if (StartOfRound.Instance.suckingPlayersOutOfShip)
@@ -975,15 +983,15 @@ namespace LethalBots.AI
 
         private bool ShouldFixedMovement()
         {
-            StartOfRound instanceSOR = StartOfRound.Instance;
+            //StartOfRound instanceSOR = StartOfRound.Instance;
             PlayerControllerB lethalBotController = this.NpcController.Npc;
-            if ((lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom)
-                && !LethalBotManager.AreWeInOrbit(instanceSOR)
-                && (LethalBotManager.IsTheShipLeaving(instanceSOR)
-                    || !LethalBotManager.IsTheShipLanded(instanceSOR)))
-            {
-                return true;
-            }
+            //if ((lethalBotController.isInElevator || lethalBotController.isInHangarShipRoom)
+            //    && !LethalBotManager.AreWeInOrbit(instanceSOR)
+            //    && (LethalBotManager.IsTheShipLeaving(instanceSOR)
+            //        || !LethalBotManager.IsTheShipLanded(instanceSOR)))
+            //{
+            //    return true;
+            //}
 
             // Use player controller movement while in the crusier
             if (NpcController.IsControllerInCruiser)
@@ -5395,15 +5403,15 @@ namespace LethalBots.AI
                 // on the cruiser's rigidbody. So, if the bot is in the cruiser,
                 // and doesn't have a physics parent,
                 // we force the physics parent to be the cruiser's physics region.
-                if (transform == null 
-                    && NpcController.IsControllerInCruiser 
-                    && SingletonManager.VehicleController.TryGet(out var vehicleController))
-                {
-                    Plugin.LogDebug("Bot is in the cruiser and has no physics parent, forcing physics parent to be the cruiser's physics region.");
-                    PlayerPhysicsRegion physicsRegion = vehicleController.physicsRegion;
-                    transform = physicsRegion.physicsTransform;
-                    networkObject = physicsRegion.parentNetworkObject;
-                }
+                //if (transform == null 
+                //    && NpcController.IsControllerInCruiser 
+                //    && SingletonManager.VehicleController.TryGet(out var vehicleController))
+                //{
+                //    Plugin.LogDebug("Bot is in the cruiser and has no physics parent, forcing physics parent to be the cruiser's physics region.");
+                //    PlayerPhysicsRegion physicsRegion = vehicleController.physicsRegion;
+                //    transform = physicsRegion.physicsTransform;
+                //    networkObject = physicsRegion.parentNetworkObject;
+                //}
                 if (lethalBotController.isInElevator && priority <= 0)
                 {
                     transform = null;

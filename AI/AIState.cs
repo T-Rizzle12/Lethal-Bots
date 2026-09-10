@@ -8,6 +8,7 @@ using LethalBots.Patches.EnemiesPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using LethalLib.Modules;
+using NavMeshLib;
 using Scoops.misc;
 using System;
 using System.Collections;
@@ -797,7 +798,7 @@ namespace LethalBots.AI
                     // NOTE: We use exit point here or the pathfind would always fail since the entrance we are using is inside the facility!
                     if (entrance.FindExitPoint()
                         && !IsEntranceCoveredInQuickSand(entrance)
-                        && NavMeshUtil.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, out _, calculatePathDistance: false)
+                        && ai.agent.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ref ai.path1, out _, calculatePathDistance: false)
                         && CanPathToEntrance(entrance, false))
                     {
                         validEntrances.Add(entrance);

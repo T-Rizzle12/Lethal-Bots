@@ -34,6 +34,7 @@ using LethalBots.Patches.ModPatches.UsualScrap;
 using LethalBots.Patches.ModPatches.Zaprillator;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Patches.ObjectsPatches;
+using LethalBots.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -58,6 +59,7 @@ namespace LethalBots
     [BepInDependency(LethalLib.Plugin.ModGUID, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency(Const.CSYNC_GUID, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency(LethalCompanyInputUtils.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(NavMeshLib.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.HardDependency)]
     // SoftDependencies
     [BepInDependency(Const.SPEECHRECOGNITIONAPI_GUID, BepInDependency.DependencyFlags.SoftDependency)] // Voice recognition
     [BepInDependency(Const.REVIVECOMPANY_GUID, BepInDependency.DependencyFlags.SoftDependency)]
@@ -246,7 +248,6 @@ namespace LethalBots
             _harmony.PatchAll(typeof(RoundManagerPatch));
             _harmony.PatchAll(typeof(SoundManagerPatch));
             _harmony.PatchAll(typeof(StartOfRoundPatch));
-            _harmony.PatchAll(typeof(NavMeshPatch));
 
             // Npc
             _harmony.PatchAll(typeof(EnemyAIPatch));
@@ -575,28 +576,36 @@ namespace LethalBots
                             // Make sure this is the RadMech prefab we want
                             if (enemyType.enemyPrefab.TryGetComponent(out RadMechAI radmech))
                             {
-                                // Check the left arm
+                                // Add NavMeshObstacle to the left and right arms of the RadMech prefab
                                 Plugin.LogInfo($"Found Radmech Prefab {radmech} with nest Prefab {prefab}");
-                                Transform leftArm = prefab.transform.Find("Cube (4)");
+
+                                // Check the left arm
+                                Transform? leftArm = prefab.transform.FindChildWithName("Cube (4)");
                                 if (leftArm != null)
                                 {
                                     var navMeshObstacle = leftArm.gameObject.AddComponent<NavMeshObstacle>();
+                                    navMeshObstacle.shape = NavMeshObstacleShape.Box;
                                     navMeshObstacle.carving = true;
                                     navMeshObstacle.carvingMoveThreshold = 0.1f;
                                     navMeshObstacle.carvingTimeToStationary = 0.5f;
                                     navMeshObstacle.carveOnlyStationary = true;
+                                    navMeshObstacle.size = Vector3.one;
+                                    navMeshObstacle.center = Vector3.zero;
                                     Plugin.LogInfo("Added NavmeshObstacle to Left Arm");
                                 }
 
                                 // Check the right arm
-                                Transform rightArm = prefab.transform.Find("Cube (5)");
+                                Transform? rightArm = prefab.transform.FindChildWithName("Cube (5)");
                                 if (rightArm != null)
                                 {
                                     var navMeshObstacle = rightArm.gameObject.AddComponent<NavMeshObstacle>();
+                                    navMeshObstacle.shape = NavMeshObstacleShape.Box;
                                     navMeshObstacle.carving = true;
                                     navMeshObstacle.carvingMoveThreshold = 0.1f;
                                     navMeshObstacle.carvingTimeToStationary = 0.5f;
                                     navMeshObstacle.carveOnlyStationary = true;
+                                    navMeshObstacle.size = Vector3.one;
+                                    navMeshObstacle.center = Vector3.zero;
                                     Plugin.LogInfo("Added NavmeshObstacle to Right Arm");
                                 }
 

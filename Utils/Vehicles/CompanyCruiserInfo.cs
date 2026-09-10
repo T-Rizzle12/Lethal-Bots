@@ -501,7 +501,7 @@ namespace LethalBots.Utils.Vehicles
                 // Just in case
                 vehicleController.passengerSeatTrigger.interactable = true;
                 vehicleController.currentPassenger = null;
-                vehicleController.SetVehicleCollisionForPlayer(setEnabled: true, lethalBotController);
+                vehicleController.SetVehicleCollisionForPlayer(setEnabled: false, lethalBotController); // Disable the bot's collsion since it causes issues.
 
                 // Wait a second to make sure the player is out of the vehicle before closing the door
                 yield return new WaitForSeconds(1f);

@@ -1,5 +1,6 @@
 ﻿using LethalBots.Enums;
 using LethalBots.NetworkSerializers;
+using NavMeshLib;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -303,7 +304,16 @@ namespace LethalBots.Constants
         // patches to bypass this. There was supposed to be an UpdateSettings binding, but it was commented out for some reason.
         // The other option I have....well...is to do unsafe code and call the direct C++ binding instead......
         // DEVNOTE: Looking at this again, my safest option would to add a Postfix to GetBuildSettings and modifying the struct!
-        public static readonly int LETHAL_BOT_CRUISER_NAV_SETTINGS_ID = NavMesh.CreateSettings().agentTypeID; // The rest of the settings are useless. Just grab the agent ID!
+        public static readonly int LETHAL_BOT_CRUISER_NAV_SETTINGS_ID = CustomAgentManager.RegisterCustomAgent("Bot Cruiser", 
+        new NavMeshBuildSettings 
+        { 
+            agentSlope = 45f, // Same as default player slope height // Was 48, testing smaller value
+            agentClimb = 1.33f, // TODO: Adjust as needed
+            agentHeight = 4.5f, // TODO: Adjust as needed
+            agentRadius = 2f, // TODO: Adjust as needed // Was 2.5f and 4f, testing a larger number
+            tileSize = 90, // Was 256, testing a smaller value
+            voxelSize = 0.6666667f // Was 1.333333f, testing a smaller number
+        }); // Register our agent with NavMeshLib
 
         // Mod specific
         public const short LETHAL_PHONES_NO_CALLER_ID = -1; // Lethal Phones uses this to indicate that there is no caller.

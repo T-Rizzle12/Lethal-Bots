@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Utils;
+using NavMeshLib;
 using UnityEngine;
 using UnityEngine.AI;
 using Vector3 = UnityEngine.Vector3;
@@ -260,7 +261,7 @@ namespace LethalBots.AI
                         // Checks above are cheap so we increase iterAmount here
                         iterAmount++;
                         float sqrDistToNode = (searchCenter - node.transform.position).sqrMagnitude;
-                        if (sqrDistToNode < closestDistSqr && NavMeshUtil.IsValidPathToTarget(searchCenter, node.transform.position, ai.agent, ref ai.path1, out float pathDistance, calculatePathDistance: true) && pathDistance < closestDist) // || !ai.State.IsNodeValidForTarget(node)), uncomment and add null checks when it gets used
+                        if (sqrDistToNode < closestDistSqr && ai.agent.IsValidPathToTarget(searchCenter, node.transform.position, ref ai.path1, out float pathDistance, calculatePathDistance: true) && pathDistance < closestDist) // || !ai.State.IsNodeValidForTarget(node)), uncomment and add null checks when it gets used
                         {
                             // TODO: Dynamic minimumPathDistance increase when client is at low framerate
                             if (pathDistance >= minimumPathDistance)

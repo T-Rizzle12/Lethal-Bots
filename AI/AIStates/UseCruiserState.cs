@@ -6,6 +6,7 @@ using LethalBots.Managers;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using LethalBots.Utils.Helpers.VehicleHelpers;
+using NavMeshLib;
 using Unity.AI.Navigation;
 using UnityEngine;
 using UnityEngine.AI;
@@ -62,7 +63,7 @@ namespace LethalBots.AI.AIStates
                 && !npcController.Npc.isPlayerDead
                 && npcController.Npc.isPlayerControlled)
             {
-                npcController.Npc.thisController.enabled = true;
+                vehicleController.SetVehicleCollisionForPlayer(setEnabled: false, npcController.Npc);
             }
             base.OnExitState(newState);
         }
@@ -159,7 +160,7 @@ namespace LethalBots.AI.AIStates
                             {
                                 NavMeshAgent cruiserNavMeshAgent = VehicleManager.Instance.CruiserNavMeshAgent;
                                 Vector3 targetPosition = targetCruiserPosition.Value;
-                                if (NavMeshUtil.IsValidPathToTarget(GetNearestNavAreaCruiser(vehicleController.transform.position, true), targetPosition, cruiserNavMeshAgent, ref ai.path1, out _, calculatePathDistance: false))
+                                if (cruiserNavMeshAgent.IsValidPathToTarget(GetNearestNavAreaCruiser(vehicleController.transform.position, true), targetPosition, ref ai.path1, out _, calculatePathDistance: false))
                                 {
                                     Plugin.LogDebug($"We found a valid path to target {targetPosition}");
                                 }
@@ -249,17 +250,17 @@ namespace LethalBots.AI.AIStates
                         if (!modifiedCollision)
                         {
                             modifiedCollision = true;
-                            npcController.Npc.thisController.enabled = false;
+                            vehicleController.SetVehicleCollisionForPlayer(setEnabled: true, lethalBotController);
                         }
                     }
                     else if (npcController.IsControllerInCruiser)
                     {
-                        lethalBotController.ResetFallGravity();
-                        lethalBotController.transform.position = chosenSpot.Value; // FIXME: There has to be a better way than this......
+                        //lethalBotController.ResetFallGravity();
+                        //lethalBotController.transform.position = chosenSpot.Value; // FIXME: There has to be a better way than this......
                         if (!modifiedCollision)
                         {
                             modifiedCollision = true;
-                            npcController.Npc.thisController.enabled = false;
+                            vehicleController.SetVehicleCollisionForPlayer(setEnabled: true, lethalBotController);
                         }
                     }
                     else
@@ -276,7 +277,7 @@ namespace LethalBots.AI.AIStates
             else if (modifiedCollision)
             {
                 modifiedCollision = false;
-                npcController.Npc.thisController.enabled = true;
+                vehicleController.SetVehicleCollisionForPlayer(setEnabled: false, lethalBotController);
             }
 
             // Bot still not in vehicle

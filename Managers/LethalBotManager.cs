@@ -18,6 +18,7 @@ using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using LethalLib.Modules;
 using MoreCompany;
+using NavMeshLib;
 using Scoops.customization;
 using Scoops.gameobjects;
 using Scoops.misc;

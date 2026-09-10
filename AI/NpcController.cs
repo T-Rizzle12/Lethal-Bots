@@ -764,7 +764,7 @@ namespace LethalBots.AI
                     num3 = Mathf.Max(num3 * 0.8f, num3 + lethalBotController.slopeIntensity * lethalBotController.slopeModifier);
                 }
             }
-            if (lethalBotController.isTypingChat || lethalBotController.disableMoveInput || lethalBotController.jetpackControls && !IsTouchingGround || instanceSOR.suckingPlayersOutOfShip)
+            if (lethalBotController.isTypingChat || lethalBotController.disableMoveInput || (lethalBotController.jetpackControls && !IsTouchingGround) || instanceSOR.suckingPlayersOutOfShip)
             {
                 lethalBotController.moveInputVector = Vector2.zero;
             }
@@ -795,7 +795,7 @@ namespace LethalBots.AI
                 num7 = 10f / lethalBotController.carryWeight;
             }
             lethalBotController.walkForce = Vector3.MoveTowards(lethalBotController.walkForce, lethalBotController.transform.right * lethalBotController.moveInputVector.x + lethalBotController.transform.forward * lethalBotController.moveInputVector.y, num7 * Time.deltaTime);
-            Vector3 vector2 = lethalBotController.walkForce * num3 * lethalBotController.sprintMultiplier + new Vector3(0f, lethalBotController.fallValue, 0f) + NearEntitiesPushVector;
+            Vector3 vector2 = (lethalBotController.walkForce * num3 * lethalBotController.sprintMultiplier) + new Vector3(0f, lethalBotController.fallValue, 0f) + NearEntitiesPushVector;
             vector2 += lethalBotController.externalForces;
             if (lethalBotController.externalForceAutoFade.sqrMagnitude > 0.05f * 0.05f)
             {

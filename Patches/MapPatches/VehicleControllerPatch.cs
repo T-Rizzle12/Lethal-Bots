@@ -4,6 +4,7 @@ using LethalBots.AI;
 using LethalBots.Managers;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers.VehicleHelpers;
+using LethalBots.Utils.Vehicles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +12,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Unity.Netcode;
 using UnityEngine;
+using static Unity.Netcode.NetworkBehaviour;
 
 namespace LethalBots.Patches.MapPatches
 {
@@ -287,7 +289,7 @@ namespace LethalBots.Patches.MapPatches
 
                 // Check if this is a registered vehicle
                 // and the bot is sitting in it.
-                if (vehicleInfo == null 
+                if (vehicleInfo is not CompanyCruiserInfo
                     || !vehicleInfo.IsPlayerInVehicle(__instance, lethalBotController, out _))
                 {
                     continue;
@@ -330,14 +332,81 @@ namespace LethalBots.Patches.MapPatches
         }
 
         /// <summary>
+        /// There is a logic error in the base game where if the local player sits in the passenger seat
+        /// their collision is still enabled. This causes the player to collide with the crusier if a bot
+        /// is driving it and said bot is owned by the local client. This patch fixes is by force disabling the collision for any player
+        /// if they are in the passenger seat.
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="player"></param>
+        /// <returns></returns>
+        [HarmonyPatch("SetPassengerInCar")]
+        [HarmonyPostfix]
+        static void SetPassengerInCar_Postfix(VehicleController __instance, PlayerControllerB player)
+        {
+            // Disable collision for any player that enters the passenger seat.
+            // This should be called for all players
+            if (player == null) return; // NOTE: this is also called by OnInteractEarly with a null player object
+            Plugin.LogDebug($"Disabling collision for player {player.playerUsername} for vehicle {__instance}");
+            __instance.SetVehicleCollisionForPlayer(setEnabled: false, player);
+        }
+
+        /// <summary>
+        /// A transpiler is better here since we can make sure the code only runs once
+        /// </summary>
+        /// <remarks>
+        /// I'm lucky here and Zeekerss adds the forces to the <see cref="VehicleController.currentDriver"/>, so I just
+        /// need to change the check for local player to also consider bots that are owned by the local player.
+        /// </remarks>
+        [HarmonyPatch("SpringDriverSeatClientRpc")]
+        [HarmonyTranspiler]
+        static IEnumerable<CodeInstruction> SpringDriverSeatClientRpc_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var startIndex = -1;
+            var codes = new List<CodeInstruction>(instructions);
+
+            // Target property: localPlayerInControl
+            FieldInfo localPlayerInControlField = AccessTools.Field(typeof(VehicleController), "localPlayerInControl");
+
+            // ------------------------------------------------
+            for (var i = 0; i < codes.Count - 2; i++)
+            {
+                // Find the code we want to replace, which is the check for localPlayerInControl
+                if (codes[i].IsLdarg(0)
+                    && codes[i + 1].LoadsField(localPlayerInControlField)
+                    && (codes[i + 2].opcode == OpCodes.Brtrue || codes[i + 2].opcode == OpCodes.Brtrue_S))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+            if (startIndex > -1)
+            {
+                // Replace the localPlayerInControl check with our own method that checks if the player is the local player or a lethal bot driver
+                codes[startIndex + 1].opcode = OpCodes.Call;
+                codes[startIndex + 1].operand = AccessTools.Method(typeof(VehicleControllerPatch), nameof(IsLocalPlayerOrLethalBotDriver));
+                startIndex = -1;
+            }
+            else
+            {
+                Plugin.LogError($"LethalBot.Patches.MapPatches.VehicleControllerPatch.SpringDriverSeatClientRpc_Transpiler could not allow bots to be launched by the ejector seat");
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        /// <summary>
         /// Patch for killing bot when car is destroyed
         /// </summary>
         [HarmonyPatch("DestroyCar")]
-        [HarmonyPostfix]
-        static void DestroyCar_PostFix(VehicleController __instance)
+        [HarmonyPrefix]
+        [HarmonyPriority(Priority.Last)]
+        static void DestroyCar_PreFix(VehicleController __instance, bool __runOriginal)
         {
             // Only do this for valid vehicles
-            if (!VehicleManager.Instance.TryGetVehicleInfo(__instance, out IVehicleAdapter? vehicleInfo))
+            if (!__runOriginal 
+                || !VehicleManager.Instance.TryGetVehicleInfo(__instance, out IVehicleAdapter? vehicleInfo) 
+                || vehicleInfo is not CompanyCruiserInfo)
             {
                 return;
             }
