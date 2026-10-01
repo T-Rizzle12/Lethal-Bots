@@ -4217,7 +4217,7 @@ namespace LethalBots.AI
         /// <returns>I mean come on</returns>
         public bool HasSpaceInInventory(GrabbableObject? grabbableObject)
         {
-            return FirstEmptyItemSlot(grabbableObject) != Const.INVALID_ITEM_SLOT;
+            return NpcController.Npc.FirstEmptyItemSlot(grabbableObject) != Const.INVALID_ITEM_SLOT;
         }
 
         /// <summary>
@@ -6661,7 +6661,7 @@ namespace LethalBots.AI
             }
 
             lethalBotController.currentlyGrabbingObject.InteractItem();
-            if (lethalBotController.currentlyGrabbingObject.grabbable && FirstEmptyItemSlot(lethalBotController.currentlyGrabbingObject) != Const.INVALID_ITEM_SLOT)
+            if (lethalBotController.currentlyGrabbingObject.grabbable && lethalBotController.FirstEmptyItemSlot(lethalBotController.currentlyGrabbingObject) != Const.INVALID_ITEM_SLOT)
             {
                 lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABINVALIDATED, value: false);
                 lethalBotController.playerBodyAnimator.SetBool(Const.PLAYER_ANIMATION_BOOL_GRABVALIDATED, value: false);
@@ -6736,92 +6736,10 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="grabbableObject">The object the bot is grabbing!</param>
         /// <returns>Returns the open slot <c>int</c> or <see cref="Const.INVALID_ITEM_SLOT"/> </returns>
+        [Obsolete("Use PlayerControllerB.FirstEmptyItemSlot instead. It does the exact same thing as this function.")]
         public int FirstEmptyItemSlot(GrabbableObject? grabbableObject = null)
         {
-            PlayerControllerB thisBot = NpcController.Npc;
-            GrabbableObject[] itemSlots = thisBot.ItemSlots;
-            int result = Const.INVALID_ITEM_SLOT;
-            if (thisBot.ItemOnlySlot == null
-                && grabbableObject != null
-                && !grabbableObject.itemProperties.isScrap
-                && !grabbableObject.itemProperties.twoHanded
-                && !grabbableObject.itemProperties.disallowUtilitySlot)
-            {
-                result = Const.RESERVED_EQUIPMENT_SLOT;
-            }
-            else if (thisBot.currentItemSlot != Const.RESERVED_EQUIPMENT_SLOT && itemSlots[thisBot.currentItemSlot] == null)
-            {
-                result = thisBot.currentItemSlot;
-            }
-            else
-            {
-                for (int i = 0; i < itemSlots.Length; i++)
-                {
-                    if (itemSlots[i] == null)
-                    {
-                        result = i;
-                        break;
-                    }
-                }
-            }
-
-            // Support for reserved item slots!
-            if (Plugin.IsModReservedItemSlotCoreLoaded)
-            {
-                return GetFirstEmptyReservedItemSlot(result, grabbableObject);
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Helper function that checks if the bot has an open reserved item slot for this item!
-        /// </summary>
-        /// <param name="foundIndex"></param>
-        /// <param name="grabbableObject">The object the bot is grabbing!</param>
-        /// <returns>Returns the open slot <c>int</c> or <see cref="Const.INVALID_ITEM_SLOT"/></returns>
-        private int GetFirstEmptyReservedItemSlot(int foundIndex, GrabbableObject? grabbableObject = null)
-        {
-            if (PlayerPatcher.reservedHotbarSize <= 0 || !HUDPatcher.hasReservedItemSlotsAndEnabled)
-            {
-                return foundIndex;
-            }
-
-            PlayerControllerB lethalBotController = NpcController.Npc;
-            if (grabbableObject == null || !ReservedPlayerData.allPlayerData.TryGetValue(lethalBotController, out var playerData))
-            { 
-                return foundIndex; 
-            }
-
-            // Alright, we fallback onto the item name but the session manager lets us get the actual 
-            // name they use if it exists.
-            string itemName = grabbableObject.itemProperties.itemName;
-            if (SessionManager.TryGetUnlockedItemData(grabbableObject, out var itemData))
-            {
-                itemName = itemData.itemName;
-            }
-
-            var reservedItemSlot = playerData.GetFirstEmptySlotForReservedItem(itemName);
-            if (reservedItemSlot != null)
-            {
-                return reservedItemSlot.GetIndexInInventory(lethalBotController);
-            }
-
-            if (playerData.IsReservedItemSlot(foundIndex))
-            {
-                foundIndex = Const.INVALID_ITEM_SLOT;
-                GrabbableObject[] itemSlots = lethalBotController.ItemSlots;
-                for (int i = 0; i < itemSlots.Length; i++)
-                {
-                    if (!playerData.IsReservedItemSlot(i) && itemSlots[i] == null)
-                    {
-                        foundIndex = i;
-                        break;
-                    }
-                }
-            }
-
-            return foundIndex;
+            return NpcController.Npc.FirstEmptyItemSlot(grabbableObject);
         }
 
         /// <summary>

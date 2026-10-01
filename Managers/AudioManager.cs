@@ -239,7 +239,7 @@ namespace LethalBots.Managers
 
             if (DictAudioClipsByPath.ContainsKey(path))
             {
-                Plugin.LogWarning($"A path of the same has already been added, path {path}. Overwriting!");
+                //Plugin.LogWarning($"A path of the same has already been added, path {path}. Overwriting!");
                 DictAudioClipsByPath[path] = audioClip;
             }
             else

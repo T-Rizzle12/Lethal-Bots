@@ -135,7 +135,7 @@ namespace LethalBots.NetworkSerializers
         {
             if (headSteadyTimer.HasStarted())
             {
-                return headSteadyTimer.GetElapsedTime();
+                return (float)headSteadyTimer.GetElapsedTime();
             }
             return 0f;
         }

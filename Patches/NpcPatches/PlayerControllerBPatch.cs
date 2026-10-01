@@ -215,26 +215,6 @@ namespace LethalBots.Patches.NpcPatches
         }
 
         /// <summary>
-        /// Patch to call our FirstEmptyItemSlot method!
-        /// </summary>
-        /// <param name="__instance"></param>
-        /// <param name="__result"></param>
-        /// <param name="attemptingGrab"></param>
-        /// <returns></returns>
-        [HarmonyPatch("FirstEmptyItemSlot")]
-        [HarmonyPrefix]
-        static bool FirstEmptyItemSlot_Prefix(PlayerControllerB __instance, ref int __result, GrabbableObject attemptingGrab = null!)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                __result = lethalBotAI.FirstEmptyItemSlot(attemptingGrab);
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
         /// Patch to call our SwitchToItemSlot method!
         /// </summary>
         /// <param name="__instance"></param>

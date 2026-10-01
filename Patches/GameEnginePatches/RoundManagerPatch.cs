@@ -8,6 +8,7 @@ using LethalBots.Patches.ModPatches.PathfindingLib;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using NavMeshLib;
+using NavMeshLib.Editor;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -27,6 +28,9 @@ namespace LethalBots.Patches.GameEnginePatches
     [HarmonyPatch(typeof(RoundManager))]
     public class RoundManagerPatch
     {
+        // TODO: Change this to the bot's custom agent type once I add it!
+        private static readonly List<int> affectedAgents = new List<int>() { -1 };
+
         /// <summary>
         /// Patch to mark quicksand as well quicksand
         /// </summary>
@@ -36,8 +40,8 @@ namespace LethalBots.Patches.GameEnginePatches
         static void SpawnOutsideHazards_Postfix(RoundManager __instance)
         {
             // Filter out the water quicksand triggers since those are handled by safe path.
-            bool shouldUpdateNavmesh = false;
             Vector3 colliderBuffer = new Vector3(0.8f, 0.2f, 0.8f); // Add a slight buffer to keep the bots from walking too close!
+            List<CustomNavMeshModifier> customModifiers = new List<CustomNavMeshModifier>();
             QuicksandTrigger[] quicksandArray = Object.FindObjectsByType<QuicksandTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             quicksandArray = quicksandArray.Where(quicksand => quicksand != null && !quicksand.isWater).ToArray();
             if (quicksandArray.Length > 0)
@@ -46,59 +50,28 @@ namespace LethalBots.Patches.GameEnginePatches
                 Plugin.LogInfo("Adding NavMeshModifierVolume to the quicksand objects to override its path cost for bots!");
 
                 //List<NavMeshModifierVolume> modifiers = new List<NavMeshModifierVolume>();
-                foreach (var quicksand in quicksandArray)
+                for (int i = 0; i < quicksandArray.Length; i++)
                 {
                     // Make sure its valid
+                    QuicksandTrigger? quicksand = quicksandArray[i];
                     if (quicksand == null || quicksand.isWater) continue;
 
                     // Change the bounds to contain where the quicksand is.
                     Collider[] colliders = quicksand.gameObject.GetComponentsInChildren<Collider>();
-                    for (int i = 0; i < colliders.Length; i++)
-                    {
-                        Collider collider = colliders[i];
-                        if (collider != null)
-                        {
-                            // Add our proxy gameobject
-                            shouldUpdateNavmesh = true;
-                            GameObject navMeshModifierGameObject = new GameObject($"NavMeshModifier{i}");
-                            navMeshModifierGameObject.transform.SetParent(collider.transform, worldPositionStays: true);
-                            navMeshModifierGameObject.transform.localPosition = Vector3.zero;
-                            navMeshModifierGameObject.transform.localRotation = Quaternion.identity;
-                            navMeshModifierGameObject.transform.localScale = collider.transform.localScale;
-                            navMeshModifierGameObject.layer = LayerMask.NameToLayer("NavigationSurface");
+                    if (colliders.Length == 0) continue;
 
-                            // Get the collider info
-                            Vector3 center, size;
-                            if (collider is BoxCollider boxCollider)
-                            {
-                                center = boxCollider.center;
-                                size = boxCollider.size;
-                            }
-                            else
-                            {
-                                Bounds colliderBounds = collider.bounds;
-                                center = colliderBounds.center;
-                                size = colliderBounds.size;
-                            }
-
-                            // Add the NavMeshVolume
-                            NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();
-                            navMeshModifier.area = Const.LETHAL_BOT_QUICKSAND_NAVAREA;
-                            navMeshModifier.center = center;
-                            navMeshModifier.size = size + colliderBuffer;
-                            Plugin.LogInfo($"Added NavMeshModifierVolume to quicksand with center {navMeshModifier.center} and size {navMeshModifier.size}.");
-                            //Plugin.LogInfo($"Game Object Proxy Pos: {quicksand.transform.position}");
-                            //Plugin.LogInfo($"Game Object Proxy Rotation: {quicksand.transform.rotation}");
-                            //Plugin.LogInfo($"Quicksand Pos: {quicksand.transform.position}");
-                            //Plugin.LogInfo($"Quicksand Rotation: {quicksand.transform.rotation}");
-                            //Plugin.LogInfo($"Collider Pos: {boxCollider.transform.position}");
-                            //Plugin.LogInfo($"Collider Rotation: {boxCollider.transform.rotation}");
-                            //Plugin.LogInfo($"Modifier Pos: {navMeshModifier.transform.position}");
-                            //Plugin.LogInfo($"Modifier Rotation: {navMeshModifier.transform.rotation}");
-                            //Plugin.LogInfo($"isEnabled {navMeshModifier.isActiveAndEnabled}");
-                            //modifiers.Add(navMeshModifier);
-                        }
-                    }
+                    // NavMeshLib will create our proxy GameObject and will handle setting the layermask and parenting
+                    CustomNavMeshModifier customNavMeshModifier = CustomNavMeshModifier.CreateFromColliders(quicksand.gameObject,
+                                                                                                            colliders,
+                                                                                                            Const.LETHAL_BOT_QUICKSAND_NAVAREA,
+                                                                                                            affectedAgents,
+                                                                                                            colliderBuffer,
+                                                                                                            NavMeshLib.Enums.ModifierParent.MoonEnvironment);
+                    customNavMeshModifier.navMeshUpdater.rebuildType = NavMeshLib.Enums.RebuildType.OutsideSurfaces;
+                    customNavMeshModifier.InitializeCustomModifier();
+                    //navMeshModifierGameObject.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity); // Set back to default GameObject position and rotation.......InitializeCustomModifier overrides our GameObject's position, this allows me to "revert" its change
+                    customModifiers.Add(customNavMeshModifier);
+                    Plugin.LogInfo("Added NavMeshModifierVolume to quicksand.");
                 }
 
             }
@@ -111,64 +84,33 @@ namespace LethalBots.Patches.GameEnginePatches
                 BridgeTrigger? bridgeTrigger = bridgeTriggers[i];
                 if (bridgeTrigger == null) continue;
 
-                // Change the bounds to contain where the quicksand is.
+                // Change the bounds to contain where the bridge is.
                 Collider[] colliders = bridgeTrigger.gameObject.GetComponents<Collider>();
-                for (int j = 0; j < colliders.Length; j++)
-                {
-                    Collider collider = colliders[j];
-                    if (collider != null)
-                    {
-                        // Add our proxy gameobject
-                        shouldUpdateNavmesh = true;
-                        GameObject navMeshModifierGameObject = new GameObject($"NavMeshModifier{j}");
-                        navMeshModifierGameObject.transform.SetParent(collider.transform, worldPositionStays: true);
-                        navMeshModifierGameObject.transform.localPosition = Vector3.zero;
-                        navMeshModifierGameObject.transform.localRotation = Quaternion.identity;
-                        navMeshModifierGameObject.transform.localScale = collider.transform.localScale;
-                        navMeshModifierGameObject.layer = LayerMask.NameToLayer("NavigationSurface");
+                if (colliders.Length == 0) continue;
 
-                        // Get the collider info
-                        Vector3 center, size;
-                        if (collider is BoxCollider boxCollider)
-                        {
-                            center = boxCollider.center;
-                            size = boxCollider.size;
-                        }
-                        else
-                        {
-                            Bounds colliderBounds = collider.bounds;
-                            center = colliderBounds.center;
-                            size = colliderBounds.size;
-                        }
-
-                        // Add the NavMeshVolume
-                        NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();
-                        navMeshModifier.area = Const.LETHAL_BOT_BRIDGE_NAVAREA;
-                        navMeshModifier.center = center;
-                        navMeshModifier.size = size + colliderBuffer;
-                        Plugin.LogInfo($"Added NavMeshModifierVolume to bridge trigger with center {navMeshModifier.center} and size {navMeshModifier.size}.");
-                        //Plugin.LogInfo($"Game Object Proxy Pos: {bridgeTrigger.transform.position}");
-                        //Plugin.LogInfo($"Game Object Proxy Rotation: {bridgeTrigger.transform.rotation}");
-                        //Plugin.LogInfo($"Quicksand Pos: {bridgeTrigger.transform.position}");
-                        //Plugin.LogInfo($"Quicksand Rotation: {bridgeTrigger.transform.rotation}");
-                        //Plugin.LogInfo($"Collider Pos: {collider.transform.position}");
-                        //Plugin.LogInfo($"Collider Rotation: {collider.transform.rotation}");
-                        //Plugin.LogInfo($"Modifier Pos: {navMeshModifier.transform.position}");
-                        //Plugin.LogInfo($"Modifier Rotation: {navMeshModifier.transform.rotation}");
-                        //Plugin.LogInfo($"isEnabled {navMeshModifier.isActiveAndEnabled}");
-                        //modifiers.Add(navMeshModifier);
-                    }
-                }
+                // NavMeshLib will create our proxy GameObject and will handle setting the layermask and parenting
+                CustomNavMeshModifier customNavMeshModifier = CustomNavMeshModifier.CreateFromColliders(bridgeTrigger.gameObject,
+                                                                                                        colliders,
+                                                                                                        Const.LETHAL_BOT_BRIDGE_NAVAREA,
+                                                                                                        affectedAgents,
+                                                                                                        null,
+                                                                                                        NavMeshLib.Enums.ModifierParent.MoonEnvironment);
+                customNavMeshModifier.navMeshUpdater.rebuildType = NavMeshLib.Enums.RebuildType.OutsideSurfaces;
+                customNavMeshModifier.InitializeCustomModifier();
+                //navMeshModifierGameObject.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity); // Set back to default GameObject position and rotation.......InitializeCustomModifier overrides our GameObject's position, this allows me to "revert" its change
+                customModifiers.Add(customNavMeshModifier);
+                Plugin.LogInfo("Added NavMeshModifierVolume to bridge trigger.");
             }
 
             // Since we are adding NavMeshModifiers, tell the NavMesh to update
-            if (shouldUpdateNavmesh)
+            if (customModifiers.Count > 0)
             {
                 GameObject outsideNavMesh = GameObject.FindGameObjectWithTag("OutsideLevelNavMesh");
                 if (outsideNavMesh == null)
                 {
                     outsideNavMesh = GameObject.Find("CompanyBuildingNavMesh"); // NavMeshInCompanyRedux support!
                 }
+                Plugin.LogInfo($"Updating Exterior NavMesh to apply {customModifiers.Count} new modifiers!");
                 NavMeshUtil.RebakeExteriorNavMesh(environmentObject: outsideNavMesh);
             }
         }
@@ -182,8 +124,8 @@ namespace LethalBots.Patches.GameEnginePatches
                 return;
             }
 
-            bool shouldUpdateNavmesh = false;
-            Vector3 colliderBuffer = new Vector3(0.8f, 0.2f, 0.8f); // Add a slight buffer to keep the bots from walking too close!
+            Vector3 colliderBuffer = new Vector3(0.8f, 0.8f, 0.8f); // Add a slight buffer to keep the bots from walking too close!
+            List<CustomNavMeshModifier> customModifiers = new List<CustomNavMeshModifier>();
             Landmine[] landmines = Object.FindObjectsByType<Landmine>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             if (landmines.Length == 0)
             {
@@ -193,50 +135,41 @@ namespace LethalBots.Patches.GameEnginePatches
             // Log what we are about to do!
             Plugin.LogInfo("Adding NavMeshModifierVolume to the landmine objects to override its path cost for bots!");
             //HUDManager.Instance.DisplayTip("Landmines spawned!", "Check the Logs!");
-            Dungeon dungeon = __instance.dungeonGenerator.Generator.CurrentDungeon;
-            GameObject landmineModifiers = new GameObject("LandmineNavModifiers");
-            landmineModifiers.transform.SetParent(dungeon.gameObject.transform, worldPositionStays: false);
-            Transform rootTransform = landmineModifiers.transform;
 
             // Go through each landmine!
-            foreach (var landmine in landmines)
+            for (int i = 0; i < landmines.Length; i++)
             {
+                Landmine? landmine = landmines[i];
                 if (landmine != null)
                 {
-                    // Change the bounds to contain where the quicksand is.
-                    BoxCollider[] boxColliders = landmine.gameObject.GetComponentsInChildren<BoxCollider>();
-                    for (int i = 0; i < boxColliders.Length; i++)
-                    {
-                        BoxCollider boxCollider = boxColliders[i];
-                        if (boxCollider != null)
-                        {
-                            // Add our proxy gameobject
-                            shouldUpdateNavmesh = true;
-                            GameObject navMeshModifierGameObject = new GameObject($"LandmineNavMeshModifier{i}");
-                            navMeshModifierGameObject.transform.SetParent(rootTransform, worldPositionStays: true);
-                            navMeshModifierGameObject.transform.SetPositionAndRotation(boxCollider.transform.position, boxCollider.transform.rotation); // I didn't know this existed until I found this in the Unity docs....Very useful!
-                            navMeshModifierGameObject.layer = LayerMask.NameToLayer("NavigationSurface");
+                    // Check if this landmine is indoors or outdoors
+                    bool isOutside = landmine.transform.position.y >= -80f;
 
-                            // Add the NavMeshVolume
-                            NavMeshModifierVolume navMeshModifier = navMeshModifierGameObject.AddComponent<NavMeshModifierVolume>();
-                            navMeshModifier.area = Const.LETHAL_BOT_LANDMINE_NAVAREA;
-                            navMeshModifier.center = boxCollider.center;
-                            navMeshModifier.size = boxCollider.size + colliderBuffer;
-                            Plugin.LogDebug($"Added NavMeshModifierVolume to landmine with center {navMeshModifier.center} and size {navMeshModifier.size}.");
-                            //Plugin.LogInfo($"Landmine position {landmine.transform.position} and rotation {landmine.transform.rotation}.");
-                            //Plugin.LogInfo($"Collider position {boxCollider.transform.position} and rotation {boxCollider.transform.rotation}.");
-                            //Plugin.LogInfo($"Proxy position {navMeshModifierGameObject.transform.position} and rotation {navMeshModifierGameObject.transform.rotation}.");
-                            //Plugin.LogInfo($"Modifier position {navMeshModifier.transform.position} and rotation {navMeshModifier.transform.rotation}.");
-                        }
-                    }
+                    // Find the landmine's colliders
+                    BoxCollider[] boxColliders = landmine.gameObject.GetComponentsInChildren<BoxCollider>();
+                    if (boxColliders.Length == 0) continue;
+
+                    // NavMeshLib will create our proxy GameObject and will handle setting the layermask and parenting
+                    CustomNavMeshModifier customNavMeshModifier = CustomNavMeshModifier.CreateFromColliders(landmine.gameObject, // TODO: Just edit the prefab instead of doing this here
+                                                                                                            boxColliders,
+                                                                                                            Const.LETHAL_BOT_LANDMINE_NAVAREA,
+                                                                                                            affectedAgents,
+                                                                                                            colliderBuffer,
+                                                                                                            isOutside ? NavMeshLib.Enums.ModifierParent.MoonEnvironment : NavMeshLib.Enums.ModifierParent.Interior); // We consider modded cases where landmines can be outside
+                    customNavMeshModifier.autoRebuildNavMeshOnMovement = true;
+                    customNavMeshModifier.autoRebuildMoveThreshold = 0.2f;
+                    customNavMeshModifier.navMeshUpdater.rebuildType = NavMeshLib.Enums.RebuildType.ActiveSurfaces;
+                    customNavMeshModifier.InitializeCustomModifier();
+                    customModifiers.Add(customNavMeshModifier);
+                    Plugin.LogDebug("Added CustomNavMeshModifier to landmine.");
                 }
             }
 
             // Don't update the mesh unless we have to
-            if (shouldUpdateNavmesh)
+            if (customModifiers.Count > 0)
             {
                 // Start the rebake!
-                Plugin.LogInfo("Updating NavMesh for all full bake surfaces in the dungeon to apply the new modifiers!");
+                Plugin.LogInfo($"Updating NavMesh for all full bake surfaces in the dungeon to apply {customModifiers.Count} new modifiers!");
                 NavMeshUtil.RebakeDunGenNavMesh();
             }
         }

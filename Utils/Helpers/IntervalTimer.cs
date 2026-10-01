@@ -10,8 +10,8 @@ namespace LethalBots.Utils.Helpers
     [Serializable]
     public struct IntervalTimer : INetworkSerializable, IEquatable<IntervalTimer>
     {
-        public const float INVALID_TIME = -1.0f;
-        public float timestamp;
+        public const double INVALID_TIME = -1.0f;
+        public double timestamp;
 
         public IntervalTimer()
         {
@@ -23,7 +23,7 @@ namespace LethalBots.Utils.Helpers
         /// </summary>
         public void Reset()
         {
-            timestamp = Time.realtimeSinceStartup;
+            timestamp = CountdownTimer.GetServerTime();
         }
 
         /// <summary>
@@ -31,7 +31,7 @@ namespace LethalBots.Utils.Helpers
         /// </summary>
         public void Start()
         {
-            timestamp = Time.realtimeSinceStartup;
+            timestamp = CountdownTimer.GetServerTime();
         }
 
         /// <summary>
@@ -57,9 +57,9 @@ namespace LethalBots.Utils.Helpers
         /// </summary>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float GetElapsedTime()
+        public double GetElapsedTime()
         {
-            return HasStarted() ? Time.realtimeSinceStartup - timestamp : INVALID_TIME;
+            return HasStarted() ? (CountdownTimer.GetServerTime() - timestamp) : INVALID_TIME;
         }
 
         /// <summary>

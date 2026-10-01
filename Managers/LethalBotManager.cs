@@ -1317,6 +1317,9 @@ namespace LethalBots.Managers
             {
                 RegisterVoiceCommands();
             }
+
+            // Reset the quota timer
+            maintainQuotaTimer.Start(5.0f); 
         }
 
         private void Update()
@@ -1441,9 +1444,8 @@ namespace LethalBots.Managers
         /// </summary>
         public void ManagePoolOfBots()
         {
-            StartOfRound instance = StartOfRound.Instance;
-
-            if (instance.allPlayerObjects[3].gameObject == null)
+            StartOfRound instanceSOR = StartOfRound.Instance;
+            if (instanceSOR.allPlayerObjects[3].gameObject == null)
             {
                 Plugin.LogInfo("No player objects initialized in game, aborting bots initializations.");
                 return;
@@ -1451,7 +1453,7 @@ namespace LethalBots.Managers
 
             if (Plugin.PluginIrlPlayersCount == 0)
             {
-                Plugin.PluginIrlPlayersCount = instance.allPlayerObjects.Length;
+                Plugin.PluginIrlPlayersCount = instanceSOR.allPlayerObjects.Length;
                 Plugin.LogDebug($"PluginIrlPlayersCount = {Plugin.PluginIrlPlayersCount}");
             }
 
@@ -1471,21 +1473,21 @@ namespace LethalBots.Managers
             AllEntitiesCount = irlPlayersCount;
 
             // Need to populate pool of bots?
-            if (instance.allPlayerScripts.Length == AllEntitiesCount)
+            if (instanceSOR.allPlayerScripts.Length == AllEntitiesCount)
             {
                 // the arrays have not been resize between round
-                Plugin.LogInfo($"Pool of bots ok. The arrays have not been resized, PluginIrlPlayersCount: {Plugin.PluginIrlPlayersCount}, arrays length: {instance.allPlayerScripts.Length}");
+                Plugin.LogInfo($"Pool of bots ok. The arrays have not been resized, PluginIrlPlayersCount: {Plugin.PluginIrlPlayersCount}, arrays length: {instanceSOR.allPlayerScripts.Length}");
                 return;
             }
 
-            Plugin.LogInfo($"Pool of bots not ok. The arrays have been resized, PluginIrlPlayersCount: {Plugin.PluginIrlPlayersCount}, arrays length: {instance.allPlayerScripts.Length}");
+            Plugin.LogInfo($"Pool of bots not ok. The arrays have been resized, PluginIrlPlayersCount: {Plugin.PluginIrlPlayersCount}, arrays length: {instanceSOR.allPlayerScripts.Length}");
             // Bots
             //UpdateSoundManagerWithInterns(irlPlayersAndInternsCount);
         }
 
         public void ResetIdentities()
         {
-            if (!base.IsServer && !base.IsHost)
+            if (!base.IsServer)
             {
                 // We need to ask the server to resend the identities json to us,
                 // since we lost them when we reset the identities in the manager,
@@ -2504,6 +2506,7 @@ namespace LethalBots.Managers
         /// Helper function to check if <see cref="Plugin.IsModGeneralImprovementsLoaded"/> has ScanPlayers enabled.
         /// </summary>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private bool IsGeneralImprovementsPlayerNodesActive()
         {
             return GeneralImprovements.Plugin.ScanPlayers.Value;
@@ -2536,7 +2539,7 @@ namespace LethalBots.Managers
 
             Scoops.patch.PlayerPhonePatch.PhoneManager.CreateNewPhone(phone.NetworkObjectId, CustomizationManager.DEFAULT_SKIN, CustomizationManager.DEFAULT_CHARM, CustomizationManager.DEFAULT_RINGTONE);
 
-            if (GameNetworkManager.Instance.localPlayerController == lethalBotController)
+            if (IsPlayerLocal(lethalBotController))
             {
                 phone.playPos = lethalBotController.playerGlobalHead;
                 phone.recordPos = lethalBotController.localArmsTransform.Find("shoulder.L/arm.L_upper/arm.L_lower/hand.L/LocalPhoneModel(Clone)");
@@ -2587,7 +2590,7 @@ namespace LethalBots.Managers
         private void CleanupLethalPhoneForBot(int lethalBotControllerId)
         {
             // Only host or server can delete network objects, so only do this on those instances!
-            if (!IsHost || !IsServer)
+            if (!IsServer)
             {
                 return;
             }
@@ -2691,7 +2694,7 @@ namespace LethalBots.Managers
                 // Leave the terminal if we are using one!
                 if (lethalBotController.inTerminalMenu)
                 {
-                    lethalBotAI.LeaveTerminal();
+                    lethalBotAI.LeaveTerminal(forceEndUse: true);
                 }
 
                 // Stop Emoting
@@ -2777,7 +2780,7 @@ namespace LethalBots.Managers
                 // Auto Revive support!
                 if (Plugin.IsModAutoReviveLoaded)
                 {
-                    LethalBotAutoReviveHelper.AutoReviveHandler autoReviveHandler = LethalBotAutoReviveHelper.GetAutoReviveHandler(lethalBotController);
+                    var autoReviveHandler = LethalBotAutoReviveHelper.GetAutoReviveHandler(lethalBotController);
                     autoReviveHandler.OnPlayerDC();
                 }
 
@@ -3055,10 +3058,8 @@ namespace LethalBots.Managers
                                 // Register all items with the same internal name as the held item as blacklisted!
                                 HashSet<NetworkObjectReference> itemsToBlacklist = new HashSet<NetworkObjectReference>();
                                 string itemName = heldItem.itemProperties.itemName;
-                                foreach (var gameObject in grabbableObjectsInMap)
+                                foreach (var grabbableObject in grabbableObjectsInMap)
                                 {
-                                    // grabbableObjectsInMap is a list of GameObjects, we need to get the GrabbableObject component first.
-                                    GrabbableObject? grabbableObject = gameObject?.GetComponent<GrabbableObject>();
                                     if (grabbableObject != null 
                                         && grabbableObject.itemProperties.itemName == itemName)
                                     {
@@ -3096,10 +3097,8 @@ namespace LethalBots.Managers
                                 // Register all items with the same internal name as the held item as blacklisted!
                                 HashSet<NetworkObjectReference> itemsToBlacklist = new HashSet<NetworkObjectReference>();
                                 string itemName = heldItem.itemProperties.itemName;
-                                foreach (var gameObject in grabbableObjectsInMap)
+                                foreach (var grabbableObject in grabbableObjectsInMap)
                                 {
-                                    // grabbableObjectsInMap is a list of GameObjects, we need to get the GrabbableObject component first.
-                                    GrabbableObject? grabbableObject = gameObject?.GetComponent<GrabbableObject>();
                                     if (grabbableObject != null
                                         && grabbableObject.itemProperties.itemName == itemName)
                                     {
