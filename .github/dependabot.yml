@@ -36,4 +36,5 @@ updates:
     open-pull-requests-limit: 5 # Lets be reasonable now
 
     # Don't handle BepInEx updates
-    - dependency-name: "BepInEx.Core"
+    ignore:
+      - dependency-name: "BepInEx.Core"
