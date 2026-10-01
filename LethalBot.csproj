@@ -142,9 +142,16 @@
 	<Reference Include="DissonanceVoip">
 		<HintPath>lib\DissonanceVoip.dll</HintPath>
 	</Reference>
-	<Reference Include="NavMesh Lib">
-		<HintPath>..\NavMeshLib\bin\Release\netstandard2.1\NavMeshLib.dll</HintPath>
-	</Reference>
+	<!-- Use my local NavMeshLib build when available -->
+    <Reference Include="NavMesh Lib"
+               Condition="Exists('..\NavMeshLib\bin\Release\netstandard2.1\NavMeshLib.dll')">
+        <HintPath>..\NavMeshLib\bin\Release\netstandard2.1\NavMeshLib.dll</HintPath>
+    </Reference>
+    <!-- Fall back to the committed DLL for GitHub/CI -->
+    <Reference Include="NavMesh Lib"
+               Condition="!Exists('..\NavMeshLib\bin\Release\netstandard2.1\NavMeshLib.dll')">
+        <HintPath>lib\NavMeshLib.dll</HintPath>
+    </Reference>
     <Reference Include="BetterEmotes">
       <HintPath>lib\mods\BetterEmotes.dll</HintPath>
     </Reference>
