@@ -15,7 +15,7 @@ Sigurd-CSync = "5.0.1"
 Rune580-LethalCompany_InputUtils = "0.7.13"
 JS03-SpeechRecognitionAPI = "1.0.0"
 TRizzle-NavMeshInCompanyRedux = "1.3.0"
-TRizzle-LethalBotsNavMeshProject = "2.0.0"
+TRizzle-LethalBotsNavMeshProject = "1.3.0"
 TRizzle-NavMeshLib = "3.0.0"
 
 [build]
