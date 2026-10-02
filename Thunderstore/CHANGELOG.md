@@ -1,5 +1,67 @@
 # Changelog
 
+## 13.0.0 2026-10-1
+It's been a while, hasn't it. This update focuses on a ton of backend changes made to improve the bots in general. With the release of NavMeshLib, I went ahead and upgraded some of the hacks I used here to rely on NavMeshLib, since it has a much more optimized way of doing NavMesh Calculations, adding custom agent IDs, and adding Custom Nav Areas at runtime. Now then, lets get on with the change log!
+
+# Bot Cruiser Support Phase I
+Yep, as of this update, bots have gained their Learners Permits and can now drive the cruiser.....for now they will only drive when following a player and said player is in the passenger seat. Since this is Phase I, expect them to not drive very well, but there will be more to come! #137 
+- Bots can now drive the crusier.....be warned, they are VERY BAD AT IT FOR NOW. Do note that they cannot detect if they are stuck yet.
+- Bots can now sit in the passenger seat.
+- Bots can now properly get in the cruiser's trunk. There are some collision issues that will be fixed later down the line.
+- Added some chat commands for when the bot is driving the cruiser. ("drive to ship", "drive to main entrance", "drive to fire exit"). Right now, only driving back to the ship is reliable.
+- Bots are now affected by the ejector seat
+- Fixed passenger collision for local player which could cause the car to fly if the bot was driving it for some reason.......
+
+# Bot Steam IDs and Custom Profile Pictures
+Yup, bots now have Steam IDs and you can now give bots custom profile pictures. Unlike bot voices, bot PFPs will automatically be sent to all clients, so only the server needs them. Clients may choose to disable this feature if desired.....Bot steam IDs use the same calculations Value uses for their bots, so they should never conflict with a human player.
+- Added SteamID assignment for bots using the same logic used by Source Engine bots in Valve games. These Steam IDs are the fake anonymous ones used by Valve and should have no risk of conflict with other existing Steam IDs.
+- Added pfpFilePath to LethalBotIdentity and updated serialization
+- Introduced AllowBotProfilePictures config option
+- Implemented network messaging for bot PFP requests/responses
+- Gave Mathew Kelly Bot a profile picture. Provided by Kelly himself. This is only for newly generated identity config files.
+
+# NavMeshLib Intergration
+NavMeshLib is a very powerful library I made and I moved a ton of the bot's code to rely on it. This means a few things:
+- Bots are much better at avoiding quicksand and landmines
+- Bots now support landmines spawned outside the facility.
+Once I move the bots to use a custom agent type, I can make the bot's even smarter about water and spike traps!
+
+# General AI Improvements
+This wouldn't be an update if I didn't improve the bot's AI in some way, shape, or form......
+- Improved bot interaction system to be more in-line with human players
+- Improved rare radar desyncs 
+- Improved quick menu to handle bot SteamIDs
+- Bots now use free movement when using Interact Triggers
+- Bots now use free movement when the ship is taking off and landing
+- Bots are now affected by slope speed modifiers
+- Optimized bot cadaver code
+- Changed voice cooldowns to be longer for all levels.
+- Refactored inventory slot logic to use PlayerControllerB.FirstEmptyItemSlot, removing custom slot handling from LethalBotAI and letting the base game handle it.
+- Bots no longer grab two-handed weapons and two-handed walkie-talkies, "for modded cases," as the mission controller, since they need to be able to interact with the terminal.
+- Bot voice states now have different priority levels. This should fix the issue of the bot cutting itself off, for example, when running from something and taking damage.
+- Bots now support BetterLethalVRM. (Requested by a friend)
+
+# Bug Fixes
+Yep, can't have an update without its bug fixes as well. So, lets get right onto it:
+- Fixed a logic error in a LCVR patch
+- Fixed LethalBotManager attempting to register voice commands when SpeechRecognitionAPI isn't loaded or installed
+- Updated toomanyemote sync code to use newer Rpc code, this should fix bots not emoting for some clients
+- Fixed some ladder OffMeshLink issues......again
+- Fixed bots not properly being damaged when in the crusier and it crashed into something.
+- Fixed a logic error with OffMeshLink code sometimes failing to end early if it was canceled.
+- Fixed bot falling checks using the wrong layermask
+- Switch CountdownTimer and IntervalTimer to double precision and synchronize with NetworkManager.ServerTime.Time which fixed a ton of timer based code. For Example, bots would not look properly on other clients.
+- Fixed bots spawning as soon as the lobby loaded, they now wait 5 seconds before they are allowed to start joining.
+
+# Bot API Improvements
+Mostly for developers, but here is what changed in the backend!
+- Added some custom Helper functions to make it easier for bots to use InteractTrigger objects.
+- Added an abstract API for registering Custom Vehicles for the bots. You can look at how I make the bot's drive the vanilla cruiser as an example!
+- Moved Vehicle detection to the Singleton manager
+- Improved ChatCommand and SignalTranslatorCommand to use a helper delegate functions
+- Replaced custom NavMesh code with NavMeshLib for all operations.
+- Registered Bot Cruiser agent via CustomAgentManager with settings in Const.cs.
+
 ## 12.1.1 2026-7-30
 Just a minor bug fix along with some code cleanup!
 
