@@ -11,7 +11,7 @@
         JustLostPlayer,
         ChillWithPlayer,
         FetchingObject,
-        PlayerInCruiser,
+        UseCruiser,
         Panik,
         ReturnToShip,
         ChillAtShip,

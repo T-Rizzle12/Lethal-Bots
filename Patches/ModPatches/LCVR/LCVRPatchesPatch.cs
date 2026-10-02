@@ -23,9 +23,9 @@ namespace LethalBots.Patches.ModPatches.LCVR
             return true;
         }
 
-        public static bool DisplaySafetyPatch_Prefix(PlayerControllerB __0)
+        public static bool DisplaySafetyPatch_Prefix(ShotgunItem __0)
         {
-            if (LethalBotManager.Instance.IsPlayerLethalBot(__0))
+            if (LethalBotManager.Instance.IsPlayerLethalBot(__0.playerHeldBy))
             {
                 return false;
             }

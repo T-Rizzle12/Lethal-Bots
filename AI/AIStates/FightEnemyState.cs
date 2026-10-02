@@ -263,8 +263,9 @@ namespace LethalBots.AI.AIStates
             ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
             {
                 VoiceState = voiceState,
+                VoicePriority = EnumVoicePriority.MEDIUM_PRIORITY,
                 CanTalkIfOtherLethalBotTalk = true,
-                WaitForCooldown = ai.LethalBotIdentity.Voice.LastVoiceState == voiceState, // Only wait for cooldown if we are trying to repeat the same voice state, otherwise we can interrupt ourselves!
+                WaitForCooldown = true,
                 CutCurrentVoiceStateToTalk = true,
                 CanRepeatVoiceState = true,
 

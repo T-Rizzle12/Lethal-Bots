@@ -10,9 +10,9 @@ namespace LethalBots.Utils.Helpers
     [Serializable]
     public struct CountdownTimer : INetworkSerializable, IEquatable<CountdownTimer>
     {
-        public const float INVALID_TIME = -1.0f;
-        public float startTime;
-        public float endTime;
+        public const double INVALID_TIME = -1.0f;
+        public double startTime;
+        public double endTime;
 
         public CountdownTimer()
         {
@@ -40,7 +40,7 @@ namespace LethalBots.Utils.Helpers
         /// <param name="time">How long should this timer run</param>
         public void Start(float time)
         {
-            float now = Time.realtimeSinceStartup;
+            double now = GetServerTime();
             startTime = now;
             endTime = now + (time >= 0 ? time : 0);
         }
@@ -60,9 +60,9 @@ namespace LethalBots.Utils.Helpers
         /// </summary>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float GetElapsedTime()
+        public double GetElapsedTime()
         {
-            return HasStarted() ? Time.realtimeSinceStartup - startTime : -1.0f;
+            return HasStarted() ? (GetServerTime() - startTime) : INVALID_TIME;
         }
 
         /// <summary>
@@ -72,7 +72,7 @@ namespace LethalBots.Utils.Helpers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Elapsed()
         {
-            return HasStarted() && endTime <= Time.realtimeSinceStartup;
+            return HasStarted() && endTime <= GetServerTime();
         }
 
         /// <summary>
@@ -118,6 +118,12 @@ namespace LethalBots.Utils.Helpers
         public static bool operator !=(CountdownTimer? left, CountdownTimer? right)
         {
             return !(left == right);
+        }
+
+        internal static double GetServerTime()
+        {
+            var networkManager = NetworkManager.Singleton;
+            return networkManager != null && networkManager.IsListening ? networkManager.ServerTime.Time : INVALID_TIME;
         }
     }
 }

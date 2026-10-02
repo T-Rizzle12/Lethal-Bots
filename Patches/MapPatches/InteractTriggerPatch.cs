@@ -23,15 +23,6 @@ namespace LethalBots.Patches.MapPatches
     [HarmonyPatch(typeof(InteractTrigger))]
     public class InteractTriggerPatch
     {
-        // Cache our private field and method lookups!
-        private static readonly FieldInfo lockedPlayerField = AccessTools.Field(typeof(InteractTrigger), "lockedPlayer");
-
-        private static readonly FieldInfo hasTriggeredField = AccessTools.Field(typeof(InteractTrigger), "hasTriggered");
-
-        private static readonly FieldInfo playerScriptInSpecialAnimationField = AccessTools.Field(typeof(InteractTrigger), "playerScriptInSpecialAnimation");
-
-        private static readonly MethodInfo ladderPositionObstructedMethod = AccessTools.Method(typeof(InteractTrigger), "LadderPositionObstructed");
-
         /*/// <summary>
         /// Patch for not making the intern able to cancel the ladder animation of a player already on the ladder 
         /// </summary>
@@ -222,7 +213,7 @@ namespace LethalBots.Patches.MapPatches
         {
             #pragma warning disable Harmony003 // Harmony non-ref patch parameters modified
             LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(playerController);
-            ladder.onInteractEarly.Invoke(null);
+            //ladder.onInteractEarly.Invoke(null);
             playerController.UpdateSpecialAnimationValue(specialAnimation: true, (short)ladder.ladderPlayerPositionNode.eulerAngles.y, 0f, climbingLadder: true);
             playerController.enteringSpecialAnimation = true;
             playerController.inSpecialInteractAnimation = true;
@@ -317,12 +308,15 @@ namespace LethalBots.Patches.MapPatches
             playerController.thisController.enabled = true; // NEEDTOVALIDATE: What happens if this is true for players that are not the local player?
             if (lethalBotAI != null)
             {
+                Vector3 endPos = lethalBotAI.NpcController.ladderEndpoint ?? ladderPosition;
+                lethalBotAI.NpcController.ladderEndpoint = null; // Clear the endpoint
                 lethalBotAI.SetAgent(enabled: true);
                 if (lethalBotAI.agent.isOnOffMeshLink)
                 {
+                    endPos = lethalBotAI.agent.currentOffMeshLinkData.endPos;
                     lethalBotAI.agent.CompleteOffMeshLink();
                 }
-                lethalBotAI.TeleportLethalBot(ladderPosition, lethalBotAI.isOutside, allowInteractTrigger: true, skipNavMeshCheck: true);
+                lethalBotAI.TeleportLethalBot(endPos, lethalBotAI.isOutside, allowInteractTrigger: true, skipNavMeshCheck: true);
                 lethalBotAI.useLadderCoroutine = null;
             }
             //ladder.currentCooldownValue = ladder.cooldownTime;
@@ -333,7 +327,7 @@ namespace LethalBots.Patches.MapPatches
         private static IEnumerator specialInteractAnimation(InteractTrigger trigger, PlayerControllerB playerController)
         {
             trigger.UpdateUsedByPlayerServerRpc((int)playerController.playerClientId);
-            trigger.onInteractEarly.Invoke(null);
+            //trigger.onInteractEarly.Invoke(null); // Don't do this......most mods and the base game refer to the local player here.......not the player that actually used the item
             trigger.isPlayingSpecialAnimation = true;
             trigger.playerScriptInSpecialAnimation = playerController;
             if (trigger.clampLooking)
@@ -461,10 +455,10 @@ namespace LethalBots.Patches.MapPatches
                     return false;
                 }
                 __instance.currentCooldownValue = __instance.cooldownTime;
-                bool isBeingHeldByPlayer = lethalBot.State?.LethalBotInteraction?.isBeingHeldByPlayer ?? false;
+                bool isBeingHeldByPlayer = lethalBot.LethalBotInteraction?.isBeingHeldByPlayer ?? false;
                 if (isBeingHeldByPlayer)
                 {
-                    lethalBot.State?.LethalBotInteraction?.isBeingHeldByPlayer = false;
+                    lethalBot.LethalBotInteraction?.isBeingHeldByPlayer = false;
                 }
             }
             if (!__instance.specialCharacterAnimation && !__instance.isLadder)
@@ -490,6 +484,26 @@ namespace LethalBots.Patches.MapPatches
             return false;
         }
 
+        [HarmonyPatch("StopInteraction")]
+        [HarmonyPostfix]
+        public static void StopInteraction_Postfix(InteractTrigger __instance)
+        {
+            // Now we need to find the bot using this interact trigger!
+            PlayerControllerB[] allPlayerScripts = StartOfRound.Instance.allPlayerScripts;
+            for (int i = 0; i < allPlayerScripts.Length; i++)
+            {
+                PlayerControllerB tempPlayer = allPlayerScripts[i];
+                LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAIIfLocalIsOwner(tempPlayer);
+                if (lethalBotAI != null
+                    && (tempPlayer.isPlayerControlled
+                        || tempPlayer.isPlayerDead)
+                    && tempPlayer.currentTriggerInAnimationWith == __instance)
+                {
+                    lethalBotAI.LethalBotInteraction?.StopHoldInteractionOnTrigger();
+                }
+            }
+        }
+
         [HarmonyPatch("StopSpecialAnimation")]
         [HarmonyPrefix]
         public static bool StopSpecialAnimation_Prefix(InteractTrigger __instance, ref Transform ___lockedPlayer)
@@ -512,80 +526,106 @@ namespace LethalBots.Patches.MapPatches
             }
 
             // Now we need to find the bot using this interact trigger!
-            LethalBotAI? lethalBotAI = null;
-            foreach (PlayerControllerB tempPlayer in StartOfRound.Instance.allPlayerScripts)
+            PlayerControllerB[] allPlayerScripts = StartOfRound.Instance.allPlayerScripts;
+            for (int i = 0; i < allPlayerScripts.Length; i++)
             {
-                LethalBotAI? tempLethalBotAI = LethalBotManager.Instance.GetLethalBotAI(tempPlayer);
-                if (tempLethalBotAI != null 
+                PlayerControllerB tempPlayer = allPlayerScripts[i];
+                LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAIIfLocalIsOwner(tempPlayer);
+                if (lethalBotAI != null 
                     && (tempPlayer.isPlayerControlled 
                         || tempPlayer.isPlayerDead) 
                     && tempPlayer.currentTriggerInAnimationWith == __instance)
                 {
-                    lethalBotAI = tempLethalBotAI;
                     player = tempPlayer;
                     playerTransform = tempPlayer.transform;
-                    break;
+                    Plugin.LogDebug($"Stop special animation on {__instance.gameObject.name}, by {playerTransform}; {player}");
+                    if (!__instance.isGettingDestroyed && __instance.isPlayingSpecialAnimation && __instance.stopAnimationManually && playerTransform != null)
+                    {
+                        Plugin.LogDebug($"Calling stop animation function StopUsing server rpc for playerController: {player.playerClientId}");
+                        __instance.StopUsingServerRpc((int)player.playerClientId);
+                    }
+                    if (player != null)
+                    {
+                        __instance.onCancelAnimation.Invoke(player);
+                        if (__instance.hidePlayerItem && player.currentlyHeldObjectServer != null)
+                        {
+                            player.currentlyHeldObjectServer.EnableItemMeshes(enable: true);
+                        }
+                        __instance.isPlayingSpecialAnimation = false;
+                        player.inSpecialInteractAnimation = false;
+                        if (player.clampLooking)
+                        {
+                            player.gameplayCamera.transform.localEulerAngles = Vector3.zero;
+                        }
+                        player.clampLooking = false;
+                        player.inVehicleAnimation = false;
+                        if ((bool)__instance.overridePlayerParent && player.overridePhysicsParent == __instance.overridePlayerParent)
+                        {
+                            player.overridePhysicsParent = null;
+                        }
+                        player.currentTriggerInAnimationWith = null;
+                        if (player.isClimbingLadder || lethalBotAI.useLadderCoroutine != null)
+                        {
+                            CancelLadderAnimation(__instance, player);
+                            player.isClimbingLadder = false;
+                        }
+                        Plugin.LogDebug("Stop special animation F");
+                        if (__instance.stopAnimationManually)
+                        {
+                            player.playerBodyAnimator.SetTrigger(__instance.stopAnimationString);
+                        }
+                        player.UpdateSpecialAnimationValue(specialAnimation: false, 0);
+                        if (___lockedPlayer == playerTransform)
+                        {
+                            ___lockedPlayer = null!;
+                        }
+                        __instance.currentCooldownValue = __instance.cooldownTime;
+                        __instance.onInteract.Invoke(null);
+                        Plugin.LogDebug("Stop special animation G");
+                        lethalBotAI.LethalBotInteraction?.StopHoldInteractionOnTrigger();
+                        if (lethalBotAI.useInteractTriggerCoroutine != null)
+                        {
+                            lethalBotAI.StopCoroutine(lethalBotAI.useInteractTriggerCoroutine);
+                        }
+                        lethalBotAI.useInteractTriggerCoroutine = null;
+                        /*if (player.isHoldingObject && player.currentlyHeldObjectServer != null)
+                        {
+                            player.currentlyHeldObjectServer.SetControlTipsForItem();
+                        }*/
+                    }
                 }
             }
 
-            // If we failed to find a bot or player, exit out early!
-            if (lethalBotAI == null || player == null)
-            {
-                return false;
-            }
-
-            Plugin.LogDebug($"Stop special animation on {__instance.gameObject.name}, by {playerTransform}; {player}");
-            if (__instance.isPlayingSpecialAnimation && __instance.stopAnimationManually && playerTransform != null)
-            {
-                Plugin.LogDebug($"Calling stop animation function StopUsing server rpc for playerController: {player.playerClientId}");
-                __instance.StopUsingServerRpc((int)player.playerClientId);
-            }
-            if (player != null)
-            {
-                __instance.onCancelAnimation.Invoke(player);
-                if (__instance.hidePlayerItem && player.currentlyHeldObjectServer != null)
-                {
-                    player.currentlyHeldObjectServer.EnableItemMeshes(enable: true);
-                }
-                __instance.isPlayingSpecialAnimation = false;
-                player.inSpecialInteractAnimation = false;
-                if (player.clampLooking)
-                {
-                    player.gameplayCamera.transform.localEulerAngles = Vector3.zero;
-                }
-                player.clampLooking = false;
-                player.inVehicleAnimation = false;
-                if ((bool)__instance.overridePlayerParent && player.overridePhysicsParent == __instance.overridePlayerParent)
-                {
-                    player.overridePhysicsParent = null;
-                }
-                player.currentTriggerInAnimationWith = null;
-                if (player.isClimbingLadder || lethalBotAI.useLadderCoroutine != null)
-                {
-                    CancelLadderAnimation(__instance, player);
-                    player.isClimbingLadder = false;
-                }
-                Plugin.LogDebug("Stop special animation F");
-                if (__instance.stopAnimationManually)
-                {
-                    player.playerBodyAnimator.SetTrigger(__instance.stopAnimationString);
-                }
-                player.UpdateSpecialAnimationValue(specialAnimation: false, 0);
-                __instance.currentCooldownValue = __instance.cooldownTime;
-                __instance.onInteract.Invoke(null);
-                Plugin.LogDebug("Stop special animation G");
-                lethalBotAI.State?.LethalBotInteraction?.StopHoldInteractionOnTrigger();
-                if (lethalBotAI.useInteractTriggerCoroutine != null)
-                {
-                    lethalBotAI.StopCoroutine(lethalBotAI.useInteractTriggerCoroutine);
-                }
-                lethalBotAI.useInteractTriggerCoroutine = null;
-                /*if (player.isHoldingObject && player.currentlyHeldObjectServer != null)
-                {
-                    player.currentlyHeldObjectServer.SetControlTipsForItem();
-                }*/
-            }
-            return false;
+            // Always run the default
+            return true;
         }
+
+        /// <summary>
+        /// This fixes a logic error in the game where for some unknown reason playerScriptInSpecialAnimation
+        /// is NOT cleared for the local player............
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="playerUsing"></param>
+        [HarmonyPatch("StopUsingClientRpc")]
+        [HarmonyPostfix]
+        public static void StopUsingClientRpc_Postfix(InteractTrigger __instance, int playerUsing)
+        {
+            PlayerControllerB usingPlayer = StartOfRound.Instance.allPlayerScripts[playerUsing];
+            if (LethalBotManager.IsPlayerLocal(usingPlayer))
+            {
+                usingPlayer.inVehicleAnimation = false;
+                // Base game actually handles this
+                //if (__instance.lockedPlayer == usingPlayer.transform)
+                //{
+                //    __instance.lockedPlayer = null;
+                //}
+                if (__instance.playerScriptInSpecialAnimation == usingPlayer)
+                {
+                    __instance.playerScriptInSpecialAnimation = null;
+                }
+                __instance.SetInteractTriggerNotInAnimation(playerUsing);
+            }
+        }
+
     }
 }

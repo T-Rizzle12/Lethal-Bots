@@ -11,9 +11,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 using static Unity.Netcode.NetworkBehaviour;
 using Object = UnityEngine.Object;
@@ -221,12 +223,90 @@ namespace LethalBots.Patches.GameEnginePatches
         [HarmonyPrefix]
         public static bool FillImageWithSteamProfile_Prefix(HUDManager __instance, ref RawImage image, ref SteamId steamId, ref bool large)
         {
+            // Kinda hard to use this if steam isn't loaded
+            if (!SteamClient.IsValid)
+            {
+                return true;
+            }
+
+            // Only check valid steam ids
             if (!steamId.IsValid)
             {
                 Plugin.LogWarning($"FillImageWithSteamProfile: Invaild steam id {steamId} or steam id is a bot. Aboring FillImageWithSteamProfile to prevent errors.");
                 return false;
             }
+            // Does the steam Id belong to a bot?
+            else if (LethalBotManager.Instance.IsSteamIdBot(steamId))
+            {
+                // The client doesn't want bot PFPs
+                if (Plugin.Config.AllowBotProfilePictures.Value)
+                {
+                    // Update the image with the bot's PFP
+                    LoadBotProfilePicture(image, steamId);
+                }
+                return false;
+            }
             return true;
+        }
+
+        private static async void LoadBotProfilePicture(RawImage image, SteamId steamId)
+        {
+            // Sanity check
+            #pragma warning disable Harmony003 // Harmony non-ref patch parameters modified
+            if (image == null || !steamId.IsValid) return;
+            #pragma warning restore Harmony003 // Harmony non-ref patch parameters modified
+
+            // Keep track if we finish early
+            LethalBotManager instanceLB = LethalBotManager.Instance;
+            TaskCompletionSource<bool> completionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            // Create our tempoarty hook
+            UnityAction<SteamId, byte[], Texture2D> listener = null!;
+            UnityAction cancelFunction = null!;
+            listener = (botSteamId, rawImageData, texture) =>
+            {
+                // If the image we were trying to change became invalid or the given
+                // steam id is null, just give up
+                if (image == null || !botSteamId.IsValid)
+                {
+                    completionSource.TrySetResult(false);
+                }
+                // Make sure this is the correct image
+                else if (botSteamId == steamId)
+                {
+                    // Only set this once!
+                    if (completionSource.TrySetResult(true))
+                    {
+                        image.texture = texture;
+                    }
+                }
+            };
+
+            // Just in case the user leaves the game or something
+            cancelFunction = () =>
+            {
+                completionSource.TrySetResult(false);
+            };
+
+            // Register our hooks
+            instanceLB.OnBotPFPRecevied.AddListener(listener);
+            instanceLB.OnBotPFPManagerDestroyed.AddListener(cancelFunction);
+
+            // Give 20 seconds for the message to arrive
+            try
+            {
+                // Request the bot's PFP from the server.
+                instanceLB.RequestBotProfilePictureServerRpc(steamId);
+
+                // Give the server/client up to 20 seconds to respond.
+                await Task.WhenAny(Task.Delay(TimeSpan.FromSeconds(20f)), completionSource.Task);
+            }
+            finally
+            {
+                // Make sure this is removed
+                instanceLB.OnBotPFPRecevied.RemoveListener(listener);
+                instanceLB.OnBotPFPManagerDestroyed.RemoveListener(cancelFunction);
+            }
         }
 
         [HarmonyPatch("ChangeControlTipMultiple")]

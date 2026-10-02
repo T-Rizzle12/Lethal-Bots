@@ -107,7 +107,7 @@ namespace LethalBots.AI.AIStates
                 case EnumAIStates.GetCloseToPlayer:
                 case EnumAIStates.ChillWithPlayer:
                 case EnumAIStates.JustLostPlayer:
-                case EnumAIStates.PlayerInCruiser:
+                case EnumAIStates.UseCruiser:
                     LethalBotManager.Instance.MissionControlPlayer = null;
                     break;
                 default:
@@ -352,7 +352,7 @@ namespace LethalBots.AI.AIStates
                     // If we don't have our weapon, we should pick it up!
                     if (!ai.HasGrabbableObjectInInventory(weapon, out _))
                     {
-                        int openSlot = ai.FirstEmptyItemSlot(weapon);
+                        int openSlot = lethalBotController.FirstEmptyItemSlot(weapon);
                         if (openSlot != Const.INVALID_ITEM_SLOT)
                         {
                             if (!weapon.isInShipRoom || weapon.isHeld)
@@ -429,7 +429,7 @@ namespace LethalBots.AI.AIStates
                 // We don't have the walkie-talkie, so we should pick it up!
                 if (!ai.HasGrabbableObjectInInventory(walkieTalkie, out int walkieSlot))
                 {
-                    int openSlot = ai.FirstEmptyItemSlot(walkieTalkie);
+                    int openSlot = lethalBotController.FirstEmptyItemSlot(walkieTalkie);
                     if (openSlot != Const.INVALID_ITEM_SLOT)
                     {
                         if (!walkieTalkie.isInShipRoom || walkieTalkie.isHeld)
@@ -1922,7 +1922,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         private bool FindWalkieHelper(GrabbableObject item)
         {
-            return item != null && item is WalkieTalkie;
+            return item != null && !item.itemProperties.twoHanded && item is WalkieTalkie; // No two handed walkie-talkies....as we need to be able to interact with the terminal
         }
 
         /// <summary>
@@ -1954,7 +1954,7 @@ namespace LethalBots.AI.AIStates
         /// <inheritdoc cref="AIState.FindObject(GrabbableObject)"/>
         private bool FindWeaponHelper(GrabbableObject item)
         {
-            return item != null && ai.HasAmmoForWeapon(item);
+            return item != null && !item.itemProperties.twoHanded && ai.HasAmmoForWeapon(item); // No two handed weapons....as we need to be able to interact with the terminal
         }
 
         private void SetupTerminalAccessibleObjects()
@@ -2083,7 +2083,7 @@ namespace LethalBots.AI.AIStates
             // This is a placeholder for now!
             // This is done so the bot talks on the radio to keep other players in-game sanity up!
             // NOTE: Players can use walkie-talkies while they are using the terminal!
-            if (walkieTalkie != null || Plugin.IsModLethalPhonesLoaded)
+            if (walkieTalkie != null || (Plugin.IsModLethalPhonesLoaded && ai.AreWeInCall()))
             {
                 // Default states, wait for cooldown and if no one is talking close
                 ai.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
@@ -2220,7 +2220,7 @@ namespace LethalBots.AI.AIStates
                 // First, make sure we are in orbit
                 if (!LethalBotManager.AreWeInOrbit())
                 {
-                    lethalBotAI.SendChatMessage($"I can't route to a moon unless we are in orbit.");
+                    lethalBotAI.SendChatMessage("I can't route to a moon unless we are in orbit.");
                     return true;
                 }
 

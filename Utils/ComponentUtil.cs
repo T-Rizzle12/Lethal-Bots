@@ -147,5 +147,41 @@ namespace LethalBots.Utils
             return dst as T;
 #pragma warning restore CS8603 // Possible null reference return.
         }
+
+        /// <summary>
+        /// Finds a child transform with the specified name in the hierarchy of the given parent transform.
+        /// </summary>
+        /// <remarks>
+        /// Only exists since the default Unity <see cref="Transform.Find(string)"/> method only searches for direct children, 
+        /// not grandchildren or deeper descendants. <br/>
+        /// WARNING: This method is recursive and may have performance implications if the hierarchy is deep or has many child objects. Use with caution. <br/>
+        /// You should consider caching the result of this method if you need to access the same child multiple times.
+        /// </remarks>
+        /// <param name="parent"></param>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static Transform? FindChildWithName(this Transform parent, string name)
+        {
+            // Check if the parent itself has the name we are looking for
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                // Get the child transform at index i
+                Transform child = parent.GetChild(i);
+                if (child.name == name)
+                {
+                    return child;
+                }
+
+                // Recursively search in the child's children
+                Transform? result = FindChildWithName(child, name);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
+
+            // If we reach here, it means we didn't find the child with the specified name in this branch of the hierarchy
+            return null;
+        }
     }
 }

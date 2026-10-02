@@ -39,14 +39,14 @@ namespace LethalBots.AI
         public static LethalBotTalkEvent lethalBotTalkEvent = new LethalBotTalkEvent();
 
         // Cooldown for talkativeness voice states
-        private float cooldownTalkativeness = 0f;
+        private CountdownTimer cooldownTalkativeness = new CountdownTimer();
         // Cooldown for responsiveness voice states
-        private float cooldownResponsiveness = 0f;
+        private CountdownTimer cooldownResponsiveness = new CountdownTimer();
 
         private readonly float[] tempSamples = new float[256];
         private bool aboutToTalk;
 
-        public EnumVoicesState LastVoiceState
+        public PlayVoiceParameters LastVoiceState
         {
             get;
             private set;
@@ -74,11 +74,11 @@ namespace LethalBots.AI
         {
             if (IsResponsivenessState(voiceState))
             {
-                cooldownResponsiveness = cooldown;
+                cooldownResponsiveness.Start(cooldown);
             }
             else
             {
-                cooldownTalkativeness = cooldown;
+                cooldownTalkativeness.Start(cooldown);
             }
         }
 
@@ -107,38 +107,20 @@ namespace LethalBots.AI
         {
             if (isResponsiveness)
             {
-                cooldownResponsiveness = GetRandomCooldown(true);
+                cooldownResponsiveness.Start(GetRandomCooldown(true));
                 //Plugin.LogInfo($"New cooldownResponsiveness value: {cooldownResponsiveness}");
             }
             else
             {
-                cooldownTalkativeness = GetRandomCooldown(false);
+                cooldownTalkativeness.Start(GetRandomCooldown(false));
                 //Plugin.LogInfo($"New cooldownTalkativeness value: {cooldownTalkativeness}");
             }
         }
 
+        [Obsolete("Talking cooldowns have been moved to use CountdownTimer structs instead. This function now does nothing")]
         public void ReduceCooldown(float time)
         {
-            // CooldownPlayAudio
-            // Talkativeness cooldown
-            if (cooldownTalkativeness > 0f)
-            {
-                cooldownTalkativeness -= time;
-                if (cooldownTalkativeness < 0f)
-                {
-                    cooldownTalkativeness = 0f;
-                }
-            }
-
-            // Responsiveness cooldown
-            if (cooldownResponsiveness > 0f)
-            {
-                cooldownResponsiveness -= time;
-                if (cooldownResponsiveness < 0f)
-                {
-                    cooldownResponsiveness = 0f;
-                }
-            }
+            // Do nothing now
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -150,7 +132,7 @@ namespace LethalBots.AI
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool CanPlayAudioAfterCooldown(EnumVoicesState voiceState)
         {
-            return IsResponsivenessState(voiceState) ? cooldownResponsiveness == 0f : cooldownTalkativeness == 0f;
+            return IsResponsivenessState(voiceState) ? (!cooldownResponsiveness.HasStarted() || cooldownResponsiveness.Elapsed()) : (!cooldownTalkativeness.HasStarted() || cooldownTalkativeness.Elapsed());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -280,18 +262,19 @@ namespace LethalBots.AI
                 }
             }
 
-            if (!parameters.CutCurrentVoiceStateToTalk)
+            // If we are already talking, don't cut ourself off
+            // unless we are a higher priority or told not to
+            if (IsTalking() 
+                && (!parameters.CutCurrentVoiceStateToTalk
+                    || LastVoiceState.VoicePriority <= parameters.VoicePriority))
             {
-                if (IsTalking())
-                {
-                    return;
-                }
+                return;
             }
 
             if (parameters.CanRepeatVoiceState)
             {
                 // Wait if already in state
-                if (LastVoiceState == parameters.VoiceState
+                if (LastVoiceState.VoiceState == parameters.VoiceState
                     && IsTalking())
                 {
                     // We wait for end
@@ -301,15 +284,14 @@ namespace LethalBots.AI
             else
             {
                 // Cannot repeat allowed, if in same state no cut talking
-                if (LastVoiceState == parameters.VoiceState)
+                if (LastVoiceState.VoiceState == parameters.VoiceState)
                 {
                     return;
                 }
             }
 
             PlayRandomVoiceAudio(parameters.VoiceState, parameters);
-            LastVoiceState = parameters.VoiceState;
-            LethalBotManager.Instance.PlayAudibleNoiseForLethalBot(this.BotID, CurrentAudioSource.transform.position, 16f, 0.9f, 5);
+            LastVoiceState = parameters;
         }
 
         public void PlayRandomVoiceAudio(EnumVoicesState enumVoicesState, PlayVoiceParameters parameters)
@@ -348,7 +330,7 @@ namespace LethalBots.AI
             CurrentAudioSource.clip = audioClip;
             CurrentAudioSource.Play();
 
-            SetCooldownAudio(LastVoiceState, audioClip.length + GetRandomCooldown(LastVoiceState));
+            SetCooldownAudio(LastVoiceState.VoiceState, audioClip.length + GetRandomCooldown(LastVoiceState.VoiceState));
         }
 
         /// <summary>
@@ -505,9 +487,10 @@ namespace LethalBots.AI
 
         public void TryStopAudioFadeOut()
         {
-            if (LastVoiceState != EnumVoicesState.Hit
-                && LastVoiceState != EnumVoicesState.SteppedOnTrap
-                && LastVoiceState != EnumVoicesState.RunningFromMonster)
+            EnumVoicesState voiceState = LastVoiceState.VoiceState;
+            if (voiceState != EnumVoicesState.Hit
+                && voiceState != EnumVoicesState.SteppedOnTrap
+                && voiceState != EnumVoicesState.RunningFromMonster)
             {
                 StopAudioFadeOut();
             }
@@ -518,7 +501,7 @@ namespace LethalBots.AI
             if (CurrentAudioSource.isPlaying)
             {
                 CurrentAudioSource.Stop();
-                LastVoiceState = EnumVoicesState.None;
+                LastVoiceState = VoicesConst.DEFAULT_VOICE_PARAMETERS;
             }
         }
     }
@@ -531,9 +514,23 @@ namespace LethalBots.AI
         public bool CanRepeatVoiceState { get; set; }
 
         public EnumVoicesState VoiceState { get; set; }
+        public EnumVoicePriority VoicePriority { get; set; }
 
         public bool ShouldSync { get; set; }
         public bool IsLethalBotInside { get; set; }
         public bool AllowSwearing { get; set; }
+
+        public PlayVoiceParameters()
+        {
+            CanTalkIfOtherLethalBotTalk = false;
+            WaitForCooldown = false;
+            CutCurrentVoiceStateToTalk = false;
+            CanRepeatVoiceState = false;
+            VoiceState = EnumVoicesState.None;
+            VoicePriority = EnumVoicePriority.LOW_PRIORITY;
+            ShouldSync = false;
+            IsLethalBotInside = false;
+            AllowSwearing = false;
+        }
     }
 }

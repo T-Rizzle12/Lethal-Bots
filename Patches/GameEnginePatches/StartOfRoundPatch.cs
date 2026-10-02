@@ -60,6 +60,9 @@ namespace LethalBots.Patches.GameEnginePatches
             objectManager = new GameObject("ItemsManager");
             objectManager.AddComponent<ItemsManager>();
 
+            objectManager = new GameObject("VehicleManager");
+            objectManager.AddComponent<VehicleManager>();
+
             // NetworkBehaviours
             Scene scene = __instance.gameObject.scene;
             SpawnNetworkPrefab(PluginManager.Instance.TerminalManagerPrefab, scene);
@@ -125,7 +128,7 @@ namespace LethalBots.Patches.GameEnginePatches
 
             int failedToBlacklist = 0;
             HashSet<GrabbableObject> alreadyBlacklistedItems = new HashSet<GrabbableObject>();
-            GrabbableObject[] grabbableObjects = Object.FindObjectsOfType<GrabbableObject>();
+            GrabbableObject[] grabbableObjects = Object.FindObjectsByType<GrabbableObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach (var blacklistedItem in blacklistedItems)
             {
                 // Load our saved item's position

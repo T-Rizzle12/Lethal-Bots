@@ -10,7 +10,18 @@ namespace LethalBots.Utils.Helpers
     public class ChatCommand
     {
         public string[] Keywords;
-        public Func<AIState, LethalBotAI, PlayerControllerB, string, bool, bool> Execute;
+        public ChatCommandDelegate Execute;
+
+        /// <summary>
+        /// A chat command callback
+        /// </summary>
+        /// <param name="state">The <paramref name="lethalBotAI"/>'s current AI state</param>
+        /// <param name="lethalBotAI">The bot who saw or heard the <paramref name="message"/></param>
+        /// <param name="playerWhoSentMessage">The player who sent the <paramref name="message"/></param>
+        /// <param name="message">The message sent by <paramref name="playerWhoSentMessage"/></param>
+        /// <param name="isVoice">If the <paramref name="message"/> was said or sent in the chat</param>
+        /// <returns><see langword="true"/> if the given <paramref name="state"/> took some kind of action on the given <paramref name="message"/>; otherwise <see langword="false"/></returns>
+        public delegate bool ChatCommandDelegate(AIState state, LethalBotAI lethalBotAI, PlayerControllerB playerWhoSentMessage, string message, bool isVoice);
 
         /// <summary>
         /// Creates a new chat command
@@ -22,7 +33,7 @@ namespace LethalBots.Utils.Helpers
         /// <param name="execute"></param>
         public ChatCommand(
             string keyword,
-            Func<AIState, LethalBotAI, PlayerControllerB, string, bool, bool> execute)
+            ChatCommandDelegate execute)
         {
             Keywords = new string[] { keyword.ToLower() };
             Execute = execute;
@@ -39,7 +50,7 @@ namespace LethalBots.Utils.Helpers
 
         public ChatCommand(
             string[] keywords,
-            Func<AIState, LethalBotAI, PlayerControllerB, string, bool, bool> execute)
+            ChatCommandDelegate execute)
         {
             for (int i = 0; i < keywords.Length; i++)
             {

@@ -19,6 +19,7 @@ namespace LethalBots.NetworkSerializers
         public string loadoutName;
         public string moreCompanyCosmetics;
         public int groupID;
+        public string pfpFilePath;
 
         // Constructor with default values
         public ConfigIdentity()
@@ -32,11 +33,12 @@ namespace LethalBots.NetworkSerializers
             loadoutName = "Empty";
             moreCompanyCosmetics = string.Empty;
             groupID = GroupManager.INVALID_GROUP_INDEX;
+            pfpFilePath = "None";
             // voice pitch set after
         }
 
         // Constructor with parameters
-        public ConfigIdentity(string name, int suitID, int suitConfigOption, int defaultAIState, string voiceFolder, float volume, float voicePitch, string loadoutName, string moreCompanyCosmetics, int groupID)
+        public ConfigIdentity(string name, int suitID, int suitConfigOption, int defaultAIState, string voiceFolder, float volume, float voicePitch, string loadoutName, string moreCompanyCosmetics, int groupID, string pfpFilePath)
         {
             this.name = name;
             this.suitID = suitID;
@@ -48,6 +50,7 @@ namespace LethalBots.NetworkSerializers
             this.loadoutName = loadoutName;
             this.moreCompanyCosmetics = moreCompanyCosmetics;
             this.groupID = groupID;
+            this.pfpFilePath = pfpFilePath;
         }
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
@@ -62,11 +65,12 @@ namespace LethalBots.NetworkSerializers
             serializer.SerializeValue(ref loadoutName);
             serializer.SerializeValue(ref moreCompanyCosmetics);
             serializer.SerializeValue(ref groupID);
+            serializer.SerializeValue(ref pfpFilePath);
         }
 
         public override string ToString()
         {
-            return $"name: {name}, suitID {suitID}, suitConfigOption {suitConfigOption} {(EnumOptionSuitConfig)suitConfigOption}, defaultAIState {defaultAIState} {(EnumDefaultAIState)defaultAIState} voiceFolder {voiceFolder}, volume {volume}, voicePitch {voicePitch}, loadoutName {loadoutName}, more company cosmetics {moreCompanyCosmetics} internal groupID: {groupID}";
+            return $"name: {name}, suitID {suitID}, suitConfigOption {suitConfigOption} {(EnumOptionSuitConfig)suitConfigOption}, defaultAIState {defaultAIState} {(EnumDefaultAIState)defaultAIState} voiceFolder {voiceFolder}, volume {volume}, voicePitch {voicePitch}, loadoutName {loadoutName}, more company cosmetics {moreCompanyCosmetics} internal groupID: {groupID}, profile picture path {pfpFilePath}";
         }
     }
 }

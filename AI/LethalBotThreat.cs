@@ -23,9 +23,6 @@ namespace LethalBots.AI
         /// <returns></returns>
         public delegate bool ShouldAttackDelegate(in LethalBotAttackQuery query);
 
-        [Obsolete("Use the other constructor instead!", true)]
-        public LethalBotThreat(EnemyAI enemyAI, FearRangeDelegate pankFunc, FearRangeDelegate missionControlFunc, FearRangeDelegate pathfindFunc) : this(enemyAI.GetType(), pankFunc, missionControlFunc, pathfindFunc) { }
-
         public LethalBotThreat(Type threatType, FearRangeDelegate pankFunc, FearRangeDelegate missionControlFunc, FearRangeDelegate pathfindFunc, ShouldAttackDelegate? shouldAttackFunc = null)
         {
             ThreatType = threatType;

@@ -215,26 +215,6 @@ namespace LethalBots.Patches.NpcPatches
         }
 
         /// <summary>
-        /// Patch to call our FirstEmptyItemSlot method!
-        /// </summary>
-        /// <param name="__instance"></param>
-        /// <param name="__result"></param>
-        /// <param name="attemptingGrab"></param>
-        /// <returns></returns>
-        [HarmonyPatch("FirstEmptyItemSlot")]
-        [HarmonyPrefix]
-        static bool FirstEmptyItemSlot_Prefix(PlayerControllerB __instance, ref int __result, GrabbableObject attemptingGrab = null!)
-        {
-            LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI(__instance);
-            if (lethalBotAI != null)
-            {
-                __result = lethalBotAI.FirstEmptyItemSlot(attemptingGrab);
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
         /// Patch to call our SwitchToItemSlot method!
         /// </summary>
         /// <param name="__instance"></param>
@@ -286,7 +266,7 @@ namespace LethalBots.Patches.NpcPatches
             // Since the base game has a different check if the player is in the terminal, it only works for the local player.
             // We need to do our custom logic instead!
             // Don't allow default logic to run as it bugs out sometimes and kicks the local player off the terminal!
-            if (__instance.inTerminalMenu)
+            if (__instance.inTerminalMenu || lethalBotAI.IsUsingTerminal())
             {
                 lethalBotAI.LeaveTerminal();
             }

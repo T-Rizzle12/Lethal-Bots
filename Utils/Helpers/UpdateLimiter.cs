@@ -14,30 +14,30 @@ namespace LethalBots.Utils.Helpers
     public class UpdateLimiter
     {
         // Static variables
-        // Conditional Weak Table since when the EnemyAI is removed, the table automatically cleans itself!
-        private static ConditionalWeakTable<EnemyAI, UpdateLimiter> nextUpdateList = new ConditionalWeakTable<EnemyAI, UpdateLimiter>();
+        // Conditional Weak Table since when the object is removed, the table automatically cleans itself!
+        private static ConditionalWeakTable<object, UpdateLimiter> nextUpdateList = new ConditionalWeakTable<object, UpdateLimiter>();
 
         /// <summary>
         /// Helper function that retrieves the <see cref="UpdateLimiter"/>
-        /// for the given <see cref="EnemyAI"/>
+        /// for the given <see cref="object"/>
         /// </summary>
-        /// <param name="ai">The enemy AI instance to monitor</param>
+        /// <param name="instance">The object instance to monitor</param>
         /// <param name="updateInterval">The amount of time that should pass between calls to the patch</param>
-        /// <returns>The <see cref="UpdateLimiter"/> associated with the given <see cref="EnemyAI"/></returns>
+        /// <returns>The <see cref="UpdateLimiter"/> associated with the given <see cref="object"/></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static UpdateLimiter GetOrCreateMonitor(EnemyAI ai, float updateInterval = 0.5f)
+        public static UpdateLimiter GetOrCreateMonitor(object instance, float updateInterval = 0.5f)
         {
-            return nextUpdateList.GetValue(ai, _ => new UpdateLimiter(updateInterval));
+            return nextUpdateList.GetValue(instance, _ => new UpdateLimiter(updateInterval));
         }
 
         /// <summary>
-        /// Removes the specified enemy AI instance from the monitoring list.
+        /// Removes the specified object instance from the monitoring list.
         /// </summary>
-        /// <param name="ai">The enemy AI instance to remove from monitoring. Cannot be null.</param>
+        /// <param name="instance">The object instance to remove from monitoring. Cannot be null.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void RemoveMonitor(EnemyAI ai)
+        public static void RemoveMonitor(object instance)
         {
-            nextUpdateList.Remove(ai);
+            nextUpdateList.Remove(instance);
         }
 
         // Member variables

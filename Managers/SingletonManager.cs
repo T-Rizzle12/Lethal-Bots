@@ -37,5 +37,7 @@ namespace LethalBots.Managers
         public static Singleton<HangarShipDoor> ShipDoor { get; } = new Singleton<HangarShipDoor>();
 
         public static Singleton<QuickMenuManager> QuickMenuManager { get; } = new Singleton<QuickMenuManager>();
+
+        public static Singleton<VehicleController> VehicleController { get; } = new Singleton<VehicleController>();
     }
 }
