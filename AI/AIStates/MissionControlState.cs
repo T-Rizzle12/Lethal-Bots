@@ -624,7 +624,7 @@ namespace LethalBots.AI.AIStates
                     string messageToSend = GetNextMessageToSend();
                     if (!string.IsNullOrWhiteSpace(messageToSend))
                     {
-                        yield return SendCommandToTerminal(string.Format(TerminalConst.STRING_TRANSMIT_COMMAND, messageToSend));
+                        yield return TerminalManager.Instance.SendCommandToTerminal(string.Format(TerminalConst.STRING_TRANSMIT_COMMAND, messageToSend));
                     }
                 }
 
@@ -692,11 +692,11 @@ namespace LethalBots.AI.AIStates
             if (player != null)
             {
                 string playerUsername = player.playerUsername.ToLower();
-                yield return SendCommandToTerminal($"switch {playerUsername}");
+                yield return TerminalManager.Instance.SendCommandToTerminal($"switch {playerUsername}");
             }
             else
             {
-                yield return SendCommandToTerminal("switch");
+                yield return TerminalManager.Instance.SendCommandToTerminal("switch");
             }
         }
 
@@ -711,7 +711,7 @@ namespace LethalBots.AI.AIStates
             for (int i = 0; i < objectsToUse.Length; i++)
             {
                 TerminalAccessibleObject terminalAccessible = objectsToUse[i];
-                yield return SendCommandToTerminal(terminalAccessible.objectCode);
+                yield return TerminalManager.Instance.SendCommandToTerminal(terminalAccessible.objectCode);
             }
         }
 
@@ -819,38 +819,10 @@ namespace LethalBots.AI.AIStates
         /// </summary>
         /// <param name="command"></param>
         /// <returns></returns>
+        [Obsolete("This has been moved to the TerminalManager class, use that instead!")]
         private IEnumerator SendCommandToTerminal(string command)
         {
-            command = command.Trim();
-            if (string.IsNullOrWhiteSpace(command))
-            {
-                yield break;
-            }
-
-            // Use the terminal to play keyboard sound effects!
-            Terminal ourTerminal = TerminalManager.Instance.GetTerminal();
-            for (int i = 0; i < command.Length + 1; i++) // +1 for pressing the enter key!
-            {
-                if (ourTerminal != null)
-                {
-                    RoundManager.PlayRandomClip(ourTerminal.terminalAudio, ourTerminal.keyboardClips);
-                }
-
-                // Wait for a random time between 0.05 and 0.3 seconds before typing the next character
-                yield return new WaitForSeconds(Random.Range(0.05f, 0.3f));
-            }
-
-            // Update the terminal using the given command!
-            TerminalManager.Instance.OnSubmit(command, ourTerminal);
-
-            // Update the terminal if possible
-            // FIXME: We going to need some patches to do this!
-            /*if (ourTerminal != null)
-            {
-                ourTerminal.TextChanged(message);
-                ourTerminal.OnSubmit();
-            }*/
-
+            yield return TerminalManager.Instance.SendCommandToTerminal(command, clearPreviousText: true);
         }
 
         /// <summary>
@@ -1125,16 +1097,16 @@ namespace LethalBots.AI.AIStates
                 // Ok, so we are not on the start page. Lets head over there now!
                 if (terminal.currentNode.isConfirmationNode)
                 {
-                    yield return SendCommandToTerminal(TerminalConst.STRING_CANCEL_COMMAND); // Just decline whatever is presented!
+                    yield return TerminalManager.Instance.SendCommandToTerminal(TerminalConst.STRING_CANCEL_COMMAND); // Just decline whatever is presented!
                 }
-                yield return SendCommandToTerminal(TerminalConst.STRING_HELP);
+                yield return TerminalManager.Instance.SendCommandToTerminal(TerminalConst.STRING_HELP);
             }
 
             // Alright, to the store page
-            yield return SendCommandToTerminal(TerminalConst.STRING_STORE);
+            yield return TerminalManager.Instance.SendCommandToTerminal(TerminalConst.STRING_STORE);
 
             // And now we make the purchase
-            yield return SendCommandToTerminal(string.Format(TerminalConst.STRING_BUY_COMMAND, item.itemName, numToPurchase));
+            yield return TerminalManager.Instance.SendCommandToTerminal(string.Format(TerminalConst.STRING_BUY_COMMAND, item.itemName, numToPurchase));
 
             // Accept at the confirmation page
             if (!terminal.currentNode.isConfirmationNode)
@@ -1142,7 +1114,7 @@ namespace LethalBots.AI.AIStates
                 Plugin.LogWarning($"Bot {npcController.Npc.playerUsername} attempted to buy {item.itemName}, but it failed?");
                 yield break; // Huh, how did this happen?!
             }
-            yield return SendCommandToTerminal(TerminalConst.STRING_CONFIRM_COMMAND);
+            yield return TerminalManager.Instance.SendCommandToTerminal(TerminalConst.STRING_CONFIRM_COMMAND);
         }
 
         /// <summary>
@@ -1341,7 +1313,7 @@ namespace LethalBots.AI.AIStates
                     string messageToSend = GetNextMessageToSend();
                     if (!string.IsNullOrWhiteSpace(messageToSend))
                     {
-                        yield return SendCommandToTerminal(string.Format(TerminalConst.STRING_TRANSMIT_COMMAND, messageToSend));
+                        yield return TerminalManager.Instance.SendCommandToTerminal(string.Format(TerminalConst.STRING_TRANSMIT_COMMAND, messageToSend));
                     }
                 }
 
@@ -1433,16 +1405,16 @@ namespace LethalBots.AI.AIStates
                 // Ok, so we are not on the start page. Lets head over there now!
                 if (terminal.currentNode.isConfirmationNode)
                 {
-                    yield return SendCommandToTerminal(TerminalConst.STRING_CANCEL_COMMAND); // Just decline whatever is presented!
+                    yield return TerminalManager.Instance.SendCommandToTerminal(TerminalConst.STRING_CANCEL_COMMAND); // Just decline whatever is presented!
                 }
-                yield return SendCommandToTerminal(TerminalConst.STRING_HELP);
+                yield return TerminalManager.Instance.SendCommandToTerminal(TerminalConst.STRING_HELP);
             }
 
             // Alright, to the moons page
-            yield return SendCommandToTerminal(TerminalConst.STRING_MOONS);
+            yield return TerminalManager.Instance.SendCommandToTerminal(TerminalConst.STRING_MOONS);
 
             // And now we make the purchase
-            yield return SendCommandToTerminal(string.Format(TerminalConst.STRING_ROUTE_COMMAND, moonName));
+            yield return TerminalManager.Instance.SendCommandToTerminal(string.Format(TerminalConst.STRING_ROUTE_COMMAND, moonName));
 
             // Accept at the confirmation page
             // HACKHACK: The company building is a special case where it doesn't have a displayPlanetInfo ID!
@@ -1453,7 +1425,7 @@ namespace LethalBots.AI.AIStates
                 Plugin.LogWarning($"Bot {npcController.Npc.playerUsername} attempted to route to {moonName}, but it failed?");
                 yield break; // Huh, how did this happen?!
             }
-            yield return SendCommandToTerminal(TerminalConst.STRING_CONFIRM_COMMAND);
+            yield return TerminalManager.Instance.SendCommandToTerminal(TerminalConst.STRING_CONFIRM_COMMAND);
         }
 
         /// <summary>

@@ -297,6 +297,24 @@ namespace LethalBots.Constants
         public const int LETHAL_BOT_BRIDGE_NAVAREA = 28;
         public const int LETHAL_BOT_ONLY_NAVAREA = 29; // This can be used to mark a navarea that only Lethal Bots are allowed to use!
 
+        /// <summary>
+        /// The NavMeshBuildSettings ID for the Lethal Bot's NavMesh agent.
+        /// </summary>
+        /// <remarks>
+        /// Static readonly since the ID is generated at runtime and cannot be a const.
+        /// </remarks>
+        public static readonly int LETHAL_BOT_NAV_SETTINGS_ID = CustomAgentManager.RegisterCustomAgent("Lethal Bot", new NavMeshBuildSettings
+        {
+            agentSlope = 48.08f, // Same as default character controller slope height. NOTE: The 0.08f is the skin width of the character controller!
+            agentClimb = 0.8f, // Same as vanilla Lethal Company NavMesh agentClimb value
+            agentRadius = 0.4f, // Same as default character controller radius
+            agentHeight = 1.5f, // Always assume player crouch height
+            overrideTileSize = true, // Make sure OUR tileSize is used
+            tileSize = 256, // Size recommended by Unity
+            overrideVoxelSize = true, // Make sure OUR voxelSize is used
+            voxelSize = 0.1333333f, // Size recommended by Unity
+        });
+
         // Cruiser NavMesh Related
         // Say Hello to my little friend. Its an entirely custom NavSettings, just for the crusier!
         // HACKHACK: Lets just say.....there is a major issue with NavMesh.CreateSettings()..........it returns a struct...
@@ -311,7 +329,9 @@ namespace LethalBots.Constants
             agentClimb = 1.33f, // TODO: Adjust as needed
             agentHeight = 4.5f, // TODO: Adjust as needed
             agentRadius = 2f, // TODO: Adjust as needed // Was 2.5f and 4f, testing a larger number
+            overrideTileSize = true, // Make sure OUR tileSize is used
             tileSize = 90, // Was 256, testing a smaller value
+            overrideVoxelSize = true, // Make sure OUR voxelSize is used
             voxelSize = 0.6666667f // Was 1.333333f, testing a smaller number
         }); // Register our agent with NavMeshLib
 

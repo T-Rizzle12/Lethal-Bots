@@ -282,6 +282,9 @@ namespace LethalBots.AI
                 agent.autoTraverseOffMeshLink = false;
                 agent.autoBraking = false; // This causes the bot's agent to slow around corners and stuff, we don't want that!
                 //agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
+                agent.agentTypeID = Const.LETHAL_BOT_NAV_SETTINGS_ID; // Use our custom agent ID.
+                agent.areaMask = NavMesh.AllAreas;
+                agentMask = NavMesh.AllAreas;
                 Plugin.LogDebug($"LethalBot Agent Type ID {agent.agentTypeID}");
                 Plugin.LogDebug($"LethalBot Area Mask {agent.areaMask}");
                 SetAgent(enabled: false);
@@ -1235,7 +1238,7 @@ namespace LethalBots.AI
         /// Helper method that determines whether a complete and valid NavMesh path exists between two points.
         /// </summary>
         /// <remarks>
-        /// This is an enhanced check that wraps <see cref="NavMesh.CalculatePath(Vector3, Vector3, int, NavMeshPath)"/> with additional validation:
+        /// This is an enhanced check that wraps <see cref="NavMesh.CalculatePath(Vector3, Vector3, NavMeshQueryFilter, NavMeshPath)"/> with additional validation:
         /// <list type="bullet">
         ///   <item>Ensures the path calculation succeeds</item>
         ///   <item>Confirms the path is not empty</item>
@@ -7585,6 +7588,7 @@ namespace LethalBots.AI
             terminalTrigger.UpdateUsedByPlayerServerRpc((int)localPlayerController.playerClientId);
             localPlayerController.inSpecialInteractAnimation = true;
             localPlayerController.currentTriggerInAnimationWith = terminalTrigger;
+            terminalTrigger.playerScriptInSpecialAnimation = localPlayerController; // HACKHACK: The base game only sets this for when the play uses a vehicle seat for some reason. We force set it here so we can use it as an optimization later down the line.
             localPlayerController.inTerminalMenu = true;
             localPlayerController.playerBodyAnimator.ResetTrigger(terminalTrigger.animationString);
             localPlayerController.playerBodyAnimator.SetTrigger(terminalTrigger.animationString);

@@ -673,6 +673,7 @@ namespace LethalBots.AI
             bool shouldOnlyUseFrontEntrance = ShouldOnlyUseFrontEntrance();
             bool isClosestEntranceFront = false;
             bool ourWeOutside = ai.isOutside;
+            NavMeshQueryFilter queryFilter = ai.agent.GetNavMeshQueryFilter();
             EntranceTeleport? closestEntrance = null;
             float closestEntranceDist = float.MaxValue;
             shipPos ??= RoundManager.Instance.GetNavMeshPosition(StartOfRound.Instance.middleOfShipNode.position);
@@ -723,7 +724,7 @@ namespace LethalBots.AI
                     //float entranceDistSqr = (entrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
                     if (entrance.FindExitPoint()
                         && !IsEntranceCoveredInQuickSand(entrance)
-                        && NavMeshUtil.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, out _, calculatePathDistance: false)
+                        && NavMeshUtil.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, queryFilter, ref ai.path1, out _, calculatePathDistance: false)
                         && CanPathToEntrance(entrance, true) 
                         && ai.pathDistance < closestEntranceDist)
                     {

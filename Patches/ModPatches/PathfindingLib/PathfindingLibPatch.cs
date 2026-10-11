@@ -12,18 +12,6 @@ namespace LethalBots.Patches.ModPatches.PathfindingLib
 {
     public class PathfindingLibPatch
     {
-        /// <summary>
-        /// Helper function that registeres the bot's custom area types using PathfindingLib
-        /// </summary>
-        public static void AddCustomAreaMasks()
-        {
-            Plugin.LogInfo("[PathfindingLibPatch] Adding custom area names for bots");
-            NativeHelpers.SetAreaName(Const.LETHAL_BOT_LANDMINE_NAVAREA, "LethalBotLandmine");
-            NativeHelpers.SetAreaName(Const.LETHAL_BOT_QUICKSAND_NAVAREA, "LethalBotQuicksand");
-            NativeHelpers.SetAreaName(Const.LETHAL_BOT_BRIDGE_NAVAREA, "LethalBotBridge");
-            NativeHelpers.SetAreaName(Const.LETHAL_BOT_ONLY_NAVAREA, "LethalBotOnly");
-        }
-
         [MethodImpl(MethodImplOptions.NoInlining)]
         internal static void BeginNavMeshWrite()
         {

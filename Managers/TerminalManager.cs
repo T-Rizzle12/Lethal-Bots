@@ -3,6 +3,7 @@ using LethalBots.AI.AIStates;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
@@ -63,10 +64,74 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
+        /// Helper function to make the bot have to type out a message!
+        /// </summary>
+        /// <param name="command"></param>
+        /// <param name="clearPreviousText"></param>
+        /// <returns></returns>
+        public IEnumerator SendCommandToTerminal(string command, bool clearPreviousText = true)
+        {
+            command = command.Trim();
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                yield break;
+            }
+
+            // Get the terminal instance
+            Terminal ourTerminal = GetTerminal();
+            if (ourTerminal == null) 
+            {
+                yield break;
+            }
+
+            // If there is previous text in the terminal, clear it if the bot wants to!
+            if (clearPreviousText && ourTerminal.textAdded > 0)
+            {
+                for (int i = 0; i < ourTerminal.textAdded; i++)
+                {
+                    // Play a random keyboard sound effect for the backspace key!
+                    RoundManager.PlayRandomClip(ourTerminal.terminalAudio, ourTerminal.keyboardClips);
+
+                    // Wait for a random time between 0.05 and 0.1 seconds before pressing the backspace key
+                    yield return new WaitForSeconds(UnityEngine.Random.Range(0.05f, 0.1f));
+
+                    // Remove the last character from the terminal's screen text
+                    ourTerminal.screenText.text = ourTerminal.screenText.text.Substring(0, ourTerminal.screenText.text.Length - 1);
+                }
+            }
+
+            // Use the terminal to play keyboard sound effects!
+            for (int i = 0; i < command.Length; i++)
+            {
+                // If the terminal is null, we can't do anything!
+                if (ourTerminal == null)
+                {
+                    yield break;
+                }
+
+                // Play a random keyboard sound effect for the character!
+                RoundManager.PlayRandomClip(ourTerminal.terminalAudio, ourTerminal.keyboardClips);
+
+                // Add the character to the terminal's screen text
+                ourTerminal.screenText.text += command[i];
+
+                // Wait for a random time between 0.05 and 0.3 seconds before typing the next character
+                yield return new WaitForSeconds(UnityEngine.Random.Range(0.05f, 0.3f));
+            }
+
+            // Play a random keyboard sound effect for the enter key!
+            RoundManager.PlayRandomClip(ourTerminal.terminalAudio, ourTerminal.keyboardClips);
+
+            // Send the command we just typed to the terminal!
+            terminalScript.OnSubmit();
+        }
+
+        /// <summary>
         /// Carbon copy of <see cref="Terminal.OnSubmit"/>, but made to work with bots
         /// </summary>
         /// <param name="text">The text the bot on the terminal "sent"</param>
         /// <param name="ourTerminal">Optional parameter to use the given terminal instead of using <see cref="GetTerminal"/>'s value</param>
+        [Obsolete("We now patch the base game so this is no longer needed. Use SendCommandToTerminal instead.")]
         public void OnSubmit(string text, Terminal? ourTerminal = null)
         {
             ourTerminal ??= GetTerminal();
