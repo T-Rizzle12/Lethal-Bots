@@ -910,7 +910,7 @@ namespace LethalBots.Managers
         /// <param name="bodyText"></param>
         /// <param name="clientRpcParams"></param>
         [ClientRpc]
-        private void DisplayTipClientRpc(string headerText, string bodyText, ClientRpcParams clientRpcParams = default)
+        internal void DisplayTipClientRpc(string headerText, string bodyText, ClientRpcParams clientRpcParams = default)
         {
             HUDManager.Instance.DisplayTip(headerText, bodyText);
         }
@@ -4446,13 +4446,13 @@ namespace LethalBots.Managers
         public bool CanPlayerPathToExit(PlayerControllerB player)
         {
             // Setup some variables
-            Vector3 startPosition = RoundManager.Instance.GetNavMeshPosition(player.transform.position, RoundManager.Instance.navHit, 2.7f);
             bool isOutside = false;
             NavMeshQueryFilter queryFilter = new NavMeshQueryFilter();
             LethalBotAI? isPlayerBot = GetLethalBotAI(player);
             if (isPlayerBot != null)
             {
                 queryFilter = isPlayerBot.agent.GetNavMeshQueryFilter();
+                isOutside = isPlayerBot.isOutside;
             }
             else
             {
@@ -4462,7 +4462,9 @@ namespace LethalBots.Managers
                 {
                     queryFilter.SetAreaCost(i, NavMesh.GetAreaCost(i));
                 }
+                isOutside = !player.isInsideFactory;
             }
+            Vector3 startPosition = RoundManager.Instance.GetNavMeshPosition(player.transform.position, queryFilter, RoundManager.Instance.navHit, 2.7f);
             NavMeshPath path = new NavMeshPath();
             for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
             {
@@ -4474,7 +4476,7 @@ namespace LethalBots.Managers
                     && entrance.FindExitPoint())
                 {
                     // Check if we can create a path there first!
-                    Vector3 exitPosition = RoundManager.Instance.GetNavMeshPosition(entrance.entrancePoint.position, RoundManager.Instance.navHit, 2.7f);
+                    Vector3 exitPosition = RoundManager.Instance.GetNavMeshPosition(entrance.entrancePoint.position, queryFilter, RoundManager.Instance.navHit, 2.7f);
                     if (IsValidPathToEntrance(startPosition, exitPosition, queryFilter, ref path, entrance))
                     {
                         return true;

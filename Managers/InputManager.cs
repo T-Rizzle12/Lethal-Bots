@@ -212,44 +212,8 @@ namespace LethalBots.Managers
                 if (lethalBot.OwnerClientId != localPlayer.actualClientId 
                     || !lethalBot.IsFollowingLocalPlayer())
                 {
-                    // Can't tell a bot to follow if they are in a special animation.
-                    bool isUsingTerminal = lethalBot.IsUsingTerminal();
-                    if (!isUsingTerminal && lethalBot.IsInSpecialAnimation())
-                    {
-                        HUDManager.Instance.DisplayTip("Bot is busy!", "Please wait for the bot to finish the special animation first.");
-                        return;
-                    }
-
-                    // Force the bot off of the terminal
-                    if (isUsingTerminal)
-                    {
-                        lethalBot.LeaveTerminalRpc(forceEndUse: true);
-                    }
-
-                    // Audio
-                    lethalBot.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
-                    {
-                        VoiceState = EnumVoicesState.OrderedToFollow,
-                        VoicePriority = EnumVoicePriority.HIGH_PRIORITY,
-                        CanTalkIfOtherLethalBotTalk = true,
-                        WaitForCooldown = false,
-                        CutCurrentVoiceStateToTalk = true,
-                        CanRepeatVoiceState = false,
-
-                        ShouldSync = true,
-                        IsLethalBotInside = player.isInsideFactory,
-                        AllowSwearing = Plugin.Config.AllowSwearing.Value
-                    });
-
-                    // We are following a human player, leave our current group or join theirs!
-                    GroupManager.Instance.CreateOrJoinGroupWithMembersAndSync(localPlayer, new PlayerControllerB[] { player });
-
-                    lethalBot.SyncAssignTargetAndSetMovingTo(localPlayer);
-
-                    if (Plugin.Config.ChangeSuitAutoBehaviour.Value)
-                    {
-                        lethalBot.ChangeSuitLethalBotServerRpc(player.playerClientId, localPlayer.currentSuitID);
-                    }
+                    // Send a request to whoever has ownership of the bot
+                    lethalBot.RequestBotFollowRpc(localPlayer);
                 }
                 else if (currentBotState != EnumAIStates.SearchingForScrap)
                 {

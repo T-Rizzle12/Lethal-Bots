@@ -4,6 +4,7 @@ using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using NavMeshLib;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -556,7 +557,7 @@ namespace LethalBots.AI.AIStates
                 int index = UnityEngine.Random.Range(0, ourShip.Count - 1);
                 Transform shipTransform = ourShip[index];
                 ourShip.RemoveAt(index);
-                Vector3 shipPos = RoundManager.Instance.GetNavMeshPosition(shipTransform.position, default, 2.7f);
+                Vector3 shipPos = RoundManager.Instance.GetNavMeshPosition(shipTransform.position, ai.agent.GetNavMeshQueryFilter(), default, 2.7f);
                 if (ai.IsValidPathToTarget(shipPos, false))
                 {
                     this.targetShipTransform = shipTransform;
@@ -595,7 +596,7 @@ namespace LethalBots.AI.AIStates
                  return this.targetShipPos;
             }
 
-            Vector3 shipPos = RoundManager.Instance.GetNavMeshPosition(this.targetShipTransform.position, default, 2.7f);
+            Vector3 shipPos = RoundManager.Instance.GetNavMeshPosition(this.targetShipTransform.position, ai.agent.GetNavMeshQueryFilter(), default, 2.7f);
             this.targetShipPos.Value = shipPos;
             return this.targetShipPos;
         }

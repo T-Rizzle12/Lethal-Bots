@@ -1301,7 +1301,7 @@ namespace LethalBots.AI
                 return false;
             }
 
-            if ((corners[corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(targetPos, RoundManager.Instance.navHit, nearestNavAreaRange)).sqrMagnitude > maxRangeToEnd * maxRangeToEnd)
+            if ((corners[corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(targetPos, agent.GetNavMeshQueryFilter(), RoundManager.Instance.navHit, nearestNavAreaRange)).sqrMagnitude > maxRangeToEnd * maxRangeToEnd)
             {
                 Plugin.LogDebug($"IsValidPathToTarget: Path is not complete; final waypoint of path was too far from target position: {targetPos}");
                 return false;
@@ -1470,7 +1470,7 @@ namespace LethalBots.AI
 
                         Vector3 a = previousNode;
                         Vector3 b = nodePos;
-                        Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(a, b, quicksandBounds.center), RoundManager.Instance.navHit, 2.7f, agent.areaMask);
+                        Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(a, b, quicksandBounds.center), agent.GetNavMeshQueryFilter(), RoundManager.Instance.navHit, 2.7f);
 
                         if (!quicksand.isWater)
                         {
@@ -1636,7 +1636,7 @@ namespace LethalBots.AI
 
                         Vector3 a = previousNode;
                         Vector3 b = nodePos;
-                        Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(a, b, quicksandBounds.center), RoundManager.Instance.navHit, 2.7f, agent.areaMask);
+                        Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(a, b, quicksandBounds.center), agent.GetNavMeshQueryFilter(), RoundManager.Instance.navHit, 2.7f);
 
                         if (!quicksand.isWater)
                         {
@@ -1913,7 +1913,7 @@ namespace LethalBots.AI
 
             // This CANNOT be a foreach loop since we are running over time!
             RoundManager instanceRM = RoundManager.Instance;
-            Vector3 travelMidPoint = instanceRM.GetNavMeshPosition(Vector3.Lerp(from, to, 0.5f), instanceRM.navHit, 2.7f); // Make sure this is on the NavMesh!
+            Vector3 travelMidPoint = instanceRM.GetNavMeshPosition(Vector3.Lerp(from, to, 0.5f), agent.GetNavMeshQueryFilter(), instanceRM.navHit, 2.7f); // Make sure this is on the NavMesh!
             bool ourWeOutside = isOutside;
             string skipText = ourWeOutside ? "not outside" : "not inside";
             for (int i = 0; i < instanceRM.SpawnedEnemies.Count; i++)
@@ -1961,7 +1961,7 @@ namespace LethalBots.AI
 
                 // Do the actual check!
                 Vector3 enemyPos = enemy.transform.position;
-                Vector3 closestPoint = instanceRM.GetNavMeshPosition(GetClosestPointOnLineSegment(from, to, enemyPos), instanceRM.navHit, 2.7f);
+                Vector3 closestPoint = instanceRM.GetNavMeshPosition(GetClosestPointOnLineSegment(from, to, enemyPos), agent.GetNavMeshQueryFilter(), instanceRM.navHit, 2.7f);
                 if ((closestPoint - enemyPos).sqrMagnitude > dangerRange * dangerRange)
                 {
                     Plugin.LogDebug($"{enemyName}: Skipped (outside danger range)");
@@ -2036,7 +2036,9 @@ namespace LethalBots.AI
                     await Task.Yield();
                 }
 
-                if (quicksand == null || !quicksand.isActiveAndEnabled)
+                if (quicksand == null 
+                    || !quicksand.isActiveAndEnabled
+                    || !quicksand.isWater)
                     continue;
 
                 Bounds quicksandBounds = default;
@@ -2065,7 +2067,7 @@ namespace LethalBots.AI
                 }
 
                 float modifiedMoveSpeed = moveSpeed / (2f * (1f * quicksand.movementHinderance));
-                Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(from, to, quicksandBounds.center), RoundManager.Instance.navHit, 2.7f, agent.areaMask);
+                Vector3 closestPoint = RoundManager.Instance.GetNavMeshPosition(GetClosestPointOnLineSegment(from, to, quicksandBounds.center), agent.GetNavMeshQueryFilter(), RoundManager.Instance.navHit, 2.7f);
                 if (!quicksand.isWater)
                 {
                     Plugin.LogDebug("This is quicksand!");
@@ -2200,7 +2202,8 @@ namespace LethalBots.AI
                 return true;
             }
 
-            if ((corners[corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(targetPos, RoundManager.Instance.navHit, 2.7f)).sqrMagnitude > 1.5f * 1.5f)
+            NavMeshQueryFilter queryFilter = agent.GetNavMeshQueryFilter();
+            if ((corners[corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(targetPos, queryFilter, RoundManager.Instance.navHit, 2.7f)).sqrMagnitude > 1.5f * 1.5f)
             {
                 if (DebugEnemy)
                 {
@@ -2263,7 +2266,7 @@ namespace LethalBots.AI
                     if (checkLOSToTarget != null)
                     {
                         // First, start with the closest point on the path
-                        Vector3 closestPoint = instanceRM.GetNavMeshPosition(GetClosestPointOnLineSegment(previousNode, currentNode, enemyPos), instanceRM.navHit, 2.7f);
+                        Vector3 closestPoint = instanceRM.GetNavMeshPosition(GetClosestPointOnLineSegment(previousNode, currentNode, enemyPos), queryFilter, instanceRM.navHit, 2.7f);
                         if (!Physics.Linecast(closestPoint + Vector3.up * headOffset, viewPos,
                             StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                         {
@@ -2271,7 +2274,7 @@ namespace LethalBots.AI
                         }
 
                         // Second, check the middle part of the path
-                        Vector3 travelMidPoint = instanceRM.GetNavMeshPosition(Vector3.Lerp(previousNode, currentNode, 0.5f), instanceRM.navHit, 2.7f); // Make sure this is on the NavMesh!
+                        Vector3 travelMidPoint = instanceRM.GetNavMeshPosition(Vector3.Lerp(previousNode, currentNode, 0.5f), queryFilter, instanceRM.navHit, 2.7f); // Make sure this is on the NavMesh!
                         if (!Physics.Linecast(travelMidPoint + Vector3.up * headOffset, viewPos,
                             StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                         {
@@ -2366,7 +2369,7 @@ namespace LethalBots.AI
                     {
                         // If we failed to find a path, pick the closest NavArea to our destination instead.
                         //destination = this.ChooseClosestNodeToPosition(destination, avoidLineOfSight).position;
-                        destination = RoundManager.Instance.GetNavMeshPosition(destination, default, 2.7f);
+                        destination = RoundManager.Instance.GetNavMeshPosition(destination, agent.GetNavMeshQueryFilter(), default, 2.7f);
                     }
                     catch (Exception e)
                     {
@@ -3354,9 +3357,12 @@ namespace LethalBots.AI
                                 }
                             }
 
+                            // Grab our query filter
+                            NavMeshQueryFilter queryFilter = agent.GetNavMeshQueryFilter();
+
                             // Get potential door positions
-                            Vector3 doorPos1 = GetOffsetLockPickerPosition(lockedDoor);
-                            Vector3 doorPos2 = GetOffsetLockPickerPosition(lockedDoor, true);
+                            Vector3 doorPos1 = GetOffsetLockPickerPosition(lockedDoor, queryFilter);
+                            Vector3 doorPos2 = GetOffsetLockPickerPosition(lockedDoor, queryFilter, true);
 
                             // Check path validity and distance for both positions
                             float? doorDistance1 = null;
@@ -3428,6 +3434,10 @@ namespace LethalBots.AI
                     startPoses.Add(entrance.entrancePoint.position);
                 }
             }
+
+            // Get our query filter
+            NavMeshQueryFilter queryFilter = agent.GetNavMeshQueryFilter();
+
             foreach (var lockedDoor in doorLocksArray)
             {
                 Vector3? posIsReachable = null;
@@ -3440,24 +3450,24 @@ namespace LethalBots.AI
                         NavMeshObstacle doorBlocker = lockedDoor.GetComponent<NavMeshObstacle>();
                         Plugin.LogDebug($"Door blocker radius {doorBlocker.radius}");
                         Plugin.LogDebug($"Door blocker size {doorBlocker.size.magnitude}");
-                        Vector3 doorPos = GetOffsetLockPickerPosition(lockedDoor);
-                        Vector3 doorPos2 = GetOffsetLockPickerPosition(lockedDoor, true);
-                        if (!posIsReachable.HasValue && NavMesh.CalculatePath(pos, doorPos, NavMesh.AllAreas, tempPath))
+                        Vector3 doorPos = GetOffsetLockPickerPosition(lockedDoor, queryFilter);
+                        Vector3 doorPos2 = GetOffsetLockPickerPosition(lockedDoor, queryFilter, true);
+                        if (!posIsReachable.HasValue && NavMesh.CalculatePath(pos, doorPos, queryFilter, tempPath))
                         {
                             if (tempPath != null && tempPath.corners.Length > 0)
                             {
-                                if (Vector3.Distance(tempPath.corners[tempPath.corners.Length - 1], RoundManager.Instance.GetNavMeshPosition(doorPos, RoundManager.Instance.navHit, 2.7f)) <= 1.5f)
+                                if (Vector3.Distance(tempPath.corners[tempPath.corners.Length - 1], RoundManager.Instance.GetNavMeshPosition(doorPos, queryFilter, RoundManager.Instance.navHit, 2.7f)) <= 1.5f)
                                 {
                                     Plugin.LogDebug($"Door {lockedDoor} can be reached! Door Pos: {lockedDoor.transform.position} Door Lock Pick Pos: {doorPos}");
                                     posIsReachable = doorPos;
                                 }
                             }
                         }
-                        if (!pos2IsReachable.HasValue && NavMesh.CalculatePath(pos, doorPos2, NavMesh.AllAreas, tempPath))
+                        if (!pos2IsReachable.HasValue && NavMesh.CalculatePath(pos, doorPos2, queryFilter, tempPath))
                         {
                             if (tempPath != null && tempPath.corners.Length > 0)
                             {
-                                if (Vector3.Distance(tempPath.corners[tempPath.corners.Length - 1], RoundManager.Instance.GetNavMeshPosition(doorPos2, RoundManager.Instance.navHit, 2.7f)) <= 1.5f)
+                                if (Vector3.Distance(tempPath.corners[tempPath.corners.Length - 1], RoundManager.Instance.GetNavMeshPosition(doorPos2, queryFilter, RoundManager.Instance.navHit, 2.7f)) <= 1.5f)
                                 {
                                     Plugin.LogDebug($"Door {lockedDoor} can be reached! Door Pos: {lockedDoor.transform.position} Door Lock Pick Pos2: {doorPos2}");
                                     pos2IsReachable = doorPos2;
@@ -3518,6 +3528,28 @@ namespace LethalBots.AI
 
             // Offset outward in that direction
             return RoundManager.Instance.GetNavMeshPosition(offsetPos, RoundManager.Instance.navHit, 3f, areaMask);
+        }
+
+        /// <summary>
+        /// Helper function for moving the lockpicker postion away from the door so we can create a path to it
+        /// </summary>
+        /// <param name="doorScript">The door to test</param>
+        /// <param name="queryFilter">The query filter to use</param>
+        /// <param name="checkBack">If false this function returns the front with the outward <paramref name="offsetDistance"/>. If true returns back with the outward <paramref name="offsetDistance"/> </param>
+        /// <param name="offsetDistance">The distance to move the position from the door</param>
+        /// <returns>The modified distance from the door that is adjusted to the nearest nav area!</returns>
+        public static Vector3 GetOffsetLockPickerPosition(DoorLock doorScript, NavMeshQueryFilter queryFilter, bool checkBack = false, float offsetDistance = 1.5f)
+        {
+            // Compute the push direction from the door center to the lock picker in world space
+            Vector3 doorForward = doorScript.transform.position + doorScript.transform.right;
+            Vector3 doorBackward = doorScript.transform.position - doorScript.transform.right;
+            Vector3 pushDirection = checkBack ? (doorForward - doorBackward).normalized : (doorBackward - doorForward).normalized;
+
+            // Convert to world direction (respect door's rotation)
+            Vector3 offsetPos = doorScript.transform.position + pushDirection * offsetDistance;
+
+            // Offset outward in that direction
+            return RoundManager.Instance.GetNavMeshPosition(offsetPos, queryFilter, RoundManager.Instance.navHit, 3f);
         }
 
         /// <summary>
@@ -5186,7 +5218,7 @@ namespace LethalBots.AI
             }
 
             // Is the item reachable with the agent pathfind ? (only owner knows and calculate) real position of ai lethalBot)
-            Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(itemPos, default, lethalBotController.grabDistance, NavMesh.AllAreas);
+            Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(itemPos, agent.GetNavMeshQueryFilter(), default, lethalBotController.grabDistance);
             if (IsOwner
                 && !skipPathCheck
                 && !this.IsValidPathToTarget(objectPos, false, maxRangeToEnd: lethalBotController.grabDistance))
@@ -5276,7 +5308,7 @@ namespace LethalBots.AI
             }
 
             // Is the item reachable with the agent pathfind ? (only owner knows and calculate) real position of ai lethalBot)
-            Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(grabbableObject.transform.position, default, NpcController.Npc.grabDistance, NavMesh.AllAreas);
+            Vector3 objectPos = RoundManager.Instance.GetNavMeshPosition(grabbableObject.transform.position, agent.GetNavMeshQueryFilter(), default, NpcController.Npc.grabDistance);
             if (IsOwner 
                 && !skipPathCheck
                 && !this.IsValidPathToTarget(objectPos, false, maxRangeToEnd: NpcController.Npc.grabDistance))
@@ -6094,7 +6126,7 @@ namespace LethalBots.AI
         /// <param name="onlyAgent">Should only the <see cref="NavMeshAgent"/> and <see cref="LethalBotAI"/> be teleported</param>
         private void TeleportAgentAIAndBody(Vector3 pos, bool skipNavMeshCheck = false, bool onlyAgent = false)
         {
-            Vector3 navMeshPosition = skipNavMeshCheck ? pos : RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f);
+            Vector3 navMeshPosition = skipNavMeshCheck ? pos : RoundManager.Instance.GetNavMeshPosition(pos, agent.GetNavMeshQueryFilter(), default, 2.7f);
             serverPosition = navMeshPosition;
 
             if (!onlyAgent)
@@ -6235,6 +6267,73 @@ namespace LethalBots.AI
         #endregion
 
         #region AssignTargetAndSetMovingTo RPC
+
+        /// <summary>
+        /// Sends an RPC to the player who has network ownership of the bot to follow the given player
+        /// </summary>
+        /// <param name="newTarget"></param>
+        /// <param name="rpcParams"></param>
+        [Rpc(SendTo.Owner, RequireOwnership = false)]
+        public void RequestBotFollowRpc(NetworkBehaviourReference newTarget, RpcParams rpcParams = default)
+        {
+            if (!newTarget.TryGet(out PlayerControllerB targetPlayer))
+            {
+                Plugin.LogWarning("Failed to change bot follow target as Network Behavior refrence was null. Skipping!");
+                return;
+            }
+
+            // Can't tell a bot to follow if they are in a special animation.
+            bool isUsingTerminal = IsUsingTerminal();
+            if (!isUsingTerminal
+                && IsInSpecialAnimation()
+                && !CanManuallyEndSpecialAnimation())
+            {
+                LethalBotManager.Instance.DisplayTipClientRpc("Bot is busy!", "Please wait for the bot to finish the special animation first.", new ClientRpcParams()
+                {
+                    Send = new ClientRpcSendParams()
+                    {
+                        TargetClientIds = new ulong[] { rpcParams.Receive.SenderClientId }
+                    }
+                });
+                return;
+            }
+
+            // Force the bot off of the terminal
+            if (isUsingTerminal)
+            {
+                LeaveTerminal(forceEndUse: true);
+            }
+            // End the special animation we are in
+            else if (IsInSpecialAnimation())
+            {
+                targetPlayer.CancelSpecialTriggerAnimations();
+            }
+
+            // Audio
+            LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
+            {
+                VoiceState = EnumVoicesState.OrderedToFollow,
+                VoicePriority = EnumVoicePriority.HIGH_PRIORITY,
+                CanTalkIfOtherLethalBotTalk = true,
+                WaitForCooldown = false,
+                CutCurrentVoiceStateToTalk = true,
+                CanRepeatVoiceState = false,
+
+                ShouldSync = true,
+                IsLethalBotInside = targetPlayer.isInsideFactory,
+                AllowSwearing = Plugin.Config.AllowSwearing.Value
+            });
+
+            // We are following a human player, leave our current group or join theirs!
+            GroupManager.Instance.CreateOrJoinGroupWithMembersAndSync(targetPlayer, new PlayerControllerB[] { NpcController.Npc });
+
+            SyncAssignTargetAndSetMovingTo(targetPlayer);
+
+            if (Plugin.Config.ChangeSuitAutoBehaviour.Value)
+            {
+                ChangeSuitLethalBotServerRpc(targetPlayer.playerClientId, targetPlayer.currentSuitID);
+            }
+        }
 
         /// <summary>
         /// Change the ownership of the lethalBot to the new player target,
@@ -8326,7 +8425,23 @@ namespace LethalBots.AI
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsInSpecialAnimation()
         {
-            return NpcController.Npc.inSpecialInteractAnimation || NpcController.Npc.enteringSpecialAnimation;
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            return lethalBotController.inSpecialInteractAnimation || lethalBotController.enteringSpecialAnimation;
+        }
+
+        /// <summary>
+        /// Checks if the bot can end the special animation its currently in
+        /// </summary>
+        /// <returns></returns>
+        public bool CanManuallyEndSpecialAnimation()
+        {
+            PlayerControllerB lethalBotController = NpcController.Npc;
+            InteractTrigger interactTrigger = lethalBotController.currentTriggerInAnimationWith;
+            if (interactTrigger != null && interactTrigger.stopAnimationManually)
+            {
+                return !interactTrigger.interactCooldown || interactTrigger.currentCooldownValue < 0f;
+            }
+            return false;
         }
 
         /// <summary>

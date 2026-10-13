@@ -6,6 +6,7 @@ using LethalBots.Managers;
 using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using NavMeshLib;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -36,7 +37,7 @@ namespace LethalBots.AI.AIStates
                 Vector3? newPos = value;
                 if (newPos.HasValue)
                 {
-                    field = RoundManager.Instance.GetNavMeshPosition(newPos.Value, RoundManager.Instance.navHit, 2.7f);
+                    field = RoundManager.Instance.GetNavMeshPosition(newPos.Value, ai.agent.GetNavMeshQueryFilter(), RoundManager.Instance.navHit, 2.7f);
                 }
                 else
                 {

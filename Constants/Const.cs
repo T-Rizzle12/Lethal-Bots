@@ -308,7 +308,7 @@ namespace LethalBots.Constants
             agentSlope = 48.08f, // Same as default character controller slope height. NOTE: The 0.08f is the skin width of the character controller!
             agentClimb = 0.8f, // Same as vanilla Lethal Company NavMesh agentClimb value
             agentRadius = 0.4f, // Same as default character controller radius
-            agentHeight = 1.5f, // Always assume player crouch height
+            agentHeight = 1.45f, // Always assume around the player crouch height
             overrideTileSize = true, // Make sure OUR tileSize is used
             tileSize = 256, // Size recommended by Unity
             overrideVoxelSize = true, // Make sure OUR voxelSize is used

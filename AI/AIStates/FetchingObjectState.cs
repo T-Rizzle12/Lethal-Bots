@@ -1,6 +1,7 @@
 ﻿using GameNetcodeStuff;
 using LethalBots.Constants;
 using LethalBots.Enums;
+using NavMeshLib;
 using System.Diagnostics.CodeAnalysis;
 using UnityEngine;
 
@@ -109,7 +110,7 @@ namespace LethalBots.AI.AIStates
             SelectBestItemFromInventory();
 
             // Else get close to item
-            Vector3 targetItemPos = RoundManager.Instance.GetNavMeshPosition(this.TargetItem.transform.position, default, lethalBotController.grabDistance);
+            Vector3 targetItemPos = RoundManager.Instance.GetNavMeshPosition(this.TargetItem.transform.position, ai.agent.GetNavMeshQueryFilter(), default, lethalBotController.grabDistance);
             ai.SetDestinationToPositionLethalBotAI(targetItemPos);
 
             // If we can't path to the object, there might be a locked door in our way!

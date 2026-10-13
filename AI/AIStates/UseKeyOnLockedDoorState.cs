@@ -4,6 +4,7 @@ using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Utils.Helpers;
+using NavMeshLib;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -38,9 +39,12 @@ namespace LethalBots.AI.AIStates
             {
                 if (targetDoor != null)
                 {
+                    // Grab our query filter
+                    NavMeshQueryFilter queryFilter = ai.agent.GetNavMeshQueryFilter();
+
                     // Get potential door positions
-                    Vector3? doorPos1 = LethalBotAI.GetOffsetLockPickerPosition(targetDoor);
-                    Vector3? doorPos2 = LethalBotAI.GetOffsetLockPickerPosition(targetDoor, true);
+                    Vector3? doorPos1 = LethalBotAI.GetOffsetLockPickerPosition(targetDoor, queryFilter);
+                    Vector3? doorPos2 = LethalBotAI.GetOffsetLockPickerPosition(targetDoor, queryFilter, true);
 
                     // Check path validity and distance for both positions
                     float? doorDistance1 = null;
@@ -118,9 +122,12 @@ namespace LethalBots.AI.AIStates
             }
             else if (!doorPos.HasValue || !ai.IsValidPathToTarget(doorPos.Value, false))
             {
+                // Grab our query filter
+                NavMeshQueryFilter queryFilter = ai.agent.GetNavMeshQueryFilter();
+
                 // Get potential door positions
-                Vector3? doorPos1 = LethalBotAI.GetOffsetLockPickerPosition(targetDoor);
-                Vector3? doorPos2 = LethalBotAI.GetOffsetLockPickerPosition(targetDoor, true);
+                Vector3? doorPos1 = LethalBotAI.GetOffsetLockPickerPosition(targetDoor, queryFilter);
+                Vector3? doorPos2 = LethalBotAI.GetOffsetLockPickerPosition(targetDoor, queryFilter, true);
 
                 // Check path validity and distance for both positions
                 float? doorDistance1 = null;

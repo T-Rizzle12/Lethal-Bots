@@ -5,6 +5,7 @@ using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.NetworkSerializers;
 using LethalBots.Utils.Helpers;
+using NavMeshLib;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -164,7 +165,7 @@ namespace LethalBots.AI.AIStates
             float fallBackDistance = maxEnemyDistance * 0.75f;
             float giveupRange = fearRange.Value * 1.5f;
             Vector3 targetPos = EnemyCollider != null ? EnemyCollider.bounds.center : this.CurrentEnemy.eye.position;
-            Vector3 enemyPos = RoundManager.Instance.GetNavMeshPosition(CurrentEnemy.transform.position, default, 2.7f);
+            Vector3 enemyPos = RoundManager.Instance.GetNavMeshPosition(CurrentEnemy.transform.position, ai.agent.GetNavMeshQueryFilter(), default, 2.7f);
             if (sqrMagDistanceEnemy < maxEnemyDistance * maxEnemyDistance && canHitTarget)
             {
                 // We are close enough to the enemy, lets attack!
@@ -177,7 +178,7 @@ namespace LethalBots.AI.AIStates
                         Ray ray = new Ray(lethalBotController.transform.position, lethalBotController.transform.position + Vector3.up * 0.2f - this.CurrentEnemy.transform.position + Vector3.up * 0.2f);
                         ray.direction = new Vector3(ray.direction.x, 0f, ray.direction.z);
                         Vector3 pos = (!Physics.Raycast(ray, out RaycastHit hit, maxEnemyDistance, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)) ? ray.GetPoint(maxEnemyDistance) : hit.point;
-                        Vector3 fallbackPos = RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f);
+                        Vector3 fallbackPos = RoundManager.Instance.GetNavMeshPosition(pos, ai.agent.GetNavMeshQueryFilter(), default, 2.7f);
                         ai.SetDestinationToPositionLethalBotAI(fallbackPos);
                         npcController.OrderToSprint(); // Sprint, we need to move NOW!
                         ai.OrderMoveToDestination();
