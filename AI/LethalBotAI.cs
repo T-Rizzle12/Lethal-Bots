@@ -483,7 +483,8 @@ namespace LethalBots.AI
 
             PlayerControllerB lethalBotController = NpcController.Npc;
             bool shouldUpdate = IsTouchingGroundTimedCheck.NeedToRecalculate();
-            NpcController.IsTouchingGround = IsTouchingGroundTimedCheck.IsTouchingGround(lethalBotController.thisPlayerBody.position);
+            bool isGrounded = IsTouchingGroundTimedCheck.IsTouchingGround(lethalBotController.thisPlayerBody.position);
+            NpcController.IsTouchingGround = StateControllerMovement == EnumStateControllerMovement.Free ? lethalBotController.thisController.isGrounded : isGrounded;
 
             // Update current material standing on
             if (NpcController.IsTouchingGround && shouldUpdate)

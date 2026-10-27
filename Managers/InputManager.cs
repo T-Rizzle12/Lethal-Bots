@@ -34,8 +34,6 @@ namespace LethalBots.Managers
         {
             Plugin.InputActionsInstance.LeadBot.performed += LeadBot_performed;
             Plugin.InputActionsInstance.DropItem.performed += GiveTakeItem_performed;
-            //Plugin.InputActionsInstance.GrabIntern.performed += GrabIntern_performed;
-            //Plugin.InputActionsInstance.ReleaseInterns.performed += ReleaseInterns_performed;
             Plugin.InputActionsInstance.ChangeSuitBot.performed += ChangeSuitLethalBot_performed;
         }
 
@@ -43,8 +41,6 @@ namespace LethalBots.Managers
         {
             Plugin.InputActionsInstance.LeadBot.performed -= LeadBot_performed;
             Plugin.InputActionsInstance.DropItem.performed -= GiveTakeItem_performed;
-            //Plugin.InputActionsInstance.GrabIntern.performed -= GrabIntern_performed;
-            //Plugin.InputActionsInstance.ReleaseInterns.performed -= ReleaseInterns_performed;
             Plugin.InputActionsInstance.ChangeSuitBot.performed -= ChangeSuitLethalBot_performed;
         }
 

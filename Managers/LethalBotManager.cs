@@ -1893,6 +1893,7 @@ namespace LethalBots.Managers
                     return false;
                 }
 
+                // If we have a ranged weapon, the nutcracker is stunned, or we are a human player.....ATTACK!
                 if ((attackQuery.hasRangedWeapon || attackQuery.isHumanPlayer || attackQuery.IsEnemyStunned())
                         && (nutcracker.currentBehaviourStateIndex == 2
                             || nutcracker.isInspecting))
