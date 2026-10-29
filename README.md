@@ -266,6 +266,8 @@ These bots are to be more player like and this includes advantages such as count
 ## Sponsors
 A special thanks to everyone who dontated to Lethal Bots!
 - Xander & Yalnif
+- CubeMath
+- trace
 
 ## Things to add
 - More Orders, currently you can tell them to loot and follow you. There are a decent amount of chat commands at least?
