@@ -182,7 +182,7 @@ namespace LethalBots.Managers
         private NetworkVariable<NetworkBehaviourReference> missionControlPlayerNetworkVar = new NetworkVariable<NetworkBehaviourReference>(writePerm: NetworkVariableWritePermission.Server);
 
         /// <summary>
-        /// Gets the list of bots moving loot from the facility to the ship.
+        /// Gets the list of bots and/or human players moving loot from the facility to the ship.
         /// </summary>
         /// <remarks>
         /// Only the server can modify this list.
@@ -190,7 +190,7 @@ namespace LethalBots.Managers
         internal NetworkList<NetworkBehaviourReference> LootTransferPlayersNetworkList = new NetworkList<NetworkBehaviourReference>(writePerm: NetworkVariableWritePermission.Server);
 
         /// <summary>
-        /// Gets the list of bots moving loot from the facility to the ship.
+        /// Gets the list of bots and/or human players moving loot from the facility to the ship.
         /// </summary>
         public HashSet<PlayerControllerB> LootTransferPlayers = new HashSet<PlayerControllerB>();
 
@@ -4447,6 +4447,7 @@ namespace LethalBots.Managers
         public bool CanPlayerPathToExit(PlayerControllerB player)
         {
             // Setup some variables
+            RoundManager instanceRM = RoundManager.Instance;
             bool isOutside = false;
             NavMeshQueryFilter queryFilter = new NavMeshQueryFilter();
             LethalBotAI? isPlayerBot = GetLethalBotAI(player);
@@ -4457,15 +4458,15 @@ namespace LethalBots.Managers
             }
             else
             {
-                queryFilter.agentTypeID = CustomAgentManager.DEFAULT_AGENT_ID;
-                queryFilter.areaMask = NavMesh.AllAreas;
+                queryFilter.agentTypeID = Const.LETHAL_BOT_NAV_SETTINGS_ID; // We use the bot's custom agent ID as it's built around the limitations of the human player controller!
+                queryFilter.areaMask = NavMesh.AllAreas; // Unlike bots, human players can go EVERYWHERE!
                 for (int i = 0; i < 32; i++)
                 {
-                    queryFilter.SetAreaCost(i, NavMesh.GetAreaCost(i));
+                    queryFilter.SetAreaCost(i, NavMesh.GetAreaCost(i)); // Assume default path costs
                 }
                 isOutside = !player.isInsideFactory;
             }
-            Vector3 startPosition = RoundManager.Instance.GetNavMeshPosition(player.transform.position, queryFilter, RoundManager.Instance.navHit, 2.7f);
+            Vector3 startPosition = instanceRM.GetNavMeshPosition(player.transform.position, queryFilter, instanceRM.navHit, 2.7f);
             NavMeshPath path = new NavMeshPath();
             for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
             {
@@ -4477,7 +4478,7 @@ namespace LethalBots.Managers
                     && entrance.FindExitPoint())
                 {
                     // Check if we can create a path there first!
-                    Vector3 exitPosition = RoundManager.Instance.GetNavMeshPosition(entrance.entrancePoint.position, queryFilter, RoundManager.Instance.navHit, 2.7f);
+                    Vector3 exitPosition = instanceRM.GetNavMeshPosition(entrance.entrancePoint.position, queryFilter, instanceRM.navHit, 2.7f);
                     if (IsValidPathToEntrance(startPosition, exitPosition, queryFilter, ref path, entrance))
                     {
                         return true;

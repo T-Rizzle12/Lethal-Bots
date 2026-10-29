@@ -196,6 +196,7 @@ namespace LethalBots.Patches.GameEnginePatches
                 __result |= areaMaskToAdd;
 
                 // Make sure only Lethal Bots path on the Lethal Bot Only areas
+                // TODO: Remove this patch once I change the bot to no longer use an EnemyAI object
                 int areaMaskLethalBotsOnly = 1 << Const.LETHAL_BOT_ONLY_NAVAREA;
                 if (enemyType.enemyPrefab.TryGetComponent<LethalBotAI>(out _))
                 {

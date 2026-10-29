@@ -362,7 +362,20 @@ namespace LethalBots.AI.AIStates
                 InteractTrigger seatTrigger = targetSeat.seatTrigger;
                 if (seatTrigger.playerScriptInSpecialAnimation == lethalBotController)
                 {
+                    const float CHILL_IN_SEAT_TIME = 10.0f;
+                    if (chillAtShipTimer.IsGreaterThan(CHILL_IN_SEAT_TIME) 
+                        && ai.CanManuallyEndSpecialAnimation())
+                    {
+                        ai.State = new ReturnToShipState(this); // Pick a random spot in the ship to move to
+                    }
                     return true; // We do nothing more
+                }
+
+                // Check if the seat was taken by someone else
+                if (seatTrigger.playerScriptInSpecialAnimation != null)
+                {
+                    targetSeat = null;
+                    return false;
                 }
 
                 // Move to our target seat
@@ -380,6 +393,10 @@ namespace LethalBots.AI.AIStates
                         && !ai.StartInteraction(seatTrigger))
                     {
                         targetSeat = null; // If we failed for some reason, give up
+                    }
+                    else
+                    {
+                        chillAtShipTimer.Reset(); // Reset the chill timer
                     }
                 }
 

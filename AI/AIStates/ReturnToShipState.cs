@@ -323,6 +323,7 @@ namespace LethalBots.AI.AIStates
                 // We made it outside, we can end this state
                 // Some state probably wanted to move us outside!
                 // NOTE: We do this so I don't have to duplicate the move outside code in multiple states!
+                // TODO: Remove this once I rework the pathfinding as bots will use NavMeshLinks instead of the current hacks I do now.
                 if (returnToShipType == EnumReturnToShipType.HeadOutside)
                 {
                     ChangeBackToPreviousState();
@@ -335,7 +336,8 @@ namespace LethalBots.AI.AIStates
                     {
                         // Now, lets check if someone is assigned to transfer loot
                         bool shouldWalkLootToShip = true;
-                        if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
+                        if (LethalBotManager.Instance.LootTransferPlayers.Count > 0 
+                            && !ShouldReturnToShip())
                         {
                             Vector3 ourPos = lethalBotController.transform.position;
                             bool areWeNearbyEntrance = false;

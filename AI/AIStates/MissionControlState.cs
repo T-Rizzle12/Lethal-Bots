@@ -2037,7 +2037,8 @@ namespace LethalBots.AI.AIStates
 
                 Vector3 positionEnemy = spawnedEnemy.transform.position;
                 float sqrDistanceToEnemy = (positionEnemy - ourPos).sqrMagnitude;
-                if (sqrDistanceToEnemy < closestEnemyDistSqr)
+                if (sqrDistanceToEnemy < closestEnemyDistSqr 
+                    && sqrDistanceToEnemy < fearRange * fearRange) // Make sure we don't immediately end the fight enemy state.
                 {
                     closestEnemyDistSqr = sqrDistanceToEnemy;
                     closestEnemy = spawnedEnemy;

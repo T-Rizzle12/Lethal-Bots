@@ -2177,7 +2177,8 @@ namespace LethalBots.AI
         {
             isPathVaild = true;
             pathDistance = 0f;
-            if (agent.isOnNavMesh && !agent.CalculatePath(targetPos, path1))
+            if (!agent.isOnNavMesh 
+                || !agent.CalculatePath(targetPos, path1))
             {
                 if (DebugEnemy)
                 {
@@ -2215,6 +2216,7 @@ namespace LethalBots.AI
                 return true;
             }
 
+            bool isPathDangerous = false;
             if (calculatePathDistance || avoidLineOfSight)
             {
                 bool flag = false;
@@ -2237,15 +2239,15 @@ namespace LethalBots.AI
                         pathDistance += tempDistance;
                     }
 
-                    // If we reach corner 15, stop doing checks now
-                    // As we should wait until we get closer to do them!
-                    if (j > 15)
+                    // If we reach corner 15 or the path was already marked as dangerous,
+                    // stop doing checks now as we should wait until we get closer to do them!
+                    if (j > 15 || isPathDangerous)
                     {
                         // We should still calculate the full distance as needed!
                         if (!calculatePathDistance)
                         {
-                            Plugin.LogDebug($"{NpcController.Npc.playerUsername}: Reached corner 15, stopping checks now");
-                            return false;
+                            Plugin.LogDebug($"{NpcController.Npc.playerUsername}: Reached corner 15 or path was dangerous, stopping checks now");
+                            return isPathDangerous;
                         }
                         continue;
                     }
@@ -2271,7 +2273,7 @@ namespace LethalBots.AI
                         if (!Physics.Linecast(closestPoint + Vector3.up * headOffset, viewPos,
                             StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                         {
-                            return true;
+                            isPathDangerous = true;
                         }
 
                         // Second, check the middle part of the path
@@ -2279,7 +2281,7 @@ namespace LethalBots.AI
                         if (!Physics.Linecast(travelMidPoint + Vector3.up * headOffset, viewPos,
                             StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                         {
-                            return true;
+                            isPathDangerous = true;
                         }
                     }
 
@@ -2295,7 +2297,7 @@ namespace LethalBots.AI
                 }
             }
 
-            return false;
+            return isPathDangerous;
         }
 
         /// <summary>
@@ -5199,8 +5201,7 @@ namespace LethalBots.AI
             Vector3 itemPos = grabbableObject.transform.position;
             bool shouldReturnToShip = this.State?.ShouldReturnToShip() ?? false;
             bool botIsTransferringItems = LethalBotManager.Instance.LootTransferPlayers.Contains(lethalBotController);
-            if (((!Plugin.Config.GrabItemsNearEntrances.Value 
-                    && !LethalBotManager.Instance.AreAllHumanPlayersDead())
+            if (((!Plugin.Config.GrabItemsNearEntrances.Value && !LethalBotManager.Instance.AreAllHumanPlayersDead())
                     || (LethalBotManager.Instance.LootTransferPlayers.Count > 0 && !shouldReturnToShip))
                 && !botIsTransferringItems 
                 && enumGrabbable != EnumGrabbableObjectCall.Reviving)

@@ -1,6 +1,7 @@
 ﻿using LethalBots.Enums;
 using LethalBots.NetworkSerializers;
 using NavMeshLib;
+using System;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -292,9 +293,11 @@ namespace LethalBots.Constants
         public const float LETHAL_BOT_DROWN_TIME = 12f; // Makes it easier to update how long a bot has until it drowns! // Was 10, but was buffed to 12 in v80
 
         // NavMesh Related
-        public const int LETHAL_BOT_LANDMINE_NAVAREA = 26; // Just one above Pathfinding Lib
+        public const int LETHAL_BOT_LANDMINE_NAVAREA = 26; // Just one above Pathfinding Lib // NOTE: It doesn't really matter anymore as bots use a custom agent ID so unless the AreaMask is used by the base game, I'm free to use it as I see fit!
         public const int LETHAL_BOT_QUICKSAND_NAVAREA = 27;
         public const int LETHAL_BOT_BRIDGE_NAVAREA = 28;
+
+        [Obsolete("Due to the bots now using a custom agent ID. This is redundant and will be removed in a later build!")]
         public const int LETHAL_BOT_ONLY_NAVAREA = 29; // This can be used to mark a navarea that only Lethal Bots are allowed to use!
 
         /// <summary>
@@ -306,9 +309,17 @@ namespace LethalBots.Constants
         public static readonly int LETHAL_BOT_NAV_SETTINGS_ID = CustomAgentManager.RegisterCustomAgent("Lethal Bot", new NavMeshBuildSettings
         {
             agentSlope = 48.08f, // Same as default character controller slope height. NOTE: The 0.08f is the skin width of the character controller!
-            agentClimb = 0.8f, // Same as vanilla Lethal Company NavMesh agentClimb value
+            agentClimb = 0.56f, // Same as default character controller step offset. Vanilla Lethal Company NavMesh agentClimb value is 0.8f.
             agentRadius = 0.4f, // Same as default character controller radius
-            agentHeight = 1.45f, // Always assume around the player crouch height
+            agentHeight = 1f, // Always assume around the player crouch height: 1.45f 
+            // FIXME: Set the agentHeight to the same as vanilla LC as in the mineshaft interior bots fail to path in water tiles......due to its complex geometry, it confuses the NavMesh Generation....
+            // a ton...I have also noticed NavMesh hacks Zeekerss placed in the tile prefabs......sigh, oh well.
+            // I can probably "fix" this by editing the prefabs at runtime, but that's for later.....I will deal with the consequences of the lower agent height.....
+            // DEVNOTE: I wonder if I should edit the prefabs here or in the Lethal Bots NavMeshProject.......
+            // DEVNOTE 2: Hmm, what if I make a VERY HACKY patch for the interior NavMesh and set the height to 1f for Mineshaft but let
+            // my custom height remain for the exterior and other interior types..........
+            // DEVNOTE 3: Nope, won't work, since any kind of rebake would undo my work......and a patch for something like this
+            // is overkill. I should just leave it at 1f for now and update the Lethal Bots NavMeshProject to improve the NavMesh for bots on those tiles.....
             overrideTileSize = true, // Make sure OUR tileSize is used
             tileSize = 256, // Size recommended by Unity
             overrideVoxelSize = true, // Make sure OUR voxelSize is used
