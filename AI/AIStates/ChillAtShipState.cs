@@ -362,7 +362,7 @@ namespace LethalBots.AI.AIStates
                 InteractTrigger seatTrigger = targetSeat.seatTrigger;
                 if (seatTrigger.playerScriptInSpecialAnimation == lethalBotController)
                 {
-                    const float CHILL_IN_SEAT_TIME = 10.0f;
+                    const float CHILL_IN_SEAT_TIME = 60.0f;
                     if (chillAtShipTimer.IsGreaterThan(CHILL_IN_SEAT_TIME) 
                         && ai.CanManuallyEndSpecialAnimation())
                     {

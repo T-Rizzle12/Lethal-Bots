@@ -545,20 +545,6 @@ namespace LethalBots.AI
                     }
                 }
 
-                // No AI calculation if in special animation if climbing ladder or inSpecialInteractAnimation
-                if (!lethalBotController.isClimbingLadder && !lethalBotController.inTerminalMenu
-                    && (lethalBotController.inSpecialInteractAnimation || lethalBotController.enteringSpecialAnimation))
-                {
-                    // If we are using a trigger, set our position and rotation to it!
-                    InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
-                    if (ourTrigger != null && !ourTrigger.isLadder)
-                    {
-                        lethalBotController.thisPlayerBody.localPosition = Vector3.Lerp(lethalBotController.thisPlayerBody.localPosition, lethalBotController.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
-                        lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
-                        NpcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
-                    }
-                }
-
                 // Move the AI to where the bot controller is
                 this.transform.position = lethalBotController.transform.position;
                 this.serverPosition = lethalBotController.transform.position;
@@ -614,17 +600,9 @@ namespace LethalBots.AI
 
             // No AI calculation if in special animation if climbing ladder or inSpecialInteractAnimation
             if (!lethalBotController.isClimbingLadder && !lethalBotController.inTerminalMenu && !lethalBotController.inVehicleAnimation
-                && (lethalBotController.inSpecialInteractAnimation || lethalBotController.enteringSpecialAnimation))
+                && (lethalBotController.inSpecialInteractAnimation || lethalBotController.enteringSpecialAnimation)
+                && !CanManuallyEndSpecialAnimation())
             {
-                // If we are using a trigger, set our position and rotation to it!
-                InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
-                if (ourTrigger != null && !ourTrigger.isLadder)
-                {
-                    lethalBotController.thisPlayerBody.localPosition = Vector3.Lerp(lethalBotController.thisPlayerBody.localPosition, lethalBotController.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
-                    lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
-                    NpcController.SetTurnBodyTowardsDirection(ourTrigger.playerPositionNode.rotation.eulerAngles); // NEEDTOVALIDATE: Is this correct?
-                }
-
                 // Don't do this if the bot is using an off the mesh link
                 if (!IsUsingOffMeshLink())
                 {
@@ -710,13 +688,7 @@ namespace LethalBots.AI
             if (shouldFixedMovement
                 || StateControllerMovement == EnumStateControllerMovement.Fixed)
             {
-                // If we are using a trigger, set our position and rotation to it!
-                InteractTrigger ourTrigger = lethalBotController.currentTriggerInAnimationWith;
-                if (ourTrigger != null && !ourTrigger.isLadder)
-                {
-                    lethalBotController.thisPlayerBody.localPosition = Vector3.Lerp(lethalBotController.thisPlayerBody.localPosition, lethalBotController.thisPlayerBody.parent.InverseTransformPoint(ourTrigger.playerPositionNode.position), Time.deltaTime * 20f);
-                    lethalBotController.thisPlayerBody.rotation = Quaternion.Lerp(lethalBotController.thisPlayerBody.rotation, ourTrigger.playerPositionNode.rotation, Time.deltaTime * 20f);
-                }
+                // Set our agent position to the player controller
                 this.transform.position = lethalBotController.transform.position;
                 this.serverPosition = lethalBotController.transform.position;
             }
@@ -767,6 +739,7 @@ namespace LethalBots.AI
                 if (agent.velocity.sqrMagnitude < 0.002f
                     && StateControllerMovement == EnumStateControllerMovement.FollowAgent
                     && !this.IsUsingOffMeshLink()
+                    && !this.IsInSpecialAnimation()
                     && !IsInsideElevator
                     && (LethalBotManager.AreWeInOrbit(instanceSOR) 
                         || LethalBotManager.IsTheShipLanded(instanceSOR))) // Mathf.Abs((lethalBotController.oldPlayerPosition - lethalBotController.transform.position).sqrMagnitude) < Const.EPSILON * Const.EPSILON
@@ -5125,7 +5098,7 @@ namespace LethalBots.AI
                 }
             }
 
-            if (!grabbableObject.grabbable
+            if ((!isHeld && !grabbableObject.grabbable)
                 || grabbableObject.deactivated)
             {
                 return false;
@@ -5254,8 +5227,9 @@ namespace LethalBots.AI
                 return false;
             }
 
-            if ((!ignoreHeldFlag && (grabbableObject.isHeld || grabbableObject.isPocketed))
-                || !grabbableObject.grabbable
+            bool isHeld = grabbableObject.isHeld || grabbableObject.isPocketed;
+            if ((!ignoreHeldFlag && isHeld)
+                || (!isHeld && !grabbableObject.grabbable)
                 || grabbableObject.deactivated 
                 || !ItemsManager.IsItemScrap(grabbableObject))
             {

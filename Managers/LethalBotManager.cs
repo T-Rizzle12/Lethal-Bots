@@ -5606,8 +5606,11 @@ namespace LethalBots.Managers
             }
 
             // "Disable" the ship NavObstacle
-            landingShipNavObstacle?.height = Const.EPSILON;
-            landingShipNavObstacle?.radius = Const.EPSILON;
+            if (landingShipNavObstacle != null)
+            {
+                landingShipNavObstacle.height = Const.EPSILON;
+                landingShipNavObstacle.radius = Const.EPSILON;
+            }
             shipNavMeshActive = true;
             if (Plugin.IsModPathfindingLibLoaded)
             {
@@ -5676,8 +5679,11 @@ namespace LethalBots.Managers
             yield return null;
 
             // Use our cached ship NavObstacle data.
-            landingShipNavObstacle?.height = landingShipNavObstacleInfo.height;
-            landingShipNavObstacle?.radius = landingShipNavObstacleInfo.radius;
+            if (landingShipNavObstacle != null)
+            {
+                landingShipNavObstacle.height = landingShipNavObstacleInfo.height;
+                landingShipNavObstacle.radius = landingShipNavObstacleInfo.radius;
+            }
             disableNavMeshCoroutine = null;
         }
 

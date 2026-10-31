@@ -18,6 +18,7 @@ using LethalBots.Patches.ModPatches.BetterLethalVRM;
 using LethalBots.Patches.ModPatches.BunkbedRevive;
 using LethalBots.Patches.ModPatches.ButteryFixes;
 using LethalBots.Patches.ModPatches.DawnLib;
+using LethalBots.Patches.ModPatches.HolsteredItemPositions;
 using LethalBots.Patches.ModPatches.LCAlwaysHearActiveWalkie;
 using LethalBots.Patches.ModPatches.LCVR;
 using LethalBots.Patches.ModPatches.LethalPhones;
@@ -90,6 +91,7 @@ namespace LethalBots
     [BepInDependency(SelfSortingStorage.Plugin.GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(PathfindingLib.PathfindingLibPlugin.PluginGUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(OomJan.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(HolsteredItemPositions.Plugin.modGUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         // Please don't use the MyPluginInfo class for the GUID, my mod is
@@ -349,6 +351,7 @@ namespace LethalBots
             bool isModPeepersLoaded = IsModLoaded(Const.PEEPERS_GUID);
             bool isModLethalCompanyVRLoaded = IsModLoaded(LCVR.Plugin.PLUGIN_GUID);
             bool isModBetterVRMLoaded = IsModLoaded(OomJan.MyPluginInfo.PLUGIN_GUID);
+            bool isModHolsteredItemPositionsLoaded = IsModLoaded(HolsteredItemPositions.Plugin.modGUID);
 
             // -------------------
             // Read the preloaders
@@ -364,7 +367,7 @@ namespace LethalBots
             // Compatibility with other mods
             if (isModMoreEmotesLoaded)
             {
-                _harmony.PatchAll(typeof(MoreEmotesPatch));
+                PatchClass<MoreEmotesPatch>();
             }
             if (isModBetterEmotesLoaded)
             {
@@ -380,26 +383,26 @@ namespace LethalBots
                                null,
                                null,
                                new HarmonyMethod(typeof(BetterEmotesPatch), nameof(BetterEmotesPatch.PerformEmotePrefix_Transpiler)));
-                _harmony.PatchAll(typeof(BetterEmotesCustomAnimationObjectsPatch));
+                PatchClass<BetterEmotesCustomAnimationObjectsPatch>();
             }
             if (IsModTooManyEmotesLoaded)
             {
-                _harmony.PatchAll(typeof(EmoteControllerPlayerPatch));
-                _harmony.PatchAll(typeof(ThirdPersonEmoteControllerPatch));
+                PatchClass<EmoteControllerPlayerPatch>();
+                PatchClass<ThirdPersonEmoteControllerPatch>();
             }
             if (IsModModelReplacementAPILoaded)
             {
                 //_harmony.PatchAll(typeof(BodyReplacementBasePatch));
-                _harmony.PatchAll(typeof(ModelReplacementPlayerControllerBPatchPatch));
-                _harmony.PatchAll(typeof(ModelReplacementAPIPatch));
+                PatchClass<ModelReplacementPlayerControllerBPatchPatch>();
+                PatchClass<ModelReplacementAPIPatch>();
                 //_harmony.PatchAll(typeof(ManagerBasePatch)); // This gives me an error, commenting out for now
             }
             if (IsModLethalPhonesLoaded)
             {
-                _harmony.PatchAll(typeof(AudioSourceStoragePatch));
-                _harmony.PatchAll(typeof(PhoneBehaviorPatch));
-                _harmony.PatchAll(typeof(PlayerPhonePatch));
-                _harmony.PatchAll(typeof(PlayerPhonePatchPatch));
+                PatchClass<AudioSourceStoragePatch>();
+                PatchClass<PhoneBehaviorPatch>();
+                PatchClass<PlayerPhonePatch>();
+                PatchClass<PlayerPhonePatchPatch>();
                 PhoneBehaviorPatch.SetupReflectionFields();
             }
             if (isModAdditionalNetworkingLoaded)
@@ -416,11 +419,11 @@ namespace LethalBots
             }
             if (IsModReviveCompanyLoaded)
             {
-                _harmony.PatchAll(typeof(ReviveCompanyGeneralUtilPatch));
+                PatchClass<ReviveCompanyGeneralUtilPatch>();
             }
             if (IsModBunkbedReviveLoaded)
             {
-                _harmony.PatchAll(typeof(BunkbedControllerPatch));
+                PatchClass<BunkbedControllerPatch>();
             }
             if (IsModZaprillatorLoaded)
             {
@@ -455,7 +458,7 @@ namespace LethalBots
             }*/
             if (isModPeepersLoaded)
             {
-                _harmony.PatchAll(typeof(PeeperAttachHitboxPatch));
+                PatchClass<PeeperAttachHitboxPatch>();
             }
             if (isModLethalCompanyVRLoaded)
             {
@@ -476,13 +479,13 @@ namespace LethalBots
             }
             if (IsModUsualScrapLoaded)
             {
-                _harmony.PatchAll(typeof(DefibrillatorScriptPatch));
+                PatchClass<DefibrillatorScriptPatch>();
                 ItemsManager.RegisterWeapons.AddListener(UsualScrapWeaponsPatch.RegisterWeaponsForBots);
             }
             if (IsModAutoReviveLoaded)
             {
-                _harmony.PatchAll(typeof(AutoRevivePlayerPatch));
-                _harmony.PatchAll(typeof(LethalBotAutoReviveHelper));
+                PatchClass<AutoRevivePlayerPatch>();
+                PatchClass<LethalBotAutoReviveHelper>();
             }
             if (IsModSelfSortingStorageLoaded)
             {
@@ -490,11 +493,15 @@ namespace LethalBots
             }
             if (IsModPathfindingLibLoaded)
             {
-                _harmony.PatchAll(typeof(PathfindingLibPatch));
+                PatchClass<PathfindingLibPatch>();
             }
             if (isModBetterVRMLoaded)
             {
-                _harmony.PatchAll(typeof(BetterLethalVRMPatch));
+                PatchClass<BetterLethalVRMPatch>();
+            }
+            if (isModHolsteredItemPositionsLoaded)
+            {
+                PatchClass<HolsterItemVisualPatch>();
             }
         }
 
