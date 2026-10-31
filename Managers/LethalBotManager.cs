@@ -182,7 +182,7 @@ namespace LethalBots.Managers
         private NetworkVariable<NetworkBehaviourReference> missionControlPlayerNetworkVar = new NetworkVariable<NetworkBehaviourReference>(writePerm: NetworkVariableWritePermission.Server);
 
         /// <summary>
-        /// Gets the list of bots moving loot from the facility to the ship.
+        /// Gets the list of bots and/or human players moving loot from the facility to the ship.
         /// </summary>
         /// <remarks>
         /// Only the server can modify this list.
@@ -190,7 +190,7 @@ namespace LethalBots.Managers
         internal NetworkList<NetworkBehaviourReference> LootTransferPlayersNetworkList = new NetworkList<NetworkBehaviourReference>(writePerm: NetworkVariableWritePermission.Server);
 
         /// <summary>
-        /// Gets the list of bots moving loot from the facility to the ship.
+        /// Gets the list of bots and/or human players moving loot from the facility to the ship.
         /// </summary>
         public HashSet<PlayerControllerB> LootTransferPlayers = new HashSet<PlayerControllerB>();
 
@@ -313,6 +313,7 @@ namespace LethalBots.Managers
         public static HashSet<GrabbableObject> ItemsInSelfSortingStorage = new HashSet<GrabbableObject>();
 
         internal CountdownTimer maintainQuotaTimer = new CountdownTimer();
+        internal CountdownTimer spawnBotTimeoutTimer = new CountdownTimer();
 
         private HashSet<ulong> _pendingHumanJoins = new HashSet<ulong>();
         public bool IsHumanJoinPending => _pendingHumanJoins.Count > 0;
@@ -909,7 +910,7 @@ namespace LethalBots.Managers
         /// <param name="bodyText"></param>
         /// <param name="clientRpcParams"></param>
         [ClientRpc]
-        private void DisplayTipClientRpc(string headerText, string bodyText, ClientRpcParams clientRpcParams = default)
+        internal void DisplayTipClientRpc(string headerText, string bodyText, ClientRpcParams clientRpcParams = default)
         {
             HUDManager.Instance.DisplayTip(headerText, bodyText);
         }
@@ -1328,6 +1329,7 @@ namespace LethalBots.Managers
             StartOfRound instanceSOR = StartOfRound.Instance;
             if (IsServer 
                 && !isSpawningBots.Value 
+                && NetworkManager.IsListening
                 && !NetworkManager.ShutdownInProgress)
             {
                 if (sendPlayerCountUpdate.Value)
@@ -1360,8 +1362,34 @@ namespace LethalBots.Managers
                     && Plugin.Config.BotsAutoJoin.Value
                     && !IsHumanJoinPending)
                 {
+                    // If we are waiting for a bot to spawn, check it's current status first!
+                    if (botSpawned.Value != EnumBotSpawnState.None)
+                    {
+                        maintainQuotaTimer.Start(1.0f); // Reset the timer
+
+                        // If we timeout log the incident!
+                        if (botSpawned.Value == EnumBotSpawnState.Unknown 
+                            && (!spawnBotTimeoutTimer.HasStarted() || spawnBotTimeoutTimer.Elapsed()))
+                        {
+                            Plugin.LogWarning("[LethalBotManager] Failed to get response from the host when attemting to spawn bot!");
+                            botSpawned.Value = EnumBotSpawnState.None;
+                            spawnBotTimeoutTimer.Reset();
+                        }
+                        else if (botSpawned.Value == EnumBotSpawnState.Spawned)
+                        {
+                            Plugin.LogInfo("[LethalBotManager] Bot has successfully spawned");
+                            botSpawned.Value = EnumBotSpawnState.None;
+                            spawnBotTimeoutTimer.Reset();
+                        }
+                        else if (botSpawned.Value == EnumBotSpawnState.NotSpawned)
+                        {
+                            Plugin.LogError("[LethalBotManager] Failed to spawn bot on the host!");
+                            botSpawned.Value = EnumBotSpawnState.None;
+                            spawnBotTimeoutTimer.Reset();
+                        }
+                    }
                     // Don't check this every frame
-                    if (!maintainQuotaTimer.HasStarted() || maintainQuotaTimer.Elapsed())
+                    else if (!maintainQuotaTimer.HasStarted() || maintainQuotaTimer.Elapsed())
                     {
                         maintainQuotaTimer.Start(1.0f); // Check every second
                         int connectedPlayersAmount = instanceSOR.connectedPlayersAmount + 1; // Include host player in this count
@@ -1372,7 +1400,7 @@ namespace LethalBots.Managers
                         if (AreTooManyBots(connectedPlayersAmount, connectedBotAmount, desiredQuotaAmount) && connectedBotAmount > 0)
                         {
                             // Go through every spawned bot
-                            for (int i = 0; i < AllLethalBotAIs.Length; i++) 
+                            for (int i = 0; i < AllLethalBotAIs.Length; i++)
                             {
                                 // Check if this slot is taken by a bot
                                 LethalBotAI? lethalBotAI = AllLethalBotAIs[i];
@@ -1401,6 +1429,8 @@ namespace LethalBots.Managers
                             int nextPlayerIndex = GetNextAvailablePlayerObject();
                             if (nextPlayerIndex >= 0)
                             {
+                                botSpawned.Value = EnumBotSpawnState.Unknown; // Mark the bot's spawn status as unknown
+                                spawnBotTimeoutTimer.Start(5.0f); // 5 seconds before we time out
                                 SpawnLethalBotServerRpc(new SpawnLethalBotParamsNetworkSerializable()
                                 {
                                     enumSpawnAnimation = EnumSpawnAnimation.OnlyPlayerSpawnAnimationIfDead,
@@ -1410,10 +1440,6 @@ namespace LethalBots.Managers
                                     MarkBotAsLoaded = true,
                                     UpdatePlayerCount = true
                                 });
-                            }
-                            else
-                            {
-                                Plugin.LogDebug("[WARNING] No available player objects to spawn any more lethal bots!");
                             }
                         }
                     }
@@ -1867,8 +1893,8 @@ namespace LethalBots.Managers
                     return false;
                 }
 
-                bool isEnemyStunned = nutcracker.stunnedIndefinitely > 0f || nutcracker.stunNormalizedTimer > 0f;
-                if ((attackQuery.hasRangedWeapon || attackQuery.isHumanPlayer || isEnemyStunned)
+                // If we have a ranged weapon, the nutcracker is stunned, or we are a human player.....ATTACK!
+                if ((attackQuery.hasRangedWeapon || attackQuery.isHumanPlayer || attackQuery.IsEnemyStunned())
                         && (nutcracker.currentBehaviourStateIndex == 2
                             || nutcracker.isInspecting))
                 {
@@ -1923,7 +1949,7 @@ namespace LethalBots.Managers
                     {
                         return 20f;
                     }
-                    // If the Earth Leviathan has finsihed its flight path, we are safe
+                    // If the Earth Leviathan has finished its flight path, we are safe
                     else if (sandWormAI.hitGroundInAnimation)
                     {
                         return null;
@@ -2436,11 +2462,11 @@ namespace LethalBots.Managers
             {
                 // Make sure we sync the bot's level
                 HUDManager.Instance.SyncPlayerLevelServerRpc((int)lethalBotController.playerClientId, lethalBotAI.LethalBotIdentity.Level, true);
-                if (isSpawningBots.Value)
+                if (botSpawned.Value == EnumBotSpawnState.Unknown) // Check if the server wants the bot's spawn status
                 {
                     botSpawned.Value = EnumBotSpawnState.Spawned;
                 }
-                else
+                if (!isSpawningBots.Value)
                 {
                     // Update player count if this was a bot, "joining" the game
                     if (spawnParamsNetworkSerializable.UpdatePlayerCount)
@@ -4078,6 +4104,7 @@ namespace LethalBots.Managers
                 Plugin.LogDebug($"AI at index {i}: {AllLethalBotAIs[i]}");
             }
             SendNewPlayerCountServerRpc(newPlayerCount, newLivingPlayerCount, GameNetworkManager.Instance.connectedPlayers);
+            botSpawned.Value = EnumBotSpawnState.None; // Clear the flag so Quota Manager can use it.
             isSpawningBots.Value = false;
 
             // Only set the starting revives if the mod is loaded!
@@ -4126,7 +4153,7 @@ namespace LethalBots.Managers
             // Don't do this if the lobby is closing
             if (NetworkManager.ShutdownInProgress)
             {
-                Plugin.LogInfo($"Skipping player count update. Server is shutting down.");
+                Plugin.LogInfo("Skipping player count update. Server is shutting down.");
                 return;
             }
 
@@ -4412,7 +4439,7 @@ namespace LethalBots.Managers
         /// A function that checks if the player can path to any of the exits!
         /// </summary>
         /// <remarks>
-        /// This is basically and advanced call to <see cref="NavMesh.CalculatePath(Vector3, Vector3, int, NavMeshPath)"/> with mutliple checks
+        /// This is basically and advanced call to <see cref="NavMesh.CalculatePath(Vector3, Vector3, NavMeshQueryFilter, NavMeshPath)"/> with mutliple checks
         /// to make sure the path is complete!
         /// </remarks>
         /// <param name="player">The player to test</param>
@@ -4420,10 +4447,26 @@ namespace LethalBots.Managers
         public bool CanPlayerPathToExit(PlayerControllerB player)
         {
             // Setup some variables
-            Vector3 startPosition = RoundManager.Instance.GetNavMeshPosition(player.transform.position, RoundManager.Instance.navHit, 2.7f);
+            RoundManager instanceRM = RoundManager.Instance;
+            bool isOutside = false;
+            NavMeshQueryFilter queryFilter = new NavMeshQueryFilter();
             LethalBotAI? isPlayerBot = GetLethalBotAI(player);
-            bool isOutside = isPlayerBot != null ? isPlayerBot.isOutside : !player.isInsideFactory;
-            int areaMask = isPlayerBot != null ? isPlayerBot.agent.areaMask : NavMesh.AllAreas;
+            if (isPlayerBot != null)
+            {
+                queryFilter = isPlayerBot.agent.GetNavMeshQueryFilter();
+                isOutside = isPlayerBot.isOutside;
+            }
+            else
+            {
+                queryFilter.agentTypeID = Const.LETHAL_BOT_NAV_SETTINGS_ID; // We use the bot's custom agent ID as it's built around the limitations of the human player controller!
+                queryFilter.areaMask = NavMesh.AllAreas; // Unlike bots, human players can go EVERYWHERE!
+                for (int i = 0; i < 32; i++)
+                {
+                    queryFilter.SetAreaCost(i, NavMesh.GetAreaCost(i)); // Assume default path costs
+                }
+                isOutside = !player.isInsideFactory;
+            }
+            Vector3 startPosition = instanceRM.GetNavMeshPosition(player.transform.position, queryFilter, instanceRM.navHit, 2.7f);
             NavMeshPath path = new NavMeshPath();
             for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
             {
@@ -4435,8 +4478,8 @@ namespace LethalBots.Managers
                     && entrance.FindExitPoint())
                 {
                     // Check if we can create a path there first!
-                    Vector3 exitPosition = RoundManager.Instance.GetNavMeshPosition(entrance.entrancePoint.position, RoundManager.Instance.navHit, 2.7f);
-                    if (IsValidPathToEntrance(startPosition, exitPosition, areaMask, ref path, entrance))
+                    Vector3 exitPosition = instanceRM.GetNavMeshPosition(entrance.entrancePoint.position, queryFilter, instanceRM.navHit, 2.7f);
+                    if (IsValidPathToEntrance(startPosition, exitPosition, queryFilter, ref path, entrance))
                     {
                         return true;
                     }
@@ -4451,20 +4494,20 @@ namespace LethalBots.Managers
         /// </summary>
         /// <param name="startPosition"></param>
         /// <param name="entrancePosition"></param>
-        /// <param name="areaMask"></param>
+        /// <param name="queryFilter"></param>
         /// <param name="path"></param>
         /// <param name="targetEntrance"></param>
         /// <returns></returns>
-        public static bool IsValidPathToEntrance(Vector3 startPosition, Vector3 entrancePosition, int areaMask, ref NavMeshPath path, EntranceTeleport targetEntrance)
+        public static bool IsValidPathToEntrance(Vector3 startPosition, Vector3 entrancePosition, NavMeshQueryFilter queryFilter, ref NavMeshPath path, EntranceTeleport targetEntrance)
         {
             // Check if we can path to the entrance!
-            if (!NavMeshUtil.IsValidPathToTarget(startPosition, entrancePosition, areaMask, ref path, out _, calculatePathDistance: false))
+            if (!NavMeshUtil.IsValidPathToTarget(startPosition, entrancePosition, queryFilter, ref path, out _, calculatePathDistance: false))
             {
                 // Check if this is the front entrance if we need to use an elevator
                 if (AIState.IsFrontEntrance(targetEntrance) && !targetEntrance.isEntranceToBuilding && LethalBotAI.ElevatorScript != null)
                 {
                     // Check if we can path to the bottom of the elevator
-                    if (NavMeshUtil.IsValidPathToTarget(startPosition, LethalBotAI.ElevatorScript.elevatorBottomPoint.position, areaMask, ref path, out _, calculatePathDistance: false))
+                    if (NavMeshUtil.IsValidPathToTarget(startPosition, LethalBotAI.ElevatorScript.elevatorBottomPoint.position, queryFilter, ref path, out _, calculatePathDistance: false))
                     {
                         return true;
                     }
@@ -5490,6 +5533,7 @@ namespace LethalBots.Managers
 
             // Generate the mesh!
             shipNavMeshSurface.enabled = true;
+            shipNavMeshSurface.agentTypeID = Const.LETHAL_BOT_NAV_SETTINGS_ID; // Only for the bots!
             Plugin.LogInfo("Building ship navmesh...");
             shipNavMeshSurface.BuildNavMesh();
             //Plugin.LogInfo("Surface active: " + shipNavMeshSurface.isActiveAndEnabled);
@@ -5562,8 +5606,11 @@ namespace LethalBots.Managers
             }
 
             // "Disable" the ship NavObstacle
-            landingShipNavObstacle?.height = Const.EPSILON;
-            landingShipNavObstacle?.radius = Const.EPSILON;
+            if (landingShipNavObstacle != null)
+            {
+                landingShipNavObstacle.height = Const.EPSILON;
+                landingShipNavObstacle.radius = Const.EPSILON;
+            }
             shipNavMeshActive = true;
             if (Plugin.IsModPathfindingLibLoaded)
             {
@@ -5632,8 +5679,11 @@ namespace LethalBots.Managers
             yield return null;
 
             // Use our cached ship NavObstacle data.
-            landingShipNavObstacle?.height = landingShipNavObstacleInfo.height;
-            landingShipNavObstacle?.radius = landingShipNavObstacleInfo.radius;
+            if (landingShipNavObstacle != null)
+            {
+                landingShipNavObstacle.height = landingShipNavObstacleInfo.height;
+                landingShipNavObstacle.radius = landingShipNavObstacleInfo.radius;
+            }
             disableNavMeshCoroutine = null;
         }
 

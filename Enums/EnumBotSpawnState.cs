@@ -8,6 +8,7 @@ namespace LethalBots.Enums
     [Serializable]
     public enum EnumBotSpawnState 
     {
+        None,
         Unknown, 
         NotSpawned,
         Spawned 

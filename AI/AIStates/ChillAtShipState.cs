@@ -6,7 +6,9 @@ using LethalBots.Managers;
 using LethalBots.Utils.Helpers;
 using LethalLib.Modules;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
+using static LethalLib.Modules.ContentLoader;
 
 namespace LethalBots.AI.AIStates
 {
@@ -16,8 +18,16 @@ namespace LethalBots.AI.AIStates
     /// </summary>
     public class ChillAtShipState : AIState
     {
-        private float chillAtShipTimer;
+        private static readonly HashSet<int> allowedSeats = new HashSet<int>()
+        {
+            29, // Sofa Chair
+            32 // Electric Chair
+        };
+
+        private IntervalTimer chillAtShipTimer = new IntervalTimer();
         private float leavePlanetTimer;
+        private SeatTarget? targetSeat = null;
+
         public ChillAtShipState(AIState oldState) : base(oldState)
         {
             CurrentState = EnumAIStates.ChillAtShip;
@@ -36,6 +46,8 @@ namespace LethalBots.AI.AIStates
             {
                 GroupManager.Instance.RemoveFromCurrentGroupAndSync(ourController);
             }
+            targetSeat = null;
+            chillAtShipTimer.Reset();
             base.OnEnterState();
         }
 
@@ -43,6 +55,11 @@ namespace LethalBots.AI.AIStates
         {
             base.OnExitState(newState);
             npcController.StopPreformingEmote();
+            if (targetSeat?.seatTrigger != null)
+            {
+                targetSeat.seatTrigger.CancelAnimationExternally(); // Stop using the seat
+            }
+            targetSeat = null;
         }
 
         public override void DoAI()
@@ -186,9 +203,6 @@ namespace LethalBots.AI.AIStates
 
             // Emotes
             npcController.PerformRandomEmote();
-
-            // We wait at the ship for a bit before deciding to go out for more loot
-            chillAtShipTimer += ai.AIIntervalTime;
         }
 
         public override bool? ShouldBotCrouch()
@@ -234,7 +248,7 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         private bool DoStandardLogic()
         {
-            if (chillAtShipTimer > Plugin.Config.ChillAtShipTime)
+            if (chillAtShipTimer.IsGreaterThan(Plugin.Config.ChillAtShipTime))
             {
                 // Try to find the closest player to target
                 PlayerControllerB? player = ai.CheckLOSForClosestPlayer(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
@@ -279,7 +293,7 @@ namespace LethalBots.AI.AIStates
                 {
                     // So, we are done chilling and didn't find a player to follow, so lets go in by ourselves
                     // A player can press their +use key on us to make us follow them!
-                    if (chillAtShipTimer > Plugin.Config.ChillAtShipTime + 2f)
+                    if (chillAtShipTimer.IsGreaterThan(Plugin.Config.ChillAtShipTime + 2f))
                     {
                         // Last time we were looking for scrap there was a trapped player,
                         // we should grab a key so we can potentially free them!
@@ -332,9 +346,127 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         private bool DoOrbitLogic()
         {
-            // Not really much for the bots to do here at the moment.
-            // This will probably be changed in the future.
+            // If we have a chosen seat, we should move to sit in it
+            if (targetSeat != null)
+            {
+                // Make sure the seat is still valid
+                var parentObject = targetSeat.parentObject;
+                if (parentObject == null || parentObject.disableObject)
+                {
+                    targetSeat = null;
+                    return false;
+                }
+
+                // Check if we are in our target seat
+                PlayerControllerB lethalBotController = npcController.Npc;
+                InteractTrigger seatTrigger = targetSeat.seatTrigger;
+                if (seatTrigger.playerScriptInSpecialAnimation == lethalBotController)
+                {
+                    const float CHILL_IN_SEAT_TIME = 60.0f;
+                    if (chillAtShipTimer.IsGreaterThan(CHILL_IN_SEAT_TIME) 
+                        && ai.CanManuallyEndSpecialAnimation())
+                    {
+                        ai.State = new ReturnToShipState(this); // Pick a random spot in the ship to move to
+                    }
+                    return true; // We do nothing more
+                }
+
+                // Check if the seat was taken by someone else
+                if (seatTrigger.playerScriptInSpecialAnimation != null)
+                {
+                    targetSeat = null;
+                    return false;
+                }
+
+                // Move to our target seat
+                float sqrDistFromSeat = (seatTrigger.playerPositionNode.position - lethalBotController.transform.position).sqrMagnitude;
+                if (sqrDistFromSeat > Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
+                {
+                    // Move, now!
+                    ai.OrderMoveToDestination();
+                    ai.SetDestinationToPositionLethalBotAI(seatTrigger.playerPositionNode.position);
+                }
+                else
+                {
+                    // Interact with the seat
+                    if (!ai.IsLethalBotInteracting() 
+                        && !ai.StartInteraction(seatTrigger))
+                    {
+                        targetSeat = null; // If we failed for some reason, give up
+                    }
+                    else
+                    {
+                        chillAtShipTimer.Reset(); // Reset the chill timer
+                    }
+                }
+
+                // Block default movement
+                return true;
+            }
+            // Have a chance to sit in random furniture
+            else if (chillAtShipTimer.IsGreaterThan(Const.TIMER_CHILL_AT_SHIP))
+            {
+                chillAtShipTimer.Reset(); // Reset the Timer
+
+                // Do we choose to sit in something
+                // For now a 20% chance
+                if (UnityEngine.Random.Range(1, 101) < 20)
+                {
+                    // Find all of the purchased objects on the ship
+                    StartOfRound instanceSOR = StartOfRound.Instance;
+                    PlaceableShipObject[] placeableShipObjects = Object.FindObjectsByType<PlaceableShipObject>(FindObjectsSortMode.None);
+                    for (int i = 0; i < placeableShipObjects.Length; i++)
+                    {
+                        // Make sure its valid
+                        var shipObject = placeableShipObjects[i];
+                        if (shipObject != null 
+                            && allowedSeats.Contains(shipObject.unlockableID))
+                        {
+                            // Make sure its root object is valid
+                            var parentObject = shipObject.parentObject;
+                            if (parentObject != null 
+                                && !parentObject.disableObject)
+                            {
+                                // Check if this object is a seat
+                                InteractTrigger[] interactTriggers = parentObject.gameObject.GetComponentsInChildren<InteractTrigger>();
+                                for (int j = 0; j < interactTriggers.Length; j++)
+                                {
+                                    // Check if this object has a seat interact trigger
+                                    var trigger = interactTriggers[j];
+                                    if (trigger != null 
+                                        && trigger.stopAnimationManually
+                                        && trigger.interactable
+                                        && trigger.playerScriptInSpecialAnimation == null)
+                                    {
+                                        targetSeat = new SeatTarget(shipObject, trigger); // Found one!
+                                        break;
+                                    }
+                                }
+
+                                // End early if we found a seat
+                                if (targetSeat != null)
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             return false;
+        }
+
+        private sealed class SeatTarget
+        {
+            public PlaceableShipObject shipObject;
+            public AutoParentToShip? parentObject => shipObject != null ? shipObject.parentObject : null;
+            public InteractTrigger seatTrigger;
+
+            public SeatTarget(PlaceableShipObject shipObject, InteractTrigger seatTrigger)
+            {
+                this.shipObject = shipObject;
+                this.seatTrigger = seatTrigger;
+            }
         }
 
         /// <summary>
@@ -343,7 +475,7 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         private bool DoCompanyBuildingLogic()
         {
-            if (chillAtShipTimer > Const.TIMER_CHILL_AT_SHIP_AT_COMPANY)
+            if (chillAtShipTimer.IsGreaterThan(Const.TIMER_CHILL_AT_SHIP_AT_COMPANY))
             {
                 // If we are at the company building, we should sell!
                 if (ai.LookingForObjectsToSell(true) != null || LethalBotManager.AreThereItemsOnDesk())

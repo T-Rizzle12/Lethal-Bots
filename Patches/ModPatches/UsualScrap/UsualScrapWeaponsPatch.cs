@@ -20,6 +20,9 @@ namespace LethalBots.Patches.ModPatches.UsualScrap
             itemsManager.RegisterNewWeapon<CandyDispenserScript>(new CandyDispenserInfo());
             itemsManager.RegisterNewWeapon<SledgehammerScript>(new SledgehammerInfo());
             itemsManager.RegisterNewWeapon<RedoneBlowtorch>(new RedoneBlowtorchInfo());
+            itemsManager.RegisterNewWeapon<FireAxeScript>(new FireAxeInfo());
+            itemsManager.RegisterNewWeapon<AntiqueSwordScript>(new AntiqueSwordInfo());
+            itemsManager.RegisterNewWeapon<RegalScepterScript>(new RegalScepterInfo());
         }
 
         private class CrowbarInfo : WeaponInfo
@@ -258,6 +261,102 @@ namespace LethalBots.Patches.ModPatches.UsualScrap
                     {
                         weapon.UseItemOnClient(false);
                     }
+                }
+            }
+        }
+
+        private class FireAxeInfo : WeaponInfo
+        {
+            public override float GetWeaponAttackInterval(GrabbableObject weapon)
+            {
+                return 0.78f; // As found in the source code
+            }
+
+            public override float GetAttackRangeForWeapon(GrabbableObject weapon)
+            {
+                return 2f; // Same as the shovel
+            }
+
+            public override void GetWeaponAttackInfo(GrabbableObject weapon, PlayerControllerB lethalBotController, out Ray ray, out float maxFOV, out float radius, out float maxRange, out LayerMask hitMask)
+            {
+                // Provide the info about how to use the Fire Axe
+                if (weapon is FireAxeScript fireaxe)
+                {
+                    // This is how the mod does it.
+                    ray = new Ray(lethalBotController.gameplayCamera.transform.position + lethalBotController.gameplayCamera.transform.forward * -0.35f, lethalBotController.gameplayCamera.transform.forward);
+                    maxFOV = 75f;
+                    radius = 0.8f;
+                    maxRange = 1.5f;
+                    hitMask = fireaxe.meleeWeaponMask;
+                }
+                else
+                {
+                    // If we somehow were not given the Fire Axe object, just return the default
+                    base.GetWeaponAttackInfo(weapon, lethalBotController, out ray, out maxFOV, out radius, out maxRange, out hitMask);
+                }
+            }
+        }
+
+        private class AntiqueSwordInfo : WeaponInfo
+        {
+            public override float GetWeaponAttackInterval(GrabbableObject weapon)
+            {
+                return 0.68f; // As found in the source code
+            }
+
+            public override float GetAttackRangeForWeapon(GrabbableObject weapon)
+            {
+                return 2f; // Same as the shovel
+            }
+
+            public override void GetWeaponAttackInfo(GrabbableObject weapon, PlayerControllerB lethalBotController, out Ray ray, out float maxFOV, out float radius, out float maxRange, out LayerMask hitMask)
+            {
+                // Provide the info about how to use the Antique Sword
+                if (weapon is AntiqueSwordScript antiqueSword)
+                {
+                    // This is how the mod does it.
+                    ray = new Ray(lethalBotController.gameplayCamera.transform.position + lethalBotController.gameplayCamera.transform.forward * -0.35f, lethalBotController.gameplayCamera.transform.forward);
+                    maxFOV = 75f;
+                    radius = 0.8f;
+                    maxRange = 2f;
+                    hitMask = antiqueSword.meleeWeaponMask;
+                }
+                else
+                {
+                    // If we somehow were not given the Antique Sword object, just return the default
+                    base.GetWeaponAttackInfo(weapon, lethalBotController, out ray, out maxFOV, out radius, out maxRange, out hitMask);
+                }
+            }
+        }
+
+        private class RegalScepterInfo : WeaponInfo
+        {
+            public override float GetWeaponAttackInterval(GrabbableObject weapon)
+            {
+                return 0.78f; // As found in the source code
+            }
+
+            public override float GetAttackRangeForWeapon(GrabbableObject weapon)
+            {
+                return 2f; // Same as the shovel
+            }
+
+            public override void GetWeaponAttackInfo(GrabbableObject weapon, PlayerControllerB lethalBotController, out Ray ray, out float maxFOV, out float radius, out float maxRange, out LayerMask hitMask)
+            {
+                // Provide the info about how to use the Regal Scepter
+                if (weapon is RegalScepterScript regalScepter)
+                {
+                    // This is how the mod does it.
+                    ray = new Ray(lethalBotController.gameplayCamera.transform.position + lethalBotController.gameplayCamera.transform.forward * -0.35f, lethalBotController.gameplayCamera.transform.forward);
+                    maxFOV = 75f;
+                    radius = 0.8f;
+                    maxRange = 1.5f;
+                    hitMask = regalScepter.meleeWeaponMask;
+                }
+                else
+                {
+                    // If we somehow were not given the Regal Scepter object, just return the default
+                    base.GetWeaponAttackInfo(weapon, lethalBotController, out ray, out maxFOV, out radius, out maxRange, out hitMask);
                 }
             }
         }

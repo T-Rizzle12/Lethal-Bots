@@ -4,6 +4,7 @@ using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using NavMeshLib;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -322,6 +323,7 @@ namespace LethalBots.AI.AIStates
                 // We made it outside, we can end this state
                 // Some state probably wanted to move us outside!
                 // NOTE: We do this so I don't have to duplicate the move outside code in multiple states!
+                // TODO: Remove this once I rework the pathfinding as bots will use NavMeshLinks instead of the current hacks I do now.
                 if (returnToShipType == EnumReturnToShipType.HeadOutside)
                 {
                     ChangeBackToPreviousState();
@@ -334,7 +336,8 @@ namespace LethalBots.AI.AIStates
                     {
                         // Now, lets check if someone is assigned to transfer loot
                         bool shouldWalkLootToShip = true;
-                        if (LethalBotManager.Instance.LootTransferPlayers.Count > 0)
+                        if (LethalBotManager.Instance.LootTransferPlayers.Count > 0 
+                            && !ShouldReturnToShip())
                         {
                             Vector3 ourPos = lethalBotController.transform.position;
                             bool areWeNearbyEntrance = false;
@@ -556,7 +559,7 @@ namespace LethalBots.AI.AIStates
                 int index = UnityEngine.Random.Range(0, ourShip.Count - 1);
                 Transform shipTransform = ourShip[index];
                 ourShip.RemoveAt(index);
-                Vector3 shipPos = RoundManager.Instance.GetNavMeshPosition(shipTransform.position, default, 2.7f);
+                Vector3 shipPos = RoundManager.Instance.GetNavMeshPosition(shipTransform.position, ai.agent.GetNavMeshQueryFilter(), default, 2.7f);
                 if (ai.IsValidPathToTarget(shipPos, false))
                 {
                     this.targetShipTransform = shipTransform;
@@ -595,7 +598,7 @@ namespace LethalBots.AI.AIStates
                  return this.targetShipPos;
             }
 
-            Vector3 shipPos = RoundManager.Instance.GetNavMeshPosition(this.targetShipTransform.position, default, 2.7f);
+            Vector3 shipPos = RoundManager.Instance.GetNavMeshPosition(this.targetShipTransform.position, ai.agent.GetNavMeshQueryFilter(), default, 2.7f);
             this.targetShipPos.Value = shipPos;
             return this.targetShipPos;
         }

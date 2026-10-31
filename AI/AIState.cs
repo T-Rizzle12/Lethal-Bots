@@ -319,43 +319,8 @@ namespace LethalBots.AI
                     if (lethalBotAI.OwnerClientId != playerWhoSentMessage.actualClientId
                         || !lethalBotAI.IsFollowingLocalPlayer())
                     {
-                        // Can't tell a bot to follow if they are in a special animation.
-                        bool isUsingTerminal = lethalBotAI.IsUsingTerminal();
-                        if (!isUsingTerminal && lethalBotAI.IsInSpecialAnimation())
-                        {
-                            return true;
-                        }
-
-                        // Force the bot off of the terminal
-                        if (isUsingTerminal)
-                        {
-                            lethalBotAI.LeaveTerminalRpc(forceEndUse: true);
-                        }
-
-                        // Audio
-                        lethalBotAI.LethalBotIdentity.Voice.TryPlayVoiceAudio(new PlayVoiceParameters()
-                        {
-                            VoiceState = EnumVoicesState.OrderedToFollow,
-                            VoicePriority = EnumVoicePriority.HIGH_PRIORITY,
-                            CanTalkIfOtherLethalBotTalk = true,
-                            WaitForCooldown = false,
-                            CutCurrentVoiceStateToTalk = true,
-                            CanRepeatVoiceState = false,
-
-                            ShouldSync = true,
-                            IsLethalBotInside = lethalBotController.isInsideFactory,
-                            AllowSwearing = Plugin.Config.AllowSwearing.Value
-                        });
-
-                        // We are following a human player, leave our current group or join theirs!
-                        GroupManager.Instance.CreateOrJoinGroupWithMembersAndSync(playerWhoSentMessage, new PlayerControllerB[] { lethalBotController });
-
-                        lethalBotAI.SyncAssignTargetAndSetMovingTo(playerWhoSentMessage);
-
-                        if (Plugin.Config.ChangeSuitAutoBehaviour.Value)
-                        {
-                            lethalBotAI.ChangeSuitLethalBotServerRpc(lethalBotController.playerClientId, playerWhoSentMessage.currentSuitID);
-                        }
+                        // Send a request to whoever has ownership of the bot
+                        lethalBotAI.RequestBotFollowRpc(playerWhoSentMessage);
                     }
                 }
                 return true;
@@ -673,9 +638,10 @@ namespace LethalBots.AI
             bool shouldOnlyUseFrontEntrance = ShouldOnlyUseFrontEntrance();
             bool isClosestEntranceFront = false;
             bool ourWeOutside = ai.isOutside;
+            NavMeshQueryFilter queryFilter = ai.agent.GetNavMeshQueryFilter();
             EntranceTeleport? closestEntrance = null;
             float closestEntranceDist = float.MaxValue;
-            shipPos ??= RoundManager.Instance.GetNavMeshPosition(StartOfRound.Instance.middleOfShipNode.position);
+            shipPos ??= RoundManager.Instance.GetNavMeshPosition(StartOfRound.Instance.middleOfShipNode.position, queryFilter);
             for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
             {
                 // If we are avoiding specific entrances, we should skip it!
@@ -723,7 +689,7 @@ namespace LethalBots.AI
                     //float entranceDistSqr = (entrance.entrancePoint.position - npcController.Npc.transform.position).sqrMagnitude;
                     if (entrance.FindExitPoint()
                         && !IsEntranceCoveredInQuickSand(entrance)
-                        && NavMeshUtil.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ai.agent.areaMask, ref ai.path1, out _, calculatePathDistance: false)
+                        && NavMeshUtil.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position, queryFilter), shipPos.Value, queryFilter, ref ai.path1, out _, calculatePathDistance: false)
                         && CanPathToEntrance(entrance, true) 
                         && ai.pathDistance < closestEntranceDist)
                     {
@@ -772,8 +738,9 @@ namespace LethalBots.AI
                 return FindClosestEntrance(shipPos, entrancesToAvoid);
             }
 
+            NavMeshQueryFilter queryFilter = ai.agent.GetNavMeshQueryFilter();
             List<EntranceTeleport> validEntrances = new List<EntranceTeleport>();
-            shipPos ??= RoundManager.Instance.GetNavMeshPosition(StartOfRound.Instance.middleOfShipNode.position);
+            shipPos ??= RoundManager.Instance.GetNavMeshPosition(StartOfRound.Instance.middleOfShipNode.position, queryFilter);
             for (int i = 0; i < LethalBotAI.EntrancesTeleportArray.Length; i++)
             {
                 // If we are avoiding specific entrances, we should skip it!
@@ -798,7 +765,7 @@ namespace LethalBots.AI
                     // NOTE: We use exit point here or the pathfind would always fail since the entrance we are using is inside the facility!
                     if (entrance.FindExitPoint()
                         && !IsEntranceCoveredInQuickSand(entrance)
-                        && ai.agent.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position), shipPos.Value, ref ai.path1, out _, calculatePathDistance: false)
+                        && ai.agent.IsValidPathToTarget(RoundManager.Instance.GetNavMeshPosition(entrance.exitScript.entrancePoint.position, queryFilter), shipPos.Value, ref ai.path1, out _, calculatePathDistance: false)
                         && CanPathToEntrance(entrance, false))
                     {
                         validEntrances.Add(entrance);
@@ -860,8 +827,9 @@ namespace LethalBots.AI
 
             // Check if the position is covered in quicksand
             RoundManager instanceRM = RoundManager.Instance;
+            NavMeshQueryFilter queryFilter = ai.agent.GetNavMeshQueryFilter();
             float headOffset = npcController.Npc.gameplayCamera.transform.position.y - npcController.Npc.transform.position.y;
-            Vector3 entrancePos = instanceRM.GetNavMeshPosition(targetPos, instanceRM.navHit, 2.7f, ai.agent.areaMask);
+            Vector3 entrancePos = instanceRM.GetNavMeshPosition(targetPos, queryFilter, instanceRM.navHit, 2.7f);
             Plugin.LogDebug($"Testing quicksand safety for pos {targetPos}");
             for (int i = 0; i < LethalBotAI.QuicksandArray.Length; i++)
             {
@@ -925,7 +893,7 @@ namespace LethalBots.AI
                         // We should probably get the closest node that is not in the water and check that instead
                         Plugin.LogDebug("Simulated head intersects water! Checking nearby AI node!");
                         Transform closestNode = instanceRM.GetClosestNode(entrancePos, true);
-                        Vector3 closestNodePos = instanceRM.GetNavMeshPosition(closestNode.position, instanceRM.navHit, 2.7f, ai.agent.areaMask);
+                        Vector3 closestNodePos = instanceRM.GetNavMeshPosition(closestNode.position, queryFilter, instanceRM.navHit, 2.7f);
                         float moveSpeed = npcController.Npc.movementSpeed > 0f ? npcController.Npc.movementSpeed : 4.5f;
                         moveSpeed /= npcController.Npc.carryWeight;
                         float modifiedMoveSpeed = moveSpeed / (2f * (1f * quicksand.movementHinderance));
@@ -1535,7 +1503,7 @@ namespace LethalBots.AI
                 for (var i = 0; i < nodes.Length; i++)
                 {
                     Transform nodeTransform = nodes[i].transform;
-                    Vector3 nodePos = RoundManager.Instance.GetNavMeshPosition(nodeTransform.position, default, 2.7f);
+                    Vector3 nodePos = RoundManager.Instance.GetNavMeshPosition(nodeTransform.position, ai.agent.GetNavMeshQueryFilter(), default, 2.7f);
 
                     // Give the main thread a chance to do something else
                     // We still need the yield return null here!
@@ -1619,7 +1587,7 @@ namespace LethalBots.AI
                     for (var i = 0; i < nodes.Length; i++)
                     {
                         Transform nodeTransform = nodes[i].transform;
-                        Vector3 nodePos = RoundManager.Instance.GetNavMeshPosition(nodeTransform.position, default, 2.7f);
+                        Vector3 nodePos = RoundManager.Instance.GetNavMeshPosition(nodeTransform.position, ai.agent.GetNavMeshQueryFilter(), default, 2.7f);
 
                         // Give the main thread a chance to do something else
                         if (i % 15 == 0)
@@ -1705,7 +1673,7 @@ namespace LethalBots.AI
                             {
                                 closestNode = GetClosestNode(npcController.Npc.transform.position, closestNode.gameObject);
                             }
-                            safePathPos = RoundManager.Instance.GetNavMeshPosition(closestNode?.position ?? npcController.Npc.transform.position, default, 2.7f);
+                            safePathPos = RoundManager.Instance.GetNavMeshPosition(closestNode?.position ?? npcController.Npc.transform.position, ai.agent.GetNavMeshQueryFilter(), default, 2.7f);
                             forceMove = true;
                             Plugin.LogWarning($"Bot {npcController.Npc.playerUsername} off NavMesh, setting safePathPos to closest node at {safePathPos}");
                         }
@@ -1719,7 +1687,7 @@ namespace LethalBots.AI
                     }
                     else
                     {
-                        safePathPos = RoundManager.Instance.GetNavMeshPosition(GetClosestNode(npcController.Npc.transform.position)?.position ?? npcController.Npc.transform.position, default, 2.7f);
+                        safePathPos = RoundManager.Instance.GetNavMeshPosition(GetClosestNode(npcController.Npc.transform.position)?.position ?? npcController.Npc.transform.position, ai.agent.GetNavMeshQueryFilter(), default, 2.7f);
                         forceMove = true;
                     }
                 }

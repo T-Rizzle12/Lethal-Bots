@@ -7,6 +7,7 @@ using LethalBots.Managers;
 using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Patches.ModPatches.BunkbedRevive;
 using LethalBots.Patches.ModPatches.ReviveCompany;
+using NavMeshLib;
 using OPJosMod.ReviveCompany;
 using OPJosMod.ReviveCompany.CustomRpc;
 using System;
@@ -914,7 +915,7 @@ namespace LethalBots.AI.AIStates
                     Ray ray = new Ray(npcController.Npc.transform.position, npcController.Npc.transform.position + Vector3.up * 0.2f - playerBody.transform.position + Vector3.up * 0.2f);
                     ray.direction = new Vector3(ray.direction.x, 0f, ray.direction.z);
                     Vector3 pos = (!Physics.Raycast(ray, out RaycastHit hit, 4f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)) ? ray.GetPoint(4f) : hit.point;
-                    fallbackPos = RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f);
+                    fallbackPos = RoundManager.Instance.GetNavMeshPosition(pos, ai.agent.GetNavMeshQueryFilter(), default, 2.7f);
                     movedFromFallback = true;
                 }
                 // Moved and we still didn't hit em?
@@ -1212,7 +1213,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Move towards the bunkbed
-            Vector3 bunkbedPos = RoundManager.Instance.GetNavMeshPosition(bunkbedController.transform.position, default, 2.7f);
+            Vector3 bunkbedPos = RoundManager.Instance.GetNavMeshPosition(bunkbedController.transform.position, ai.agent.GetNavMeshQueryFilter(), default, 2.7f);
             float sqrDistToBunkbed = (bunkbedPos - npcController.Npc.transform.position).sqrMagnitude;
             if (sqrDistToBunkbed >= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION * Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION)
             {

@@ -6,6 +6,7 @@ using LethalBots.Managers;
 using LethalBots.Patches.GameEnginePatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
+using NavMeshLib;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -36,7 +37,7 @@ namespace LethalBots.AI.AIStates
                 Vector3? newPos = value;
                 if (newPos.HasValue)
                 {
-                    field = RoundManager.Instance.GetNavMeshPosition(newPos.Value, RoundManager.Instance.navHit, 2.7f);
+                    field = RoundManager.Instance.GetNavMeshPosition(newPos.Value, ai.agent.GetNavMeshQueryFilter(), RoundManager.Instance.navHit, 2.7f);
                 }
                 else
                 {
@@ -691,16 +692,25 @@ namespace LethalBots.AI.AIStates
         {
             // The node associated with this safety object
             public GameObject node;
+            public Vector3 actualDestination; // The endpoint of the calulated path
             public float fearRange;
 
             // These affect the safety score of the node
             public bool isPathOutOfSight; // true is good; false is bad
             public bool isNodeOutOfSight; // true is good; false is bad
             public float minPathDistanceToEnemy; // Larger numbers are better!
+            public bool isPartialPath; // Is it a partial path to reach the target node
+            public bool canEnemyReachNode; // Can the enemy path to the node?
+            public float currentEnemyDistance; // The bot's distance from the enemy
+            public float destinationEnemyDistance; // The node's distance from the enemy
 
             // These are the distance between the node and the chosen target
             public float enemyPathDistance; // further away is better
             public float botPathDistance; // closer is better
+
+            // These are the eta times for the bot and the target enemy
+            public float enemyETA; // Larger the better
+            public float botETA; // Smaller the better
 
             public NodeSafety(GameObject node, float fearRange, bool isPathOutOfSight, bool isNodeOutOfSight)
             {
@@ -726,40 +736,106 @@ namespace LethalBots.AI.AIStates
             /// <returns></returns>
             public float GetSafetyScore()
             {
+                // All scores start at 0
                 float score = 0f;
 
-                // Check the fear range
-                if (minPathDistanceToEnemy < Const.DISTANCE_FLEEING_PATH_AVOIDANCE * Const.DISTANCE_FLEEING_PATH_AVOIDANCE) // Was fearRange, but was changed to a const number since it caused the bot to mark safe paths as dangerous.
-                {
-                    score -= 100f; // Not good, really dislike this node!
+                // Penalize routes that take us closer to the enemy.
+                // minPathDistanceToEnemy is stored as squared distance.
+                float minimumClearance = Mathf.Sqrt(minPathDistanceToEnemy);
+                float clearanceLost = Mathf.Max(0f, currentEnemyDistance - minimumClearance);
+                score -= clearanceLost * 18f;
 
-                    // If we have to pick a node that runs past an enemy,
-                    // pick the one the enemy has the hardest time reaching.
-                    score += (enemyPathDistance - fearRange) * 1.2f;
+                // Reward destinations that lead us further from the enemy.
+                float distanceGained = destinationEnemyDistance - currentEnemyDistance;
+                score += Mathf.Clamp(distanceGained, -10f, 15f) * 4f;
+
+                // Can we arrive before the enemy?
+                if (canEnemyReachNode)
+                {
+                    // Do we arrive first?
+                    float arrivalAdvantage = enemyETA - botETA;
+                    if (arrivalAdvantage >= 0f)
+                    {
+                        score += Mathf.Min(arrivalAdvantage * 5f, 30f);
+                    }
+                    // If the enemy arrives first, prefer equal ETA time
+                    else
+                    {
+                        score += Mathf.Max(arrivalAdvantage * 20f, -100f);
+                    }
                 }
                 else
                 {
-                    // Path safety is king
-                    score += minPathDistanceToEnemy * 2.5f;
-
-                    // Enemy distance
-                    score += (enemyPathDistance - fearRange) * 1.2f;
+                    // Enemy can't reach the destination.
+                    score += 40f;
                 }
 
-                // Visibility matters, but not infinitely
+                // Prefer paths and destinations hidden from the enemy.
                 if (isPathOutOfSight) score += 15f;
                 if (isNodeOutOfSight) score += 10f;
 
-                // Prefer closer nodes, but lightly
+                // Prefer closer destinations.
                 score -= botPathDistance * 0.6f;
+
+                // Partial paths are fallback options, not ideal for escaping.
+                if (isPartialPath) score -= 60f;
 
                 return score;
             }
 
+            /// <summary>
+            /// Calculates the desirability of a node that has already
+            /// been determined to be reasonably safe. <br/>
+            /// Prioritizes nearby destinations while favoring
+            /// unreachable and hidden locations from the enemy we are fleeing from. 
+            /// </summary>
+            /// <returns></returns>
+            public float GetSafeNodeScore()
+            {
+                // Prefer destinations we can reach sooner.
+                float score = -botETA;
+
+                // The enemy cannot reach this location.
+                // We're willing to travel an additional 6 seconds
+                // to reach a protected destination.
+                if (!canEnemyReachNode)
+                {
+                    score += 6f;
+                }
+
+                // The enemy can reach this node, but cannot see it.
+                // Breaking line of sight is still desirable.
+                if (isNodeOutOfSight)
+                {
+                    score += 3f;
+                }
+
+                // Slight preference for routes that stay hidden.
+                if (isPathOutOfSight)
+                {
+                    score += 1.5f;
+                }
+
+                return score;
+            }
 
             public override string ToString()
             {
-                return $"GameObject: {node}, IsPathOutOfSight: {isPathOutOfSight}, IsNodeOutOfSight: {isNodeOutOfSight}, MinPathDistanceToEnemy: {minPathDistanceToEnemy}, EnemyPathDistance: {enemyPathDistance}, BotPathDistance: {botPathDistance}";
+                return $"""
+                        GameObject: {node}, 
+                        CurrentEnemyDistance: {currentEnemyDistance}, 
+                        IsPathOutOfSight: {isPathOutOfSight}, 
+                        IsNodeOutOfSight: {isNodeOutOfSight}, 
+                        MinPathDistanceToEnemy: {minPathDistanceToEnemy}, 
+                        CanEnemyReachNode: {canEnemyReachNode}, 
+                        DestinationEnemyDistance: {destinationEnemyDistance}, 
+                        EnemyPathDistance: {enemyPathDistance}, 
+                        BotPathDistance: {botPathDistance}, 
+                        EnemyETA: {enemyETA}, 
+                        BotETA: {botETA}, 
+                        IsPartialPath: {isPartialPath}, 
+                        ActualDestination: {actualDestination}
+                        """;
             }
 
             public int CompareTo(NodeSafety? other)
@@ -794,7 +870,14 @@ namespace LethalBots.AI.AIStates
                     && isNodeOutOfSight == other.isNodeOutOfSight 
                     && minPathDistanceToEnemy == other.minPathDistanceToEnemy 
                     && enemyPathDistance == other.enemyPathDistance
-                    && botPathDistance == other.botPathDistance;
+                    && botPathDistance == other.botPathDistance
+                    && enemyETA == other.enemyETA
+                    && botETA == other.botETA
+                    && isPartialPath == other.isPartialPath
+                    && actualDestination == other.actualDestination
+                    && canEnemyReachNode == other.canEnemyReachNode
+                    && currentEnemyDistance == other.currentEnemyDistance
+                    && destinationEnemyDistance == other.destinationEnemyDistance;
             }
 
             public override bool Equals(object obj)
@@ -804,7 +887,22 @@ namespace LethalBots.AI.AIStates
 
             public override int GetHashCode()
             {
-                return HashCode.Combine(node, fearRange, isPathOutOfSight, isNodeOutOfSight, minPathDistanceToEnemy, enemyPathDistance, botPathDistance);
+                var hash = new HashCode();
+                hash.Add(node);
+                hash.Add(fearRange);
+                hash.Add(isPathOutOfSight);
+                hash.Add(isNodeOutOfSight);
+                hash.Add(minPathDistanceToEnemy);
+                hash.Add(enemyPathDistance);
+                hash.Add(botPathDistance);
+                hash.Add(enemyETA);
+                hash.Add(botETA);
+                hash.Add(isPartialPath);
+                hash.Add(actualDestination);
+                hash.Add(canEnemyReachNode);
+                hash.Add(currentEnemyDistance);
+                hash.Add(destinationEnemyDistance);
+                return hash.ToHashCode();
             }
 
             public static bool operator <(NodeSafety? left, NodeSafety? right) 
@@ -873,8 +971,12 @@ namespace LethalBots.AI.AIStates
             /// This makes bots much more responsive when picking a spot to flee to
             /// We do less async calculations the further we are from our target enemy!
             Vector3 ourPos = npcController.Npc.transform.position;
+            NavMeshQueryFilter enemyQueryFilter = enemy.agent.GetNavMeshQueryFilter();
+            float enemySpeed = Mathf.Max(enemy.agent.speed, 1f); // Grab the agent speed, assume 1f for worst case
+            float ourSpeed = Mathf.Max(npcController.GetPlayerMovementSpeed(), Const.EPSILON); // Use our calculated movement speed, prevent division by 0
             Transform enemyTransform = enemy.transform;
             Vector3 enemyPos = enemyTransform.position;
+            Vector3 navEnemyPos = RoundManager.Instance.GetNavMeshPosition(enemyPos, enemyQueryFilter, sampleRadius: 2.7f);
             Vector3 viewPos = enemy.eye != null ? enemy.eye.position : enemyPos;
             viewPos += Vector3.up * 0.2f; // Slightly above eye level to avoid ground clipping issues
             float ourDistanceFromEnemy = (enemyPos - ourPos).sqrMagnitude;
@@ -894,7 +996,8 @@ namespace LethalBots.AI.AIStates
             }
 
             // We don't use an foreach loop here as we want to be able to customize the cooldown
-            NodeSafety? bestNode = null;
+            NodeSafety? bestSafeNode = null;
+            NodeSafety? bestFallbackNode = null;
             for (int i = 0; i < ai.allAINodes.Length; i++)
             {
                 // Give the main thread a chance to do something else
@@ -926,19 +1029,6 @@ namespace LethalBots.AI.AIStates
                     continue;
                 }
 
-                if (enemy != null)
-                {
-                    // Check if they can even path there and their distance from the node!
-                    if (enemy.PathIsIntersectedByLineOfSight(nodePos, calculatePathDistance: true, false, false))
-                    {
-                        nodeSafety.enemyPathDistance = 99999f; // No path, thats REALLY good! // NOTE: We don't use float.MaxValue since we could cause an integer overflow with it........
-                    }
-                    else
-                    {
-                        nodeSafety.enemyPathDistance = enemy.pathDistance; // Alright, how far....
-                    }
-                }
-
                 // Check if the node is in line of sight of the enemy
                 if (ai.PathIsIntersectedByLineOfSight(nodePos, out bool isPathVaild, true, true, enemy))
                 {
@@ -951,12 +1041,36 @@ namespace LethalBots.AI.AIStates
                     }
                 }
 
-                // Update out distance to the node
+                // Do we have a partial path?
+                nodeSafety.isPartialPath = ai.path1.status == NavMeshPathStatus.PathPartial;
+
+                // Update our distance to the node
+                Vector3[] corners = ai.path1.corners;
+                nodeSafety.actualDestination = nodeSafety.isPartialPath ? corners[corners.Length - 1] : nodePos;
                 nodeSafety.botPathDistance = ai.pathDistance;
 
+                // Check if they can even path there and their distance from the node!
+                NavMeshPath navMeshPath = new NavMeshPath();
+                if (NavMeshUtil.IsValidPathToTarget(navEnemyPos, nodeSafety.actualDestination, enemyQueryFilter, ref navMeshPath, out float pathDistance, calculatePathDistance: true))
+                {
+                    nodeSafety.enemyPathDistance = pathDistance; // Alright, how far....
+                    nodeSafety.canEnemyReachNode = true; // Enemy can reach this node
+                }
+                else
+                {
+                    nodeSafety.enemyPathDistance = 99999f; // No path, thats REALLY good! // NOTE: We don't use float.MaxValue since we could cause an integer overflow with it........
+                    nodeSafety.canEnemyReachNode = false; // Enemy can't reach, may be a good place to run to
+                }
+
+                // Don't choose a partial route that barely moves us.
+                if (nodeSafety.isPartialPath &&
+                    nodeSafety.botPathDistance < Const.DISTANCE_FLEEING_PATH_AVOIDANCE)
+                {
+                    continue;
+                }
+
                 // Check if our path goes anywhere near the enemy we are fleeing from
-                Vector3[] corners = ai.path1.corners;
-                float minDist = ourDistanceFromEnemy;
+                float minDistSqr = ourDistanceFromEnemy;
                 for (int j = 1; j < corners.Length; j++)
                 {
                     // Use the same stuff safe path uses.
@@ -964,42 +1078,66 @@ namespace LethalBots.AI.AIStates
                     Vector3 fromPos = corners[j - 1];
                     Vector3 closestPoint = LethalBotAI.GetClosestPointOnLineSegment(fromPos, toPos, enemyPos);
                     float distSqr = (closestPoint - enemyPos).sqrMagnitude;
-                    if (distSqr < minDist)
-                    {
-                        minDist = distSqr; // Update minPathDistanceToEnemy
-
-                        // Already worse than where we started.
-                        if (minDist < Const.DISTANCE_FLEEING_PATH_AVOIDANCE * Const.DISTANCE_FLEEING_PATH_AVOIDANCE)
-                        {
-                            break;
-                        }
-                    }
+                    minDistSqr = Mathf.Min(minDistSqr, distSqr); // Update minPathDistanceToEnemy
                 }
 
                 // Update the closest part of the path to the enemy we are fleeing from
-                nodeSafety.minPathDistanceToEnemy = minDist;
+                nodeSafety.minPathDistanceToEnemy = minDistSqr;
 
                 // Now we test if the node is visible to an enemy!
-                Vector3 simulatedHead = nodePos + Vector3.up * headOffset;
+                Vector3 simulatedHead = nodeSafety.actualDestination + Vector3.up * headOffset;
                 if (!Physics.Linecast(viewPos, simulatedHead, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                 {
                     nodeSafety.isNodeOutOfSight = false;
                 }
 
-                // Check if the node is a better candidate
-                if (bestNode == null || nodeSafety > bestNode)
+                // Calculate ETAs using the path distance data we have
+                float enemyPathDistance = nodeSafety.canEnemyReachNode ? nodeSafety.enemyPathDistance : 0f;
+                nodeSafety.enemyETA = nodeSafety.canEnemyReachNode ? enemyPathDistance / enemySpeed : float.PositiveInfinity;
+                nodeSafety.botETA = nodeSafety.botPathDistance / ourSpeed;
+
+                // Now then, lets find out what kind of node we have
+                nodeSafety.currentEnemyDistance = Mathf.Sqrt(ourDistanceFromEnemy);
+                nodeSafety.destinationEnemyDistance = Vector3.Distance(nodeSafety.actualDestination, enemyPos);
+                float minimumClearance = Mathf.Sqrt(nodeSafety.minPathDistanceToEnemy);
+                float arrivalAdvantage = nodeSafety.enemyETA - nodeSafety.botETA;
+                bool avoidsEnemy = minimumClearance >= nodeSafety.currentEnemyDistance - 0.75f;
+                bool canEscape = Vector3.Distance(nodeSafety.actualDestination, enemyPos) >= nodeSafety.currentEnemyDistance + 2f || !nodeSafety.canEnemyReachNode;
+                bool canArriveSafely = !nodeSafety.canEnemyReachNode || arrivalAdvantage >= 1.5f;
+
+                // Is this node safe?
+                if (!nodeSafety.isPartialPath
+                    && avoidsEnemy
+                    && canEscape
+                    && canArriveSafely)
                 {
-                    bestNode = nodeSafety;
+                    // Among sufficiently safe nodes, choose the closest.
+                    if (bestSafeNode == null ||
+                        nodeSafety.GetSafeNodeScore() > bestSafeNode.GetSafeNodeScore())
+                    {
+                        bestSafeNode = nodeSafety;
+                    }
+                }
+                else
+                {
+                    // No guarantee of safety. Compare risk-weighted scores.
+                    if (bestFallbackNode == null ||
+                        nodeSafety > bestFallbackNode)
+                    {
+                        bestFallbackNode = nodeSafety;
+                    }
                 }
             }
 
+            // Did we find somewhere to run to?
+            NodeSafety? bestNode = bestSafeNode ?? bestFallbackNode;
             if (bestNode != null)
             {
                 // We found a node to run to!
                 Plugin.LogDebug($"Found a node to run to: {bestNode} for {npcController.Npc.playerUsername}!");
                 Plugin.LogDebug($"Distance to node: {bestNode.botPathDistance} for {npcController.Npc.playerUsername}!");
                 Plugin.LogDebug($"Distance to enemy: {Vector3.Distance(bestNode.GetNodePosition(), enemyTransform.position)} for {npcController.Npc.playerUsername}!");
-                RetreatPos = bestNode.GetNodePosition();
+                RetreatPos = bestNode.actualDestination;
                 ai.SetDestinationToPositionLethalBotAI(RetreatPos.Value);
                 ai.OrderMoveToDestination();
                 panikCoroutine = null;

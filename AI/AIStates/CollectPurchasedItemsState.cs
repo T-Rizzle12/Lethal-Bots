@@ -3,6 +3,7 @@ using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
 using LethalBots.Utils;
+using NavMeshLib;
 using ReservedItemSlotCore.Data;
 using System.Collections.Generic;
 using System.Xml.Linq;
@@ -78,7 +79,7 @@ namespace LethalBots.AI.AIStates
                         Vector3 pos = (!Physics.Raycast(ray, out RaycastHit hit, Const.DISTANCE_FALLBACK_FROM_DROPSHIP, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)) ? ray.GetPoint(Const.DISTANCE_FALLBACK_FROM_DROPSHIP) : hit.point;
 
                         // GO GO GO!
-                        ai.SetDestinationToPositionLethalBotAI(RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f));
+                        ai.SetDestinationToPositionLethalBotAI(RoundManager.Instance.GetNavMeshPosition(pos, ai.agent.GetNavMeshQueryFilter(), default, 2.7f));
                         ai.OrderMoveToDestination();
                     }
                 }
@@ -104,7 +105,7 @@ namespace LethalBots.AI.AIStates
                         Vector3 pos = (!Physics.Raycast(ray, out RaycastHit hit, Const.DISTANCE_FALLBACK_FROM_DROPSHIP, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore)) ? ray.GetPoint(Const.DISTANCE_FALLBACK_FROM_DROPSHIP) : hit.point;
                     
                         // GO GO GO!
-                        ai.SetDestinationToPositionLethalBotAI(RoundManager.Instance.GetNavMeshPosition(pos, default, 2.7f));
+                        ai.SetDestinationToPositionLethalBotAI(RoundManager.Instance.GetNavMeshPosition(pos, ai.agent.GetNavMeshQueryFilter(), default, 2.7f));
                         ai.OrderMoveToDestination();
                     }
                     return;

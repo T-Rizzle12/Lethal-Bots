@@ -28,8 +28,10 @@ namespace LethalBots.Patches.GameEnginePatches
     [HarmonyPatch(typeof(RoundManager))]
     public class RoundManagerPatch
     {
-        // TODO: Change this to the bot's custom agent type once I add it!
-        private static readonly List<int> affectedAgents = new List<int>() { -1 };
+        /// <summary>
+        /// The list of agent types that are affected by the custom NavMeshModifierVolumes we are adding to the quicksand and landmine objects.
+        /// </summary>
+        private static readonly List<int> affectedAgents = new List<int>() { Const.LETHAL_BOT_NAV_SETTINGS_ID };
 
         /// <summary>
         /// Patch to mark quicksand as well quicksand
@@ -56,6 +58,9 @@ namespace LethalBots.Patches.GameEnginePatches
                     QuicksandTrigger? quicksand = quicksandArray[i];
                     if (quicksand == null || quicksand.isWater) continue;
 
+                    // Check if the quicksand is indoors or outdoors
+                    bool isOutside = quicksand.transform.position.y >= -80f;
+
                     // Change the bounds to contain where the quicksand is.
                     Collider[] colliders = quicksand.gameObject.GetComponentsInChildren<Collider>();
                     if (colliders.Length == 0) continue;
@@ -66,8 +71,8 @@ namespace LethalBots.Patches.GameEnginePatches
                                                                                                             Const.LETHAL_BOT_QUICKSAND_NAVAREA,
                                                                                                             affectedAgents,
                                                                                                             colliderBuffer,
-                                                                                                            NavMeshLib.Enums.ModifierParent.MoonEnvironment);
-                    customNavMeshModifier.navMeshUpdater.rebuildType = NavMeshLib.Enums.RebuildType.OutsideSurfaces;
+                                                                                                            isOutside ? NavMeshLib.Enums.ModifierParent.MoonEnvironment : NavMeshLib.Enums.ModifierParent.Interior);
+                    customNavMeshModifier.navMeshUpdater.rebuildType = NavMeshLib.Enums.RebuildType.ActiveSurfaces;
                     customNavMeshModifier.InitializeCustomModifier();
                     //navMeshModifierGameObject.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity); // Set back to default GameObject position and rotation.......InitializeCustomModifier overrides our GameObject's position, this allows me to "revert" its change
                     customModifiers.Add(customNavMeshModifier);
@@ -191,6 +196,7 @@ namespace LethalBots.Patches.GameEnginePatches
                 __result |= areaMaskToAdd;
 
                 // Make sure only Lethal Bots path on the Lethal Bot Only areas
+                // TODO: Remove this patch once I change the bot to no longer use an EnemyAI object
                 int areaMaskLethalBotsOnly = 1 << Const.LETHAL_BOT_ONLY_NAVAREA;
                 if (enemyType.enemyPrefab.TryGetComponent<LethalBotAI>(out _))
                 {

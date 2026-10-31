@@ -18,6 +18,7 @@ using LethalBots.Patches.ModPatches.BetterLethalVRM;
 using LethalBots.Patches.ModPatches.BunkbedRevive;
 using LethalBots.Patches.ModPatches.ButteryFixes;
 using LethalBots.Patches.ModPatches.DawnLib;
+using LethalBots.Patches.ModPatches.HolsteredItemPositions;
 using LethalBots.Patches.ModPatches.LCAlwaysHearActiveWalkie;
 using LethalBots.Patches.ModPatches.LCVR;
 using LethalBots.Patches.ModPatches.LethalPhones;
@@ -35,6 +36,7 @@ using LethalBots.Patches.ModPatches.Zaprillator;
 using LethalBots.Patches.NpcPatches;
 using LethalBots.Patches.ObjectsPatches;
 using LethalBots.Utils;
+using NavMeshLib;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -43,6 +45,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
+using Unity.AI.Navigation;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
@@ -88,6 +91,7 @@ namespace LethalBots
     [BepInDependency(SelfSortingStorage.Plugin.GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(PathfindingLib.PathfindingLibPlugin.PluginGUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(OomJan.MyPluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(HolsteredItemPositions.Plugin.modGUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         // Please don't use the MyPluginInfo class for the GUID, my mod is
@@ -237,77 +241,77 @@ namespace LethalBots
             // I highly recommend using it when developing Harmony patches, it saved me a lot of time and headaches. You can enable it by adding [HarmonyDebug] above your patch class.
 
             // Game engine
-            _harmony.PatchAll(typeof(AudioMixerPatch));
-            _harmony.PatchAll(typeof(AudioReverbTriggerPatch));
-            _harmony.PatchAll(typeof(DebugPatch));
-            _harmony.PatchAll(typeof(GameNetworkManagerPatch));
-            _harmony.PatchAll(typeof(HUDManagerPatch));
-            _harmony.PatchAll(typeof(NetworkSceneManagerPatch));
-            _harmony.PatchAll(typeof(NfgoPlayerPatch));
-            _harmony.PatchAll(typeof(NetworkObjectPatch));
-            _harmony.PatchAll(typeof(RoundManagerPatch));
-            _harmony.PatchAll(typeof(SoundManagerPatch));
-            _harmony.PatchAll(typeof(StartOfRoundPatch));
+            PatchClass<AudioMixerPatch>();
+            PatchClass<AudioReverbTriggerPatch>();
+            PatchClass<DebugPatch>();
+            PatchClass<GameNetworkManagerPatch>();
+            PatchClass<HUDManagerPatch>();
+            PatchClass<NetworkSceneManagerPatch>();
+            PatchClass<NfgoPlayerPatch>();
+            PatchClass<NetworkObjectPatch>();
+            PatchClass<RoundManagerPatch>();
+            PatchClass<SoundManagerPatch>();
+            PatchClass<StartOfRoundPatch>();
 
             // Npc
-            _harmony.PatchAll(typeof(EnemyAIPatch));
-            _harmony.PatchAll(typeof(PlayerControllerBPatch));
-            _harmony.PatchAll(typeof(EnemyAICollisionDetect));
+            PatchClass<EnemyAIPatch>();
+            PatchClass<PlayerControllerBPatch>();
+            PatchClass<EnemyAICollisionDetect>();
 
             // Enemies
-            _harmony.PatchAll(typeof(BaboonBirdAIPatch));
-            _harmony.PatchAll(typeof(BlobAIPatch));
-            _harmony.PatchAll(typeof(BushWolfEnemyPatch));
-            _harmony.PatchAll(typeof(ButlerBeesEnemyAIPatch));
-            _harmony.PatchAll(typeof(ButlerEnemyAIPatch));
-            _harmony.PatchAll(typeof(CadaverBloomAIPatch));
-            _harmony.PatchAll(typeof(CadaverGrowthAIPatch));
-            _harmony.PatchAll(typeof(CaveDwellerAIPatch));
-            _harmony.PatchAll(typeof(CentipedeAIPatch));
-            _harmony.PatchAll(typeof(CrawlerAIPatch));
-            _harmony.PatchAll(typeof(DressGirlAIPatch));
-            _harmony.PatchAll(typeof(FlowermanAIPatch));
-            _harmony.PatchAll(typeof(FlowerSnakeEnemyPatch));
-            _harmony.PatchAll(typeof(ForestGiantAIPatch));
-            _harmony.PatchAll(typeof(GiantKiwiAIPatch));
-            _harmony.PatchAll(typeof(JesterAIPatch));
-            _harmony.PatchAll(typeof(MaskedPlayerEnemyPatch));
-            _harmony.PatchAll(typeof(MouthDogAIPatch));
-            _harmony.PatchAll(typeof(NutcrackerEnemyAIPatch));
-            _harmony.PatchAll(typeof(PumaAIPatch));
-            _harmony.PatchAll(typeof(RadMechAIPatch));
-            _harmony.PatchAll(typeof(RadMechMissilePatch));
-            _harmony.PatchAll(typeof(RedLocustBeesPatch));
-            _harmony.PatchAll(typeof(SandSpiderAIPatch));
-            _harmony.PatchAll(typeof(SandWormAIPatch));
-            _harmony.PatchAll(typeof(SpringManAIPatch));
+            PatchClass<BaboonBirdAIPatch>();
+            PatchClass<BlobAIPatch>();
+            PatchClass<BushWolfEnemyPatch>();
+            PatchClass<ButlerBeesEnemyAIPatch>();
+            PatchClass<ButlerEnemyAIPatch>();
+            PatchClass<CadaverBloomAIPatch>();
+            PatchClass<CadaverGrowthAIPatch>();
+            PatchClass<CaveDwellerAIPatch>();
+            PatchClass<CentipedeAIPatch>();
+            PatchClass<CrawlerAIPatch>();
+            PatchClass<DressGirlAIPatch>();
+            PatchClass<FlowermanAIPatch>();
+            PatchClass<FlowerSnakeEnemyPatch>();
+            PatchClass<ForestGiantAIPatch>();
+            PatchClass<GiantKiwiAIPatch>();
+            PatchClass<JesterAIPatch>();
+            PatchClass<MaskedPlayerEnemyPatch>();
+            PatchClass<MouthDogAIPatch>();
+            PatchClass<NutcrackerEnemyAIPatch>();
+            PatchClass<PumaAIPatch>();
+            PatchClass<RadMechAIPatch>();
+            PatchClass<RadMechMissilePatch>();
+            PatchClass<RedLocustBeesPatch>();
+            PatchClass<SandSpiderAIPatch>();
+            PatchClass<SandWormAIPatch>();
+            PatchClass<SpringManAIPatch>();
 
             // Map hazards
-            _harmony.PatchAll(typeof(LandminePatch));
-            _harmony.PatchAll(typeof(QuicksandTriggerPatch));
-            _harmony.PatchAll(typeof(SpikeRoofTrapPatch));
-            _harmony.PatchAll(typeof(TurretPatch));
+            PatchClass<LandminePatch>();
+            PatchClass<QuicksandTriggerPatch>();
+            PatchClass<SpikeRoofTrapPatch>();
+            PatchClass<TurretPatch>();
 
             // Map
-            _harmony.PatchAll(typeof(AnimatedObjectFloatSetterPatch));
-            _harmony.PatchAll(typeof(CompanyMonsterCollisionDetectPatch));
-            _harmony.PatchAll(typeof(DoorLockPatch));
-            _harmony.PatchAll(typeof(InteractTriggerPatch));
-            _harmony.PatchAll(typeof(OutOfBoundsTriggerPatch));
-            _harmony.PatchAll(typeof(PlayerPhysicsRegionPatch));
-            _harmony.PatchAll(typeof(ShipTeleporterPatch));
-            _harmony.PatchAll(typeof(VehicleControllerPatch));
-            _harmony.PatchAll(typeof(DepositItemsDeskPatch));
+            PatchClass<AnimatedObjectFloatSetterPatch>();
+            PatchClass<CompanyMonsterCollisionDetectPatch>();
+            PatchClass<InteractTriggerPatch>();
+            PatchClass<OutOfBoundsTriggerPatch>();
+            PatchClass<PlayerPhysicsRegionPatch>();
+            PatchClass<ShipTeleporterPatch>();
+            PatchClass<TerminalPatch>();
+            PatchClass<VehicleControllerPatch>();
+            PatchClass<DepositItemsDeskPatch>();
 
             // Objects
-            _harmony.PatchAll(typeof(CaveDwellerPhysicsPropPatch));
-            _harmony.PatchAll(typeof(DeadBodyInfoPatch));
-            _harmony.PatchAll(typeof(GrabbableObjectPatch));
-            _harmony.PatchAll(typeof(RagdollGrabbableObjectPatch));
-            _harmony.PatchAll(typeof(ShotgunItemPatch));
-            _harmony.PatchAll(typeof(SprayPaintItemPatch));
-            _harmony.PatchAll(typeof(StunGrenadeItemPatch));
-            _harmony.PatchAll(typeof(TetraChemicalItemPatch));
+            PatchClass<CaveDwellerPhysicsPropPatch>();
+            PatchClass<DeadBodyInfoPatch>();
+            PatchClass<GrabbableObjectPatch>();
+            PatchClass<RagdollGrabbableObjectPatch>();
+            PatchClass<ShotgunItemPatch>();
+            PatchClass<SprayPaintItemPatch>();
+            PatchClass<StunGrenadeItemPatch>();
+            PatchClass<TetraChemicalItemPatch>();
 
         }
 
@@ -347,6 +351,7 @@ namespace LethalBots
             bool isModPeepersLoaded = IsModLoaded(Const.PEEPERS_GUID);
             bool isModLethalCompanyVRLoaded = IsModLoaded(LCVR.Plugin.PLUGIN_GUID);
             bool isModBetterVRMLoaded = IsModLoaded(OomJan.MyPluginInfo.PLUGIN_GUID);
+            bool isModHolsteredItemPositionsLoaded = IsModLoaded(HolsteredItemPositions.Plugin.modGUID);
 
             // -------------------
             // Read the preloaders
@@ -362,7 +367,7 @@ namespace LethalBots
             // Compatibility with other mods
             if (isModMoreEmotesLoaded)
             {
-                _harmony.PatchAll(typeof(MoreEmotesPatch));
+                PatchClass<MoreEmotesPatch>();
             }
             if (isModBetterEmotesLoaded)
             {
@@ -378,26 +383,26 @@ namespace LethalBots
                                null,
                                null,
                                new HarmonyMethod(typeof(BetterEmotesPatch), nameof(BetterEmotesPatch.PerformEmotePrefix_Transpiler)));
-                _harmony.PatchAll(typeof(BetterEmotesCustomAnimationObjectsPatch));
+                PatchClass<BetterEmotesCustomAnimationObjectsPatch>();
             }
             if (IsModTooManyEmotesLoaded)
             {
-                _harmony.PatchAll(typeof(EmoteControllerPlayerPatch));
-                _harmony.PatchAll(typeof(ThirdPersonEmoteControllerPatch));
+                PatchClass<EmoteControllerPlayerPatch>();
+                PatchClass<ThirdPersonEmoteControllerPatch>();
             }
             if (IsModModelReplacementAPILoaded)
             {
                 //_harmony.PatchAll(typeof(BodyReplacementBasePatch));
-                _harmony.PatchAll(typeof(ModelReplacementPlayerControllerBPatchPatch));
-                _harmony.PatchAll(typeof(ModelReplacementAPIPatch));
+                PatchClass<ModelReplacementPlayerControllerBPatchPatch>();
+                PatchClass<ModelReplacementAPIPatch>();
                 //_harmony.PatchAll(typeof(ManagerBasePatch)); // This gives me an error, commenting out for now
             }
             if (IsModLethalPhonesLoaded)
             {
-                _harmony.PatchAll(typeof(AudioSourceStoragePatch));
-                _harmony.PatchAll(typeof(PhoneBehaviorPatch));
-                _harmony.PatchAll(typeof(PlayerPhonePatch));
-                _harmony.PatchAll(typeof(PlayerPhonePatchPatch));
+                PatchClass<AudioSourceStoragePatch>();
+                PatchClass<PhoneBehaviorPatch>();
+                PatchClass<PlayerPhonePatch>();
+                PatchClass<PlayerPhonePatchPatch>();
                 PhoneBehaviorPatch.SetupReflectionFields();
             }
             if (isModAdditionalNetworkingLoaded)
@@ -414,11 +419,11 @@ namespace LethalBots
             }
             if (IsModReviveCompanyLoaded)
             {
-                _harmony.PatchAll(typeof(ReviveCompanyGeneralUtilPatch));
+                PatchClass<ReviveCompanyGeneralUtilPatch>();
             }
             if (IsModBunkbedReviveLoaded)
             {
-                _harmony.PatchAll(typeof(BunkbedControllerPatch));
+                PatchClass<BunkbedControllerPatch>();
             }
             if (IsModZaprillatorLoaded)
             {
@@ -453,7 +458,7 @@ namespace LethalBots
             }*/
             if (isModPeepersLoaded)
             {
-                _harmony.PatchAll(typeof(PeeperAttachHitboxPatch));
+                PatchClass<PeeperAttachHitboxPatch>();
             }
             if (isModLethalCompanyVRLoaded)
             {
@@ -468,18 +473,19 @@ namespace LethalBots
             }
             if (IsModDawnLibLoaded)
             {
-                _harmony.PatchAll(typeof(DawnMoonNetworkerPatch));
-                _harmony.PatchAll(typeof(PlayerNameplateUIPatch));
+                PatchClass<DawnMoonNetworkerPatch>();
+                PatchClass<DawnDungeonNetworkerPatch>();
+                PatchClass<PlayerNameplateUIPatch>();
             }
             if (IsModUsualScrapLoaded)
             {
-                _harmony.PatchAll(typeof(DefibrillatorScriptPatch));
+                PatchClass<DefibrillatorScriptPatch>();
                 ItemsManager.RegisterWeapons.AddListener(UsualScrapWeaponsPatch.RegisterWeaponsForBots);
             }
             if (IsModAutoReviveLoaded)
             {
-                _harmony.PatchAll(typeof(AutoRevivePlayerPatch));
-                _harmony.PatchAll(typeof(LethalBotAutoReviveHelper));
+                PatchClass<AutoRevivePlayerPatch>();
+                PatchClass<LethalBotAutoReviveHelper>();
             }
             if (IsModSelfSortingStorageLoaded)
             {
@@ -487,12 +493,15 @@ namespace LethalBots
             }
             if (IsModPathfindingLibLoaded)
             {
-                _harmony.PatchAll(typeof(PathfindingLibPatch));
-                PathfindingLibPatch.AddCustomAreaMasks();
+                PatchClass<PathfindingLibPatch>();
             }
             if (isModBetterVRMLoaded)
             {
-                _harmony.PatchAll(typeof(BetterLethalVRMPatch));
+                PatchClass<BetterLethalVRMPatch>();
+            }
+            if (isModHolsteredItemPositionsLoaded)
+            {
+                PatchClass<HolsterItemVisualPatch>();
             }
         }
 
@@ -567,7 +576,8 @@ namespace LethalBots
                 {
                     // Sanity check
                     var prefab = prefabs[i];
-                    if (prefab != null)
+                    if (prefab != null 
+                        && !prefab.gameObject.scene.IsValid())
                     {
                         // Another sanity check
                         EnemyType enemyType = prefab.enemyType;
@@ -611,6 +621,7 @@ namespace LethalBots
 
                                 // Mark it as updated
                                 replaced = true;
+                                break; // We found the RadMech prefab, no need to continue searching
                             }
                         }
                     }
@@ -628,6 +639,20 @@ namespace LethalBots
                     // Remove our hook as our work here is done
                     SceneManager.sceneLoaded -= OnSceneLoaded;
                 }
+            }
+        }
+
+        private void PatchClass<T>()
+            where T : class
+        {
+            try
+            {
+                Plugin.LogDebug($"Patching {typeof(T)}");
+                _harmony.PatchAll(typeof(T));
+            }
+            catch (Exception e)
+            {
+                Plugin.LogError($"An error occured while patching {typeof(T)}: {e}");
             }
         }
 

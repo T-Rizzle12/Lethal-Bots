@@ -148,7 +148,10 @@ namespace LethalBots.Patches.GameEnginePatches
             // Since multiple players joining the game at the same time can break stuff,
             // we need to block players from joining while bots are joining a the same time.
             LethalBotManager instanceLBM = LethalBotManager.Instance;
-            bool areBotsJoining = instanceLBM != null && (instanceLBM.isSpawningBots.Value || instanceLBM.sendPlayerCountUpdate.Value);
+            bool areBotsJoining = instanceLBM != null
+                                  && (instanceLBM.isSpawningBots.Value
+                                      || instanceLBM.botSpawned.Value != Enums.EnumBotSpawnState.None
+                                      || instanceLBM.sendPlayerCountUpdate.Value);
             if (areBotsJoining)
             {
                 response.Reason = "Bot was connecting! \n Try again in a few seconds.";

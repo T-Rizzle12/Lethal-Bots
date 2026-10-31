@@ -9,6 +9,7 @@ using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using LethalBots.Utils.Helpers.VehicleHelpers;
 using LethalInternship.AI;
+using LethalLib.Modules;
 using ModelReplacement;
 using System;
 using System.Collections.Generic;
@@ -2041,6 +2042,80 @@ namespace LethalBots.AI
             {
                 emoteControllerLethalBotController.StopPerformingEmote();
             }
+        }
+
+        #endregion
+
+        #region Player Controller Helpers
+
+        /// <summary>
+        /// Returns the bot's predicted movement speed based on the same algorithm used by the base game.
+        /// </summary>
+        /// <param name="includeCurrentHindrance">Should the bot's hinder multiplier be factored into the speed?</param>
+        /// <returns></returns>
+        public float GetPlayerMovementSpeed(bool includeCurrentHindrance = false)
+        {
+            // The player cannot move normally when sinking this much.
+            StartOfRound instanceSOR = StartOfRound.Instance;
+            PlayerControllerB lethalBotController = Npc;
+            if (lethalBotController.sinkingValue > 0.73f)
+            {
+                return 0f;
+            }
+
+            // Base movement speed, accounting for carried weight.
+            float speed = lethalBotController.movementSpeed / Mathf.Max(lethalBotController.carryWeight, 0.01f); // Should never be 0 but you never know
+
+            // Account for crouching and critical movespeed.
+            if (lethalBotController.isCrouching)
+            {
+                speed /= 1.5f;
+            }
+            else
+            {
+                // Limping affects movespeed
+                if (lethalBotController.criticallyInjured)
+                {
+                    speed *= lethalBotController.limpMultiplier;
+                }
+
+                // Factor in getting up after crouching
+                // NOTE: This never really happens, I have no idea why Zeekerss decided to add this in the first place.....
+                if (lethalBotController.crouchMeter > 1.2f)
+                {
+                    speed *= 0.5f;
+                }
+            }
+
+            // Preserve the game's speed-cheat behavior.
+            if (lethalBotController.isSpeedCheating)
+            {
+                speed *= 15f;
+            }
+
+            // Optional: the current hindrance may not last
+            // for the entire journey to the destination.
+            if (includeCurrentHindrance &&
+                lethalBotController.movementHinderedPrev > 0)
+            {
+                speed /= Mathf.Max(2f * lethalBotController.hinderedMultiplier, 0.01f);
+            }
+
+            // TZP effect
+            if (lethalBotController.drunkness > 0f)
+            {
+                speed *= instanceSOR.drunknessSpeedEffect.Evaluate(lethalBotController.drunkness) / 5f + 1f;
+            }
+
+            // Cadaver Infection effect
+            if (lethalBotController.poison > 0f)
+            {
+                speed *= 0.75f;
+            }
+
+            // Account for the current sprint multiplier.
+            speed *= lethalBotController.sprintMultiplier;
+            return Mathf.Max(0f, speed);
         }
 
         #endregion

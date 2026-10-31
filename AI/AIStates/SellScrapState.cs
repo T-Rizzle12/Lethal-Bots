@@ -3,6 +3,7 @@ using HarmonyLib;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
+using NavMeshLib;
 using System;
 using System.Reflection;
 using Unity.Netcode;
@@ -91,7 +92,7 @@ namespace LethalBots.AI.AIStates
             }
 
             // Get the closest nav area to the desk!
-            Vector3 closestAreaToDesk = RoundManager.Instance.GetNavMeshPosition(companyDesk.triggerCollider.ClosestPoint(lethalBotController.transform.position), default, 20f, NavMesh.AllAreas);
+            Vector3 closestAreaToDesk = RoundManager.Instance.GetNavMeshPosition(companyDesk.triggerCollider.ClosestPoint(lethalBotController.transform.position), ai.agent.GetNavMeshQueryFilter(), default, 20f);
             if (!RoundManager.Instance.GotNavMeshPositionResult)
             {
                 ai.State = new ReturnToShipState(this);

@@ -286,7 +286,31 @@ namespace LethalBots.AI.AIStates
         /// <returns></returns>
         public Vector3 GetFollowPosition(EnumFollowType enumFollowType)
         {
-            Vector3 targetPlayerPos = ai.targetPlayer.transform.position;
+            // Find the current follow target's position
+            PlayerControllerB targetPlayer = ai.targetPlayer;
+            Vector3 targetPlayerPos = targetPlayer.transform.position;
+            InteractTrigger currentTriggerInAnimationWith = targetPlayer.currentTriggerInAnimationWith;
+            if (currentTriggerInAnimationWith != null 
+                && targetPlayer.isClimbingLadder
+                && currentTriggerInAnimationWith.bottomOfLadderPosition != null
+                && currentTriggerInAnimationWith.topOfLadderPosition != null)
+            {
+                // The player is on a ladder, set our target position to the endpoint the player is moving to
+                // This only works since we run our AI on the player who we are following
+                float climbDirection = targetPlayer.moveInputVector.y;
+                if (climbDirection != 0f) // If the player isn't moving, just use their current position
+                {
+                    bool isClimbingDown = climbDirection < 0f;
+                    if (isClimbingDown)
+                    {
+                        targetPlayerPos = currentTriggerInAnimationWith.bottomOfLadderPosition.transform.position;
+                    }
+                    else
+                    {
+                        targetPlayerPos = currentTriggerInAnimationWith.topOfLadderPosition.transform.position;
+                    }
+                }
+            }
             switch (enumFollowType)
             {
                 case EnumFollowType.Nearby:

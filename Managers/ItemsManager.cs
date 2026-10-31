@@ -91,7 +91,7 @@ namespace LethalBots.Managers
                 throw new ArgumentNullException(nameof(weaponInfo));
             }
 
-            if (!typeof(GrabbableObject).IsAssignableFrom(weaponType))
+            if (!RootWeaponType.IsAssignableFrom(weaponType))
             {
                 throw new ArgumentException("Should inherit from GrabbableObject", nameof(weaponType));
             }
