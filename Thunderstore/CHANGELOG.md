@@ -1,5 +1,8 @@
 # Changelog
 
+## 13.1.1 2026-11-1
+- Fixed bots being unable to path on certain tiles by editing some NavMesh Settings for the bot's custom NavMesh
+
 ## 13.1.0 2026-10-30
 Don't let the minor version change fool you, some major stuff was changed about the bot's backend!
 

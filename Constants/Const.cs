@@ -309,7 +309,7 @@ namespace LethalBots.Constants
         public static readonly int LETHAL_BOT_NAV_SETTINGS_ID = CustomAgentManager.RegisterCustomAgent("Lethal Bot", new NavMeshBuildSettings
         {
             agentSlope = 48.08f, // Same as default character controller slope height. NOTE: The 0.08f is the skin width of the character controller!
-            agentClimb = 0.56f, // Same as default character controller step offset. Vanilla Lethal Company NavMesh agentClimb value is 0.8f.
+            agentClimb = 0.8f, // Same as Vanilla as the custom value was causing issues. Old Value: 0.56f. Vanilla Lethal Company NavMesh agentClimb value is 0.8f.
             agentRadius = 0.4f, // Same as default character controller radius
             agentHeight = 1f, // Always assume around the player crouch height: 1.45f 
             // FIXME: Set the agentHeight to the same as vanilla LC as in the mineshaft interior bots fail to path in water tiles......due to its complex geometry, it confuses the NavMesh Generation....
