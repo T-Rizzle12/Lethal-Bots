@@ -173,7 +173,9 @@ namespace LethalBots.AI
         private void PopulateNodes()
         {
             // Plugin.LogDebug($"Bot {ai.NpcController.Npc.playerUsername}: populating nodes, nodes count: {unsearchedNodes.Count}");
+            #pragma warning disable CS8619 // Nullability of reference types in value doesn't match target type.
             unsearchedNodes = ai.allAINodes.ToList();
+            #pragma warning restore CS8619 // Nullability of reference types in value doesn't match target type.
             if (nodeChance < 1f || minimumPathDistance > 0f)
             {
                 // The currentSearch.NodeChance random checks favours the deepest nodes in the list, the shuffle below improves the random node selection

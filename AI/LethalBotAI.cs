@@ -59,8 +59,98 @@ namespace LethalBots.AI
     /// Then the AI class use its methods to pilot the body using <c>NpcController</c>.
     /// The <c>NpcController</c> is set outside in <see cref="LethalBotManager.InitLethalBotSpawning"><c>LethalBotManager.InitLethalBotSpawning</c></see>.
     /// </remarks>
-    public class LethalBotAI : EnemyAI
+    public class LethalBotAI : NetworkBehaviour, INoiseListener
     {
+        // The bot used to be a subclass of EnemyAI, but we don't need to rely on EnemyAI anymore.
+        // This is because we want to have more control over the bot's behavior and avoid unnecessary dependencies on the game's enemy AI system.
+        // This region is kept so I can copy over some of the useful fields, properties, and functions from EnemyAI, but we don't need to inherit from it anymore.
+        #region Enemy AI Stuff
+
+        public float AIIntervalTime = 0.3f;
+
+        public Transform eye
+        {
+            set;
+            get 
+            {
+                if (field == null)
+                {
+                    field = NpcController.Npc.GetComponentsInChildren<Transform>().First(x => x.name == "PlayerEye");
+                }
+                return field;
+            }
+        }
+
+        public NavMeshAgent agent = null!;
+
+        public NavMeshPath path1 = null!;
+
+        public float pathDistance;
+
+        public Vector3 serverPosition; // NEEDTOVALIDATE: Do we still need this or should we rely on the PlayerControllerB's position?
+
+        public bool isOutside = false; // TODO: This should probably use PlayerControllerB.isInsideFactory instead of a separate variable.....
+
+        public GameObject[] allAINodes = null!;
+
+        public PlayerControllerB? targetPlayer = null;
+
+        public Vector3 destination;
+
+        public bool canSeeThroughFog = false;
+
+        public int currentOwnershipOnThisClient;
+
+        /// <summary>
+        /// Sets the destination of the bot to a position, optionally checking if there is a valid path to that position.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="checkForPath"></param>
+        /// <returns></returns>
+        public bool SetDestinationToPosition(Vector3 position, bool checkForPath = false)
+        {
+            if (checkForPath 
+                && !IsValidPathToTarget(position, nearestNavAreaRange: 2.7f, maxRangeToEnd: 1.55f))
+            {
+                return false;
+            }
+            destination = RoundManager.Instance.GetNavMeshPosition(position, agent.GetNavMeshQueryFilter(), RoundManager.Instance.navHit, -1f);
+            return true;
+        }
+
+        /// <summary>
+        /// Checks if the given player is targetable.
+        /// </summary>
+        /// <param name="playerScript"></param>
+        /// <param name="cannotBeInShip"></param>
+        /// <param name="overrideInsideFactoryCheck"></param>
+        /// <param name="checkForMineshaftStartTile"></param>
+        /// <returns></returns>
+        public bool PlayerIsTargetable(PlayerControllerB playerScript, bool cannotBeInShip = false, bool overrideInsideFactoryCheck = false, bool checkForMineshaftStartTile = true)
+        {
+            return true;
+        }
+
+        private bool IsInMineshaftStartRoomWithPlayer(PlayerControllerB player)
+        {
+            if (RoundManager.Instance.currentDungeonType != 4)
+            {
+                return false;
+            }
+            if (ElevatorScript == null)
+            {
+                return false;
+            }
+            float num = ElevatorScript.elevatorTopPoint.position.y - 4f;
+            if (transform.position.y > num != player.transform.position.y > num)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        #endregion
+
         /// <summary>
         /// Dictionary of the recently dropped object on the ground.
         /// The lethalBot will not try to grab them for a certain time (<see cref="Const.WAIT_TIME_FOR_GRAB_DROPPED_OBJECTS"><c>Const.WAIT_TIME_FOR_GRAB_DROPPED_OBJECTS</c></see>).
@@ -217,20 +307,25 @@ namespace LethalBots.AI
         /// Used primarily by <see cref="CaveDwellerPhysicsProp"/> to influence <see cref="CaveDwellerAI"/> rocking animation.
         /// Write permission is set to Owner because bot ownership is client-distributed.
         /// </remarks>
+        [HideInInspector]
         public NetworkVariable<float> FearLevel = new NetworkVariable<float>(writePerm: NetworkVariableWritePermission.Owner);
+
+        [HideInInspector]
         public NetworkVariable<bool> FearLevelIncreasing = new NetworkVariable<bool>(writePerm: NetworkVariableWritePermission.Owner);
 
         /// <summary>
         /// The infection data used by <see cref="CadaverGrowthAI"/> to manage the bot's infection
         /// </summary>
+        [HideInInspector]
         public NetworkVariable<LethalBotInfection> BotInfectionData = new NetworkVariable<LethalBotInfection>(writePerm: NetworkVariableWritePermission.Owner);
-        
+
         /// <summary>
         /// Used by <see cref="HealPlayerState"/> to determine how infected a player must be by a <see cref="CadaverGrowthAI"/>, before the bot will cure them.
         /// </summary>
         /// <remarks>
         /// This is only synced to keep the level consistent between clients
         /// </remarks>
+        [HideInInspector]
         public NetworkVariable<float> HealInfectionLevel = new NetworkVariable<float>(writePerm: NetworkVariableWritePermission.Owner);
 
         #endregion
@@ -252,16 +347,15 @@ namespace LethalBots.AI
         private EnumLastSyncedPhysicsType lastSyncedPhysicsType = EnumLastSyncedPhysicsType.None;
         public Transform? lastSyncedOverrideParent = null;
 
-        public override void Awake()
+        public void Awake()
         {
-            // Behaviour states
-            enemyBehaviourStates = new EnemyBehaviourState[Enum.GetNames(typeof(EnumAIStates)).Length];
-            int index = 0;
-            foreach (var state in (EnumAIStates[])Enum.GetValues(typeof(EnumAIStates)))
-            {
-                enemyBehaviourStates[index++] = new EnemyBehaviourState() { name = state.ToString() };
-            }
-            currentBehaviourStateIndex = -1;
+            // TODO: Do we need to do anything here? The AI is initialized in Start() and Init() methods.
+        }
+
+        public override void OnLostOwnership()
+        {
+            base.OnLostOwnership();
+            StopLethalPhonesCoroutine(); // We need to stop the coroutine since ownership is changing.
         }
 
         /// <summary>
@@ -270,7 +364,7 @@ namespace LethalBots.AI
         /// <remarks>
         /// The agent is initialized here
         /// </remarks>
-        public override void Start()
+        public void Start()
         {
             // AIIntervalTime
             AIIntervalTime = 0.3f;
@@ -278,27 +372,18 @@ namespace LethalBots.AI
             try
             {
                 agent = gameObject.GetComponentInChildren<NavMeshAgent>();
-                agent.acceleration = float.MaxValue; // Is THIS a good idea?
-                agent.autoTraverseOffMeshLink = false;
-                agent.autoBraking = false; // This causes the bot's agent to slow around corners and stuff, we don't want that!
+                agent.agentTypeID = Const.LETHAL_BOT_NAV_SETTINGS_ID; // Use our custom agent ID. Unfortunately, we cannot set the agent type in the prefab, so we have to do it here.
+
+                // We handle this in our prefab, so we don't need to set it here anymore.
+                //agent.acceleration = float.MaxValue; // Is THIS a good idea?
+                //agent.autoTraverseOffMeshLink = false;
+                //agent.autoBraking = false; // This causes the bot's agent to slow around corners and stuff, we don't want that!
                 //agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
-                agent.agentTypeID = Const.LETHAL_BOT_NAV_SETTINGS_ID; // Use our custom agent ID.
-                agent.areaMask = NavMesh.AllAreas;
-                agentMask = NavMesh.AllAreas;
+                //agent.areaMask = NavMesh.AllAreas;
                 Plugin.LogDebug($"LethalBot Agent Type ID {agent.agentTypeID}");
                 Plugin.LogDebug($"LethalBot Area Mask {agent.areaMask}");
                 SetAgent(enabled: false);
-                enemyType.WaterType = EnemyWaterType.Amphibious;
-                enemyType.pushPlayerDistance = 0f; // Don't run EnemyAI player push code!
-                skinnedMeshRenderers = gameObject.GetComponentsInChildren<SkinnedMeshRenderer>();
-                meshRenderers = gameObject.GetComponentsInChildren<MeshRenderer>();
-                if (creatureAnimator == null)
-                {
-                    creatureAnimator = gameObject.GetComponentInChildren<Animator>();
-                }
-                thisNetworkObject = gameObject.GetComponentInChildren<NetworkObject>();
                 path1 = new NavMeshPath();
-                openDoorSpeedMultiplier = enemyType.doorSpeedMultiplier;
             }
             catch (Exception arg)
             {
@@ -351,10 +436,7 @@ namespace LethalBots.AI
             NpcController.Npc.healthRegenerateTimer = healthRegenerateTimerMax;
 
             // AI init
-            this.ventAnimationFinished = true;
-            this.isEnemyDead = false;
             this.enabled = true;
-            addPlayerVelocityToDestination = 3f;
             StateControllerMovement = EnumStateControllerMovement.FollowAgent;
 
             // Reset Network Variables
@@ -371,9 +453,6 @@ namespace LethalBots.AI
 
             // Body collider
             LethalBotBodyCollider = NpcController.Npc.GetComponentInChildren<Collider>();
-            BoxCollider ourCollider = this.GetComponentInChildren<BoxCollider>();
-            ourCollider.size = LethalBotBodyCollider.bounds.extents; // Set the bounds of the collider to the body collider bounds
-            ourCollider.excludeLayers = 1073741824; // Make it so we don't collide with the cruiser
 
             // Bot voice
             InitLethalBotVoiceComponent();
@@ -399,45 +478,38 @@ namespace LethalBots.AI
 
         private void InitLethalBotVoiceComponent()
         {
-            if (this.creatureVoice == null)
+            if (this.LethalBotVoice == null)
             {
-                foreach (var component in this.gameObject.GetComponentsInChildren<AudioSource>())
-                {
-                    if (component.name == "CreatureVoice")
-                    {
-                        this.creatureVoice = component;
-                        break;
-                    }
-                }
+                this.LethalBotVoice = this.gameObject.GetComponentInChildren<AudioSource>();
             }
-            if (this.creatureVoice == null)
+            if (this.LethalBotVoice == null)
             {
                 Plugin.LogWarning($"Could not initialize lethalBot {this.BotId} {NpcController.Npc.playerUsername} voice !");
                 return;
             }
 
-            NpcController.Npc.currentVoiceChatAudioSource = this.creatureVoice;
+            NpcController.Npc.currentVoiceChatAudioSource = this.LethalBotVoice;
             this.LethalBotVoice = NpcController.Npc.currentVoiceChatAudioSource;
             this.LethalBotVoice.enabled = true;
             LethalBotIdentity.Voice.BotID = this.BotId;
             LethalBotIdentity.Voice.CurrentAudioSource = this.LethalBotVoice;
 
             // OccludeAudio
-            NpcController.OccludeAudioComponent = creatureVoice.GetComponent<OccludeAudio>();
+            NpcController.OccludeAudioComponent = LethalBotVoice.GetComponent<OccludeAudio>();
 
             // AudioLowPassFilter
-            AudioLowPassFilter? audioLowPassFilter = creatureVoice.GetComponent<AudioLowPassFilter>();
+            AudioLowPassFilter? audioLowPassFilter = LethalBotVoice.GetComponent<AudioLowPassFilter>();
             if (audioLowPassFilter == null)
             {
-                audioLowPassFilter = creatureVoice.gameObject.AddComponent<AudioLowPassFilter>();
+                audioLowPassFilter = LethalBotVoice.gameObject.AddComponent<AudioLowPassFilter>();
             }
             NpcController.AudioLowPassFilterComponent = audioLowPassFilter;
 
             // AudioHighPassFilter
-            AudioHighPassFilter? audioHighPassFilter = creatureVoice.GetComponent<AudioHighPassFilter>();
+            AudioHighPassFilter? audioHighPassFilter = LethalBotVoice.GetComponent<AudioHighPassFilter>();
             if (audioHighPassFilter == null)
             {
-                audioHighPassFilter = creatureVoice.gameObject.AddComponent<AudioHighPassFilter>();
+                audioHighPassFilter = LethalBotVoice.gameObject.AddComponent<AudioHighPassFilter>();
             }
             NpcController.AudioHighPassFilterComponent = audioHighPassFilter;
 
@@ -450,6 +522,8 @@ namespace LethalBots.AI
             this.LethalBotVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[(int)NpcController.Npc.playerClientId];
 
             // Copy player voice prefab values
+            // NEEDTOVALIDATE: Do we even need to do this anymore? I copied the values from the dissonance prefab into the new
+            // Lethal Bot prefab....I only needed this before as I had lost the original prefab I got from Lethal Internship......
             if (SingletonManager.DissonanceComms.TryGet(out DissonanceComms? dissonanceComms))
             {
                 // Find the prefab
@@ -506,7 +580,7 @@ namespace LethalBots.AI
         /// The AI does not calculate each frame but use a timer <c>updateDestinationIntervalLethalBotAI</c>
         /// to update every some number of ms.
         /// </remarks>
-        public override void Update()
+        public void Update()
         {
             // AI may not have finished initializing yet
             if (NpcController == null)
@@ -517,7 +591,6 @@ namespace LethalBots.AI
             // Update identity
             PlayerControllerB lethalBotController = this.NpcController.Npc;
             LethalBotIdentity.Hp = lethalBotController.isPlayerDead ? 0 : lethalBotController.health;
-            isEnemyDead = !LethalBotIdentity.Alive; // Let the identity manager handle this!
 
             // Not owner no AI
             if (!IsOwner)
@@ -553,7 +626,6 @@ namespace LethalBots.AI
 
             if (!lethalBotController.gameObject.activeSelf
                 || !lethalBotController.isPlayerControlled
-                || isEnemyDead
                 || lethalBotController.isPlayerDead)
             {
                 // Lethal Bot dead or
@@ -588,13 +660,6 @@ namespace LethalBots.AI
                 {
                     State = new BrainDeadState(this);
                 }
-                return;
-            }
-
-            // No AI calculation if in special animation
-            if (inSpecialAnimation)
-            {
-                SetAgent(enabled: false);
                 return;
             }
 
@@ -795,11 +860,10 @@ namespace LethalBots.AI
         /// with the class <see cref="AIState"><c>AIState</c></see> 
         /// that we instanciate with one of the behaviour corresponding to <see cref="EnumAIStates"><c>EnumAIStates</c></see>.
         /// </remarks>
-        public override void DoAIInterval()
+        public void DoAIInterval()
         {
             PlayerControllerB lethalBotController = NpcController.Npc;
-            if (isEnemyDead
-                || lethalBotController.isPlayerDead
+            if (lethalBotController.isPlayerDead
                 || State == null)
             {
                 return;
@@ -1094,7 +1158,7 @@ namespace LethalBots.AI
         }
 
         // FIXME: We should recreate the player push away code rather than this!
-        public override void OnCollideWithPlayer(Collider other)
+        public void OnCollideWithPlayer(Collider other)
         {
             if (NpcController != null && other.CompareTag("Player"))
             {
@@ -1108,7 +1172,7 @@ namespace LethalBots.AI
         }
 
         // FIXME: We should recreate the player push away code rather than this!
-        public override void OnCollideWithEnemy(Collider other, EnemyAI collidedEnemy)
+        public void OnCollideWithEnemy(Collider other, EnemyAI collidedEnemy)
         {
             if (NpcController == null || !IsOwner)
             {
@@ -1116,7 +1180,7 @@ namespace LethalBots.AI
             }
 
             if (collidedEnemy == null
-                || collidedEnemy is LethalBotAI
+                //|| collidedEnemy is LethalBotAI
                 || collidedEnemy is FlowerSnakeEnemy)
             {
                 return;
@@ -1145,7 +1209,7 @@ namespace LethalBots.AI
         // Company Curiser Engine: 2692 Shared
         // Radar Booster: 1015 Shared
         // Play Audio Animatied Event: 546 Shared?
-        public override void DetectNoise(Vector3 noisePosition, float noiseLoudness, int timesPlayedInOneSpot = 0, int noiseID = 0)
+        public void DetectNoise(Vector3 noisePosition, float noiseLoudness, int timesPlayedInOneSpot = 0, int noiseID = 0)
         {
             // Player voice = 75 ?
             if (noiseID != 75)
@@ -1154,7 +1218,6 @@ namespace LethalBots.AI
             }
 
             if (NpcController == null
-                || isEnemyDead
                 || State == null)
             {
                 return;
@@ -1353,11 +1416,8 @@ namespace LethalBots.AI
                     {
                         if (!skipLOSCheckThisSegment && j > 8 && tempDistance < 2f)
                         {
-                            if (DebugEnemy)
-                            {
-                                Plugin.LogDebug($"Distance between corners {j} and {j - 1} under 3 meters; skipping LOS check");
-                                Debug.DrawRay(previousNode + Vector3.up * 0.2f, nodePos + Vector3.up * 0.2f, Color.magenta, 0.2f);
-                            }
+                            Plugin.LogDebug($"Distance between corners {j} and {j - 1} under 3 meters; skipping LOS check");
+                            Debug.DrawRay(previousNode + Vector3.up * 0.2f, nodePos + Vector3.up * 0.2f, Color.magenta, 0.2f);
 
                             skipLOSCheckThisSegment = true;
                             continue;
@@ -1396,16 +1456,6 @@ namespace LethalBots.AI
                             Vector3 enemyViewVector = useEyePosition && checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : checkLOSToTarget.transform.position;
                             if (!Physics.Linecast(previousNode + Vector3.up * headOffset, enemyViewVector + Vector3.up * 0.2f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                             {
-                                return true;
-                            }
-
-                            if (Physics.Linecast(previousNode, nodePos, 262144))
-                            {
-                                if (DebugEnemy)
-                                {
-                                    Plugin.LogDebug($"{enemyType.enemyName}: The path is blocked by line of sight at corner {j}");
-                                }
-
                                 return true;
                             }
                         }
@@ -1508,21 +1558,15 @@ namespace LethalBots.AI
                 {
                     Vector3 previousNode = path1.corners[k - 1];
                     Vector3 nodePos = path1.corners[k];
-                    if (DebugEnemy)
-                    {
-                        Debug.DrawLine(previousNode, nodePos, Color.green);
-                    }
+                    Debug.DrawLine(previousNode, nodePos, Color.green);
 
                     float tempDistance = Vector3.Distance(previousNode, nodePos);
                     if (checkForEnemies)
                     {
                         if (!skipLOSCheckThisSegment && k > 8 && tempDistance < 2f)
                         {
-                            if (DebugEnemy)
-                            {
-                                Plugin.LogDebug($"Distance between corners {k} and {k - 1} under 3 meters; skipping LOS check");
-                                Debug.DrawRay(previousNode + Vector3.up * 0.2f, nodePos + Vector3.up * 0.2f, Color.magenta, 0.2f);
-                            }
+                            Plugin.LogDebug($"Distance between corners {k} and {k - 1} under 3 meters; skipping LOS check");
+                            Debug.DrawRay(previousNode + Vector3.up * 0.2f, nodePos + Vector3.up * 0.2f, Color.magenta, 0.2f);
 
                             skipLOSCheckThisSegment = true;
                             continue;
@@ -1562,16 +1606,6 @@ namespace LethalBots.AI
                             Vector3 enemyViewVector = useEyePosition && checkLOSToTarget.eye != null ? checkLOSToTarget.eye.position : checkLOSToTarget.transform.position;
                             if (!Physics.Linecast(travelMidPoint + Vector3.up * headOffset, enemyViewVector + Vector3.up * 0.2f, StartOfRound.Instance.collidersAndRoomMaskAndDefault, QueryTriggerInteraction.Ignore))
                             {
-                                return true;
-                            }
-
-                            if (Physics.Linecast(previousNode, nodePos, 262144))
-                            {
-                                if (DebugEnemy)
-                                {
-                                    Plugin.LogDebug($"{enemyType.enemyName}: The path is blocked by line of sight at corner {k}");
-                                }
-
                                 return true;
                             }
                         }
@@ -1669,10 +1703,7 @@ namespace LethalBots.AI
 
                     if (k > 15)
                     {
-                        if (DebugEnemy)
-                        {
-                            Plugin.LogDebug(enemyType.enemyName + ": Reached corner 15, stopping checks now");
-                        }
+                        Plugin.LogDebug(NpcController.Npc.playerUsername + ": Reached corner 15, stopping checks now");
 
                         return false;
                     }
@@ -2153,26 +2184,16 @@ namespace LethalBots.AI
             if (!agent.isOnNavMesh 
                 || !agent.CalculatePath(targetPos, path1))
             {
-                if (DebugEnemy)
-                {
-                    Debug.Log("Path could not be calculated");
-                }
-
+                Plugin.LogDebug("Path could not be calculated");
                 isPathVaild = false;
                 return true;
             }
 
-            if (DebugEnemy)
-            {
-                for (int i = 1; i < path1.corners.Length; i++)
-                {
-                    Debug.DrawLine(path1.corners[i - 1], path1.corners[i], Color.red);
-                }
-            }
 
             Vector3[]? corners = path1?.corners;
             if (corners == null || corners.Length == 0)
             {
+                Plugin.LogDebug("Path has no corners");
                 isPathVaild = false;
                 return true;
             }
@@ -2180,11 +2201,7 @@ namespace LethalBots.AI
             NavMeshQueryFilter queryFilter = agent.GetNavMeshQueryFilter();
             if ((corners[corners.Length - 1] - RoundManager.Instance.GetNavMeshPosition(targetPos, queryFilter, RoundManager.Instance.navHit, 2.7f)).sqrMagnitude > 1.5f * 1.5f)
             {
-                if (DebugEnemy)
-                {
-                    Debug.Log($"Path is not complete; final waypoint of path was too far from target position: {targetPos}");
-                }
-
+                Plugin.LogDebug($"Path is not complete; final waypoint of path was too far from target position: {targetPos}");
                 isPathVaild = false;
                 return true;
             }
@@ -2227,12 +2244,8 @@ namespace LethalBots.AI
 
                     if (!flag && j > 8 && tempDistance < 2f)
                     {
-                        if (DebugEnemy)
-                        {
-                            Debug.Log($"Distance between corners {j} and {j - 1} under 3 meters; skipping LOS check");
-                            Debug.DrawRay(previousNode + Vector3.up * 0.2f, currentNode + Vector3.up * 0.2f, Color.magenta, 0.2f);
-                        }
-
+                        Plugin.LogDebug($"Distance between corners {j} and {j - 1} under 3 meters; skipping LOS check");
+                        Debug.DrawRay(previousNode + Vector3.up * 0.2f, currentNode + Vector3.up * 0.2f, Color.magenta, 0.2f);
                         flag = true;
                         continue;
                     }
@@ -2307,9 +2320,6 @@ namespace LethalBots.AI
         /// <param name="position">the destination</param>
         public void SetDestinationToPositionLethalBotAI(Vector3 position)
         {
-            moveTowardsDestination = true;
-            movingTowardsTargetPlayer = false;
-
             if (previousWantedDestination != position)
             {
                 previousWantedDestination = position;
@@ -2335,7 +2345,6 @@ namespace LethalBots.AI
             if (agent.isActiveAndEnabled
                 && agent.isOnNavMesh
                 && !this.IsUsingOffMeshLink()
-                && !isEnemyDead
                 && !NpcController.Npc.isPlayerDead)
             {
                 // Check if we can path to the new destination!
@@ -2383,8 +2392,7 @@ namespace LethalBots.AI
         public void InitStateToSearchingNoTarget(bool isInverseTeleport = false)
         {
             // Don't change states while dead!
-            if (isEnemyDead
-                || NpcController.Npc.isPlayerDead)
+            if (NpcController.Npc.isPlayerDead)
             {
                 return;
             }
@@ -2477,7 +2485,7 @@ namespace LethalBots.AI
             }
 
             // Fog reduce the visibility
-            if (isOutside && !enemyType.canSeeThroughFog && TimeOfDay.Instance.currentLevelWeather == LevelWeatherType.Foggy)
+            if (isOutside && !canSeeThroughFog && TimeOfDay.Instance.currentLevelWeather == LevelWeatherType.Foggy)
             {
                 range = Mathf.Clamp(range, 0, 30);
             }
@@ -2564,7 +2572,7 @@ namespace LethalBots.AI
         public PlayerControllerB? CheckLOSForClosestPlayer(float width = 45f, int range = 60, int proximityAwareness = -1, float bufferDistance = 0f)
         {
             // Fog reduce the visibility
-            if (isOutside && !enemyType.canSeeThroughFog && TimeOfDay.Instance.currentLevelWeather == LevelWeatherType.Foggy)
+            if (isOutside && !canSeeThroughFog && TimeOfDay.Instance.currentLevelWeather == LevelWeatherType.Foggy)
             {
                 range = Mathf.Clamp(range, 0, 30);
             }
@@ -2629,7 +2637,6 @@ namespace LethalBots.AI
                 return null;
             }
 
-            mostOptimalDistance = currentClosestDistance;
             return instanceSOR.allPlayerScripts[indexPlayer];
         }
 
@@ -2643,7 +2650,7 @@ namespace LethalBots.AI
         public EnemyAI? CheckLOSForEnemy(float width = 45f, int range = 20, int proximityAwareness = -1)
         {
             // Fog reduce the visibility
-            if (isOutside && !enemyType.canSeeThroughFog && TimeOfDay.Instance.currentLevelWeather == LevelWeatherType.Foggy)
+            if (isOutside && !canSeeThroughFog && TimeOfDay.Instance.currentLevelWeather == LevelWeatherType.Foggy)
             {
                 range = Mathf.Clamp(range, 0, 30);
             }
@@ -4494,7 +4501,7 @@ namespace LethalBots.AI
         public void UpdateOwnershipOfBotServer()
         {
             // NetworkObject ownership is only updated on the server
-            if (!IsServer && !IsHost)
+            if (!IsServer)
             {
                 ChangeOwnershipOfBotInventoryServerRpc(this.OwnerClientId);
                 ChangeNpcOwnershipOfBotServerRpc(this.OwnerClientId);
@@ -4574,7 +4581,6 @@ namespace LethalBots.AI
                 if (lethalPhoneNetworkObject != null && lethalPhoneNetworkObject.OwnerClientId != newOwnerClientId)
                 {
                     lethalPhoneNetworkObject.ChangeOwnership(newOwnerClientId);
-                    StopLethalPhonesCoroutine(); // We need to stop the coroutine since ownership is changing.
                 }
             }
         }
@@ -4592,7 +4598,6 @@ namespace LethalBots.AI
                 if (lethalPhoneNetworkObject != null && lethalPhoneNetworkObject.OwnerClientId != this.OwnerClientId)
                 {
                     lethalPhoneNetworkObject.ChangeOwnership(this.OwnerClientId);
-                    StopLethalPhonesCoroutine(); // We need to stop the coroutine since ownership is changing.
                 }
             }
         }
@@ -4999,7 +5004,7 @@ namespace LethalBots.AI
             float range = Const.LETHAL_BOT_HEAL_RANGE;
             float proximityAwareness = Const.DISTANCE_CLOSE_ENOUGH_HOR;
             float width = Const.LETHAL_BOT_FOV;
-            if (isOutside && !enemyType.canSeeThroughFog && TimeOfDay.Instance.currentLevelWeather == LevelWeatherType.Foggy)
+            if (isOutside && !canSeeThroughFog && TimeOfDay.Instance.currentLevelWeather == LevelWeatherType.Foggy)
             {
                 range = Mathf.Clamp(range, 0, 30);
             }
@@ -5353,7 +5358,6 @@ namespace LethalBots.AI
                             if (!isInElevator)
                             {
                                 lethalBotController.isInHangarShipRoom = false;
-                                this.isInsidePlayerShip = false;
                             }
                             lethalBotController.SetAllItemsInElevator(inShipRoom: lethalBotController.isInHangarShipRoom, inElevator: isInElevator);
                         }
@@ -5363,7 +5367,6 @@ namespace LethalBots.AI
                             if (isInElevator && lethalBotController.isInHangarShipRoom != isInHangarShipRoom)
                             {
                                 lethalBotController.isInHangarShipRoom = isInHangarShipRoom;
-                                this.isInsidePlayerShip = isInHangarShipRoom;
                                 lethalBotController.SetAllItemsInElevator(inShipRoom: lethalBotController.isInHangarShipRoom, inElevator: isInElevator);
                             }
                         }
@@ -5381,7 +5384,6 @@ namespace LethalBots.AI
                     // Just in case.....
                     lethalBotController.isInElevator = true;
                     lethalBotController.isInHangarShipRoom = true;
-                    this.isInsidePlayerShip = true;
                     if (!this.isOutside)
                     {
                         this.SetEnemyOutside(true);
@@ -5796,18 +5798,18 @@ namespace LethalBots.AI
             {
                 this.NpcController.AudioLowPassFilterComponent.enabled = false;
                 this.NpcController.AudioHighPassFilterComponent.enabled = false;
-                this.creatureVoice.panStereo = 0f;
+                this.LethalBotVoice.panStereo = 0f;
                 SoundManager.Instance.playerVoicePitchTargets[lethalBotPlayerClientID] = this.LethalBotIdentity.Voice.VoicePitch;
                 SoundManager.Instance.SetPlayerPitch(this.LethalBotIdentity.Voice.VoicePitch, lethalBotPlayerClientID);
                 if (localPlayerController.isPlayerDead)
                 {
-                    this.creatureVoice.spatialBlend = 0f;
-                    this.creatureVoice.volume = this.LethalBotIdentity.Voice.Volume;
+                    this.LethalBotVoice.spatialBlend = 0f;
+                    this.LethalBotVoice.volume = this.LethalBotIdentity.Voice.Volume;
                 }
                 else
                 {
-                    this.creatureVoice.spatialBlend = 1f;
-                    this.creatureVoice.volume = 0f;
+                    this.LethalBotVoice.spatialBlend = 1f;
+                    this.LethalBotVoice.volume = 0f;
                 }
             }
             else
@@ -5819,39 +5821,39 @@ namespace LethalBots.AI
                 this.NpcController.AudioHighPassFilterComponent.enabled = walkieTalkie;
                 if (!walkieTalkie)
                 {
-                    this.creatureVoice.spatialBlend = 1f;
-                    this.creatureVoice.bypassListenerEffects = false;
-                    this.creatureVoice.bypassEffects = false;
-                    this.creatureVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[lethalBotPlayerClientID];
+                    this.LethalBotVoice.spatialBlend = 1f;
+                    this.LethalBotVoice.bypassListenerEffects = false;
+                    this.LethalBotVoice.bypassEffects = false;
+                    this.LethalBotVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[lethalBotPlayerClientID];
                     audioLowPassFilter.lowpassResonanceQ = 1f;
                 }
                 else
                 {
-                    this.creatureVoice.spatialBlend = 0f;
+                    this.LethalBotVoice.spatialBlend = 0f;
                     if (localPlayerController.isPlayerDead)
                     {
-                        this.creatureVoice.panStereo = 0f;
-                        this.creatureVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[lethalBotPlayerClientID];
-                        this.creatureVoice.bypassListenerEffects = false;
-                        this.creatureVoice.bypassEffects = false;
+                        this.LethalBotVoice.panStereo = 0f;
+                        this.LethalBotVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[lethalBotPlayerClientID];
+                        this.LethalBotVoice.bypassListenerEffects = false;
+                        this.LethalBotVoice.bypassEffects = false;
                     }
                     else
                     {
-                        this.creatureVoice.panStereo = 0.4f;
-                        this.creatureVoice.bypassListenerEffects = false;
-                        this.creatureVoice.bypassEffects = false;
-                        this.creatureVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[lethalBotPlayerClientID];
+                        this.LethalBotVoice.panStereo = 0.4f;
+                        this.LethalBotVoice.bypassListenerEffects = false;
+                        this.LethalBotVoice.bypassEffects = false;
+                        this.LethalBotVoice.outputAudioMixerGroup = SoundManager.Instance.playerVoiceMixers[lethalBotPlayerClientID];
                     }
                     occludeAudio.lowPassOverride = 4000f;
                     audioLowPassFilter.lowpassResonanceQ = 3f;
                 }
                 if (localPlayerController.isPlayerDead)
                 {
-                    this.creatureVoice.volume = this.LethalBotIdentity.Voice.Volume * 0.8f;
+                    this.LethalBotVoice.volume = this.LethalBotIdentity.Voice.Volume * 0.8f;
                 }
                 else
                 {
-                    this.creatureVoice.volume = this.LethalBotIdentity.Voice.Volume;
+                    this.LethalBotVoice.volume = this.LethalBotIdentity.Voice.Volume;
                 }
             }
         }
@@ -6184,16 +6186,17 @@ namespace LethalBots.AI
         }
 
         /// <summary>
-        /// Sets if the enemy is outside, used to change <see cref="EnemyAI.allAINodes"/> to inside
+        /// Sets if the bot is outside, used to change <see cref="EnemyAI.allAINodes"/> to inside
         /// or outside nodes for <see cref="LethalBotSearchRoutine"/>s and for safe pathfinding checks!
         /// </summary>
         /// <remarks>
         /// This version has an edit to include the nodes inside the ship!
         /// </remarks>
         /// <param name="outside"></param>
-        public override void SetEnemyOutside(bool outside = false)
+        public void SetEnemyOutside(bool outside = false)
         {
-            base.SetEnemyOutside(outside);
+            isOutside = outside;
+            allAINodes = GetAINodes();
 
             if (!outside) return;
 
@@ -6238,6 +6241,28 @@ namespace LethalBots.AI
                 }
             }
             #endif
+        }
+
+        /// <summary>
+        /// Similar to how <see cref="EnemyAI.GetAINodes"/> works, but made to work with bots.
+        /// </summary>
+        public GameObject[] GetAINodes()
+        {
+            // Make sure the agent is set before we try to get the nodes for the bot!
+            if (agent == null)
+            {
+                agent = gameObject.GetComponent<NavMeshAgent>();
+            }
+
+            // If the bot is inside, we want to use the interior nodes, otherwise we want to use the outside nodes.
+            if (!isOutside)
+            {
+                return GameObject.FindGameObjectsWithTag("AINode"); // Interior AI Nodes
+            }
+
+            // Make sure the outside nodes cache is populated before we try to get the nodes for the bot!
+            RoundManager.Instance.GetOutsideAINodes();
+            return RoundManager.Instance.outsideAINodesUnordered.ToArray(); // Create a copy of the outside AI nodes array to avoid modifying the original array.
         }
 
         #endregion
@@ -6312,6 +6337,86 @@ namespace LethalBots.AI
         }
 
         /// <summary>
+        /// Similar to <see cref="EnemyAI.ChangeOwnershipOfEnemy(ulong)"/>, but for bots. 
+        /// Changes the ownership of the bot to the new player target.
+        /// </summary>
+        /// <param name="newOwnerClientId"></param>
+        public void ChangeOwnershipOfBot(ulong newOwnerClientId)
+        {
+            // Make sure the new owner is a valid human player and not a bot
+            if (newOwnerClientId > Const.LETHAL_BOT_ACTUAL_ID_OFFSET)
+            {
+                LethalBotAI? lethalBotAI = LethalBotManager.Instance.GetLethalBotAI((int)(newOwnerClientId - Const.LETHAL_BOT_ACTUAL_ID_OFFSET));
+                if (lethalBotAI == null)
+                {
+                    Plugin.LogWarning($"Could not find lethalBot with id : {(int)(newOwnerClientId - Const.LETHAL_BOT_ACTUAL_ID_OFFSET)}, aborting ChangeOwnershipOfBot.");
+                    return;
+                }
+
+                Plugin.LogDebug($"ChangeOwnershipOfBot not on lethalBot but on lethalBot owner : {lethalBotAI.OwnerClientId}");
+                newOwnerClientId = lethalBotAI.OwnerClientId;
+            }
+
+            // Use the same logic as EnemyAI.ChangeOwnershipOfEnemy to make sure we don't
+            // try to change ownership to the same player or a player that doesn't exist.
+            if (!StartOfRound.Instance.ClientPlayerList.TryGetValue(newOwnerClientId, out var value))
+            {
+                Plugin.LogError($"Attempted to switch ownership of Bot {NpcController.Npc.playerUsername} to a player which does not have a link between client id and player object. Attempted clientId: {newOwnerClientId}");
+            }
+            else if (currentOwnershipOnThisClient == value)
+            {
+                Plugin.LogWarning($"Bot {NpcController.Npc.playerUsername} #{NetworkObjectId}: unable to set owner to player #{value}; reason B; {OwnerClientId} Time of day: {TimeOfDay.Instance.normalizedTimeOfDay}");
+            }
+            else if (this.OwnerClientId != newOwnerClientId)
+            {
+                Plugin.LogDebug($"{NpcController.Npc.playerUsername} #{NetworkObjectId}: ChangeOwnership success. setting ownership to player #{value} from currentOwnershipOnThisClient {currentOwnershipOnThisClient}. Time of day: {TimeOfDay.Instance.normalizedTimeOfDay}");
+                currentOwnershipOnThisClient = value;
+                if (!IsServer)
+                {
+                    ChangeOwnershipOfBotServerRpc(newOwnerClientId);
+                    return;
+                }
+                NetworkObject.ChangeOwnership(newOwnerClientId);
+                ChangeOwnershipOfBotServerRpc(newOwnerClientId);
+            }
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        private void ChangeOwnershipOfBotServerRpc(ulong clientId)
+        {
+            Plugin.LogDebug($"Bot On Server: Set clientId to {clientId} from current owner clientId: {OwnerClientId} Time of day: {TimeOfDay.Instance.normalizedTimeOfDay}");
+            if (OwnerClientId != clientId)
+            {
+                Plugin.LogDebug($"Bot On Server: Setting changeownership Time of day: {TimeOfDay.Instance.normalizedTimeOfDay}");
+                NetworkObject.ChangeOwnership(clientId);
+            }
+            Plugin.LogDebug($"Bot On Server: Found player with clientId #{clientId} in ClientPlayerList?: {StartOfRound.Instance.ClientPlayerList.TryGetValue(clientId, out var _)} Time of day: {TimeOfDay.Instance.normalizedTimeOfDay}");
+            if (StartOfRound.Instance.ClientPlayerList.TryGetValue(clientId, out var value2))
+            {
+                currentOwnershipOnThisClient = value2;
+                ChangeOwnershipOfBotClientRpc(value2);
+
+                // Update the ownership of the bot's inventory and player controller on the server side as well
+                ChangeOwnershipOfBotInventoryServerRpc(clientId);
+                ChangeNpcOwnershipOfBotServerRpc(clientId);
+                if (Plugin.IsModLethalPhonesLoaded)
+                {
+                    ChangeOwnershipOfLethalPhoneServerRpc(clientId);
+                }
+            }
+        }
+
+        [ClientRpc]
+        private void ChangeOwnershipOfBotClientRpc(int playerVal)
+        {
+            if (!IsServer)
+            {
+                Plugin.LogDebug($"ClientRPC Setting currentOwnershipOnThisClient from {currentOwnershipOnThisClient} to {playerVal} ; Time of day: {TimeOfDay.Instance.normalizedTimeOfDay}");
+                currentOwnershipOnThisClient = playerVal;
+            }
+        }
+
+        /// <summary>
         /// Change the ownership of the lethalBot to the new player target,
         /// and set the destination to him.
         /// </summary>
@@ -6325,7 +6430,7 @@ namespace LethalBots.AI
             if (this.OwnerClientId != targetClientId)
             {
                 // Changes the ownership of the lethalBot, on server and client directly
-                ChangeOwnershipOfEnemy(targetClientId);
+                ChangeOwnershipOfBot(targetClientId);
 
                 if (this.IsServer)
                 {
@@ -6372,16 +6477,14 @@ namespace LethalBots.AI
 
         private void AssignTargetAndSetMovingTo(ulong playerid)
         {
-            PlayerControllerB targetPlayer = StartOfRound.Instance.allPlayerScripts[playerid];
-            SetMovingTowardsTargetPlayer(targetPlayer);
+            this.targetPlayer = StartOfRound.Instance.allPlayerScripts[playerid];
 
             if (NpcController.IsControllerInCruiser)
             {
                 this.State = new UseCruiserState(this, this.GetVehicleCruiserTargetPlayerIsIn()!);
             }
             else if (this.State == null
-                || this.State.GetAIState() != EnumAIStates.GetCloseToPlayer
-                || this.targetPlayer != targetPlayer)
+                || this.State.GetAIState() != EnumAIStates.GetCloseToPlayer)
             {
                 this.State = new GetCloseToPlayerState(this, targetPlayer);
             }
@@ -6465,7 +6568,6 @@ namespace LethalBots.AI
             lethalBotController.isExhausted = exhausted;
             lethalBotController.isInElevator = inElevator;
             lethalBotController.isInHangarShipRoom = isInShip;
-            this.isInsidePlayerShip = isInShip;
 
             // NEEDTOVAIDATE: Does this create issues?
             GrabbableObject[] itemSlots = lethalBotController.ItemSlots;
@@ -7993,24 +8095,6 @@ namespace LethalBots.AI
 
         #region Damage bot RPC
 
-        public override void EnableEnemyMesh(bool enable, bool overrideDoNotSet = false, bool tamperWithMeshes = false)
-        {
-            // Bots use PlayerControllerB objects, so there is no mesh to enable or disable!
-            return;
-        }
-
-        public override void HitEnemy(int force = 1, PlayerControllerB playerWhoHit = null!, bool playHitSFX = false, int hitID = -1)
-        {
-            // The HitEnemy function works with player controller instead
-            return;
-        }
-
-        public override void SetEnemyStunned(bool setToStunned, float setToStunTime = 1, PlayerControllerB setStunnedByPlayer = null!)
-        {
-            // TODO: Assess if this function is actually called. May be worth using!
-            return;
-        }
-
         /// <summary>
         /// Apply the damage to the lethalBot, kill him if needed, or make critically injured
         /// </summary>
@@ -8155,12 +8239,6 @@ namespace LethalBots.AI
 
         #region Kill bot RPC
 
-        public override void KillEnemy(bool destroy = false)
-        {
-            // The kill function works with player controller instead
-            return;
-        }
-
         /// <summary>
         /// The action to kill lethalBot just like a human player
         /// </summary>
@@ -8296,7 +8374,6 @@ namespace LethalBots.AI
             {
                 HUDManager.Instance.UpdateBoxesSpectateUI();
             }
-            this.isEnemyDead = true;
             this.LethalBotIdentity.Hp = 0;
             StopOffMeshLinkMovement(warpToEnd: false);
             SetAgent(enabled: false);
@@ -8743,7 +8820,6 @@ namespace LethalBots.AI
         {
             // Kinda hard to use the ship lever when dead
             if (!NpcController.Npc.isPlayerControlled
-                || isEnemyDead
                 || NpcController.Npc.isPlayerDead)
             {
                 return;
@@ -8799,7 +8875,6 @@ namespace LethalBots.AI
         {
             // Kinda hard to use the ship lever when dead
             if (!NpcController.Npc.isPlayerControlled
-                || isEnemyDead
                 || NpcController.Npc.isPlayerDead)
             {
                 return;

@@ -61,7 +61,6 @@ namespace LethalBots.Patches.MapPatches
                     // Copied from LethalBotManager.CountAliveAndDisableLethalBots!
                     component.isInElevator = true;
                     component.isInHangarShipRoom = true;
-                    lethalBotAI.isInsidePlayerShip = true;
                     Vector3 shipPos = StartOfRound.Instance.GetPlayerSpawnPosition((int)component.playerClientId, false);
                     component.thisController.enabled = false;
                     component.TeleportPlayer(shipPos);

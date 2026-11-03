@@ -94,7 +94,7 @@ namespace LethalBots.Patches.GameEnginePatches
                             || lethalBotAI.currentOwnershipOnThisClient == playerClientId))
                     {
                         // Change the ownership
-                        lethalBotAI.ChangeOwnershipOfEnemy(NetworkManager.ServerClientId);
+                        lethalBotAI.ChangeOwnershipOfBot(NetworkManager.ServerClientId);
 
                         // To prevent desyncs, make the bot leave the terminal
                         if (lethalBotAI.NpcController.Npc.currentTriggerInAnimationWith == terminalInteractTrigger)

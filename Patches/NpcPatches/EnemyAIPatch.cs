@@ -47,42 +47,6 @@ namespace LethalBots.Patches.NpcPatches
         }
 
         /// <summary>
-        /// Patch for intercepting when ownership of an bot changes.<br/>
-        /// This allows us to change the items' ownership to the lethalBot owner instead of the lethalBot itself
-        /// </summary>
-        /// <param name="__instance"></param>
-        /// <param name="newOwnerClientId"></param>
-        /// <returns></returns>
-        [HarmonyPatch("ChangeOwnershipOfEnemy")]
-        [HarmonyPostfix]
-        static void ChangeOwnershipOfEnemy_PostFix(EnemyAI __instance, ulong newOwnerClientId)
-        {
-            LethalBotAI? lethalBotAI = __instance as LethalBotAI;
-            if (lethalBotAI != null)
-            {
-                Plugin.LogDebug($"[POSTFIX]: Try ChangeOwnershipOfEnemy for lethalBot newOwnerClientId : {(int)newOwnerClientId}");
-                lethalBotAI.ChangeOwnershipOfBotInventoryServerRpc(newOwnerClientId);
-                lethalBotAI.ChangeNpcOwnershipOfBotServerRpc(newOwnerClientId);
-                if (Plugin.IsModLethalPhonesLoaded)
-                {
-                    lethalBotAI.ChangeOwnershipOfLethalPhoneServerRpc(newOwnerClientId);
-                }
-            }
-        }
-
-        [HarmonyPatch("HitEnemyOnLocalClient")]
-        [HarmonyPrefix]
-        static bool HitEnemyOnLocalClient(EnemyAI __instance)
-        {
-            if (__instance is LethalBotAI)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>
         /// Used so we can manually register new enemies that spawn!
         /// </summary>
         /// <param name="__instance"></param>
@@ -90,27 +54,10 @@ namespace LethalBots.Patches.NpcPatches
         [HarmonyPostfix]
         static void Start_Postfix(EnemyAI __instance)
         {
-            if (__instance is not LethalBotAI && !RoundManager.Instance.SpawnedEnemies.Contains(__instance))
+            ref List<EnemyAI> spawnedEnemies = ref RoundManager.Instance.SpawnedEnemies;
+            if (!spawnedEnemies.Contains(__instance))
             {
-                RoundManager.Instance.SpawnedEnemies.Add(__instance);
-            }
-
-            // Make sure to include our custom area masks to enemies!
-            int areaMaskToAdd = (1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA) | (1 << Const.LETHAL_BOT_LANDMINE_NAVAREA) | (1 << Const.LETHAL_BOT_BRIDGE_NAVAREA);
-            __instance.agentMask |= areaMaskToAdd;
-            __instance.agent.areaMask |= areaMaskToAdd;
-
-            // Make sure only Lethal Bots path on the Lethal Bot Only areas
-            int areaMaskLethalBotsOnly = 1 << Const.LETHAL_BOT_ONLY_NAVAREA;
-            if (__instance is LethalBotAI)
-            {
-                __instance.agentMask |= areaMaskLethalBotsOnly;
-                __instance.agent.areaMask |= areaMaskLethalBotsOnly;
-            }
-            else
-            {
-                __instance.agentMask &= ~areaMaskLethalBotsOnly;
-                __instance.agent.areaMask &= ~areaMaskLethalBotsOnly;
+                spawnedEnemies.Add(__instance);
             }
         }
 

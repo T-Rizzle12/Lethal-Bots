@@ -13,23 +13,6 @@ namespace LethalBots.Patches.EnemiesPatches
     public class MouthDogAIPatch
     {
         /// <summary>
-        /// Patch to make mouthdog ignoring LethalBotAI (does not ignore Bot body <c>PlayerController</c>)
-        /// </summary>
-        /// <param name="other"></param>
-        /// <param name="collidedEnemy"></param>
-        /// <returns></returns>
-        [HarmonyPatch("OnCollideWithEnemy")]
-        [HarmonyPrefix]
-        static bool OnCollideWithEnemy_PreFix(Collider other, EnemyAI collidedEnemy)
-        {
-            if (collidedEnemy is LethalBotAI)
-            {
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
         /// Patch to make the mouthDog kill the bot before running base game code
         /// </summary>
         /// <param name="playerId">Id player (maybe bot) that the mouth dog tries to kill</param>

@@ -287,7 +287,7 @@ namespace LethalBots.AI.AIStates
         public Vector3 GetFollowPosition(EnumFollowType enumFollowType)
         {
             // Find the current follow target's position
-            PlayerControllerB targetPlayer = ai.targetPlayer;
+            PlayerControllerB targetPlayer = ai.targetPlayer!;
             Vector3 targetPlayerPos = targetPlayer.transform.position;
             InteractTrigger currentTriggerInAnimationWith = targetPlayer.currentTriggerInAnimationWith;
             if (currentTriggerInAnimationWith != null 
@@ -365,7 +365,7 @@ namespace LethalBots.AI.AIStates
             // Lets see if the bot is trying to use the elevator
             bool usingElevator = false;
             bool planningToUseElevator = false;
-            if (ai.targetPlayer.isInsideFactory)
+            if (ai.targetPlayer!.isInsideFactory)
             {
                 bool isPlayerNearElevatorEntrance = ai.IsPlayerNearElevatorEntrance(ai.targetPlayer);
                 if (isPlayerNearElevatorEntrance && !ai.IsInElevatorStartRoom)
@@ -393,7 +393,7 @@ namespace LethalBots.AI.AIStates
         private void MoveTowardsFollowPosition(EnumFollowType enumFollowType, Vector3? followPos = null, bool allowTeleport = false)
         {
             followPos ??= GetFollowPosition(enumFollowType);
-            ai.SyncAssignTargetAndSetMovingTo(ai.targetPlayer);
+            ai.SyncAssignTargetAndSetMovingTo(ai.targetPlayer!);
             ai.SetDestinationToPositionLethalBotAI(followPos.Value);
 
             if (allowTeleport)

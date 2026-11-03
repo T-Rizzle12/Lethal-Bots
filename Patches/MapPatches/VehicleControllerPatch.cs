@@ -316,21 +316,6 @@ namespace LethalBots.Patches.MapPatches
             }
         }
 
-        [HarmonyPatch("CarReactToObstacle")]
-        [HarmonyPrefix]
-        static bool CarReactToObstacle_Prefix(ref bool __result, EnemyAI enemyScript = null!)
-        {
-            // Fixes bots shoving the car for some reason
-            if (enemyScript != null 
-                && enemyScript is LethalBotAI)
-            {
-                __result = false;
-                return false;
-            }
-
-            return true;
-        }
-
         /// <summary>
         /// There is a logic error in the base game where if the local player sits in the passenger seat
         /// their collision is still enabled. This causes the player to collide with the crusier if a bot

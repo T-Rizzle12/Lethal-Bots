@@ -29,7 +29,7 @@ namespace LethalBots.AI.AIStates
         {
             get
             {
-                return Vector3.Scale((ai.targetPlayer.transform.position - npcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
+                return Vector3.Scale((ai.targetPlayer!.transform.position - npcController.Npc.transform.position), new Vector3(1, 0, 1)).sqrMagnitude;
             }
         }
 
@@ -41,7 +41,7 @@ namespace LethalBots.AI.AIStates
         {
             get
             {
-                return Vector3.Scale((ai.targetPlayer.transform.position - npcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
+                return Vector3.Scale((ai.targetPlayer!.transform.position - npcController.Npc.transform.position), new Vector3(0, 1, 0)).sqrMagnitude;
             }
         }
 
@@ -68,6 +68,14 @@ namespace LethalBots.AI.AIStates
             if (enemyAI != null)
             {
                 ai.State = new PanikState(this, enemyAI);
+                return;
+            }
+
+            // Make sure our follow target is valid
+            PlayerControllerB? followTarget = ai.targetPlayer;
+            if (followTarget == null)
+            {
+                ai.State = new SearchingForPlayerState(this);
                 return;
             }
 
@@ -150,7 +158,7 @@ namespace LethalBots.AI.AIStates
                 // NOTE: If the player we are following is transfering loot, then we don't drop ours!
                 entranceDropTimer.Start(0.5f); // Only do this every half a second!
                 if (LethalBotManager.Instance.LootTransferPlayers.Count > 0 
-                    && !LethalBotManager.Instance.LootTransferPlayers.Contains(ai.targetPlayer))
+                    && !LethalBotManager.Instance.LootTransferPlayers.Contains(followTarget))
                 {
                     // Check if we are near an entrance
                     bool areWeNearbyEntrance = false;
@@ -221,7 +229,7 @@ namespace LethalBots.AI.AIStates
             PlayerControllerB? playerTarget = ai.CheckLOSForTarget(Const.LETHAL_BOT_FOV, Const.LETHAL_BOT_ENTITIES_RANGE, (int)Const.DISTANCE_CLOSE_ENOUGH_HOR);
             if (playerTarget != null)
             {
-                targetLastKnownPosition = ai.targetPlayer.transform.position;
+                targetLastKnownPosition = followTarget.transform.position;
             }
 
             // Target too far, get close to him
@@ -247,7 +255,7 @@ namespace LethalBots.AI.AIStates
             ai.StopMoving();
 
             // Emotes
-            npcController.MimicEmotes(ai.targetPlayer);
+            npcController.MimicEmotes(followTarget);
         }
 
         public override void TryPlayCurrentStateVoiceAudio()
@@ -350,7 +358,7 @@ namespace LethalBots.AI.AIStates
         private void LookAtWhatPlayerPointingAt()
         {
             // Look where the target player is looking
-            Ray interactRay = new Ray(ai.targetPlayer.gameplayCamera.transform.position, ai.targetPlayer.gameplayCamera.transform.forward);
+            Ray interactRay = new Ray(ai.targetPlayer!.gameplayCamera.transform.position, ai.targetPlayer!.gameplayCamera.transform.forward);
             RaycastHit[] raycastHits = Physics.RaycastAll(interactRay);
             if (raycastHits.Length == 0)
             {
@@ -417,7 +425,7 @@ namespace LethalBots.AI.AIStates
 
         private bool IsTooFarFromPlayer()
         {
-            Vector3 targetPlayerPos = ai.targetPlayer.transform.position;
+            Vector3 targetPlayerPos = ai.targetPlayer!.transform.position;
             EnumFollowType enumFollowType = ai.GetFollowType();
             switch (enumFollowType)
             {

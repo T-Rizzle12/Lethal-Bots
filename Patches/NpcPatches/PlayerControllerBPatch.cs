@@ -1366,7 +1366,6 @@ namespace LethalBots.Patches.NpcPatches
             }
 
             lethalBotAI.NpcController.CurrentLethalBotPhysicsRegions.Clear();
-            lethalBotAI.isEnemyDead = true;
             lethalBotAI.LethalBotIdentity.Hp = 0;
             lethalBotAI.SetAgent(enabled: false);
             //this.LethalBotIdentity.Voice.StopAudioFadeOut();

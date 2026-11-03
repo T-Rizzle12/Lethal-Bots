@@ -102,7 +102,7 @@ namespace LethalBots
         public static AssetBundle ShipOrbitNavMeshAssets = null!;
         internal static string DirectoryName = null!;
 
-        internal static EnemyType LethalBotNPCPrefab = null!;
+        internal static GameObject LethalBotNPCPrefab = null!;
         internal static GameObject ShipOrbitNavMeshPrefab = null!;
         internal static int PluginIrlPlayersCount = 0;
 
@@ -152,53 +152,31 @@ namespace LethalBots
             ModAssets = AssetBundle.LoadFromFile(Path.Combine(DirectoryName, bundleName));
             if (ModAssets == null)
             {
-                Logger.LogFatal($"Unknown to load custom assets.");
+                Logger.LogFatal("Failed to load custom assets.");
                 return;
             }
 
             // Load bot prefab
-            LethalBotNPCPrefab = Plugin.ModAssets.LoadAsset<EnemyType>("LethalBotNPC");
+            LethalBotNPCPrefab = Plugin.ModAssets.LoadAsset<GameObject>("LethalBotNPC");
             if (LethalBotNPCPrefab == null)
             {
-                Logger.LogInfo("Failed to directly load LethalBotNPC, manually searching asset bundle instead!");
-
-                Object[] test = Plugin.ModAssets.LoadAllAssets();
-                for (int i = 0; i < test.Length; i++)
-                {
-                    Logger.LogInfo($"Found {test[i]} in asset bundle");
-                    if (test[i] is EnemyType enemy)
-                    {
-                        LethalBotNPCPrefab = enemy;
-                        break;
-                    }
-                }
-            }
-            if (LethalBotNPCPrefab == null)
-            {
-                Logger.LogFatal($"LethalBotNPC prefab failed to load.");
+                Logger.LogFatal("Failed to load LethalBotNPC prefab.");
                 return;
             }
-            foreach (var transform in LethalBotNPCPrefab.enemyPrefab.GetComponentsInChildren<Transform>()
-                                                               .Where(x => x.parent != null && x.parent.name == "LethalBotNPCObj"
-                                                                                            //&& x.name != "ScanNode"
-                                                                                            //&& x.name != "MapDot"
-                                                                                            && x.name != "Collision"
-                                                                                            && x.name != "TurnCompass"
-                                                                                            && x.name != "CreatureSFX"
-                                                                                            && x.name != "CreatureVoice"
-                                                                                            )
-                                                               .ToList())
+            if (LethalBotNPCPrefab == null)
             {
-                Object.DestroyImmediate(transform.gameObject);
+                Logger.LogFatal("LethalBotNPC prefab failed to load.");
+                return;
             }
 
             // randomize GlobalObjectIdHash
+            // NEEDTOVALIDATE: Do we even need this anymore?
             //Logger.LogInfo($"Calling Assembly Name: {typeof(Plugin).Assembly.GetName().Name}");
             //Logger.LogInfo($"Prefab Name: {gameObject.name}");
             //Logger.LogInfo($"Bundle Name: {bundleName}");
             byte[] value = MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(typeof(Plugin).Assembly.GetName().Name + gameObject.name + bundleName));
             uint newGlobalObjectIdHash = BitConverter.ToUInt32(value, 0);
-            var networkObject = LethalBotNPCPrefab.enemyPrefab.GetComponent<NetworkObject>();
+            var networkObject = LethalBotNPCPrefab.GetComponent<NetworkObject>();
             networkObject.GlobalObjectIdHash = newGlobalObjectIdHash;
 
             // Now for the ship navmesh bundle
@@ -218,7 +196,7 @@ namespace LethalBots
             }
 
             // Register the network prefab with the randomized GlobalObjectIdHash
-            LethalLib.Modules.NetworkPrefabs.RegisterNetworkPrefab(LethalBotNPCPrefab.enemyPrefab);
+            LethalLib.Modules.NetworkPrefabs.RegisterNetworkPrefab(LethalBotNPCPrefab);
 
             InitPluginManager();
 

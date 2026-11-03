@@ -180,36 +180,6 @@ namespace LethalBots.Patches.GameEnginePatches
         }
 
         /// <summary>
-        /// Make sure to include our custom quicksand mask to enemies!
-        /// </summary>
-        /// <param name="__instance"></param>
-        /// <param name="enemyType"></param>
-        /// <param name="supplyExistingMask"></param>
-        /// <param name="__result"></param>
-        [HarmonyPatch("GetLayermaskForEnemySizeLimit")]
-        [HarmonyPostfix]
-        static void GetLayermaskForEnemySizeLimit_Postfix(RoundManager __instance, EnemyType enemyType, bool supplyExistingMask, ref int __result)
-        {
-            if (supplyExistingMask)
-            {
-                int areaMaskToAdd = (1 << Const.LETHAL_BOT_QUICKSAND_NAVAREA) | (1 << Const.LETHAL_BOT_LANDMINE_NAVAREA) | (1 << Const.LETHAL_BOT_BRIDGE_NAVAREA);
-                __result |= areaMaskToAdd;
-
-                // Make sure only Lethal Bots path on the Lethal Bot Only areas
-                // TODO: Remove this patch once I change the bot to no longer use an EnemyAI object
-                int areaMaskLethalBotsOnly = 1 << Const.LETHAL_BOT_ONLY_NAVAREA;
-                if (enemyType.enemyPrefab.TryGetComponent<LethalBotAI>(out _))
-                {
-                    __result |= areaMaskLethalBotsOnly;
-                }
-                else
-                {
-                    __result &= ~areaMaskLethalBotsOnly;
-                }
-            }
-        }
-
-        /// <summary>
         /// Patch for debug spawn bush spawn point
         /// </summary>
         [HarmonyPatch("LoadNewLevel")]
@@ -402,105 +372,61 @@ namespace LethalBots.Patches.GameEnginePatches
             LethalBotManager.botAutoLeaveTimer.Start();
         }
 
-        [HarmonyPatch("RefreshEnemiesList")]
+        /// <summary>
+        /// Copy of <see cref="RoundManager.PlayAudibleNoise(Vector3, float, float, int, bool, int)"/>, but modified to allow bots to hear the noise as well
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <param name="noisePosition"></param>
+        /// <param name="noiseRange"></param>
+        /// <param name="noiseLoudness"></param>
+        /// <param name="timesPlayedInSameSpot"></param>
+        /// <param name="noiseIsInsideClosedShip"></param>
+        /// <param name="noiseID"></param>
+        [HarmonyPatch(nameof(RoundManager.PlayAudibleNoise))]
         [HarmonyPostfix]
-        static void RefreshEnemiesList_PostFix(RoundManager __instance)
+        #pragma warning disable Harmony003 // Harmony non-ref patch parameters modified
+        static void PlayAudibleNoise_Postfix(RoundManager __instance, Vector3 noisePosition, float noiseRange = 10f, float noiseLoudness = 0.5f, int timesPlayedInSameSpot = 0, bool noiseIsInsideClosedShip = false, int noiseID = 0)
         {
-            // RefreshEnemiesList catches the bots since they use EnemyAI objects, this removes them from the list!
-            int oldSpawnedEnemiesCount = __instance.SpawnedEnemies.Count;
-            __instance.SpawnedEnemies.RemoveAll(enemy => enemy is LethalBotAI);
-            __instance.numberOfEnemiesInScene = __instance.SpawnedEnemies.Count;
-            Plugin.LogDebug($"Removed LethalBotAI objects from RoundManager.SpawnedEnemies. Old {oldSpawnedEnemiesCount} -> New {__instance.numberOfEnemiesInScene}");
-        }
-
-        [HarmonyPatch("UnloadSceneObjectsEarly")]
-        [HarmonyTranspiler]
-        static IEnumerable<CodeInstruction> UnloadSceneObjectsEarly_Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
-        {
-            var startIndex = -1;
-            var codes = new List<CodeInstruction>(instructions);
-
-            // Target property: array[i].thisNetworkObject.Despawn()
-            MethodInfo despawnMethod = AccessTools.Method(typeof(NetworkObject), "Despawn");
-            FieldInfo thisNetworkObjectField = AccessTools.Field(typeof(EnemyAI), "thisNetworkObject");
-
-            // Target function
-            MethodInfo shouldDespawnMethod = AccessTools.Method(typeof(RoundManagerPatch), "ShouldDespawn");
-
-            // ----------------------------------------------------------------------
-            for (var i = 0; i < codes.Count - 5; i++)
+            // Check if the noise is inside a closed ship,
+            // and if so, reduce the noise range for bots
+            if (noiseIsInsideClosedShip)
             {
-                if (codes[i].opcode == OpCodes.Ldloc_0
-                    && codes[i + 1].opcode == OpCodes.Ldloc_3
-                    && codes[i + 2].opcode == OpCodes.Ldelem_Ref
-                    && codes[i + 3].LoadsField(thisNetworkObjectField)
-                    && codes[i + 4].opcode == OpCodes.Ldc_I4_1
-                    && codes[i + 5].Calls(despawnMethod))
+                noiseRange /= 2f;
+            }
+
+            // Go through our cached list of bots and see if any are within range of the noise
+            LethalBotAI[] lethalBotAIs = LethalBotManager.Instance.GetLethalBotAIs();
+            for (int i = 0; i < lethalBotAIs.Length; i++)
+            {
+                // Check if the bot is valid and active
+                LethalBotAI? lethalBotAI = lethalBotAIs[i];
+                if (lethalBotAI != null)
                 {
-                    startIndex = i;
-                    break;
+                    // For now, only allow active bot controllers to hear the noise
+                    PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
+                    if (lethalBotController == null 
+                        || !lethalBotController.isPlayerControlled 
+                        || lethalBotController.isPlayerDead)
+                    {
+                        continue;
+                    }
+
+                    // Same as base game, quiet noises inside the ship can't be heard by bots outside the ship
+                    if (noiseIsInsideClosedShip 
+                        && !lethalBotController.isInHangarShipRoom
+                        && noiseLoudness < 0.9f)
+                    {
+                        continue;
+                    }
+
+                    // Manually check if the bot is in range of the noise
+                    if ((noisePosition - lethalBotController.gameplayCamera.transform.position).sqrMagnitude <= noiseRange * noiseRange)
+                    {
+                        lethalBotAI.DetectNoise(noisePosition, noiseLoudness, timesPlayedInSameSpot, noiseID);
+                    }
                 }
             }
-            if (startIndex > -1)
-            {
-                // Insert a conditional branch (if not ShouldDespawn then skip calling NetworkObject.Despawn)
-                //int endIndex = -1;
-                //for (int j = startIndex; j < codes.Count; j++)
-                //{
-                //    if (codes[j].Calls(despawnMethod))
-                //    {
-                //        endIndex = j;
-                //        break;
-                //    }
-                //}
-
-                //// Fall back to constant endIndex
-                //if (endIndex == -1)
-                //{
-                //    Plugin.LogError("Could not find despawn call!");
-                //    endIndex = startIndex + 5;
-                //}
-
-                // Create the label to skip to!
-                Label skipLabel = generator.DefineLabel();
-                codes[startIndex + 6].labels.Add(skipLabel);
-                //var nop = new CodeInstruction(OpCodes.Nop);
-                //nop.labels.Add(skipLabel);
-                //codes.Insert(endIndex + 1, nop);
-
-                // Insert new method call to our ShouldDespawn method
-                List<CodeInstruction> codesToAdd = new List<CodeInstruction>
-                {
-                    new CodeInstruction(OpCodes.Ldloc_0), // Load array
-                    new CodeInstruction(OpCodes.Ldloc_3), // Load current loop index
-                    new CodeInstruction(OpCodes.Ldelem_Ref), // Load the EnemyAI reference
-                    new CodeInstruction(OpCodes.Call, shouldDespawnMethod), // Call method
-                    new CodeInstruction(OpCodes.Brfalse, skipLabel)
-                };
-                codes.InsertRange(startIndex, codesToAdd);
-
-                startIndex = -1;
-            }
-            else
-            {
-                Plugin.LogError($"LethalBot.Patches.GameEnginePatches.UnloadSceneObjectsEarly_Transpiler could not add custom check to block deletion of EnemyAI objects for Lethal Bots!");
-            }
-
-            return codes.AsEnumerable();
         }
-
-        /// <summary>
-        /// Helper function made to skip the despawn call for LethalBotAIs!
-        /// </summary>
-        /// <param name="enemyAI"></param>
-        /// <returns></returns>
-        private static bool ShouldDespawn(EnemyAI enemyAI)
-        {
-            if (Plugin.Config.AllowBotsInOrbit.Value && enemyAI is LethalBotAI)
-            {
-                return false;
-            }
-            return true;
-        }
+        #pragma warning restore Harmony003 // Harmony non-ref patch parameters modified
     }
 }

@@ -30,8 +30,7 @@ namespace LethalBots.Patches.MapPatches
             }
 
             // Bot is dead do nothing!
-            if (lethalBotAI.isEnemyDead
-                || playerScript.isPlayerDead)
+            if (playerScript.isPlayerDead)
             {
                 return;
             }

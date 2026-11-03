@@ -2101,7 +2101,7 @@ namespace LethalBots.Managers
             else
             {
                 // Or spawn one (server only)
-                GameObject lethalBotPrefab = Object.Instantiate<GameObject>(Plugin.LethalBotNPCPrefab.enemyPrefab);
+                GameObject lethalBotPrefab = Object.Instantiate<GameObject>(Plugin.LethalBotNPCPrefab);
                 lethalBotAI = lethalBotPrefab.GetComponent<LethalBotAI>();
                 Plugin.LogDebug($"{lethalBotPrefab}");
                 Plugin.LogDebug($"{lethalBotAI}");
@@ -2239,7 +2239,6 @@ namespace LethalBots.Managers
             lethalBotController.actualClientId = lethalBotController.playerClientId + Const.LETHAL_BOT_ACTUAL_ID_OFFSET;
             lethalBotController.isInElevator = true;
             lethalBotController.isInHangarShipRoom = true;
-            lethalBotAI.isInsidePlayerShip = true;
             lethalBotController.parentedToElevatorLastFrame = false; // Force update!
             lethalBotController.playerActions = new PlayerActions();
             lethalBotController.health = spawnParamsNetworkSerializable.Hp == 0 ? 100 : spawnParamsNetworkSerializable.Hp;
@@ -2292,7 +2291,6 @@ namespace LethalBots.Managers
 
             // lethalBot
             lethalBotAI.BotId = Array.IndexOf(AllLethalBotAIs, lethalBotAI);
-            lethalBotAI.creatureAnimator = lethalBotController.playerBodyAnimator;
             lethalBotAI.NpcController = new NpcController(lethalBotController);
             lethalBotAI.eye = lethalBotController.GetComponentsInChildren<Transform>().First(x => x.name == "PlayerEye");
             lethalBotAI.LethalBotIdentity = lethalBotIdentity;
@@ -2518,7 +2516,6 @@ namespace LethalBots.Managers
             PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
             lethalBotController.isInElevator = true;
             lethalBotController.isInHangarShipRoom = true;
-            lethalBotAI.isInsidePlayerShip = true;
 
             // lethalBot
             lethalBotAI.LethalBotIdentity.Hp = lethalBotController.health;
@@ -4281,7 +4278,6 @@ namespace LethalBots.Managers
             {
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
-                    || lethalBotAI.isEnemyDead
                     || lethalBotAI.NpcController == null
                     || lethalBotAI.NpcController.Npc.isPlayerDead
                     || !lethalBotAI.NpcController.Npc.isPlayerControlled)
@@ -4711,7 +4707,6 @@ namespace LethalBots.Managers
                 LethalBotAI? lethalBotAI = AllLethalBotAIs[i];
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
-                    || lethalBotAI.isEnemyDead
                     || lethalBotAI.NpcController == null
                     || lethalBotAI.NpcController.Npc.isPlayerDead
                     || !lethalBotAI.NpcController.Npc.isPlayerControlled)
@@ -4795,11 +4790,12 @@ namespace LethalBots.Managers
         }
 
         /// <summary>
-        /// Is the <c>EnemyAI</c> is an <c>LethalBotAI</c>
+        /// Is the <c>Object</c> is an <c>LethalBotAI</c>
         /// </summary>
         /// <param name="ai"></param>
-        /// <returns><c>true</c> if <c>EnemyAI</c> is <c>LethalBotAI</c>, else <c>false</c></returns>
-        public bool IsAILethalBotAi(EnemyAI ai)
+        /// <returns><c>true</c> if <c>Object</c> is <c>LethalBotAI</c>, else <c>false</c></returns>
+        [Obsolete("You should really just type check the object instead of using this method!", true)]
+        public bool IsAILethalBotAi(Object ai)
         {
             return AllLethalBotAIs.Contains(ai);
         }
@@ -5000,7 +4996,6 @@ namespace LethalBots.Managers
             {
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
-                    || lethalBotAI.isEnemyDead
                     || lethalBotAI.NpcController == null
                     || lethalBotAI.NpcController.Npc.isPlayerDead
                     || !lethalBotAI.NpcController.Npc.isPlayerControlled)
@@ -5271,7 +5266,6 @@ namespace LethalBots.Managers
                             {
                                 lethalBotController.isInElevator = true;
                                 lethalBotController.isInHangarShipRoom = true;
-                                lethalBotAI.isInsidePlayerShip = true;
                                 Vector3 shipPos = StartOfRound.Instance.GetPlayerSpawnPosition((int)lethalBotController.playerClientId, false);
                                 lethalBotController.thisController.enabled = false;
                                 lethalBotController.TeleportPlayer(shipPos);
@@ -5968,7 +5962,7 @@ namespace LethalBots.Managers
                 if (lethalBotAI == null
                     || !lethalBotAI.IsSpawned
                     || lethalBotAI.NpcController == null
-                    || lethalBotAI.creatureVoice == null
+                    || lethalBotAI.LethalBotVoice == null
                     || (!lethalBotAI.NpcController.Npc.isPlayerDead
                         && !lethalBotAI.NpcController.Npc.isPlayerControlled))
                 {
@@ -6301,7 +6295,6 @@ namespace LethalBots.Managers
             {
                 LethalBotAI? lethalBotAI = lethalBotAIs[i];
                 if (lethalBotAI == null
-                    || lethalBotAI.isEnemyDead
                     || lethalBotAI.NpcController == null
                     || !lethalBotAI.NpcController.Npc.isPlayerControlled
                     || lethalBotAI.NpcController.Npc.isPlayerDead)

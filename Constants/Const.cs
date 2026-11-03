@@ -297,7 +297,7 @@ namespace LethalBots.Constants
         public const int LETHAL_BOT_QUICKSAND_NAVAREA = 27;
         public const int LETHAL_BOT_BRIDGE_NAVAREA = 28;
 
-        [Obsolete("Due to the bots now using a custom agent ID. This is redundant and will be removed in a later build!")]
+        [Obsolete("Due to the bots now using a custom agent ID. This is redundant and will be removed in a later build!", true)]
         public const int LETHAL_BOT_ONLY_NAVAREA = 29; // This can be used to mark a navarea that only Lethal Bots are allowed to use!
 
         /// <summary>

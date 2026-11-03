@@ -981,7 +981,7 @@ namespace LethalBots.AI
             {
                 const float dangerRange = 7.7f; // 7.7f is the same distance used by the base game to show the enemy activity nearby message!
                 EnemyAI enemy = spawnedEnemies[i];
-                if (enemy != null && !enemy.isEnemyDead && enemy is not LethalBotAI && (enemy.transform.position - entrancePoint).sqrMagnitude < dangerRange * dangerRange)
+                if (enemy != null && !enemy.isEnemyDead && (enemy.transform.position - entrancePoint).sqrMagnitude < dangerRange * dangerRange)
                 {
                     // We found an enemy near the exit point, so we should not use this entrance!
                     entranceSafetyCache[entrance] = (false, Time.timeSinceLevelLoad);

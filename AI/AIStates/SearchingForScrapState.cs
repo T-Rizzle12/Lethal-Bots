@@ -366,12 +366,15 @@ namespace LethalBots.AI.AIStates
                         if (!ai.IsLethalBotInteracting())
                         {
                             InteractTrigger interactTrigger = entrance!.triggerScript;
-                            ai.StartInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
+                            if (!interactTrigger.interactCooldown || interactTrigger.currentCooldownValue <= 0f)
                             {
-                                Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
-                                lethalBotAI.SyncTeleportLethalBot(entranceTeleportPos.Value, !entrance?.isEntranceToBuilding ?? !lethalBotAI.isOutside, entrance);
-                            }, skipOriginalInteract: true);
-                            entranceAttempts++;
+                                ai.StartInteraction(interactTrigger, (lethalBotAI, lethalBotController, _) =>
+                                {
+                                    Plugin.LogDebug($"======== TeleportLethalBotAndSync {lethalBotController.playerUsername} !!!!!!!!!!!!!!! ");
+                                    lethalBotAI.SyncTeleportLethalBot(entranceTeleportPos.Value, !entrance?.isEntranceToBuilding ?? !lethalBotAI.isOutside, entrance);
+                                }, skipOriginalInteract: true);
+                                entranceAttempts++;
+                            }
                         }
                     }
                     else
