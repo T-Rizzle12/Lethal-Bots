@@ -407,54 +407,51 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // Now that we are inside, lets go find some loot
-                // If we need to go down an elevator we should do so!
-                MineshaftElevatorController? elevator = LethalBotAI.ElevatorScript;
-                if (elevator != null && (ai.IsInElevatorStartRoom || (!elevator.elevatorFinishedMoving || !elevator.elevatorDoorOpen) && ai.IsInsideElevator))
+                //// If we need to go down an elevator we should do so!
+                //MineshaftElevatorController? elevator = LethalBotAI.ElevatorScript;
+                //if (elevator != null && (ai.IsInElevatorStartRoom || (!elevator.elevatorFinishedMoving || !elevator.elevatorDoorOpen) && ai.IsInsideElevator))
+                //{
+                //    if (ai.searchForScrap.searchInProgress)
+                //    {
+                //        // Stop the coroutine while we use the elevator
+                //        ai.searchForScrap.StopSearch();
+                //    }
+                //}
+
+                // If there is a player trapped in the facility,
+                // we should unlock all doors we can find to help them out!
+                if (LethalBotManager.IsThereATrappedPlayer)
                 {
-                    if (ai.searchForScrap.searchInProgress)
+                    DoorLock? lockedDoor = ai.UnlockDoorIfNeeded(200f, false);
+                    if (lockedDoor != null)
                     {
-                        // Stop the coroutine while we use the elevator
-                        ai.searchForScrap.StopSearch();
+                        ai.State = new UseKeyOnLockedDoorState(this, lockedDoor);
+                        return;
                     }
-                    ai.UseElevator(false);
                 }
+                // If we encounter a locked door, we should unlock it!
                 else
                 {
-                    // If there is a player trapped in the facility,
-                    // we should unlock all doors we can find to help them out!
-                    if (LethalBotManager.IsThereATrappedPlayer)
+                    DoorLock? lockedDoor = ai.UnlockDoorIfNeeded(Const.LETHAL_BOT_OBJECT_RANGE, true, Const.LETHAL_BOT_OBJECT_AWARNESS);
+                    if (lockedDoor != null)
                     {
-                        DoorLock? lockedDoor = ai.UnlockDoorIfNeeded(200f, false);
-                        if (lockedDoor != null)
-                        {
-                            ai.State = new UseKeyOnLockedDoorState(this, lockedDoor);
-                            return;
-                        }
+                        ai.State = new UseKeyOnLockedDoorState(this, lockedDoor);
+                        return;
                     }
-                    // If we encounter a locked door, we should unlock it!
-                    else
-                    {
-                        DoorLock? lockedDoor = ai.UnlockDoorIfNeeded(Const.LETHAL_BOT_OBJECT_RANGE, true, Const.LETHAL_BOT_OBJECT_AWARNESS);
-                        if (lockedDoor != null)
-                        {
-                            ai.State = new UseKeyOnLockedDoorState(this, lockedDoor);
-                            return;
-                        }
-                    }
+                }
 
-                    // Lets get ourselves some loot
-                    Vector3? destination = ai.searchForScrap.GetTargetPosition();
-                    if (destination != null)
-                    {
-                        ai.SetDestinationToPositionLethalBotAI(destination.Value);
-                        ai.OrderMoveToDestination();
-                    }
+                // Lets get ourselves some loot
+                Vector3? destination = ai.searchForScrap.GetTargetPosition();
+                if (destination != null)
+                {
+                    ai.SetDestinationToPositionLethalBotAI(destination.Value);
+                    ai.OrderMoveToDestination();
+                }
 
-                    if (!ai.searchForScrap.searchInProgress)
-                    {
-                        // Start the coroutine to search for loot
-                        ai.searchForScrap.StartSearch();
-                    }
+                if (!ai.searchForScrap.searchInProgress)
+                {
+                    // Start the coroutine to search for loot
+                    ai.searchForScrap.StartSearch();
                 }
             }
         }
@@ -487,7 +484,7 @@ namespace LethalBots.AI.AIStates
             // Allow us to accept calls and put away our phone.
             base.UseLethalPhones();
 
-            // Are we allowed ot randomly call players?
+            // Are we allowed to randomly call players?
             if (!Plugin.Config.AllowRandomCalling)
             {
                 return;

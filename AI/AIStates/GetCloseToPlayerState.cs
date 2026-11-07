@@ -190,10 +190,7 @@ namespace LethalBots.AI.AIStates
                 targetLastKnownPosition = targetPlayerPos;
 
                 // Don't interrupt elevator code!
-                if (!TryToUseElevator())
-                {
-                    MoveTowardsFollowPosition(enumFollowType, followPos);
-                }
+                MoveTowardsFollowPosition(enumFollowType, followPos);
             }
             else
             {
@@ -213,11 +210,7 @@ namespace LethalBots.AI.AIStates
                     // If we can't path to the player, this is probably a mineshaft map and they are probably on a diffrent floor than us!
                     if (targetLastKnownPosition.HasValue && LethalBotAI.ElevatorScript != null && !ai.IsValidPathToTarget(targetLastKnownPosition.Value, false))
                     {
-                        // Don't interrupt elevator code!
-                        if (!TryToUseElevator())
-                        {
-                            MoveTowardsFollowPosition(enumFollowType, followPos);
-                        }
+                        MoveTowardsFollowPosition(enumFollowType, followPos);
                     }
                     else
                     {
@@ -358,36 +351,6 @@ namespace LethalBots.AI.AIStates
                     return targetPlayerPos; // Lets follow the leader!
                 }
             }
-        }
-
-        private bool TryToUseElevator()
-        {
-            // Lets see if the bot is trying to use the elevator
-            bool usingElevator = false;
-            bool planningToUseElevator = false;
-            if (ai.targetPlayer!.isInsideFactory)
-            {
-                bool isPlayerNearElevatorEntrance = ai.IsPlayerNearElevatorEntrance(ai.targetPlayer);
-                if (isPlayerNearElevatorEntrance && !ai.IsInElevatorStartRoom)
-                {
-                    usingElevator = ai.UseElevator(true);
-                    planningToUseElevator = true;
-
-                    // If we are going to use the elevator to go up,
-                    // we must drop the baby maneater before using the elevator
-                    if (usingElevator
-                        && ai.HeldItem is CaveDwellerPhysicsProp)
-                    {
-                        npcController.Npc.DiscardHeldObject();
-                    }
-                }
-                else if (!isPlayerNearElevatorEntrance && ai.IsInElevatorStartRoom)
-                {
-                    usingElevator = ai.UseElevator(false);
-                    planningToUseElevator = true;
-                }
-            }
-            return usingElevator || planningToUseElevator;
         }
 
         private void MoveTowardsFollowPosition(EnumFollowType enumFollowType, Vector3? followPos = null, bool allowTeleport = false)

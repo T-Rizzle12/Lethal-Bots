@@ -2,6 +2,8 @@
 using GameNetcodeStuff;
 using HarmonyLib;
 using LethalBots.AI.AIStates;
+using LethalBots.AI.Pathfinding;
+using LethalBots.AI.Pathfinding.LinkTypes;
 using LethalBots.Constants;
 using LethalBots.Enums;
 using LethalBots.Managers;
@@ -16,6 +18,7 @@ using LethalBots.Patches.NpcPatches;
 using LethalBots.Utils;
 using LethalBots.Utils.Helpers;
 using LethalInternship.AI;
+using MonoMod.Cil;
 using NavMeshLib;
 using ReservedItemSlotCore;
 using ReservedItemSlotCore.Data;
@@ -36,6 +39,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Unity.AI.Navigation;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
@@ -94,8 +98,6 @@ namespace LethalBots.AI
         public GameObject[] allAINodes = null!;
 
         public PlayerControllerB? targetPlayer = null;
-
-        public Vector3 destination;
 
         public bool canSeeThroughFog = false;
 
@@ -271,8 +273,8 @@ namespace LethalBots.AI
         public static QuicksandTrigger[] QuicksandArray { private set; get; } = null!;
         private static DoorLock[] doorLocksArray = null!;
         public static MineshaftElevatorController? ElevatorScript { private set; get; } = null;
-        private float timerElevatorCooldown;
-        private static float pressElevatorButtonCooldown;
+        public float timerElevatorCooldown { get; private set; }
+        public static IntervalTimer pressElevatorButtonCooldown = new IntervalTimer();
         public bool IsInElevatorStartRoom { private set; get; }
         public bool IsInsideElevator
         {
@@ -292,7 +294,6 @@ namespace LethalBots.AI
         private Coroutine grabObjectCoroutine = null!;
         internal Coroutine? spawnAnimationCoroutine = null;
         public Coroutine? useLadderCoroutine = null;
-        private Coroutine? offMeshLinkCoroutine = null;
         internal Coroutine? useInteractTriggerCoroutine = null;
         private Coroutine? lethalPhonesCoroutine = null;
 
@@ -331,10 +332,18 @@ namespace LethalBots.AI
         #endregion
 
         private string stateIndicatorServer = string.Empty;
+
+        #region Pathfinding Variables
+
+        public Vector3 destination;
         private Vector3 previousWantedDestination;
         private bool hasDestinationChanged = true;
         private float updateDestinationIntervalLethalBotAI;
         private CountdownTimer updateDestinationTimer = new CountdownTimer();
+        private readonly Dictionary<NavMeshLink, ActiveLinkTraversal> activeLinkTraversals = new Dictionary<NavMeshLink, ActiveLinkTraversal>();
+
+        #endregion
+
         private float healthRegenerateTimerMax;
         private CountdownTimer timerCheckDoor = new CountdownTimer();
         private CountdownTimer timerCheckLockedDoor = new CountdownTimer();
@@ -468,6 +477,10 @@ namespace LethalBots.AI
             // Start timed calulation
             IsTouchingGroundTimedCheck = new TimedTouchingGroundCheck();
 
+            // Reset the elevator use cooldown
+            // TODO: Should this be moved elsewhere?
+            pressElevatorButtonCooldown.Start();
+
             // Spawn animation
             spawnAnimationCoroutine = BeginLethalBotSpawnAnimation(enumSpawnAnimation);
 
@@ -597,7 +610,7 @@ namespace LethalBots.AI
             {
                 if (IsUsingOffMeshLink())
                 {
-                    StopOffMeshLinkMovement();
+                    StopOffMeshLinkMovement(warpToEnd: false, forceStop: true);
                 }
 
                 SetAgent(enabled: false);
@@ -880,8 +893,11 @@ namespace LethalBots.AI
             // which would be more optimized than this.
             OpenDoorIfNeeded();
 
-            // Ladders
-            UseLadderIfNeeded();
+            // Ladders have priority
+            if (!UseLadderIfNeeded())
+            {
+                HandleOffMeshLink();
+            }
 
             // Copy movement
             FollowCrouchStateIfCan();
@@ -2335,16 +2351,16 @@ namespace LethalBots.AI
         {
             NpcController.OrderToMove();
 
-            if (!hasDestinationChanged 
+            if ((!hasDestinationChanged 
                 && updateDestinationTimer.HasStarted()
                 && !updateDestinationTimer.Elapsed())
+                || this.IsUsingOffMeshLink())
             {
                 return;
             }
 
             if (agent.isActiveAndEnabled
                 && agent.isOnNavMesh
-                && !this.IsUsingOffMeshLink()
                 && !NpcController.Npc.isPlayerDead)
             {
                 // Check if we can path to the new destination!
@@ -3141,7 +3157,7 @@ namespace LethalBots.AI
             // Mark sure our target link is valid
             OffMeshLinkData offMeshLinkData = agent.currentOffMeshLinkData;
             if (!offMeshLinkData.valid 
-                || this.offMeshLinkCoroutine != null)
+                || activeLinkTraversals.Count > 0)
             {
                 return null;
             }
@@ -3542,12 +3558,14 @@ namespace LethalBots.AI
         /// Ok, so this was ripped from the Masked AI <see cref="MaskedPlayerEnemy.UseElevator"/>, there may be bugs that need to be fixed
         /// </remarks>
         /// <returns><see langword="true"/>: the lethalBot is using or is waiting to use the elevator, else <see langword="false"/></returns>
+        [Obsolete("This is no longer needed as the bot's NavMeshLink code has been improved to handle this automatically.")]
         public bool UseElevator(bool goUp)
         {
             if (ElevatorScript == null || this.isOutside)
             {
                 return false;
             }
+            Plugin.LogInfo($"{NpcController.Npc.playerUsername}: Old elevator code called!");
             Vector3 vector = ((!goUp) ? ElevatorScript.elevatorTopPoint.position : ElevatorScript.elevatorBottomPoint.position);
             float distanceFromInsidePosition = Vector3.Distance(NpcController.Npc.transform.position, ElevatorScript.elevatorInsidePoint.position);
             if (ElevatorScript.elevatorFinishedMoving 
@@ -3556,10 +3574,10 @@ namespace LethalBots.AI
                 if (distanceFromInsidePosition <= Const.DISTANCE_CLOSE_ENOUGH_TO_DESTINATION
                     && ElevatorScript.elevatorMovingDown == goUp 
                     && timerElevatorCooldown > Const.TIMER_USE_ELEVATOR
-                    && (Time.timeSinceLevelLoad - pressElevatorButtonCooldown) > (AIIntervalTime + 0.16f))
+                    && pressElevatorButtonCooldown.IsGreaterThan(AIIntervalTime + 0.16f))
                 {
                     //ElevatorScript.PressElevatorButtonOnServer(true);
-                    pressElevatorButtonCooldown = Time.timeSinceLevelLoad;
+                    pressElevatorButtonCooldown.Reset();
                     ElevatorScript.PressElevatorButton(); // This is networked, unlike the function above!
                 }
                 //SetDestinationToPositionLethalBotAI(ElevatorScript.elevatorInsidePoint.position);
@@ -3582,10 +3600,10 @@ namespace LethalBots.AI
                     && ElevatorScript.elevatorMovingDown != goUp 
                     && !ElevatorScript.elevatorCalled 
                     && timerElevatorCooldown > Const.TIMER_USE_ELEVATOR
-                    && (Time.timeSinceLevelLoad - pressElevatorButtonCooldown) > (AIIntervalTime + 0.16f))
+                    && pressElevatorButtonCooldown.IsGreaterThan(AIIntervalTime + 0.16f))
                 {
                     //ElevatorScript.CallElevatorOnServer(goUp);
-                    pressElevatorButtonCooldown = Time.timeSinceLevelLoad;
+                    pressElevatorButtonCooldown.Reset();
                     ElevatorScript.CallElevator(goUp); // This is networked, unlike the function above!
                 }
 
@@ -3666,7 +3684,7 @@ namespace LethalBots.AI
         /// <returns>true: the lethalBot is using or is waiting to use the ladder, else false</returns>
         private bool UseLadderIfNeeded()
         {
-            if (NpcController.Npc.isClimbingLadder 
+            if (NpcController.Npc.isClimbingLadder
                 || useLadderCoroutine != null)
             {
                 return true;
@@ -3675,26 +3693,6 @@ namespace LethalBots.AI
             InteractTrigger? ladder = GetLadderIfWantsToUseLadder();
             if (ladder == null)
             {
-                // If this is a gap, do the default logic instead!
-                if (agent.isOnOffMeshLink)
-                {
-                    OffMeshLinkData offMeshLinkData = agent.currentOffMeshLinkData;
-                    if (offMeshLinkData.valid && offMeshLinkData.activated)
-                    {
-                        if (offMeshLinkCoroutine == null)
-                        {
-                            offMeshLinkCoroutine = StartCoroutine(offMeshLinkParabola(agent, 0.6f)); // NpcController.Npc.jumpForce
-                        }
-                    }
-                    else
-                    {
-                        StopOffMeshLinkMovement();
-                    }
-                }
-                else if (offMeshLinkCoroutine != null)
-                {
-                    StopOffMeshLinkMovement();
-                }
                 return false;
             }
 
@@ -3728,72 +3726,111 @@ namespace LethalBots.AI
             return true;
         }
 
+        private void HandleOffMeshLink()
+        {
+            // Not on an OffMeshLink, do nothing
+            if (!agent.isOnOffMeshLink)
+                return;
+
+            OffMeshLinkData data = agent.currentOffMeshLinkData;
+            if (!data.valid || !data.activated)
+            {
+                // Handle the invalid physical link separately.
+                // Don't cancel every ongoing custom traversal.
+                return;
+            }
+
+            NavMeshLink? link = agent.navMeshOwner as NavMeshLink;
+            if (link != null)
+            {
+                // Is this link already being handled?
+                if (activeLinkTraversals.TryGetValue(link, out var existingTraversal) 
+                    && existingTraversal.Context.IsValid())
+                {
+                    // Don't start another traversal for this link,
+                    // and don't fall back to the old movement.
+                    return;
+                }
+
+                // Find a matching custom handler.
+                INavMeshLinkInfo? handler = null;
+                INavMeshLinkInfo[] handlers = link.GetComponents<INavMeshLinkInfo>();
+                foreach (INavMeshLinkInfo info in handlers)
+                {
+                    // Find a valid handler
+                    if (info != null && info.navMeshLink == link)
+                    {
+                        handler = info;
+                        break;
+                    }
+                }
+
+                // If we don't have handler, create and use a default
+                handler ??= new DefaultNavMeshLinkTraversal(link);
+
+                // Create an independent context for this link.
+                LinkTraversalContext context = new LinkTraversalContext(this, NpcController.Npc, agent);
+                context.SetTraversal(link, data, handler);
+
+                // Register before starting the coroutine.
+                ActiveLinkTraversal traversal = new ActiveLinkTraversal(context, handler);
+                activeLinkTraversals[link] = traversal;
+                traversal.Coroutine = StartCoroutine(ExecuteLinkTraversal(traversal));
+            }
+        }
+
+
         /// <summary>
         /// Helper function to check if the bot is currently using an off mesh link.
         /// </summary>
         /// <returns>true if the bot is using an off mesh link, otherwise false</returns>
         public bool IsUsingOffMeshLink()
         {
-            return offMeshLinkCoroutine != null || useLadderCoroutine != null || agent.isOnOffMeshLink;
+            return activeLinkTraversals.Count > 0 || useLadderCoroutine != null || agent.isOnOffMeshLink;
         }
 
-        /// <summary>
-        /// Moves the bot across an off the mesh link using a parabola
-        /// </summary>
-        /// <remarks>
-        /// This is almost a perfect recreation from the Unity Documentation!
-        /// </remarks>
-        /// <param name="agent"></param>
-        /// <param name="height"></param>
-        /// <returns></returns>
-        private IEnumerator offMeshLinkParabola(NavMeshAgent agent, float height)
+        private IEnumerator ExecuteLinkTraversal(ActiveLinkTraversal traversal)
         {
-            OffMeshLinkData data = agent.currentOffMeshLinkData;
-            Vector3 startPos = this.transform.position;
-            Vector3 endPos = data.endPos + Vector3.up * agent.baseOffset;
-            float normalizedTime = 0f;
-
-            // Calculate duration from speed
-            Vector3 flatStart = Vector3.ProjectOnPlane(startPos, Vector3.up);
-            Vector3 flatEnd = Vector3.ProjectOnPlane(endPos, Vector3.up);
-            float horizontalDistance = Vector3.Distance(flatStart, flatEnd);
-
-            Plugin.LogDebug($"Beginning off mesh link movement. {data.valid}; {data.activated}; {base.IsOwner}");
-            while (normalizedTime < 1f && base.IsOwner)
+            LinkTraversalContext context = traversal.Context;
+            try
             {
-                data = agent.currentOffMeshLinkData; // Update our data!
-                if (!data.valid || !data.activated)
-                {
-                    break;
-                }
-                endPos = data.endPos + Vector3.up * agent.baseOffset; // Link end position could be moving (like a moving platform), so we need to update it every frame!
-                float duration = horizontalDistance / agent.speed;
-                float num = height * 4f * (normalizedTime - normalizedTime * normalizedTime);
-                Plugin.LogDebug($"Moving on off mesh link; time: {normalizedTime}; y: {num}");
-                Vector3 newPos = Vector3.Lerp(startPos, endPos, normalizedTime) + num * Vector3.up;
-                this.transform.position = newPos;
-                agent.transform.position = newPos;
-                NpcController.Npc.transform.position = newPos;
-                NpcController.SetTurnBodyTowardsDirectionWithPosition(endPos);
-                normalizedTime += Time.deltaTime / duration;
-                yield return null;
+                yield return traversal.Handler.TraverseNavMeshLink(context);
             }
-            agent.CompleteOffMeshLink();
-            TeleportAgentAIAndBody(endPos, skipNavMeshCheck: true); // We should already be on the NavMesh......
-            Plugin.LogDebug($"Completed off mesh link without interruption, position: {base.transform.position}");
-            offMeshLinkCoroutine = null;
+            finally
+            {
+                // Log what happend
+                Plugin.LogDebug($"Traversal finished for bot {NpcController.Npc.playerUsername}. Result: {context.TraversalOutcome}");
+
+                // Only remove the exact traversal we're finishing.
+                if (activeLinkTraversals.TryGetValue(context.NavMeshLink, out var current)
+                    && current == traversal)
+                {
+                    activeLinkTraversals.Remove(context.NavMeshLink);
+                }
+            }
         }
 
-        public void StopOffMeshLinkMovement(bool warpToEnd = true)
+        public void StopOffMeshLinkMovement(bool warpToEnd = true, bool forceStop = false)
         {
-            // Stop using the off mesh link
-            if (offMeshLinkCoroutine != null || agent.isOnOffMeshLink)
+            // Check our active link traversals
+            var traversals = new List<ActiveLinkTraversal>(activeLinkTraversals.Values);
+            foreach (ActiveLinkTraversal traversal in traversals)
             {
-                if (offMeshLinkCoroutine != null)
+                LinkTraversalContext context = traversal.Context;
+                if (context.IsValid() && (forceStop || traversal.Handler.IsSafeToCancelTraversal(context)))
                 {
-                    StopCoroutine(offMeshLinkCoroutine);
-                    offMeshLinkCoroutine = null;
+                    if (traversal.Coroutine != null)
+                    {
+                        StopCoroutine(traversal.Coroutine);
+                        traversal.Coroutine = null;
+                    }
+                    activeLinkTraversals.Remove(context.NavMeshLink);
                 }
+            }
+
+            // If we are on an off mesh link, we need to complete it and warp the agent to the appropriate position
+            if (agent.isOnOffMeshLink)
+            {
                 OffMeshLinkData currentOffMeshLinkData = agent.currentOffMeshLinkData;
                 agent.CompleteOffMeshLink();
                 if (currentOffMeshLinkData.valid)
@@ -3803,13 +3840,13 @@ namespace LethalBots.AI
                     {
                         Plugin.LogDebug($"Warping agent to start position at {currentOffMeshLinkData.startPos}");
                         if (warpToEnd)
-                            TeleportAgentAIAndBody(currentOffMeshLinkData.startPos, skipNavMeshCheck: true);
+                            TeleportAgentAIAndBody(currentOffMeshLinkData.startPos, skipNavMeshCheck: true, affectLinkTraversals: false);
                     }
                     else
                     {
                         Plugin.LogDebug($"Warping agent to end position at {currentOffMeshLinkData.endPos}");
                         if (warpToEnd)
-                            TeleportAgentAIAndBody(currentOffMeshLinkData.endPos, skipNavMeshCheck: true);
+                            TeleportAgentAIAndBody(currentOffMeshLinkData.endPos, skipNavMeshCheck: true, affectLinkTraversals: false);
                     }
                 }
                 else
@@ -3819,7 +3856,7 @@ namespace LethalBots.AI
             }
 
             // Stop using ladder
-            if (useLadderCoroutine != null)
+            if (forceStop && useLadderCoroutine != null)
             {
                 NpcController.Npc.CancelSpecialTriggerAnimations();
             }
@@ -6102,7 +6139,8 @@ namespace LethalBots.AI
         /// <param name="pos">The position to teleport the bot to</param>
         /// <param name="skipNavMeshCheck">Should the navmesh check be skipped</param>
         /// <param name="onlyAgent">Should only the <see cref="NavMeshAgent"/> and <see cref="LethalBotAI"/> be teleported</param>
-        private void TeleportAgentAIAndBody(Vector3 pos, bool skipNavMeshCheck = false, bool onlyAgent = false)
+        /// <param name="affectLinkTraversals">Should we let our activeLinkTraversals know we were teleported.</param>
+        internal void TeleportAgentAIAndBody(Vector3 pos, bool skipNavMeshCheck = false, bool onlyAgent = false, bool affectLinkTraversals = true)
         {
             Vector3 navMeshPosition = skipNavMeshCheck ? pos : RoundManager.Instance.GetNavMeshPosition(pos, agent.GetNavMeshQueryFilter(), default, 2.7f);
             serverPosition = navMeshPosition;
@@ -6110,6 +6148,17 @@ namespace LethalBots.AI
             if (!onlyAgent)
             {
                 NpcController.Npc.transform.position = navMeshPosition;
+            }
+
+            if (affectLinkTraversals)
+            {
+                foreach (ActiveLinkTraversal traversal in activeLinkTraversals.Values)
+                {
+                    if (traversal.Context.IsValid())
+                    {
+                        traversal.Context.WasTeleported = true;
+                    }
+                }
             }
 
             this.transform.position = navMeshPosition;
@@ -8375,7 +8424,7 @@ namespace LethalBots.AI
                 HUDManager.Instance.UpdateBoxesSpectateUI();
             }
             this.LethalBotIdentity.Hp = 0;
-            StopOffMeshLinkMovement(warpToEnd: false);
+            StopOffMeshLinkMovement(warpToEnd: false, forceStop: true);
             SetAgent(enabled: false);
             //this.LethalBotIdentity.Voice.StopAudioFadeOut();
             this.State = new BrainDeadState(this);
@@ -9336,12 +9385,8 @@ namespace LethalBots.AI
             if (invalidateIsTouchingGround)
             {
                 isTouchingGround = false;
-                lastTimeCalculate = Time.realtimeSinceStartup + TIMER; // HACKHACK: Give time for the bridge to fall away before checking again!
             }
-            else
-            {
-                lastTimeCalculate = 0;
-            }
+            lastTimeCalculate = 0;
         }
 
         public bool NeedToRecalculate()

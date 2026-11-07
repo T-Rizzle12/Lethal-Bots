@@ -197,53 +197,17 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // Alright lets go back outside!
-                // If we need to go up an elevator we should do so!
-                if (LethalBotAI.ElevatorScript != null && !ai.IsInElevatorStartRoom && !ai.IsValidPathToTarget(targetEntrance.entrancePoint.position, false))
-                {
-                    // Use elevator returns a bool if the can successfully use the elevator
-                    if (!ai.UseElevator(true))
-                    {
-                        // If we can't path to the elevator, there might be a locked door in our way!
-                        // The chances of this are VERY low normally, but it may happen if we used an inverse teleporter!
-                        DoorLock? lockedDoor = ai.UnlockDoorIfNeeded(200f, false);
-                        if (lockedDoor != null)
-                        {
-                            ai.State = new UseKeyOnLockedDoorState(this, lockedDoor);
-                            return;
-                        }
+                targetEntrancePos = targetEntrance.entrancePoint.position;
 
-                        // If we fail to find an entrance or a locked door, we should look for players instead!
-                        ai.State = new LostInFacilityState(this);
+                // If we can't path to the exit, there might be a locked door in our way!
+                // The chances of this are VERY low normally, but it may happen if we used an inverse teleporter!
+                if (!ai.IsValidPathToTarget(targetEntrance.entrancePoint.position, false))
+                {
+                    DoorLock? lockedDoor = ai.UnlockDoorIfNeeded(200f, false);
+                    if (lockedDoor != null)
+                    {
+                        ai.State = new UseKeyOnLockedDoorState(this, lockedDoor);
                         return;
-                    }
-                    else
-                    {
-                        // NOTE: ai.destination is set by ai.UseElevator internally!
-                        targetEntrancePos = ai.destination;
-
-                        // If we are going to use the elevator to go up,
-                        // we must drop the baby maneater before using the elevator
-                        if (!ai.AreHandsFree()
-                            && ai.HeldItem is CaveDwellerPhysicsProp)
-                        {
-                            lethalBotController.DiscardHeldObject();
-                        }
-                    }
-                }
-                else
-                {
-                    targetEntrancePos = targetEntrance.entrancePoint.position;
-
-                    // If we can't path to the exit, there might be a locked door in our way!
-                    // The chances of this are VERY low normally, but it may happen if we used an inverse teleporter!
-                    if (!ai.IsValidPathToTarget(targetEntrance.entrancePoint.position, false))
-                    {
-                        DoorLock? lockedDoor = ai.UnlockDoorIfNeeded(200f, false);
-                        if (lockedDoor != null)
-                        {
-                            ai.State = new UseKeyOnLockedDoorState(this, lockedDoor);
-                            return;
-                        }
                     }
                 }
 

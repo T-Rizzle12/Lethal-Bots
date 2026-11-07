@@ -164,7 +164,12 @@ namespace LethalBots.AI
         /// You can use <see cref="hasBeenStarted"/> to check if this state has been started before.<br/>
         /// </remarks>
         /// <param name="newState">The new state the bot is entering</param>
-        public virtual void OnExitState(AIState newState) { }
+        public virtual void OnExitState(AIState newState) 
+        {
+            // Stop using our current NavMeshLink....the other AI states may want to do something else instead
+            // TODO: Find a better way of doing this......
+            ai.StopOffMeshLinkMovement();
+        }
 
         /// <summary>
         /// Apply the behaviour according to the type of state <see cref="Enums.EnumAIStates"><c>Enums.EnumAIStates</c></see>.<br/>

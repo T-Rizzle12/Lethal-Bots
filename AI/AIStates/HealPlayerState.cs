@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
+using Unity.Netcode;
 using UnityEngine;
 using UsualScrap.Behaviors;
 
@@ -542,15 +543,15 @@ namespace LethalBots.AI.AIStates
                 }
 
                 // If the medkit is out of juice, just wait until we get more
-                int Healthpool = (int)healthpoolField.GetValue(heldItem);
-                if (Healthpool <= 0)
+                NetworkVariable<int> Healthpool = (NetworkVariable<int>)healthpoolField.GetValue(heldItem);
+                if (Healthpool.Value <= 0)
                 {
                     if (heldItem.itemProperties.holdButtonUse 
                         && (bool)healCoroutineRunningField.GetValue(heldItem) == true)
                     {
                         heldItem.UseItemOnClient(false);
                     }
-                    yield return new WaitUntil(() => (int)healthpoolField.GetValue(heldItem) > 0);
+                    yield return new WaitUntil(() => ((NetworkVariable<int>)healthpoolField.GetValue(heldItem)).Value > 0);
                 }
             }
             if (heldItem != null && heldItem.itemProperties.holdButtonUse)

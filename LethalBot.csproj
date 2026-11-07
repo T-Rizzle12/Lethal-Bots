@@ -92,7 +92,7 @@
     <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" ExcludeAssets="runtime" />
     <PackageReference Include="BepInEx.Core" Version="5.*" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" PrivateAssets="all" />
-    <PackageReference Include="etherealemil-UsualScrap" Version="2.*" Publicize="true" />
+    <PackageReference Include="etherealemil-UsualScrap" Version="2.0.9" Publicize="true" />
     <PackageReference Include="Evaisa.LethalLib" Version="1.*" />
     <PackageReference Include="FlipMods-TooManyEmotes" Version="2.*" />
     <PackageReference Include="HQ_Team-HolsteredItemPositions" Version="1.2.2" Publicize="true" />
@@ -142,11 +142,11 @@
 		<HintPath>lib\DissonanceVoip.dll</HintPath>
 	</Reference>
 	<!-- Use my local NavMeshLib build when available -->
-    <Reference Include="NavMesh Lib" Condition="Exists('..\NavMeshLib\bin\Release\netstandard2.1\NavMeshLib.dll')">
+    <Reference Include="NavMesh Lib" Condition="Exists('..\NavMeshLib\bin\Release\netstandard2.1\NavMeshLib.dll')" Publicize="true">
         <HintPath>..\NavMeshLib\bin\Release\netstandard2.1\NavMeshLib.dll</HintPath>
     </Reference>
     <!-- Fall back to the committed DLL for GitHub/CI -->
-    <Reference Include="NavMesh Lib" Condition="!Exists('..\NavMeshLib\bin\Release\netstandard2.1\NavMeshLib.dll')">
+    <Reference Include="NavMesh Lib" Condition="!Exists('..\NavMeshLib\bin\Release\netstandard2.1\NavMeshLib.dll')" Publicize="true">
         <HintPath>lib\NavMeshLib.dll</HintPath>
     </Reference>
     <Reference Include="BetterEmotes">

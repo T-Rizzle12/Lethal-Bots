@@ -403,7 +403,7 @@ namespace LethalBots.Patches.GameEnginePatches
                 if (lethalBotAI != null)
                 {
                     // For now, only allow active bot controllers to hear the noise
-                    PlayerControllerB lethalBotController = lethalBotAI.NpcController.Npc;
+                    PlayerControllerB? lethalBotController = lethalBotAI.NpcController?.Npc;
                     if (lethalBotController == null 
                         || !lethalBotController.isPlayerControlled 
                         || lethalBotController.isPlayerDead)

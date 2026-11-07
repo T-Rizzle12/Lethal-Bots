@@ -167,29 +167,8 @@ namespace LethalBots.AI.AIStates
             SelectBestItemFromInventory();
 
             // Go to the last known position
-            bool usingElevator = false;
-            bool isPositionNearEntrance = ai.IsPositionNearElevatorEntrance(targetLastKnownPosition.Value);
-            if (isPositionNearEntrance && !ai.IsInElevatorStartRoom)
-            {
-                usingElevator = ai.UseElevator(true);
-
-                // If we are going to use the elevator to go up,
-                // we must drop the baby maneater before using the elevator
-                if (usingElevator
-                && ai.HeldItem is CaveDwellerPhysicsProp)
-                {
-                    lethalBotController.DiscardHeldObject();
-                }
-            }
-            else if (!isPositionNearEntrance && ai.IsInElevatorStartRoom)
-            {
-                usingElevator = ai.UseElevator(false);
-            }
-            else
-            {
-                ai.SetDestinationToPositionLethalBotAI(targetLastKnownPosition.Value);
-                ai.OrderMoveToDestination();
-            }
+            ai.SetDestinationToPositionLethalBotAI(targetLastKnownPosition.Value);
+            ai.OrderMoveToDestination();
 
             // Sprint if too far, unsprint if close enough
             if (sqrDistanceToTargetLastKnownPosition < Const.DISTANCE_STOP_SPRINT_LAST_KNOWN_POSITION * Const.DISTANCE_STOP_SPRINT_LAST_KNOWN_POSITION)
@@ -202,11 +181,9 @@ namespace LethalBots.AI.AIStates
             }
 
             // Destination after path checking might be not the same now
-            bool updateTargetLastKnownPosition = !usingElevator && !ai.IsInsideElevator;
-            targetLastKnownPosition = !updateTargetLastKnownPosition ? targetLastKnownPosition : ai.destination;
-            if (updateTargetLastKnownPosition && !ai.IsValidPathToTarget(targetLastKnownPosition.Value))
+            if (!ai.IsValidPathToTarget(targetLastKnownPosition.Value))
             {
-                Vector3? newLastKnownPosition = null;
+                Vector3? newLastKnownPosition = ai.destination;
                 bool isTargetInside = ai.targetPlayer!.isInsideFactory;
                 bool areWeInside = !ai.isOutside;
                 if (isTargetInside != areWeInside)

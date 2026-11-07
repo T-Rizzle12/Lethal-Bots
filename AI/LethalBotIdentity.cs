@@ -137,7 +137,7 @@ namespace LethalBots.AI
         /// </summary>
         /// <param name="suitID"></param>
         /// <returns></returns>
-        public bool IsSuitOwned(int suitID)
+        public static bool IsSuitOwned(int suitID)
         {
             // Check if the crew already unlocked the suit
             UnlockableItem unlockableItem = StartOfRound.Instance.unlockablesList.unlockables[suitID];

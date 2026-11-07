@@ -4,6 +4,7 @@ using BepInEx.Logging;
 using Dawn;
 using GameNetcodeStuff;
 using HarmonyLib;
+using LethalBots.AI.Pathfinding.LinkTypes;
 using LethalBots.Constants;
 using LethalBots.Inputs;
 using LethalBots.Managers;
@@ -37,6 +38,7 @@ using LethalBots.Patches.NpcPatches;
 using LethalBots.Patches.ObjectsPatches;
 using LethalBots.Utils;
 using NavMeshLib;
+using NavMeshLib.Editor;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -204,7 +206,8 @@ namespace LethalBots
 
             PatchOtherMods();
 
-            SceneManager.sceneLoaded += OnSceneLoaded;
+            SceneManager.sceneLoaded += OnSceneLoaded_OldBird;
+            SceneManager.sceneLoaded += OnSceneLoaded_MineshaftElevator;
 
             // Unload the asset bundles
             ModAssets.Unload(false);
@@ -458,6 +461,7 @@ namespace LethalBots
             if (IsModUsualScrapLoaded)
             {
                 PatchClass<DefibrillatorScriptPatch>();
+                PatchClass<MedicalKitScriptPatch>();
                 ItemsManager.RegisterWeapons.AddListener(UsualScrapWeaponsPatch.RegisterWeaponsForBots);
             }
             if (IsModAutoReviveLoaded)
@@ -539,7 +543,7 @@ namespace LethalBots
             PluginManager.Instance.InitManagers();
         }
 
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        private void OnSceneLoaded_OldBird(Scene scene, LoadSceneMode mode)
         {
             // Fix RadMechAI NavMeshObstacles for bot cruiser AI.
             var prefabs = Resources.FindObjectsOfTypeAll<EnemyAINestSpawnObject>();
@@ -615,7 +619,76 @@ namespace LethalBots
                 if (replaced)
                 {
                     // Remove our hook as our work here is done
-                    SceneManager.sceneLoaded -= OnSceneLoaded;
+                    SceneManager.sceneLoaded -= OnSceneLoaded_OldBird;
+                }
+            }
+        }
+
+        private void OnSceneLoaded_MineshaftElevator(Scene scene, LoadSceneMode mode)
+        {
+            // Add our custom OffMeshLink system to the vanilla elevator
+            var prefabs = Resources.FindObjectsOfTypeAll<MineshaftElevatorController>();
+            if (prefabs == null || prefabs.Length == 0) return;
+
+            // Flag for if we successfully added what we wanted
+            bool replaced = false;
+            try
+            {
+                // Loop through all prefabs
+                for (int i = 0; i < prefabs.Length; i++)
+                {
+                    // We check for MineshaftElevatorController to account for modded elevators that may inherit from the base class.
+                    var mineshaftElevator = prefabs[i];
+                    if (mineshaftElevator != null
+                        && !mineshaftElevator.gameObject.scene.IsValid()
+                        && mineshaftElevator.GetComponentInChildren<ElevatorNavMeshLinkTraversal>(includeInactive: true) == null) // Make sure we didn't already do this!
+                    {
+                        // Log what we are about to do
+                        Plugin.LogInfo($"Found MineshaftElevatorController prefab {mineshaftElevator}");
+
+                        // Create our GameObject
+                        GameObject tempObject = new GameObject("LethalBotElevatorInfo");
+                        tempObject.transform.SetParent(mineshaftElevator.transform, worldPositionStays: false);
+
+                        // Create our link
+                        var navMeshLink = tempObject.AddComponent<NavMeshLink>();
+                        navMeshLink.startPoint = NavMeshLinkHelper.WorldToLinkPoint(navMeshLink, mineshaftElevator.elevatorTopPoint.position);
+                        navMeshLink.endPoint = NavMeshLinkHelper.WorldToLinkPoint(navMeshLink, mineshaftElevator.elevatorBottomPoint.position);
+                        navMeshLink.area = NavMesh.GetAreaFromName("Elevator");
+                        navMeshLink.agentTypeID = Const.LETHAL_BOT_NAV_SETTINGS_ID;
+                        navMeshLink.bidirectional = true;
+                        navMeshLink.autoUpdate = true;
+
+                        // Create our link helper
+                        var navMeshLinkHelper = tempObject.AddComponent<NavMeshLinkHelper>();
+                        navMeshLinkHelper.link = navMeshLink;
+                        navMeshLinkHelper.startTransform = mineshaftElevator.elevatorTopPoint;
+                        navMeshLinkHelper.endTransform = mineshaftElevator.elevatorBottomPoint;
+                        navMeshLinkHelper.updateInterval = 2f; // Don't need to update as often
+                        navMeshLinkHelper.nearbyAreaRange = 2f; // TODO: Adjust this as needed
+
+                        // Create our NavMeshLinkInfo object
+                        var newLinkInfo = tempObject.AddComponent<ElevatorNavMeshLinkTraversal>();
+                        newLinkInfo.elevatorController = mineshaftElevator;
+                        newLinkInfo.navMeshLink = navMeshLink;
+
+                        // Mark it as updated
+                        replaced = true;
+                        Plugin.LogInfo("Added ElevatorNavMeshLinkTraversal to Mineshaft Elevator Prefab!");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.LogError($"An error occured when attempting to edit Mineshaft Elevator Prefab. \n Error: {e}");
+            }
+            finally
+            {
+                // Check if we succeded
+                if (replaced)
+                {
+                    // Remove our hook as our work here is done
+                    SceneManager.sceneLoaded -= OnSceneLoaded_MineshaftElevator;
                 }
             }
         }

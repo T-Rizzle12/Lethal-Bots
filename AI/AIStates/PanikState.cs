@@ -339,17 +339,8 @@ namespace LethalBots.AI.AIStates
                     Plugin.LogDebug("Safe path to nearby entrance, setting retreat pos to entrance!");
                     StopPanikCoroutine();
 
-                    // If we need to go up an elevator we should do so!
-                    if (LethalBotAI.ElevatorScript != null && !ai.IsInElevatorStartRoom && !ai.IsValidPathToTarget(targetEntrance.entrancePoint.position, false))
-                    {
-                        // Use elevator returns a bool if the can successfully use the elevator
-                        ai.UseElevator(true);
-                        RetreatPos = ai.destination;
-                    }
-                    else
-                    {
-                        RetreatPos = targetEntrance.entrancePoint.position;
-                    }
+                    // Go, flee out of the target entrance
+                    RetreatPos = targetEntrance.entrancePoint.position;
                 }
             }
 

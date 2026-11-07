@@ -85,9 +85,10 @@ namespace LethalBots.Managers
             }
 
             // If there is previous text in the terminal, clear it if the bot wants to!
-            if (clearPreviousText && ourTerminal.textAdded > 0)
+            int textAdded = ourTerminal.textAdded; // Cache this as this will be modified when we press our backspace key
+            if (clearPreviousText && textAdded > 0)
             {
-                for (int i = 0; i < ourTerminal.textAdded; i++)
+                for (int i = 0; i < textAdded; i++)
                 {
                     // Play a random keyboard sound effect for the backspace key!
                     RoundManager.PlayRandomClip(ourTerminal.terminalAudio, ourTerminal.keyboardClips);
